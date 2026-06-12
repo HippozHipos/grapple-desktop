@@ -6,6 +6,9 @@ This repo is intentionally starting small. The goal is to build the clean
 foundation described in `/home/rahul/Documents/grapple-migration`, not to port
 the previous application module-by-module.
 
+Product bet: Grapple turns an editing intent into a correct, previewed,
+user-editable graph change. See [docs/product.md](docs/product.md).
+
 Initial product flow:
 
 ```text
