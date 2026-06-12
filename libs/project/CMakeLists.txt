@@ -1,4 +1,8 @@
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(JSONCPP REQUIRED jsoncpp)
+
 add_library(grapple_project
+  src/ProjectDeserializer.cpp
   src/ProjectCommand.cpp
   src/ProjectCommandNames.cpp
   src/ProjectController.cpp
@@ -13,6 +17,13 @@ add_library(Grapple::Project ALIAS grapple_project)
 target_include_directories(grapple_project
   PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
+  PRIVATE
+    ${JSONCPP_INCLUDE_DIRS}
+)
+
+target_link_directories(grapple_project
+  PRIVATE
+    ${JSONCPP_LIBRARY_DIRS}
 )
 
 target_link_libraries(grapple_project
@@ -21,4 +32,6 @@ target_link_libraries(grapple_project
     Grapple::Asset
     Grapple::Graph
     Grapple::Timeline
+  PRIVATE
+    ${JSONCPP_LIBRARIES}
 )

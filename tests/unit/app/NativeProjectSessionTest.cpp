@@ -202,6 +202,9 @@ int main() {
   std::ostringstream savedSnapshotContents;
   savedSnapshotContents << savedSnapshotFile.rdbuf();
   GRAPPLE_REQUIRE(savedSnapshotContents.str() == project::serializeCanonicalProjectSnapshot(savedComposition.value().snapshot));
+  const auto parsedSavedSnapshot = project::deserializeCanonicalProjectSnapshot(savedSnapshotContents.str());
+  GRAPPLE_REQUIRE(parsedSavedSnapshot);
+  GRAPPLE_REQUIRE(project::serializeCanonicalProjectSnapshot(parsedSavedSnapshot.value()) == savedSnapshotContents.str());
 
   const auto savedManifest = storage::buildProjectPackageManifest(savedSession.packageState());
   GRAPPLE_REQUIRE(savedManifest);

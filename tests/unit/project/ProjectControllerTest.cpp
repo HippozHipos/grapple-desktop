@@ -367,6 +367,23 @@ int main() {
   });
   GRAPPLE_REQUIRE(clipTimeline);
   GRAPPLE_REQUIRE(clipTimeline.value().timeline.duration == foundation::TimeSeconds{12.0});
+  const auto clipSnapshotRoundTrip = project::deserializeCanonicalProjectSnapshot(
+    project::serializeCanonicalProjectSnapshot(afterClipUpdate.value())
+  );
+  GRAPPLE_REQUIRE(clipSnapshotRoundTrip);
+  GRAPPLE_REQUIRE(
+    project::serializeCanonicalProjectSnapshot(clipSnapshotRoundTrip.value()) ==
+    project::serializeCanonicalProjectSnapshot(afterClipUpdate.value())
+  );
+  const graph::GraphNode* roundTrippedClipNode = clipSnapshotRoundTrip.value().graph.findNode(foundation::NodeId{"node_clip"});
+  GRAPPLE_REQUIRE(roundTrippedClipNode != nullptr);
+  const auto* roundTrippedClip = std::get_if<timeline::ClipPayload>(&roundTrippedClipNode->payload);
+  GRAPPLE_REQUIRE(roundTrippedClip != nullptr);
+  GRAPPLE_REQUIRE(roundTrippedClip->timelineRange.end == foundation::TimeSeconds{12.0});
+  GRAPPLE_REQUIRE(roundTrippedClip->sourceRange.start == foundation::TimeSeconds{1.0});
+  GRAPPLE_REQUIRE(roundTrippedClip->playbackRate == 0.5);
+  GRAPPLE_REQUIRE(roundTrippedClip->transform.position.x == 3.0);
+  GRAPPLE_REQUIRE(roundTrippedClip->transform.position.y == 4.0);
   const project::ProjectCommandEnvelope deleteClip{
     foundation::CommandId{"cmd_delete_clip"},
     foundation::ProjectId{"proj_clip"},
@@ -474,6 +491,21 @@ int main() {
   GRAPPLE_REQUIRE(updatedCameraPayload != nullptr);
   GRAPPLE_REQUIRE(updatedCameraPayload->name == "Updated Camera");
   GRAPPLE_REQUIRE(updatedCameraPayload->lens.focalLength == 85.0);
+  const auto cameraSnapshotRoundTrip = project::deserializeCanonicalProjectSnapshot(
+    project::serializeCanonicalProjectSnapshot(afterCameraUpdate.value())
+  );
+  GRAPPLE_REQUIRE(cameraSnapshotRoundTrip);
+  GRAPPLE_REQUIRE(
+    project::serializeCanonicalProjectSnapshot(cameraSnapshotRoundTrip.value()) ==
+    project::serializeCanonicalProjectSnapshot(afterCameraUpdate.value())
+  );
+  const graph::GraphNode* roundTrippedCameraNode = cameraSnapshotRoundTrip.value().graph.findNode(foundation::NodeId{"node_camera"});
+  GRAPPLE_REQUIRE(roundTrippedCameraNode != nullptr);
+  const auto* roundTrippedCamera = std::get_if<timeline::CameraPayload>(&roundTrippedCameraNode->payload);
+  GRAPPLE_REQUIRE(roundTrippedCamera != nullptr);
+  GRAPPLE_REQUIRE(roundTrippedCamera->name == "Updated Camera");
+  GRAPPLE_REQUIRE(roundTrippedCamera->transform.rotationDegrees == 12.0);
+  GRAPPLE_REQUIRE(roundTrippedCamera->lens.focalLength == 85.0);
   const auto updateMissingCamera = cameraProject.apply(project::ProjectCommandEnvelope{
     foundation::CommandId{"cmd_update_missing_camera"},
     foundation::ProjectId{"proj_camera"},
@@ -568,6 +600,22 @@ int main() {
   const auto afterTrackEffect = effectProject.snapshot();
   GRAPPLE_REQUIRE(afterTrackEffect);
   GRAPPLE_REQUIRE(afterTrackEffect.value().graph.hasNode(foundation::NodeId{"node_track_effect"}));
+  const auto effectSnapshotRoundTrip = project::deserializeCanonicalProjectSnapshot(
+    project::serializeCanonicalProjectSnapshot(afterTrackEffect.value())
+  );
+  GRAPPLE_REQUIRE(effectSnapshotRoundTrip);
+  GRAPPLE_REQUIRE(
+    project::serializeCanonicalProjectSnapshot(effectSnapshotRoundTrip.value()) ==
+    project::serializeCanonicalProjectSnapshot(afterTrackEffect.value())
+  );
+  const graph::GraphNode* roundTrippedEffectNode = effectSnapshotRoundTrip.value().graph.findNode(foundation::NodeId{"node_track_effect"});
+  GRAPPLE_REQUIRE(roundTrippedEffectNode != nullptr);
+  const auto* roundTrippedEffect = std::get_if<timeline::EffectPayload>(&roundTrippedEffectNode->payload);
+  GRAPPLE_REQUIRE(roundTrippedEffect != nullptr);
+  GRAPPLE_REQUIRE(roundTrippedEffect->implementation.kind == timeline::EffectImplementationKind::Python);
+  GRAPPLE_REQUIRE(roundTrippedEffect->implementation.source.inlineSource == "def prepare(ctx):\n  return {}\n");
+  GRAPPLE_REQUIRE(roundTrippedEffect->ports.inputs.size() == 1);
+  GRAPPLE_REQUIRE(roundTrippedEffect->activeRange.end == foundation::TimeSeconds{1.0});
 
   const auto graphQuery = controller.query(project::GetGraphQuery{});
   GRAPPLE_REQUIRE(graphQuery);
