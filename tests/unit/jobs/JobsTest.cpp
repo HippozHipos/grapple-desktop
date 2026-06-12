@@ -48,6 +48,43 @@ int main() {
   GRAPPLE_REQUIRE(afterDrain);
   GRAPPLE_REQUIRE(afterDrain.value().graph.nodes().size() == 1);
 
+  jobs::ProjectCommandQueue failingCommandQueue{project};
+  const auto enqueueTrack = failingCommandQueue.enqueue(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_track"},
+    foundation::ProjectId{"proj_jobs"},
+    afterDrain.value().revision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::CreateTrackCommand{
+      foundation::NodeId{"node_track"},
+      foundation::NodeId{"node_composition"},
+      foundation::EdgeId{"edge_contains_track"},
+      "Video"
+    }
+  });
+  GRAPPLE_REQUIRE(enqueueTrack);
+  const auto enqueueStaleTrack = failingCommandQueue.enqueue(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_stale_track"},
+    foundation::ProjectId{"proj_jobs"},
+    afterDrain.value().revision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::CreateTrackCommand{
+      foundation::NodeId{"node_stale_track"},
+      foundation::NodeId{"node_composition"},
+      foundation::EdgeId{"edge_contains_stale_track"},
+      "Stale Video"
+    }
+  });
+  GRAPPLE_REQUIRE(enqueueStaleTrack);
+  GRAPPLE_REQUIRE(failingCommandQueue.size() == 2);
+  const auto failedDrain = failingCommandQueue.drain();
+  GRAPPLE_REQUIRE(!failedDrain);
+  GRAPPLE_REQUIRE(failedDrain.error().code == "project.expected_revision_mismatch");
+  GRAPPLE_REQUIRE(failingCommandQueue.size() == 1);
+  const auto afterFailedDrain = project.snapshot();
+  GRAPPLE_REQUIRE(afterFailedDrain);
+  GRAPPLE_REQUIRE(afterFailedDrain.value().graph.hasNode(foundation::NodeId{"node_track"}));
+  GRAPPLE_REQUIRE(!afterFailedDrain.value().graph.hasNode(foundation::NodeId{"node_stale_track"}));
+
   jobs::JobQueue jobs;
   bool jobRan = false;
   auto enqueueJob = jobs.enqueue(jobs::Job{

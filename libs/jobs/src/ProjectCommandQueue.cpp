@@ -18,15 +18,13 @@ foundation::Result<std::vector<project::ProjectCommandResult>> ProjectCommandQue
   std::vector<project::ProjectCommandResult> results;
 
   while (!queue_.empty()) {
-    project::ProjectCommandEnvelope command = std::move(queue_.front());
-    queue_.pop_front();
-
-    auto result = commands_.apply(command);
+    auto result = commands_.apply(queue_.front());
     if (!result) {
       return result.error();
     }
 
     results.push_back(std::move(result.value()));
+    queue_.pop_front();
   }
 
   return results;
@@ -37,4 +35,3 @@ std::size_t ProjectCommandQueue::size() const noexcept {
 }
 
 } // namespace grapple::jobs
-
