@@ -48,6 +48,7 @@ int main() {
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::CreateTrack) == "project.create_track");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::CreateClip) == "project.create_clip");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::CreateCamera) == "project.create_camera");
+  GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::UpdateCamera) == "project.update_camera");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::CreateEffect) == "project.create_effect");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::ConnectNodes) == "project.connect_nodes");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::SetEffectParams) == "project.set_effect_params");
@@ -237,6 +238,82 @@ int main() {
   const auto connectionSnapshot = connectionProject.snapshot();
   GRAPPLE_REQUIRE(connectionSnapshot);
   GRAPPLE_REQUIRE(connectionSnapshot.value().graph.edges().size() == 2);
+
+  project::ProjectController cameraProject{
+    project::createEmptyProject(foundation::ProjectId{"proj_camera"}, "Camera Project")
+  };
+  const auto cameraInitial = cameraProject.snapshot();
+  GRAPPLE_REQUIRE(cameraInitial);
+  const auto cameraComposition = cameraProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_camera_composition"},
+    foundation::ProjectId{"proj_camera"},
+    cameraInitial.value().revision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::CreateCompositionCommand{foundation::NodeId{"node_camera_composition"}, "Main"}
+  });
+  GRAPPLE_REQUIRE(cameraComposition);
+  const auto createCamera = cameraProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_create_camera"},
+    foundation::ProjectId{"proj_camera"},
+    cameraComposition.value().afterRevision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::CreateCameraCommand{
+      foundation::NodeId{"node_camera"},
+      foundation::NodeId{"node_camera_composition"},
+      foundation::EdgeId{"edge_camera_contains_camera"},
+      timeline::CameraPayload{
+        "Camera",
+        timeline::Transform{},
+        timeline::CameraLens{35.0}
+      }
+    }
+  });
+  GRAPPLE_REQUIRE(createCamera);
+  const project::ProjectCommandEnvelope updateCamera{
+    foundation::CommandId{"cmd_update_camera"},
+    foundation::ProjectId{"proj_camera"},
+    createCamera.value().afterRevision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::UpdateCameraCommand{
+      foundation::NodeId{"node_camera"},
+      timeline::CameraPayload{
+        "Updated Camera",
+        timeline::Transform{
+          foundation::Vec2{1.0, 2.0},
+          foundation::Vec2{1.5, 1.5},
+          12.0,
+          0.8
+        },
+        timeline::CameraLens{85.0}
+      }
+    }
+  };
+  GRAPPLE_REQUIRE(project::commandKind(updateCamera.payload) == project::CommandKind::UpdateCamera);
+  GRAPPLE_REQUIRE(project::serializeCanonicalCommandPayload(updateCamera.payload).find("\"nodeId\":\"node_camera\"") != std::string::npos);
+  GRAPPLE_REQUIRE(project::serializeCanonicalCommandPayload(updateCamera.payload).find("\"focalLength\":85") != std::string::npos);
+  const auto updateCameraResult = cameraProject.apply(updateCamera);
+  GRAPPLE_REQUIRE(updateCameraResult);
+  GRAPPLE_REQUIRE(updateCameraResult.value().afterRevision == foundation::RevisionId{"rev_3"});
+  const auto afterCameraUpdate = cameraProject.snapshot();
+  GRAPPLE_REQUIRE(afterCameraUpdate);
+  const graph::GraphNode* updatedCameraNode = afterCameraUpdate.value().graph.findNode(foundation::NodeId{"node_camera"});
+  GRAPPLE_REQUIRE(updatedCameraNode != nullptr);
+  const auto* updatedCameraPayload = std::get_if<timeline::CameraPayload>(&updatedCameraNode->payload);
+  GRAPPLE_REQUIRE(updatedCameraPayload != nullptr);
+  GRAPPLE_REQUIRE(updatedCameraPayload->name == "Updated Camera");
+  GRAPPLE_REQUIRE(updatedCameraPayload->lens.focalLength == 85.0);
+  const auto updateMissingCamera = cameraProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_update_missing_camera"},
+    foundation::ProjectId{"proj_camera"},
+    afterCameraUpdate.value().revision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::UpdateCameraCommand{
+      foundation::NodeId{"node_missing_camera"},
+      *updatedCameraPayload
+    }
+  });
+  GRAPPLE_REQUIRE(!updateMissingCamera);
+  GRAPPLE_REQUIRE(updateMissingCamera.error().code == "project.camera_missing");
 
   const auto graphQuery = controller.query(project::GetGraphQuery{});
   GRAPPLE_REQUIRE(graphQuery);

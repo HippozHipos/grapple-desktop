@@ -19,6 +19,7 @@ enum class CommandKind {
   CreateTrack,
   CreateClip,
   CreateCamera,
+  UpdateCamera,
   CreateEffect,
   ConnectNodes,
   SetEffectParams,
@@ -71,6 +72,11 @@ struct CreateCameraCommand {
   std::int64_t order = 0;
 };
 
+struct UpdateCameraCommand {
+  foundation::NodeId nodeId;
+  timeline::CameraPayload payload;
+};
+
 struct CreateEffectCommand {
   foundation::NodeId nodeId;
   foundation::NodeId targetNodeId;
@@ -106,6 +112,7 @@ using ProjectCommand = std::variant<
   CreateTrackCommand,
   CreateClipCommand,
   CreateCameraCommand,
+  UpdateCameraCommand,
   CreateEffectCommand,
   ConnectNodesCommand,
   SetEffectParamsCommand,

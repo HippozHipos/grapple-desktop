@@ -82,6 +82,8 @@ foundation::Result<void> ProjectController::applyPayload(const ProjectCommand& p
         return handleCreateClip(typedCommand);
       } else if constexpr (std::is_same_v<Command, CreateCameraCommand>) {
         return handleCreateCamera(typedCommand);
+      } else if constexpr (std::is_same_v<Command, UpdateCameraCommand>) {
+        return handleUpdateCamera(typedCommand);
       } else if constexpr (std::is_same_v<Command, CreateEffectCommand>) {
         return handleCreateEffect(typedCommand);
       } else if constexpr (std::is_same_v<Command, ConnectNodesCommand>) {
@@ -207,6 +209,15 @@ foundation::Result<void> ProjectController::handleCreateCamera(const CreateCamer
     command.order,
     true
   });
+}
+
+foundation::Result<void> ProjectController::handleUpdateCamera(const UpdateCameraCommand& command) {
+  const graph::GraphNode* camera = document_.graph.findNode(command.nodeId);
+  if (camera == nullptr || camera->kind != graph::NodeKind::Camera) {
+    return foundation::Error{"project.camera_missing", "Camera updates require an existing camera node."};
+  }
+
+  return document_.graph.replaceNodePayload(command.nodeId, command.payload);
 }
 
 foundation::Result<void> ProjectController::handleCreateEffect(const CreateEffectCommand& command) {

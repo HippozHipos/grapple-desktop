@@ -86,6 +86,9 @@ std::string serializeCanonicalCommandPayload(const ProjectCommand& command) {
         writeIdProperty(stream, "containmentEdgeId", typedCommand.containmentEdgeId.value());
         stream << ",\"payload\":" << timeline::serializeCanonicalCameraPayload(typedCommand.payload);
         stream << ",\"order\":" << typedCommand.order;
+      } else if constexpr (std::is_same_v<Command, UpdateCameraCommand>) {
+        writeIdProperty(stream, "nodeId", typedCommand.nodeId.value());
+        stream << ",\"payload\":" << timeline::serializeCanonicalCameraPayload(typedCommand.payload);
       } else if constexpr (std::is_same_v<Command, CreateEffectCommand>) {
         writeIdProperty(stream, "nodeId", typedCommand.nodeId.value());
         stream << ',';
