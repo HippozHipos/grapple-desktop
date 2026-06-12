@@ -3,6 +3,10 @@ CRITICAL ENGINEERING RULES
 Before implementing anything, ask:
 Is this the simplest, minimal, cleanest, architecturally correct way to do it?
 
+Before making any nontrivial implementation decision, state the decision explicitly
+against these rules. If the clean decision is to rewrite/delete touched bad code,
+do that instead of layering more code around it.
+
 If the issue comes from bad existing code, stop and rewrite/delete the bad code path.
 Do not add support code, aliases, shims, fallbacks, compatibility layers, or compensating
 conditionals to preserve bad architecture unless explicitly approved.
