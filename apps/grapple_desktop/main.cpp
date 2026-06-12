@@ -6,16 +6,21 @@
 #include <grapple/app/NativeProjectSession.hpp>
 
 #include <QApplication>
+#include <QColor>
 #include <QFrame>
+#include <QFontMetrics>
 #include <QGridLayout>
 #include <QLabel>
 #include <QMainWindow>
+#include <QPainter>
+#include <QPaintEvent>
 #include <QPixmap>
 #include <QPushButton>
 #include <QTextEdit>
 #include <QVBoxLayout>
 #include <QWidget>
 
+#include <algorithm>
 #include <iostream>
 #include <optional>
 #include <string>
@@ -45,32 +50,135 @@ QString summaryText(const grapple::app::AppViewModel& viewModel) {
     .arg(viewModel.timeline.effectGraphs.size());
 }
 
-QString timelineText(const grapple::app::AppViewModel& viewModel) {
-  QString text;
-  for (const grapple::app::AppCompositionRow& composition : viewModel.timeline.compositions) {
-    text += QString{"Composition %1  %2\n"}
-      .arg(qString(composition.sourceNodeId.value()))
-      .arg(qString(composition.name));
+class TimelinePanel final : public QWidget {
+public:
+  explicit TimelinePanel(QWidget* parent = nullptr)
+    : QWidget{parent} {
+    setObjectName("timeline");
+    setMinimumHeight(210);
   }
-  for (const grapple::app::AppLayerRow& layer : viewModel.timeline.layers) {
-    text += QString{"Layer %1  clips=%2\n"}
-      .arg(qString(layer.name))
-      .arg(layer.clipCount);
+
+  void setViewModel(grapple::app::AppViewModel viewModel) {
+    viewModel_ = std::move(viewModel);
+    update();
   }
-  for (const grapple::app::AppClipRow& clip : viewModel.timeline.clips) {
-    text += QString{"Clip %1  asset=%2  %3-%4s\n"}
-      .arg(qString(clip.sourceNodeId.value()))
-      .arg(qString(clip.assetId.value()))
-      .arg(clip.timelineRange.start.value)
-      .arg(clip.timelineRange.end.value);
+
+protected:
+  void paintEvent(QPaintEvent* event) override {
+    QWidget::paintEvent(event);
+
+    QPainter painter{this};
+    painter.setRenderHint(QPainter::Antialiasing);
+    painter.fillRect(rect(), QColor{"#20242d"});
+
+    if (!viewModel_.has_value()) {
+      painter.setPen(QColor{"#9aa8bd"});
+      painter.drawText(rect().adjusted(18, 18, -18, -18), Qt::AlignLeft | Qt::AlignTop, "No timeline loaded");
+      return;
+    }
+
+    const grapple::app::AppViewModel& viewModel = viewModel_.value();
+    const int labelWidth = 150;
+    const int rulerHeight = 34;
+    const int rowHeight = 44;
+    const int left = labelWidth;
+    const int right = width() - 16;
+    const int trackWidth = std::max(1, right - left);
+    const double duration = std::max(0.001, viewModel.timeline.duration.value);
+
+    painter.setPen(QColor{"#58647a"});
+    painter.drawLine(left, rulerHeight - 1, right, rulerHeight - 1);
+    painter.setFont(QFont{"DejaVu Sans", 9});
+
+    const int tickCount = std::max(1, static_cast<int>(duration));
+    for (int tick = 0; tick <= tickCount; ++tick) {
+      const double time = duration * static_cast<double>(tick) / static_cast<double>(tickCount);
+      const int x = left + static_cast<int>((time / duration) * trackWidth);
+      painter.setPen(QColor{tick == 0 ? "#7b8aa3" : "#3d4656"});
+      painter.drawLine(x, 0, x, height());
+      painter.setPen(QColor{"#aab8cf"});
+      const QString label = QString{"%1s"}.arg(time, 0, 'f', 1);
+      const int labelX = std::min(x + 4, right - QFontMetrics{painter.font()}.horizontalAdvance(label) - 2);
+      painter.drawText(labelX, 22, label);
+    }
+
+    int y = rulerHeight;
+    for (const grapple::app::AppLayerRow& layer : viewModel.timeline.layers) {
+      drawLayerRow(painter, viewModel, layer, QRect{0, y, width(), rowHeight}, left, trackWidth, duration);
+      y += rowHeight;
+    }
+
+    if (!viewModel.timeline.cameras.empty()) {
+      drawCameraRow(painter, viewModel, QRect{0, y, width(), rowHeight}, left, trackWidth);
+    }
   }
-  for (const grapple::app::AppCameraRow& camera : viewModel.timeline.cameras) {
-    text += QString{"Camera %1  %2\n"}
-      .arg(qString(camera.sourceNodeId.value()))
-      .arg(qString(camera.name));
+
+private:
+  static int clipX(const grapple::foundation::TimeSeconds time, int left, int trackWidth, double duration) {
+    return left + static_cast<int>((time.value / duration) * static_cast<double>(trackWidth));
   }
-  return text;
-}
+
+  static QString elidedText(QPainter& painter, const QString& text, int width) {
+    return QFontMetrics{painter.font()}.elidedText(text, Qt::ElideRight, std::max(12, width));
+  }
+
+  void drawLayerRow(
+    QPainter& painter,
+    const grapple::app::AppViewModel& viewModel,
+    const grapple::app::AppLayerRow& layer,
+    const QRect& row,
+    int left,
+    int trackWidth,
+    double duration
+  ) const {
+    painter.fillRect(row, QColor{"#242936"});
+    painter.setPen(QColor{"#3b4556"});
+    painter.drawLine(0, row.bottom(), width(), row.bottom());
+    painter.setPen(QColor{"#dbe7f7"});
+    painter.drawText(QRect{16, row.top(), left - 28, row.height()}, Qt::AlignVCenter | Qt::AlignLeft, qString(layer.name));
+
+    for (const grapple::app::AppClipRow& clip : viewModel.timeline.clips) {
+      if (clip.trackNodeId != layer.sourceNodeId) {
+        continue;
+      }
+      const int x = clipX(clip.timelineRange.start, left, trackWidth, duration);
+      const int endX = clipX(clip.timelineRange.end, left, trackWidth, duration);
+      const QRect clipRect{x + 2, row.top() + 8, std::max(18, endX - x - 4), row.height() - 16};
+      painter.setPen(QColor{"#b9c7f0"});
+      painter.setBrush(QColor{"#36466e"});
+      painter.drawRoundedRect(clipRect, 6, 6);
+      painter.setPen(QColor{"#eef4ff"});
+      painter.drawText(clipRect.adjusted(10, 0, -8, 0), Qt::AlignVCenter | Qt::AlignLeft, elidedText(painter, qString(clip.assetId.value()), clipRect.width() - 18));
+    }
+  }
+
+  void drawCameraRow(
+    QPainter& painter,
+    const grapple::app::AppViewModel& viewModel,
+    const QRect& row,
+    int left,
+    int trackWidth
+  ) const {
+    painter.fillRect(row, QColor{"#1f2c33"});
+    painter.setPen(QColor{"#3b5964"});
+    painter.drawLine(0, row.bottom(), width(), row.bottom());
+    painter.setPen(QColor{"#d7f8ff"});
+    painter.drawText(QRect{16, row.top(), left - 28, row.height()}, Qt::AlignVCenter | Qt::AlignLeft, "Cameras");
+
+    const QRect cameraStrip{left + 2, row.top() + 10, std::max(18, trackWidth - 4), row.height() - 20};
+    painter.setPen(QColor{"#86e8f2"});
+    painter.setBrush(QColor{"#23535e"});
+    painter.drawRoundedRect(cameraStrip, 6, 6);
+    painter.setPen(QColor{"#e5fdff"});
+    painter.drawText(
+      cameraStrip.adjusted(10, 0, -8, 0),
+      Qt::AlignVCenter | Qt::AlignLeft,
+      elidedText(painter, qString(viewModel.timeline.cameras.front().name), cameraStrip.width() - 18)
+    );
+  }
+
+  std::optional<grapple::app::AppViewModel> viewModel_;
+};
 
 grapple::foundation::Result<void> populateDemo(grapple::app::NativeProjectSession& session, bool savePackage) {
   return grapple::demo::populateWalkingWomanDemo(
@@ -128,9 +236,7 @@ public:
     previewLayout->addWidget(previewTitle_);
     previewLayout->addWidget(previewOutput_, 1);
 
-    timeline_ = new QTextEdit;
-    timeline_->setObjectName("timeline");
-    timeline_->setReadOnly(true);
+    timeline_ = new TimelinePanel;
 
     log_ = new QTextEdit;
     log_->setObjectName("log");
@@ -154,11 +260,14 @@ public:
     layout->addWidget(summary_, 0, 0, 1, 1);
     layout->addWidget(previewFrame_, 0, 1, 2, 1);
     layout->addWidget(actions, 0, 2, 1, 1);
-    layout->addWidget(timeline_, 1, 0, 1, 1);
     layout->addWidget(log_, 1, 2, 1, 1);
+    layout->addWidget(timeline_, 2, 0, 1, 3);
     layout->setColumnStretch(0, 2);
     layout->setColumnStretch(1, 4);
     layout->setColumnStretch(2, 2);
+    layout->setRowStretch(0, 1);
+    layout->setRowStretch(1, 1);
+    layout->setRowStretch(2, 1);
     setCentralWidget(root);
 
     connect(refreshButton, &QPushButton::clicked, this, [this] { refreshPreview(); });
@@ -195,7 +304,7 @@ public:
       return;
     }
     summary_->setText(summaryText(viewModel.value()));
-    timeline_->setPlainText(timelineText(viewModel.value()));
+    timeline_->setViewModel(viewModel.value());
   }
 
   void refreshPreview() {
@@ -293,7 +402,7 @@ private:
   QLabel* summary_ = nullptr;
   QLabel* previewTitle_ = nullptr;
   QLabel* previewOutput_ = nullptr;
-  QTextEdit* timeline_ = nullptr;
+  TimelinePanel* timeline_ = nullptr;
   QTextEdit* log_ = nullptr;
   QFrame* previewFrame_ = nullptr;
 };
