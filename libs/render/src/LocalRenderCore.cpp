@@ -192,6 +192,49 @@ std::optional<RenderedImage> applyCameraTransformToImage(
   return image;
 }
 
+foundation::Result<RenderFrameResult> renderPreparedFrame(
+  runtime::RuntimeEvaluator& runtime,
+  const runtime::PreparedRuntimePlan& prepared,
+  IRenderFrameSource* frameSource,
+  const RenderFrameRequest& request
+) {
+  auto sampleResult = runtime.sample(runtime::RuntimeSampleRequest{
+    prepared,
+    request.time,
+    runtimeQualityFor(request.quality)
+  });
+  if (!sampleResult) {
+    return sampleResult.error();
+  }
+
+  runtime::RuntimeSample sample = std::move(sampleResult.value().sample);
+  applyCameraTransformOutputs(
+    sample,
+    prepared.dependencyGraph.projectId,
+    prepared.sourceRevision
+  );
+
+  const std::vector<RenderedMediaFrame> mediaFrames = buildMediaFrames(sample);
+  const std::vector<RenderedCamera> cameras = buildRenderedCameras(sample);
+  auto image = buildRenderedImage(mediaFrames, request.quality, frameSource);
+  if (!image) {
+    return image.error();
+  }
+  std::optional<RenderedImage> transformedImage = applyCameraTransformToImage(std::move(image.value()), cameras);
+
+  return RenderFrameResult{
+    RenderFrame{
+      request.time,
+      describeSample(sample),
+      mediaFrames,
+      cameras,
+      std::move(transformedImage)
+    },
+    sample.diagnostics,
+    {}
+  };
+}
+
 } // namespace
 
 LocalRenderCore::LocalRenderCore(runtime::RuntimeEvaluator& runtime)
@@ -221,41 +264,7 @@ foundation::Result<RenderFrameResult> LocalRenderCore::renderFrame(const RenderF
     return foundation::Error{"render.plan_missing", "LocalRenderCore requires a loaded RenderPlan before rendering a frame."};
   }
 
-  auto sampleResult = runtime_.sample(runtime::RuntimeSampleRequest{
-    prepared_.value(),
-    request.time,
-    runtimeQualityFor(request.quality)
-  });
-  if (!sampleResult) {
-    return sampleResult.error();
-  }
-
-  runtime::RuntimeSample sample = std::move(sampleResult.value().sample);
-  applyCameraTransformOutputs(
-    sample,
-    prepared_.value().dependencyGraph.projectId,
-    prepared_.value().sourceRevision
-  );
-
-  const std::vector<RenderedMediaFrame> mediaFrames = buildMediaFrames(sample);
-  const std::vector<RenderedCamera> cameras = buildRenderedCameras(sample);
-  auto image = buildRenderedImage(mediaFrames, request.quality, frameSource_);
-  if (!image) {
-    return image.error();
-  }
-  std::optional<RenderedImage> transformedImage = applyCameraTransformToImage(std::move(image.value()), cameras);
-
-  return RenderFrameResult{
-    RenderFrame{
-      request.time,
-      describeSample(sample),
-      mediaFrames,
-      cameras,
-      std::move(transformedImage)
-    },
-    sample.diagnostics,
-    {}
-  };
+  return renderPreparedFrame(runtime_, prepared_.value(), frameSource_, request);
 }
 
 foundation::Result<RenderRangeResult> LocalRenderCore::renderRange(const RenderRangeRequest& request) const {
@@ -273,26 +282,20 @@ foundation::Result<RenderRangeResult> LocalRenderCore::renderRange(const RenderR
     const foundation::TimeSeconds time{
       request.range.start.value + static_cast<double>(frameIndex) / framesPerSecond
     };
-    auto sampleResult = runtime_.sample(runtime::RuntimeSampleRequest{
-      prepared_.value(),
+    auto frameResult = renderPreparedFrame(runtime_, prepared_.value(), frameSource_, RenderFrameRequest{
       time,
-      runtimeQualityFor(request.quality)
+      request.quality
     });
-    if (!sampleResult) {
-      return sampleResult.error();
+    if (!frameResult) {
+      return frameResult.error();
     }
 
-    runtime::RuntimeSample sample = std::move(sampleResult.value().sample);
-    applyCameraTransformOutputs(
-      sample,
-      prepared_.value().dependencyGraph.projectId,
-      prepared_.value().sourceRevision
-    );
-    const std::size_t firstFrameDiagnostic = std::min(preparedDiagnosticCount, sample.diagnostics.size());
+    const std::vector<runtime::RuntimeDiagnostic>& frameDiagnostics = frameResult.value().runtimeDiagnostics;
+    const std::size_t firstFrameDiagnostic = std::min(preparedDiagnosticCount, frameDiagnostics.size());
     diagnostics.insert(
       diagnostics.end(),
-      sample.diagnostics.begin() + static_cast<std::ptrdiff_t>(firstFrameDiagnostic),
-      sample.diagnostics.end()
+      frameDiagnostics.begin() + static_cast<std::ptrdiff_t>(firstFrameDiagnostic),
+      frameDiagnostics.end()
     );
   }
 

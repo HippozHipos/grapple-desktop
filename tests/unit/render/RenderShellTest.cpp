@@ -399,6 +399,23 @@ int main() {
   GRAPPLE_REQUIRE((shiftedImageFrame.value().frame.image->rgbaPixels == std::vector<std::uint8_t>{40, 50, 60, 255, 0, 0, 0, 0}));
   GRAPPLE_REQUIRE(shiftedImageFrame.value().runtimeDiagnostics.empty());
 
+  TestFrameSource finalRangeFrameSource;
+  render::LocalRenderCore finalRangeImageCore{imageShiftEvaluator, finalRangeFrameSource};
+  render::FinalRenderShell finalRangeRender{finalRangeImageCore};
+  const auto finalRangeImageLoad = finalRangeImageCore.loadPlan(makeCameraEffectRenderPlan());
+  GRAPPLE_REQUIRE(finalRangeImageLoad);
+  const auto finalRangeImageResult = finalRangeRender.render(render::FinalRenderRequest{
+    makeExportSettings(foundation::Resolution{1920, 1080})
+  });
+  GRAPPLE_REQUIRE(finalRangeImageResult);
+  GRAPPLE_REQUIRE(finalRangeImageResult.value().framesEvaluated == 2);
+  GRAPPLE_REQUIRE(finalRangeImageResult.value().runtimeDiagnostics.empty());
+  GRAPPLE_REQUIRE(finalRangeFrameSource.requests == 2);
+  GRAPPLE_REQUIRE(finalRangeFrameSource.lastRequest.has_value());
+  GRAPPLE_REQUIRE(finalRangeFrameSource.lastRequest->assetId == foundation::AssetId{"asset_video"});
+  GRAPPLE_REQUIRE(finalRangeFrameSource.lastRequest->sourceTime == foundation::TimeSeconds{0.5});
+  GRAPPLE_REQUIRE(finalRangeFrameSource.lastRequest->quality == render::RenderQuality::Final);
+
   CameraTransformRuntime cameraRuntime;
   runtime::RuntimeEvaluator cameraEvaluator{{&cameraRuntime}};
   render::LocalRenderCore cameraCore{cameraEvaluator};
