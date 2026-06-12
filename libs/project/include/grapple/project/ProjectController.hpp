@@ -20,6 +20,7 @@ public:
 
 private:
   [[nodiscard]] foundation::RevisionId nextRevisionId() const;
+  foundation::Result<void> validateCommand(const ProjectCommandEnvelope& command) const;
   foundation::Result<void> applyPayload(const ProjectCommand& payload);
   foundation::Result<ProjectQueryResult> readQuery(const ProjectQuery& query) const;
   foundation::Result<void> handleRegisterAsset(const RegisterAssetCommand& command);

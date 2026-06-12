@@ -28,6 +28,11 @@ foundation::Result<ProjectCommandResult> ProjectController::apply(const ProjectC
     return foundation::Error{"project.expected_revision_mismatch", "Command expected revision does not match current revision."};
   }
 
+  auto commandReady = validateCommand(command);
+  if (!commandReady) {
+    return commandReady.error();
+  }
+
   const foundation::RevisionId beforeRevision = document_.revision;
   const std::int64_t beforeRevisionNumber = document_.revisionNumber;
   ProjectDocument nextDocument = document_;
@@ -66,6 +71,26 @@ foundation::Result<ProjectQueryResult> ProjectController::query(const ProjectQue
 
 foundation::RevisionId ProjectController::nextRevisionId() const {
   return makeRevisionId(document_.revisionNumber);
+}
+
+foundation::Result<void> ProjectController::validateCommand(const ProjectCommandEnvelope& command) const {
+  if (command.source.kind != CommandSourceKind::Agent) {
+    return {};
+  }
+
+  const auto* createEffect = std::get_if<CreateEffectCommand>(&command.payload);
+  if (createEffect == nullptr) {
+    return {};
+  }
+
+  if (createEffect->payload.params.values.empty()) {
+    return foundation::Error{
+      "project.agent_effect_params_missing",
+      "Agent-created effects must expose at least one user-editable parameter."
+    };
+  }
+
+  return {};
 }
 
 foundation::Result<void> ProjectController::applyPayload(const ProjectCommand& payload) {

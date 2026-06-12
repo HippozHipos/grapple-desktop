@@ -233,7 +233,16 @@ int main() {
           {timeline::EffectPort{"frame"}},
           {timeline::EffectPort{"camera"}}
         },
-        timeline::ParamSet{},
+        timeline::ParamSet{
+          {timeline::Param{
+            "strength",
+            1.0,
+            timeline::Param::Control{
+              "Strength",
+              timeline::Param::NumericControl{0.0, 1.0, 0.01}
+            }
+          }}
+        },
         foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{2.0}}
       },
       graph::PortName{"camera"},

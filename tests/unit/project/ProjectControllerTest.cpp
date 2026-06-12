@@ -591,10 +591,47 @@ int main() {
     }
   });
   GRAPPLE_REQUIRE(effectTrack);
+  timeline::EffectPayload parameterlessEffectPayload = projectEffectPayload;
+  parameterlessEffectPayload.params = timeline::ParamSet{};
+  const auto blackBoxAgentEffect = effectProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_black_box_agent_effect"},
+    foundation::ProjectId{"proj_effect"},
+    effectTrack.value().afterRevision,
+    project::CommandSource{project::CommandSourceKind::Agent, foundation::RunId{"run_effect"}, "agent"},
+    project::CreateEffectCommand{
+      foundation::NodeId{"node_black_box_agent_effect"},
+      foundation::NodeId{"node_effect_track"},
+      foundation::EdgeId{"edge_black_box_agent_effect_target"},
+      parameterlessEffectPayload,
+      graph::PortName{"output"},
+      graph::PortName{"input"}
+    }
+  });
+  GRAPPLE_REQUIRE(!blackBoxAgentEffect);
+  GRAPPLE_REQUIRE(blackBoxAgentEffect.error().code == "project.agent_effect_params_missing");
+  const auto afterBlackBoxAgentEffect = effectProject.snapshot();
+  GRAPPLE_REQUIRE(afterBlackBoxAgentEffect);
+  GRAPPLE_REQUIRE(afterBlackBoxAgentEffect.value().revision == effectTrack.value().afterRevision);
+  GRAPPLE_REQUIRE(!afterBlackBoxAgentEffect.value().graph.hasNode(foundation::NodeId{"node_black_box_agent_effect"}));
+  const auto userParameterlessEffect = effectProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_user_parameterless_effect"},
+    foundation::ProjectId{"proj_effect"},
+    effectTrack.value().afterRevision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::CreateEffectCommand{
+      foundation::NodeId{"node_user_parameterless_effect"},
+      foundation::NodeId{"node_effect_track"},
+      foundation::EdgeId{"edge_user_parameterless_effect_target"},
+      parameterlessEffectPayload,
+      graph::PortName{"output"},
+      graph::PortName{"input"}
+    }
+  });
+  GRAPPLE_REQUIRE(userParameterlessEffect);
   const auto validTrackEffect = effectProject.apply(project::ProjectCommandEnvelope{
     foundation::CommandId{"cmd_valid_track_effect"},
     foundation::ProjectId{"proj_effect"},
-    effectTrack.value().afterRevision,
+    userParameterlessEffect.value().afterRevision,
     project::CommandSource{project::CommandSourceKind::Agent, foundation::RunId{"run_effect"}, "agent"},
     project::CreateEffectCommand{
       foundation::NodeId{"node_track_effect"},
