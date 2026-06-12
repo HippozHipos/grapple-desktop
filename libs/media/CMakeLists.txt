@@ -1,4 +1,5 @@
 add_library(grapple_media
+  src/CachingMediaReader.cpp
   src/FrameCache.cpp
 )
 
@@ -13,4 +14,3 @@ target_link_libraries(grapple_media
   PUBLIC
     Grapple::Foundation
 )
-
