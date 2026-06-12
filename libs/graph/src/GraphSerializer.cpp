@@ -3,6 +3,7 @@
 #include <grapple/foundation/Json.hpp>
 #include <grapple/timeline/EffectPayload.hpp>
 #include <grapple/timeline/Payloads.hpp>
+#include <grapple/timeline/TimelineSerializer.hpp>
 
 #include <algorithm>
 #include <cstdlib>
@@ -63,22 +64,13 @@ std::string serializePayload(const NodePayload& payload) {
         foundation::writeJsonStringProperty(stream, "name", typedPayload.name);
       } else if constexpr (std::is_same_v<Payload, timeline::ClipPayload>) {
         foundation::writeJsonStringProperty(stream, "type", "clip");
-        stream << ',';
-        foundation::writeJsonStringProperty(stream, "assetId", typedPayload.assetId.value());
+        stream << ",\"payload\":" << timeline::serializeCanonicalClipPayload(typedPayload);
       } else if constexpr (std::is_same_v<Payload, timeline::CameraPayload>) {
         foundation::writeJsonStringProperty(stream, "type", "camera");
-        stream << ',';
-        foundation::writeJsonStringProperty(stream, "name", typedPayload.name);
+        stream << ",\"payload\":" << timeline::serializeCanonicalCameraPayload(typedPayload);
       } else if constexpr (std::is_same_v<Payload, timeline::EffectPayload>) {
         foundation::writeJsonStringProperty(stream, "type", "effect");
-        stream << ',';
-        foundation::writeJsonStringProperty(stream, "displayName", typedPayload.displayName);
-        stream << ',';
-        foundation::writeJsonStringProperty(stream, "implementationKind", std::to_string(static_cast<int>(typedPayload.implementation.kind)));
-        stream << ',';
-        foundation::writeJsonStringProperty(stream, "entrypoint", typedPayload.implementation.entrypoint);
-        stream << ',';
-        foundation::writeJsonStringProperty(stream, "sourceHash", typedPayload.implementation.source.sourceHash.toHex());
+        stream << ",\"payload\":" << timeline::serializeCanonicalEffectPayload(typedPayload);
       } else if constexpr (std::is_same_v<Payload, timeline::AssetPayload>) {
         foundation::writeJsonStringProperty(stream, "type", "asset");
         stream << ',';

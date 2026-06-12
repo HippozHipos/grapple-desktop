@@ -1,6 +1,7 @@
 #include <grapple/graph/GraphDocument.hpp>
 #include <grapple/graph/GraphDiff.hpp>
 #include <grapple/graph/GraphSerializer.hpp>
+#include <grapple/foundation/Hash.hpp>
 #include <grapple/timeline/Payloads.hpp>
 
 #include <TestAssert.hpp>
@@ -198,6 +199,77 @@ int main() {
   GRAPPLE_REQUIRE(graph::serializeCanonicalGraph(next) == graph::serializeCanonicalGraph(sameRecordsDifferentOrder));
   GRAPPLE_REQUIRE(graph::serializeCanonicalGraph(next).find("\"order\":3") != std::string::npos);
   GRAPPLE_REQUIRE(graph::serializeCanonicalGraph(next).find("\"sourcePort\":\"output\"") != std::string::npos);
+
+  graph::GraphDocument payloadGraph;
+  GRAPPLE_REQUIRE(payloadGraph.addNode(graph::GraphNode{
+    foundation::NodeId{"node_clip_payload"},
+    graph::NodeKind::Clip,
+    timeline::ClipPayload{
+      timeline::ClipKind::Video,
+      foundation::TimeRange{foundation::TimeSeconds{2.0}, foundation::TimeSeconds{12.0}},
+      foundation::TimeRange{foundation::TimeSeconds{1.0}, foundation::TimeSeconds{11.0}},
+      0.5,
+      foundation::AssetId{"asset_clip_payload"},
+      timeline::Transform{
+        foundation::Vec2{3.0, 4.0},
+        foundation::Vec2{2.0, 2.0},
+        15.0,
+        0.8
+      }
+    },
+    true
+  }));
+  GRAPPLE_REQUIRE(payloadGraph.addNode(graph::GraphNode{
+    foundation::NodeId{"node_camera_payload"},
+    graph::NodeKind::Camera,
+    timeline::CameraPayload{
+      "Camera",
+      timeline::Transform{
+        foundation::Vec2{1.0, 2.0},
+        foundation::Vec2{1.5, 1.5},
+        12.0,
+        0.7
+      },
+      timeline::CameraLens{85.0}
+    },
+    true
+  }));
+  const std::string effectSource = "def prepare(ctx):\n  return {'x': 1}\n";
+  GRAPPLE_REQUIRE(payloadGraph.addNode(graph::GraphNode{
+    foundation::NodeId{"node_effect_payload"},
+    graph::NodeKind::Effect,
+    timeline::EffectPayload{
+      "Effect",
+      timeline::EffectImplementation{
+        timeline::EffectImplementationKind::Python,
+        "prepare",
+        timeline::EffectSource{
+          timeline::EffectSourceKind::InlineSource,
+          "python",
+          effectSource,
+          std::nullopt,
+          foundation::stableHash(effectSource)
+        }
+      },
+      timeline::EffectPortSet{
+        {timeline::EffectPort{"frame"}},
+        {timeline::EffectPort{"camera"}}
+      },
+      timeline::ParamSet{
+        {timeline::Param{"target_x", 0.77}}
+      },
+      foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{10.0}}
+    },
+    true
+  }));
+  const std::string serializedPayloadGraph = graph::serializeCanonicalGraph(payloadGraph);
+  GRAPPLE_REQUIRE(serializedPayloadGraph.find("\"timelineRange\":{\"start\":2,\"end\":12}") != std::string::npos);
+  GRAPPLE_REQUIRE(serializedPayloadGraph.find("\"sourceRange\":{\"start\":1,\"end\":11}") != std::string::npos);
+  GRAPPLE_REQUIRE(serializedPayloadGraph.find("\"playbackRate\":0.5") != std::string::npos);
+  GRAPPLE_REQUIRE(serializedPayloadGraph.find("\"rotationDegrees\":15") != std::string::npos);
+  GRAPPLE_REQUIRE(serializedPayloadGraph.find("\"lens\":{\"focalLength\":85}") != std::string::npos);
+  GRAPPLE_REQUIRE(serializedPayloadGraph.find("\"inlineSource\":\"def prepare(ctx):\\n  return {'x': 1}\\n\"") != std::string::npos);
+  GRAPPLE_REQUIRE(serializedPayloadGraph.find("\"activeRange\":{\"start\":0,\"end\":10}") != std::string::npos);
 
   return 0;
 }
