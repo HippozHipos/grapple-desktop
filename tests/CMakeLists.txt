@@ -7,6 +7,7 @@ add_subdirectory(unit/storage)
 add_subdirectory(unit/runtime)
 add_subdirectory(unit/model)
 add_subdirectory(unit/render)
+add_subdirectory(unit/agent)
 
 add_test(
   NAME architecture_guards
