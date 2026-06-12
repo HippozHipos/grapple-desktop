@@ -6,6 +6,7 @@
 
 #include <TestAssert.hpp>
 
+#include <algorithm>
 #include <optional>
 #include <string>
 #include <variant>
@@ -178,6 +179,56 @@ int main() {
   GRAPPLE_REQUIRE(serializedPlan.find("\"name\":\"target_x\",\"value\":0.77000000000000002") != std::string::npos);
   GRAPPLE_REQUIRE(serializedPlan.find("\"sourceEdgeId\":\"edge_effect_targets_camera\"") != std::string::npos);
   GRAPPLE_REQUIRE(serializedPlan.find("\"inputs\":[{\"name\":\"input_frame\"}]") != std::string::npos);
+
+  projection::RenderPlan orderedPlan = planResult.value().plan;
+  orderedPlan.layers.push_back(projection::RenderLayer{
+    foundation::NodeId{"node_alpha_track"},
+    "Alpha",
+    true
+  });
+  orderedPlan.clips.push_back(projection::RenderClip{
+    foundation::NodeId{"node_alpha_clip"},
+    foundation::NodeId{"node_alpha_track"},
+    clipPayload,
+    true
+  });
+  orderedPlan.cameras.push_back(projection::RenderCamera{
+    foundation::NodeId{"node_alpha_camera"},
+    "Alpha Camera",
+    cameraPayload.transform,
+    cameraPayload.lens,
+    true
+  });
+  orderedPlan.effectGraphs.push_back(projection::RenderEffectGraph{
+    foundation::GraphId{"effect_graph_node_alpha_camera"},
+    foundation::NodeId{"node_alpha_camera"},
+    {
+      projection::RenderEffectNode{
+        foundation::NodeId{"node_alpha_effect"},
+        effectPayload,
+        true
+      }
+    },
+    {
+      projection::RenderEffectEdge{
+        foundation::EdgeId{"edge_alpha_effect_targets_camera"},
+        foundation::NodeId{"node_alpha_effect"},
+        foundation::NodeId{"node_alpha_camera"},
+        true
+      }
+    }
+  });
+
+  projection::RenderPlan reorderedPlan = orderedPlan;
+  std::reverse(reorderedPlan.layers.begin(), reorderedPlan.layers.end());
+  std::reverse(reorderedPlan.clips.begin(), reorderedPlan.clips.end());
+  std::reverse(reorderedPlan.cameras.begin(), reorderedPlan.cameras.end());
+  std::reverse(reorderedPlan.effectGraphs.begin(), reorderedPlan.effectGraphs.end());
+
+  GRAPPLE_REQUIRE(
+    projection::serializeCanonicalRenderPlan(orderedPlan) ==
+    projection::serializeCanonicalRenderPlan(reorderedPlan)
+  );
 
   project::ProjectDocument malformedDocument = project::createEmptyProject(
     foundation::ProjectId{"proj_malformed"},

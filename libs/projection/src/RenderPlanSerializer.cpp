@@ -3,9 +3,11 @@
 #include <grapple/foundation/Json.hpp>
 #include <grapple/timeline/TimelineSerializer.hpp>
 
+#include <algorithm>
 #include <cstdlib>
 #include <iomanip>
 #include <sstream>
+#include <tuple>
 
 namespace grapple::projection {
 
@@ -27,9 +29,72 @@ const char* diagnosticSeverityName(DiagnosticSeverity severity) {
   std::abort();
 }
 
+int diagnosticSeverityRank(DiagnosticSeverity severity) {
+  switch (severity) {
+    case DiagnosticSeverity::Info:
+      return 0;
+    case DiagnosticSeverity::Warning:
+      return 1;
+    case DiagnosticSeverity::Error:
+      return 2;
+  }
+  std::abort();
+}
+
+std::string optionalNodeIdValue(const std::optional<foundation::NodeId>& nodeId) {
+  return nodeId.has_value() ? nodeId->value() : "";
+}
+
 } // namespace
 
 std::string serializeCanonicalRenderPlan(const RenderPlan& plan) {
+  std::vector<RenderLayer> layers = plan.layers;
+  std::sort(layers.begin(), layers.end(), [](const RenderLayer& left, const RenderLayer& right) {
+    return left.sourceNodeId < right.sourceNodeId;
+  });
+
+  std::vector<RenderClip> clips = plan.clips;
+  std::sort(clips.begin(), clips.end(), [](const RenderClip& left, const RenderClip& right) {
+    return left.sourceNodeId < right.sourceNodeId;
+  });
+
+  std::vector<RenderCamera> cameras = plan.cameras;
+  std::sort(cameras.begin(), cameras.end(), [](const RenderCamera& left, const RenderCamera& right) {
+    return left.sourceNodeId < right.sourceNodeId;
+  });
+
+  std::vector<RenderEffectGraph> effectGraphs = plan.effectGraphs;
+  std::sort(effectGraphs.begin(), effectGraphs.end(), [](const RenderEffectGraph& left, const RenderEffectGraph& right) {
+    return left.id < right.id;
+  });
+  for (RenderEffectGraph& effectGraph : effectGraphs) {
+    std::sort(effectGraph.nodes.begin(), effectGraph.nodes.end(), [](const RenderEffectNode& left, const RenderEffectNode& right) {
+      return left.sourceNodeId < right.sourceNodeId;
+    });
+    std::sort(effectGraph.edges.begin(), effectGraph.edges.end(), [](const RenderEffectEdge& left, const RenderEffectEdge& right) {
+      return left.sourceEdgeId < right.sourceEdgeId;
+    });
+  }
+
+  std::vector<ProjectionDiagnostic> diagnostics = plan.diagnostics;
+  std::sort(diagnostics.begin(), diagnostics.end(), [](const ProjectionDiagnostic& left, const ProjectionDiagnostic& right) {
+    return std::make_tuple(
+      left.code,
+      diagnosticSeverityRank(left.severity),
+      left.location.projectId,
+      left.location.revision,
+      optionalNodeIdValue(left.location.nodeId),
+      left.message
+    ) < std::make_tuple(
+      right.code,
+      diagnosticSeverityRank(right.severity),
+      right.location.projectId,
+      right.location.revision,
+      optionalNodeIdValue(right.location.nodeId),
+      right.message
+    );
+  });
+
   std::ostringstream stream;
   stream << '{';
   foundation::writeJsonStringProperty(stream, "projectId", plan.projectId.value());
@@ -40,11 +105,11 @@ std::string serializeCanonicalRenderPlan(const RenderPlan& plan) {
   stream << "},\"duration\":";
   writeNumber(stream, plan.duration.value);
   stream << ",\"layers\":[";
-  for (std::size_t index = 0; index < plan.layers.size(); ++index) {
+  for (std::size_t index = 0; index < layers.size(); ++index) {
     if (index != 0) {
       stream << ',';
     }
-    const RenderLayer& layer = plan.layers[index];
+    const RenderLayer& layer = layers[index];
     stream << '{';
     foundation::writeJsonStringProperty(stream, "sourceNodeId", layer.sourceNodeId.value());
     stream << ',';
@@ -52,11 +117,11 @@ std::string serializeCanonicalRenderPlan(const RenderPlan& plan) {
     stream << ",\"enabled\":" << (layer.enabled ? "true" : "false") << '}';
   }
   stream << "],\"clips\":[";
-  for (std::size_t index = 0; index < plan.clips.size(); ++index) {
+  for (std::size_t index = 0; index < clips.size(); ++index) {
     if (index != 0) {
       stream << ',';
     }
-    const RenderClip& clip = plan.clips[index];
+    const RenderClip& clip = clips[index];
     stream << '{';
     foundation::writeJsonStringProperty(stream, "sourceNodeId", clip.sourceNodeId.value());
     stream << ',';
@@ -66,11 +131,11 @@ std::string serializeCanonicalRenderPlan(const RenderPlan& plan) {
     stream << ",\"enabled\":" << (clip.enabled ? "true" : "false") << '}';
   }
   stream << "],\"cameras\":[";
-  for (std::size_t index = 0; index < plan.cameras.size(); ++index) {
+  for (std::size_t index = 0; index < cameras.size(); ++index) {
     if (index != 0) {
       stream << ',';
     }
-    const RenderCamera& camera = plan.cameras[index];
+    const RenderCamera& camera = cameras[index];
     stream << '{';
     foundation::writeJsonStringProperty(stream, "sourceNodeId", camera.sourceNodeId.value());
     stream << ',';
@@ -82,11 +147,11 @@ std::string serializeCanonicalRenderPlan(const RenderPlan& plan) {
     stream << "},\"enabled\":" << (camera.enabled ? "true" : "false") << '}';
   }
   stream << "],\"effectGraphs\":[";
-  for (std::size_t graphIndex = 0; graphIndex < plan.effectGraphs.size(); ++graphIndex) {
+  for (std::size_t graphIndex = 0; graphIndex < effectGraphs.size(); ++graphIndex) {
     if (graphIndex != 0) {
       stream << ',';
     }
-    const RenderEffectGraph& effectGraph = plan.effectGraphs[graphIndex];
+    const RenderEffectGraph& effectGraph = effectGraphs[graphIndex];
     stream << '{';
     foundation::writeJsonStringProperty(stream, "id", effectGraph.id.value());
     stream << ',';
@@ -120,11 +185,11 @@ std::string serializeCanonicalRenderPlan(const RenderPlan& plan) {
     stream << "]}";
   }
   stream << "],\"diagnostics\":[";
-  for (std::size_t index = 0; index < plan.diagnostics.size(); ++index) {
+  for (std::size_t index = 0; index < diagnostics.size(); ++index) {
     if (index != 0) {
       stream << ',';
     }
-    const ProjectionDiagnostic& diagnostic = plan.diagnostics[index];
+    const ProjectionDiagnostic& diagnostic = diagnostics[index];
     stream << '{';
     foundation::writeJsonStringProperty(stream, "code", diagnostic.code);
     stream << ',';
