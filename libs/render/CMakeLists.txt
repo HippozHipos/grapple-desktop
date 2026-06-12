@@ -1,4 +1,5 @@
 add_library(grapple_render
+  src/ExportSession.cpp
   src/PreviewSession.cpp
 )
 
@@ -15,4 +16,3 @@ target_link_libraries(grapple_render
     Grapple::Projection
     Grapple::Runtime
 )
-
