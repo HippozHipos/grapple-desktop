@@ -23,6 +23,7 @@
 #include <QPushButton>
 #include <QStringList>
 #include <QTextEdit>
+#include <QTimer>
 #include <QVBoxLayout>
 #include <QWidget>
 
@@ -119,7 +120,7 @@ private:
 grapple::foundation::Result<void> ensureDemoVideoFile(const grapple::foundation::FilePath& path) {
   constexpr int width = 320;
   constexpr int height = 180;
-  constexpr int frameCount = 90;
+  constexpr int frameCount = 300;
   const std::filesystem::path videoPath{path.value};
   std::filesystem::create_directories(videoPath.parent_path());
 
@@ -547,9 +548,15 @@ public:
     log_->setObjectName("log");
     log_->setReadOnly(true);
 
+    playbackTimer_ = new QTimer{this};
+    playbackTimer_->setInterval(33);
+    connect(playbackTimer_, &QTimer::timeout, this, [this] { advancePlaybackFrame(); });
+
     auto* refreshButton = new QPushButton{"Refresh Preview"};
     playheadLabel_ = new QLabel;
     playheadLabel_->setObjectName("playheadLabel");
+    auto* playButton = new QPushButton{"Play"};
+    auto* pauseButton = new QPushButton{"Pause"};
     auto* seekStartButton = new QPushButton{"Seek Start"};
     auto* stepBackButton = new QPushButton{"Step -1s"};
     auto* stepForwardButton = new QPushButton{"Step +1s"};
@@ -559,6 +566,8 @@ public:
     auto* actionColumn = new QVBoxLayout;
     actionColumn->addWidget(refreshButton);
     actionColumn->addWidget(playheadLabel_);
+    actionColumn->addWidget(playButton);
+    actionColumn->addWidget(pauseButton);
     actionColumn->addWidget(seekStartButton);
     actionColumn->addWidget(stepBackButton);
     actionColumn->addWidget(stepForwardButton);
@@ -585,6 +594,8 @@ public:
     setCentralWidget(root);
 
     connect(refreshButton, &QPushButton::clicked, this, [this] { refreshPreview(); });
+    connect(playButton, &QPushButton::clicked, this, [this] { startPlayback(); });
+    connect(pauseButton, &QPushButton::clicked, this, [this] { pausePlayback(); });
     connect(seekStartButton, &QPushButton::clicked, this, [this] { seekTo(grapple::foundation::TimeSeconds{0.0}); });
     connect(stepBackButton, &QPushButton::clicked, this, [this] { stepPlayhead(-1.0); });
     connect(stepForwardButton, &QPushButton::clicked, this, [this] { stepPlayhead(1.0); });
@@ -623,6 +634,7 @@ public:
     summary_->setText(summaryText(viewModel.value()));
     timeline_->setViewModel(viewModel.value());
     timeline_->setPlayhead(preview_.state().playhead);
+    timelineDuration_ = viewModel.value().timeline.duration;
   }
 
   void refreshPreview() {
@@ -668,6 +680,45 @@ public:
     const double duration = std::max(0.0, viewModel.value().timeline.duration.value);
     const double current = preview_.state().playhead.value;
     seekTo(grapple::foundation::TimeSeconds{std::clamp(current + deltaSeconds, 0.0, duration)});
+  }
+
+  void startPlayback() {
+    const auto play = preview_.play();
+    if (!play) {
+      appendError(play.error());
+      return;
+    }
+
+    playbackTimer_->start();
+    renderCurrentFrame();
+  }
+
+  void pausePlayback() {
+    playbackTimer_->stop();
+    const auto pause = preview_.pause();
+    if (!pause) {
+      appendError(pause.error());
+      return;
+    }
+
+    renderCurrentFrame();
+  }
+
+  void advancePlaybackFrame() {
+    if (preview_.state().playback != grapple::render::PreviewPlaybackState::Playing) {
+      playbackTimer_->stop();
+      return;
+    }
+
+    const double duration = std::max(0.0, timelineDuration_.value);
+    const double next = preview_.state().playhead.value + (1.0 / 30.0);
+    if (duration <= 0.0 || next >= duration) {
+      seekTo(grapple::foundation::TimeSeconds{duration});
+      pausePlayback();
+      return;
+    }
+
+    seekTo(grapple::foundation::TimeSeconds{next});
   }
 
   void addTrack() {
@@ -751,6 +802,8 @@ private:
   TimelinePanel* timeline_ = nullptr;
   QTextEdit* log_ = nullptr;
   QFrame* previewFrame_ = nullptr;
+  QTimer* playbackTimer_ = nullptr;
+  grapple::foundation::TimeSeconds timelineDuration_;
 };
 
 } // namespace
@@ -759,6 +812,7 @@ int main(int argc, char* argv[]) {
   bool smoke = false;
   bool mutateSmoke = false;
   bool seekSmoke = false;
+  bool playbackSmoke = false;
   std::optional<std::string> screenshotPath;
   for (int index = 1; index < argc; ++index) {
     const std::string argument{argv[index]};
@@ -768,10 +822,12 @@ int main(int argc, char* argv[]) {
       mutateSmoke = true;
     } else if (argument == "--seek-smoke") {
       seekSmoke = true;
+    } else if (argument == "--playback-smoke") {
+      playbackSmoke = true;
     } else if (argument == "--screenshot" && index + 1 < argc) {
       screenshotPath = argv[++index];
     } else {
-      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, or --screenshot <path>.\n";
+      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --playback-smoke, or --screenshot <path>.\n";
       return 1;
     }
   }
@@ -840,6 +896,15 @@ int main(int argc, char* argv[]) {
     const grapple::render::PreviewRenderShellState previewState = preview.state();
     std::cout << "playhead=" << previewState.playhead.value << '\n';
     return previewState.playhead == grapple::foundation::TimeSeconds{5.0} ? 0 : 1;
+  }
+
+  if (playbackSmoke) {
+    window.startPlayback();
+    window.advancePlaybackFrame();
+    window.pausePlayback();
+    const grapple::render::PreviewRenderShellState previewState = preview.state();
+    std::cout << "playhead=" << previewState.playhead.value << '\n';
+    return previewState.playhead.value > 0.0 ? 0 : 1;
   }
 
   if (screenshotPath.has_value()) {
