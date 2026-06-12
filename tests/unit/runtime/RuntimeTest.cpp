@@ -109,6 +109,12 @@ grapple::projection::RenderPlan makeEffectPlan(std::string source) {
   return plan;
 }
 
+grapple::projection::RenderPlan makeEffectPlanWithCameraX(double cameraX) {
+  grapple::projection::RenderPlan plan = makeEffectPlan("def prepare(): pass");
+  plan.cameras[0].transform.position.x = cameraX;
+  return plan;
+}
+
 grapple::projection::RenderPlan makeClipEffectPlan() {
   grapple::projection::RenderPlan plan = makeClipPlan(1.0);
   plan.effectGraphs.push_back(grapple::projection::RenderEffectGraph{
@@ -274,6 +280,7 @@ int main() {
   const runtime::RuntimeDependencyGraph changedClip = planner.build(makeClipPlan(2.0));
   const runtime::RuntimeDependencyGraph firstEffect = planner.build(makeEffectPlan("def prepare(): pass"));
   const runtime::RuntimeDependencyGraph changedEffect = planner.build(makeEffectPlan("def prepare(): return 1"));
+  const runtime::RuntimeDependencyGraph cameraEffect = planner.build(makeEffectPlanWithCameraX(0.0));
   const runtime::RuntimeDependencyGraph clipEffect = planner.build(makeClipEffectPlan());
   const runtime::RuntimeDependencyGraph effectChain = planner.build(makeEffectChainPlan(0.1));
 
@@ -291,12 +298,22 @@ int main() {
     foundation::TimeSeconds{10.0}
   };
   GRAPPLE_REQUIRE(firstClip.nodes[0].activeRange == expectedClipRange);
-  GRAPPLE_REQUIRE(firstEffect.nodes.size() == 1);
-  GRAPPLE_REQUIRE(firstEffect.nodes[0].id == runtime::RuntimeDependencyId{"dep_node_effect"});
-  GRAPPLE_REQUIRE(firstEffect.nodes[0].renderNodeId == foundation::NodeId{"node_effect"});
-  GRAPPLE_REQUIRE(firstEffect.nodes[0].inputDependencies.empty());
+  GRAPPLE_REQUIRE(firstEffect.nodes.size() == 2);
+  GRAPPLE_REQUIRE(firstEffect.nodes[0].id == runtime::RuntimeDependencyId{"dep_node_camera"});
+  GRAPPLE_REQUIRE(firstEffect.nodes[0].renderNodeId == foundation::NodeId{"node_camera"});
+  GRAPPLE_REQUIRE(firstEffect.nodes[1].id == runtime::RuntimeDependencyId{"dep_node_effect"});
+  GRAPPLE_REQUIRE(firstEffect.nodes[1].renderNodeId == foundation::NodeId{"node_effect"});
+  GRAPPLE_REQUIRE(firstEffect.nodes[1].inputDependencies.size() == 1);
+  GRAPPLE_REQUIRE(firstEffect.nodes[1].inputDependencies[0] == runtime::RuntimeDependencyId{"dep_node_camera"});
   GRAPPLE_REQUIRE(!(firstEffect.planHash == changedEffect.planHash));
-  GRAPPLE_REQUIRE(!(firstEffect.nodes[0].implementationHash == changedEffect.nodes[0].implementationHash));
+  GRAPPLE_REQUIRE(!(firstEffect.nodes[1].implementationHash == changedEffect.nodes[1].implementationHash));
+  const runtime::RuntimeInvalidationResult cameraParamInvalidation = planner.diff(runtime::RuntimeInvalidationRequest{
+    cameraEffect,
+    makeEffectPlanWithCameraX(24.0)
+  });
+  GRAPPLE_REQUIRE(cameraParamInvalidation.invalidatedDependencies.size() == 2);
+  GRAPPLE_REQUIRE(cameraParamInvalidation.invalidatedDependencies[0] == runtime::RuntimeDependencyId{"dep_node_camera"});
+  GRAPPLE_REQUIRE(cameraParamInvalidation.invalidatedDependencies[1] == runtime::RuntimeDependencyId{"dep_node_effect"});
   GRAPPLE_REQUIRE(clipEffect.nodes.size() == 2);
   GRAPPLE_REQUIRE(clipEffect.nodes[1].inputDependencies.size() == 1);
   GRAPPLE_REQUIRE(clipEffect.nodes[1].inputDependencies[0] == runtime::RuntimeDependencyId{"dep_node_clip"});

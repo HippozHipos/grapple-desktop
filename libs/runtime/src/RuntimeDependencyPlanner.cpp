@@ -161,6 +161,20 @@ RuntimeDependencyGraph RuntimeDependencyPlanner::build(const projection::RenderP
     dependencies.push_back(RenderNodeDependency{clip.sourceNodeId, dependencyId});
   }
 
+  for (const projection::RenderCamera& camera : plan.cameras) {
+    const RuntimeDependencyId dependencyId = dependencyIdFor(camera.sourceNodeId);
+    graph.nodes.push_back(RuntimeDependencyNode{
+      dependencyId,
+      camera.sourceNodeId,
+      projection::hashRenderCameraImplementation(),
+      projection::hashRenderCameraParams(camera),
+      {},
+      {},
+      foundation::TimeRange{foundation::TimeSeconds{0.0}, plan.duration}
+    });
+    dependencies.push_back(RenderNodeDependency{camera.sourceNodeId, dependencyId});
+  }
+
   for (const projection::RenderEffectGraph& effectGraph : plan.effectGraphs) {
     for (const projection::RenderEffectNode& effectNode : effectGraph.nodes) {
       const RuntimeDependencyId dependencyId = dependencyIdFor(effectNode.sourceNodeId);

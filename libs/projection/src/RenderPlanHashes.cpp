@@ -18,6 +18,22 @@ foundation::Hash256 hashRenderClipParams(const RenderClip& clip) {
   return foundation::stableHash(stream.str());
 }
 
+foundation::Hash256 hashRenderCameraImplementation() {
+  return foundation::stableHash("runtime.camera");
+}
+
+foundation::Hash256 hashRenderCameraParams(const RenderCamera& camera) {
+  std::ostringstream stream;
+  stream << "camera|" << camera.sourceNodeId.value() << '|'
+         << timeline::serializeCanonicalCameraPayload(timeline::CameraPayload{
+              camera.name,
+              camera.transform,
+              camera.lens
+            }) << '|'
+         << (camera.enabled ? "1" : "0");
+  return foundation::stableHash(stream.str());
+}
+
 foundation::Hash256 hashRenderEffectImplementation(const RenderEffectNode& effectNode) {
   return foundation::stableHash(timeline::serializeCanonicalEffectImplementation(effectNode.payload.implementation));
 }
