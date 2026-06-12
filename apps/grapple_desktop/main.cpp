@@ -70,6 +70,37 @@ QString summaryText(const grapple::app::AppViewModel& viewModel) {
     .arg(viewModel.timeline.effectGraphs.size());
 }
 
+QString mediaBinText(const grapple::app::AppViewModel& viewModel) {
+  QStringList lines;
+  lines << "Media Bin";
+  if (viewModel.assets.rows.empty()) {
+    lines << "No assets";
+    return lines.join('\n');
+  }
+
+  for (const grapple::app::AppAssetRow& asset : viewModel.assets.rows) {
+    QString details = QString{"%1  [%2]\n%3"}
+      .arg(qString(asset.name))
+      .arg(qString(asset.mediaType))
+      .arg(qString(asset.assetId.value()));
+
+    QStringList metadata;
+    if (asset.duration.has_value()) {
+      metadata << QString{"%1s"}.arg(asset.duration->value, 0, 'f', 2);
+    }
+    if (asset.dimensions.has_value()) {
+      metadata << QString{"%1x%2"}.arg(asset.dimensions->width).arg(asset.dimensions->height);
+    }
+    if (!metadata.empty()) {
+      details += "\n" + metadata.join("  ");
+    }
+    details += "\n" + qString(asset.sourcePath.value);
+    lines << "" << details;
+  }
+
+  return lines.join('\n');
+}
+
 QString inspectorText(
   const grapple::app::AppViewModel& viewModel,
   const std::optional<grapple::foundation::NodeId>& selectedNodeId
@@ -651,6 +682,10 @@ public:
     summary_->setObjectName("summary");
     summary_->setAlignment(Qt::AlignTop | Qt::AlignLeft);
 
+    mediaBin_ = new QTextEdit;
+    mediaBin_->setObjectName("mediaBin");
+    mediaBin_->setReadOnly(true);
+
     previewFrame_ = new QFrame;
     previewFrame_->setObjectName("previewFrame");
     previewFrame_->setMinimumSize(520, 320);
@@ -709,7 +744,14 @@ public:
     actions->setObjectName("actions");
     actions->setLayout(actionColumn);
 
-    layout->addWidget(summary_, 0, 0, 1, 1);
+    auto* leftPanel = new QWidget;
+    auto* leftLayout = new QVBoxLayout{leftPanel};
+    leftLayout->setContentsMargins(0, 0, 0, 0);
+    leftLayout->setSpacing(16);
+    leftLayout->addWidget(summary_);
+    leftLayout->addWidget(mediaBin_, 1);
+
+    layout->addWidget(leftPanel, 0, 0, 2, 1);
     layout->addWidget(previewFrame_, 0, 1, 2, 1);
     auto* sidePanel = new QWidget;
     auto* sideLayout = new QVBoxLayout{sidePanel};
@@ -747,9 +789,10 @@ public:
     setStyleSheet(R"(
       QMainWindow { background: #15171c; color: #e9edf5; }
       QWidget { background: #15171c; color: #e9edf5; font-family: "DejaVu Sans"; font-size: 14px; }
-      QLabel#summary, QTextEdit#timeline, QTextEdit#inspector, QTextEdit#log, QWidget#actions {
+      QLabel#summary, QTextEdit#mediaBin, QTextEdit#timeline, QTextEdit#inspector, QTextEdit#log, QWidget#actions {
         background: #20242d; border: 1px solid #343b4a; border-radius: 10px; padding: 12px;
       }
+      QTextEdit#mediaBin { color: #dce8f6; }
       QTextEdit#inspector { color: #eaf3ff; }
       QTextEdit#log { color: #b8c7dc; }
       QFrame#previewFrame {
@@ -775,6 +818,7 @@ public:
       return;
     }
     summary_->setText(summaryText(viewModel.value()));
+    mediaBin_->setPlainText(mediaBinText(viewModel.value()));
     timeline_->setViewModel(viewModel.value());
     timeline_->setPlayhead(workspace_.preview().state().playhead);
     timeline_->setSelectedNodeId(selectedNodeId_);
@@ -1125,6 +1169,7 @@ private:
 
   grapple::app::NativeWorkspaceSession& workspace_;
   QLabel* summary_ = nullptr;
+  QTextEdit* mediaBin_ = nullptr;
   QLabel* previewTitle_ = nullptr;
   QLabel* playheadLabel_ = nullptr;
   PreviewSurface* previewSurface_ = nullptr;

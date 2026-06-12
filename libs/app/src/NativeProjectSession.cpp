@@ -1,5 +1,6 @@
 #include <grapple/app/NativeProjectSession.hpp>
 
+#include <grapple/asset/Asset.hpp>
 #include <grapple/storage/ProjectPackageManifest.hpp>
 #include <grapple/storage/ProjectPackageWriter.hpp>
 
@@ -18,6 +19,19 @@ std::size_t countClipsForLayer(
   return static_cast<std::size_t>(std::count_if(clips.begin(), clips.end(), [&](const projection::RenderClip& clip) {
     return clip.trackNodeId == layerNodeId;
   }));
+}
+
+std::string mediaTypeName(asset::AssetMediaType mediaType) {
+  switch (mediaType) {
+    case asset::AssetMediaType::Video:
+      return "video";
+    case asset::AssetMediaType::Audio:
+      return "audio";
+    case asset::AssetMediaType::Image:
+      return "image";
+  }
+
+  return "unknown";
 }
 
 } // namespace
@@ -97,8 +111,19 @@ foundation::Result<AppViewModel> NativeProjectSession::buildViewModel() const {
     snapshot.revisionNumber,
     snapshot.canonicalHash
   };
-  viewModel.assets = AppAssetSummary{snapshot.assets.assets().size()};
+  viewModel.assets.count = snapshot.assets.assets().size();
   viewModel.timeline.duration = plan.duration;
+
+  for (const asset::Asset& asset : snapshot.assets.assets()) {
+    viewModel.assets.rows.push_back(AppAssetRow{
+      asset.id,
+      asset.name,
+      mediaTypeName(asset.metadata.mediaType),
+      asset.metadata.sourcePath,
+      asset.metadata.duration,
+      asset.metadata.dimensions
+    });
+  }
 
   for (const graph::GraphNode& node : snapshot.graph.nodes()) {
     if (node.kind == graph::NodeKind::Composition) {

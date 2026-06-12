@@ -3,6 +3,7 @@
 #include <grapple/app/NativeProjectCommandWriter.hpp>
 #include <grapple/app/NativeProjectSession.hpp>
 #include <grapple/app/NativeWorkspaceSession.hpp>
+#include <grapple/asset/Asset.hpp>
 #include <grapple/history/HistorySerializer.hpp>
 #include <grapple/project/ProjectSerializer.hpp>
 #include <grapple/storage/ProjectPackageManifest.hpp>
@@ -103,6 +104,7 @@ int main() {
   GRAPPLE_REQUIRE(viewModel.value().project.revision == foundation::RevisionId{"rev_1"});
   GRAPPLE_REQUIRE(viewModel.value().project.revisionNumber == 1);
   GRAPPLE_REQUIRE(viewModel.value().assets.count == 0);
+  GRAPPLE_REQUIRE(viewModel.value().assets.rows.empty());
   GRAPPLE_REQUIRE(viewModel.value().timeline.duration == foundation::TimeSeconds{0.0});
   GRAPPLE_REQUIRE(viewModel.value().timeline.compositions.size() == 1);
   GRAPPLE_REQUIRE(viewModel.value().timeline.compositions[0].sourceNodeId == foundation::NodeId{"node_composition_1"});
@@ -121,6 +123,45 @@ int main() {
   const auto writeWithoutCurrentSnapshot = session.writePackage();
   GRAPPLE_REQUIRE(!writeWithoutCurrentSnapshot);
   GRAPPLE_REQUIRE(writeWithoutCurrentSnapshot.error().code == "app.package_snapshot_missing");
+
+  app::NativeProjectSession assetSession{
+    foundation::ProjectId{"proj_app_assets"},
+    "Asset App Project",
+    storage::ProjectPackage{
+      foundation::ProjectId{"proj_app_assets"},
+      foundation::FilePath{"asset-app.grapple"},
+      1
+    }
+  };
+  app::NativeProjectCommandWriter assetWriter{assetSession};
+  const auto registeredAsset = assetWriter.apply(
+    project::RegisterAssetCommand{asset::Asset{
+      foundation::AssetId{"asset_clip"},
+      "Clip",
+      asset::AssetMetadata{
+        asset::AssetMediaType::Video,
+        foundation::FilePath{"/tmp/clip.mov"},
+        std::nullopt,
+        foundation::TimeSeconds{12.5},
+        foundation::Resolution{1920, 1080},
+        foundation::FrameRate{30000, 1001}
+      }
+    }},
+    userSource()
+  );
+  GRAPPLE_REQUIRE(registeredAsset);
+  const auto assetViewModel = assetSession.buildViewModel();
+  GRAPPLE_REQUIRE(assetViewModel);
+  GRAPPLE_REQUIRE(assetViewModel.value().assets.count == 1);
+  GRAPPLE_REQUIRE(assetViewModel.value().assets.rows.size() == 1);
+  GRAPPLE_REQUIRE(assetViewModel.value().assets.rows[0].assetId == foundation::AssetId{"asset_clip"});
+  GRAPPLE_REQUIRE(assetViewModel.value().assets.rows[0].name == "Clip");
+  GRAPPLE_REQUIRE(assetViewModel.value().assets.rows[0].mediaType == "video");
+  GRAPPLE_REQUIRE(assetViewModel.value().assets.rows[0].sourcePath == foundation::FilePath{"/tmp/clip.mov"});
+  GRAPPLE_REQUIRE(assetViewModel.value().assets.rows[0].duration == foundation::TimeSeconds{12.5});
+  GRAPPLE_REQUIRE(assetViewModel.value().assets.rows[0].dimensions.has_value());
+  GRAPPLE_REQUIRE(assetViewModel.value().assets.rows[0].dimensions->width == 1920);
+  GRAPPLE_REQUIRE(assetViewModel.value().assets.rows[0].dimensions->height == 1080);
 
   app::NativePreviewSession preview{session};
   const auto frameBeforeRefresh = preview.renderFrame(render::RenderFrameRequest{

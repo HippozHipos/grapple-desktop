@@ -1,11 +1,14 @@
 #pragma once
 
 #include <grapple/foundation/Hash.hpp>
+#include <grapple/foundation/FilePath.hpp>
+#include <grapple/foundation/Geometry.hpp>
 #include <grapple/foundation/StrongId.hpp>
 #include <grapple/foundation/Time.hpp>
 
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -19,13 +22,23 @@ struct AppProjectSummary {
   foundation::Hash256 canonicalHash;
 };
 
-struct AppAssetSummary {
-  std::size_t count = 0;
-};
-
 struct AppCompositionRow {
   foundation::NodeId sourceNodeId;
   std::string name;
+};
+
+struct AppAssetRow {
+  foundation::AssetId assetId;
+  std::string name;
+  std::string mediaType;
+  foundation::FilePath sourcePath;
+  std::optional<foundation::TimeSeconds> duration;
+  std::optional<foundation::Resolution> dimensions;
+};
+
+struct AppAssetSummary {
+  std::size_t count = 0;
+  std::vector<AppAssetRow> rows;
 };
 
 struct AppLayerRow {
