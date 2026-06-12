@@ -21,3 +21,6 @@ Rules:
 - Preview and final render may differ in latency/quality policy, frame stepping,
   surfaces, encoding, and progress reporting only.
 - `agent` tools will call typed project commands and queries only.
+- Agent-authored edits must produce canonical graph nodes, effect payloads, and
+  user-editable parameter controls; agents should not hide durable edits in
+  black-box outputs when an editable representation exists.
