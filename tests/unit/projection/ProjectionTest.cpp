@@ -1,6 +1,7 @@
 #include <grapple/graph/GraphNode.hpp>
 #include <grapple/project/ProjectController.hpp>
 #include <grapple/project/ProjectSerializer.hpp>
+#include <grapple/projection/ProjectionQueryService.hpp>
 #include <grapple/projection/RenderPlanBuilder.hpp>
 #include <grapple/projection/RenderPlanSerializer.hpp>
 #include <grapple/projection/TimelineProjector.hpp>
@@ -10,7 +11,39 @@
 #include <algorithm>
 #include <optional>
 #include <string>
+#include <utility>
 #include <variant>
+
+namespace {
+
+class CountingProjectQueryService final : public grapple::project::IProjectQueryService {
+public:
+  explicit CountingProjectQueryService(grapple::project::ProjectSnapshot snapshot)
+    : snapshot_(std::move(snapshot)) {}
+
+  grapple::foundation::Result<grapple::project::ProjectQueryResult> query(
+    const grapple::project::ProjectQuery& query
+  ) const override {
+    ++queryCount;
+    if (std::holds_alternative<grapple::project::GetProjectSnapshotQuery>(query)) {
+      return grapple::project::ProjectQueryResult{
+        grapple::project::ProjectSnapshotResult{snapshot_}
+      };
+    }
+
+    return grapple::foundation::Error{
+      "test.unexpected_query",
+      "Projection query service should request the project snapshot."
+    };
+  }
+
+  mutable int queryCount = 0;
+
+private:
+  grapple::project::ProjectSnapshot snapshot_;
+};
+
+} // namespace
 
 int main() {
   using namespace grapple;
@@ -179,6 +212,16 @@ int main() {
   GRAPPLE_REQUIRE(planResult.value().plan.effectGraphs[0].edges[0].targetPort == graph::PortName{"input"});
   GRAPPLE_REQUIRE(planResult.value().plan.effectGraphs[0].edges[0].order == 7);
   GRAPPLE_REQUIRE(planResult.value().diagnostics.empty());
+
+  CountingProjectQueryService projectQueries{snapshot.value()};
+  const projection::ProjectionQueryService projectionQueries{projectQueries};
+  const auto queriedPlan = projectionQueries.buildCurrentRenderPlan();
+  GRAPPLE_REQUIRE(queriedPlan);
+  GRAPPLE_REQUIRE(projectQueries.queryCount == 1);
+  GRAPPLE_REQUIRE(
+    projection::serializeCanonicalRenderPlan(queriedPlan.value().plan) ==
+    projection::serializeCanonicalRenderPlan(planResult.value().plan)
+  );
 
   const std::string serializedPlan = projection::serializeCanonicalRenderPlan(planResult.value().plan);
   GRAPPLE_REQUIRE(serializedPlan.find("\"projectId\":\"proj_projection\"") != std::string::npos);

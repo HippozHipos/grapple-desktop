@@ -1,5 +1,6 @@
 add_library(grapple_projection
   src/TimelineProjector.cpp
+  src/ProjectionQueryService.cpp
   src/RenderPlanBuilder.cpp
   src/RenderPlanHashes.cpp
   src/RenderPlanSerializer.cpp
