@@ -227,6 +227,33 @@ int main() {
   GRAPPLE_REQUIRE(loadedHistoryLogs);
   GRAPPLE_REQUIRE(history::serializeCanonicalCommandLog(loadedHistoryLogs.value().commandLog) == commandLogContents.str());
   GRAPPLE_REQUIRE(history::serializeCanonicalEventLog(loadedHistoryLogs.value().eventLog) == eventLogContents.str());
+  auto openedSession = storage::ProjectPackageSession::open(diskPackage);
+  GRAPPLE_REQUIRE(openedSession);
+  const auto openedSnapshot = openedSession.value().snapshot();
+  GRAPPLE_REQUIRE(openedSnapshot);
+  GRAPPLE_REQUIRE(project::serializeCanonicalProjectSnapshot(openedSnapshot.value()) == snapshotContents.str());
+  GRAPPLE_REQUIRE(openedSession.value().packageState().commandLog.records().size() == 1);
+  GRAPPLE_REQUIRE(openedSession.value().packageState().eventLog.records().size() == 2);
+  GRAPPLE_REQUIRE(openedSession.value().packageState().head.has_value());
+  GRAPPLE_REQUIRE(openedSession.value().packageState().head->currentRevision == foundation::RevisionId{"rev_1"});
+  const auto openedTrack = openedSession.value().applyAndCommit(
+    project::ProjectCommandEnvelope{
+      foundation::CommandId{"cmd_opened_track"},
+      foundation::ProjectId{"proj_storage"},
+      openedSnapshot.value().revision,
+      project::CommandSource{project::CommandSourceKind::User, std::nullopt, "opened"},
+      project::CreateTrackCommand{
+        foundation::NodeId{"node_opened_track"},
+        foundation::NodeId{"node_composition"},
+        foundation::EdgeId{"edge_opened_contains_track"},
+        "Opened Track"
+      }
+    },
+    storage::ProjectCommitRecordOptions{std::chrono::system_clock::now(), std::nullopt}
+  );
+  GRAPPLE_REQUIRE(openedTrack);
+  GRAPPLE_REQUIRE(openedTrack.value().snapshot.revision == foundation::RevisionId{"rev_2"});
+  GRAPPLE_REQUIRE(openedSession.value().packageState().commandLog.records().size() == 2);
 
   storage::ProjectPackageManifest wrongProjectManifest = manifest.value();
   wrongProjectManifest.projectId = foundation::ProjectId{"proj_other"};

@@ -23,5 +23,6 @@ struct ProjectSnapshot {
 };
 
 [[nodiscard]] ProjectSnapshot makeProjectSnapshot(const ProjectDocument& document);
+[[nodiscard]] ProjectDocument makeProjectDocument(const ProjectSnapshot& snapshot);
 
 } // namespace grapple::project

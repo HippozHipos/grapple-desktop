@@ -232,6 +232,26 @@ int main() {
   GRAPPLE_REQUIRE(readLogs);
   GRAPPLE_REQUIRE(history::serializeCanonicalCommandLog(readLogs.value().commandLog) == savedCommandLogContents.str());
   GRAPPLE_REQUIRE(history::serializeCanonicalEventLog(readLogs.value().eventLog) == savedEventLogContents.str());
+  auto openedSavedSession = app::NativeProjectSession::openPackage(savedSession.packageState().package);
+  GRAPPLE_REQUIRE(openedSavedSession);
+  const auto openedSavedViewModel = openedSavedSession.value().buildViewModel();
+  GRAPPLE_REQUIRE(openedSavedViewModel);
+  GRAPPLE_REQUIRE(openedSavedViewModel.value().project.projectId == foundation::ProjectId{"proj_app_saved"});
+  GRAPPLE_REQUIRE(openedSavedViewModel.value().project.revision == foundation::RevisionId{"rev_1"});
+  GRAPPLE_REQUIRE(openedSavedViewModel.value().timeline.compositions.size() == 1);
+  GRAPPLE_REQUIRE(openedSavedSession.value().packageState().commandLog.records().size() == 1);
+  app::NativeProjectCommandWriter openedWriter{openedSavedSession.value()};
+  const auto openedTrack = openedWriter.apply(
+    project::CreateTrackCommand{
+      openedWriter.nextNodeId("opened track"),
+      openedSavedViewModel.value().timeline.compositions[0].sourceNodeId,
+      openedWriter.nextEdgeId("contains opened track"),
+      "Opened Track"
+    },
+    userSource()
+  );
+  GRAPPLE_REQUIRE(openedTrack);
+  GRAPPLE_REQUIRE(openedTrack.value().snapshot.revision == foundation::RevisionId{"rev_2"});
   std::filesystem::remove_all(packageRoot);
 
   const auto firstCommandId = session.packageState().commandLog.records()[0].id;

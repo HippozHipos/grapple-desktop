@@ -18,4 +18,15 @@ ProjectSnapshot makeProjectSnapshot(const ProjectDocument& document) {
   return snapshot;
 }
 
+ProjectDocument makeProjectDocument(const ProjectSnapshot& snapshot) {
+  return ProjectDocument{
+    snapshot.info,
+    snapshot.revision,
+    snapshot.revisionNumber,
+    snapshot.settings,
+    snapshot.assets,
+    snapshot.graph
+  };
+}
+
 } // namespace grapple::project

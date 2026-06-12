@@ -22,6 +22,9 @@ class NativeProjectSession final : public project::IProjectQueryService {
 public:
   NativeProjectSession(foundation::ProjectId projectId, std::string projectName, storage::ProjectPackage package);
   NativeProjectSession(project::ProjectDocument document, storage::ProjectPackage package);
+  explicit NativeProjectSession(storage::ProjectPackageSession session);
+
+  static foundation::Result<NativeProjectSession> openPackage(storage::ProjectPackage package);
 
   foundation::Result<storage::ProjectPackageSessionResult> applyAndCommit(
     const project::ProjectCommandEnvelope& command,

@@ -5,6 +5,9 @@ namespace grapple::storage {
 ProjectPackageStore::ProjectPackageStore(ProjectPackage package)
   : state_{std::move(package), std::nullopt, {}, {}, {}, std::nullopt} {}
 
+ProjectPackageStore::ProjectPackageStore(ProjectPackageState state)
+  : state_{std::move(state)} {}
+
 foundation::Result<void> ProjectPackageStore::commit(const AtomicProjectCommit& commit) {
   if (commit.projectSnapshot.info.id != state_.package.projectId) {
     return foundation::Error{"storage.project_id_mismatch", "Committed project snapshot must match package project id."};

@@ -34,6 +34,17 @@ NativeProjectSession::NativeProjectSession(
 NativeProjectSession::NativeProjectSession(project::ProjectDocument document, storage::ProjectPackage package)
   : session_{std::move(document), std::move(package)} {}
 
+NativeProjectSession::NativeProjectSession(storage::ProjectPackageSession session)
+  : session_{std::move(session)} {}
+
+foundation::Result<NativeProjectSession> NativeProjectSession::openPackage(storage::ProjectPackage package) {
+  auto session = storage::ProjectPackageSession::open(std::move(package));
+  if (!session) {
+    return session.error();
+  }
+  return NativeProjectSession{std::move(session.value())};
+}
+
 foundation::Result<storage::ProjectPackageSessionResult> NativeProjectSession::applyAndCommit(
   const project::ProjectCommandEnvelope& command,
   storage::ProjectCommitRecordOptions options

@@ -36,6 +36,7 @@ int main(int argc, char* argv[]) {
   bool printPreviewFrame = false;
   bool runExportSmoke = false;
   bool savePackage = false;
+  bool openPackageSmoke = false;
   if (argc == 2) {
     const std::string argument{argv[1]};
     if (argument == "--render-plan-json") {
@@ -46,12 +47,15 @@ int main(int argc, char* argv[]) {
       runExportSmoke = true;
     } else if (argument == "--save-package") {
       savePackage = true;
+    } else if (argument == "--open-package-smoke") {
+      savePackage = true;
+      openPackageSmoke = true;
     } else {
       std::cerr << "Unknown argument: " << argument << '\n';
       return 1;
     }
   } else if (argc > 2) {
-    std::cerr << "Expected zero arguments, --render-plan-json, --preview-frame, --export-smoke, or --save-package.\n";
+    std::cerr << "Expected zero arguments, --render-plan-json, --preview-frame, --export-smoke, --save-package, or --open-package-smoke.\n";
     return 1;
   }
 
@@ -161,6 +165,24 @@ int main(int argc, char* argv[]) {
     std::cout << "manifest=" << write.value().manifestPath.value << '\n';
     std::cout << "commands=" << write.value().commandLogPath.value << '\n';
     std::cout << "events=" << write.value().eventLogPath.value << '\n';
+    if (openPackageSmoke) {
+      auto opened = app::NativeProjectSession::openPackage(storage::ProjectPackage{
+        foundation::ProjectId{"proj_cli"},
+        foundation::FilePath{"/tmp/grapple-cli-package"},
+        1
+      });
+      if (!opened) {
+        printError(opened.error());
+        return 1;
+      }
+      const auto openedViewModel = opened.value().buildViewModel();
+      if (!openedViewModel) {
+        printError(openedViewModel.error());
+        return 1;
+      }
+      std::cout << "openedRevision=" << openedViewModel.value().project.revision.value() << '\n';
+      std::cout << "openedCommands=" << opened.value().packageState().commandLog.records().size() << '\n';
+    }
     return 0;
   }
 

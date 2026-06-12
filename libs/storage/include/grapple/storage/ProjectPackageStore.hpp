@@ -32,6 +32,7 @@ struct ProjectPackageState {
 class ProjectPackageStore {
 public:
   explicit ProjectPackageStore(ProjectPackage package);
+  explicit ProjectPackageStore(ProjectPackageState state);
 
   foundation::Result<void> commit(const AtomicProjectCommit& commit);
   [[nodiscard]] const ProjectPackageState& state() const noexcept;

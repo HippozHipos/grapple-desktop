@@ -18,6 +18,9 @@ struct ProjectPackageSessionResult {
 class ProjectPackageSession {
 public:
   ProjectPackageSession(project::ProjectDocument document, ProjectPackage package);
+  ProjectPackageSession(project::ProjectDocument document, ProjectPackageState state);
+
+  static foundation::Result<ProjectPackageSession> open(ProjectPackage package);
 
   foundation::Result<ProjectPackageSessionResult> applyAndCommit(
     const project::ProjectCommandEnvelope& command,
