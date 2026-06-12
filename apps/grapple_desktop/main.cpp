@@ -3,7 +3,9 @@
 #include <grapple/app/NativeProjectSession.hpp>
 #include <grapple/app/NativeWorkspaceSession.hpp>
 #include <grapple/asset/Asset.hpp>
+#include <grapple/graph/GraphNode.hpp>
 #include <grapple/media/MediaSource.hpp>
+#include <grapple/timeline/Payloads.hpp>
 
 #include <QApplication>
 #include <QColor>
@@ -750,6 +752,7 @@ public:
     auto* addMediaButton = new QPushButton{"Add Video To Timeline"};
     auto* openPackageButton = new QPushButton{"Open Package"};
     auto* addTrackButton = new QPushButton{"Add Track"};
+    auto* moveClipButton = new QPushButton{"Move Clip +1s"};
     auto* deleteClipButton = new QPushButton{"Delete Clip"};
     auto* exportButton = new QPushButton{"Export Smoke"};
     auto* saveButton = new QPushButton{"Save Package"};
@@ -765,6 +768,7 @@ public:
     actionColumn->addWidget(addMediaButton);
     actionColumn->addWidget(openPackageButton);
     actionColumn->addWidget(addTrackButton);
+    actionColumn->addWidget(moveClipButton);
     actionColumn->addWidget(deleteClipButton);
     actionColumn->addWidget(exportButton);
     actionColumn->addWidget(saveButton);
@@ -811,6 +815,7 @@ public:
     connect(addMediaButton, &QPushButton::clicked, this, [this] { addSelectedVideoToTimeline(); });
     connect(openPackageButton, &QPushButton::clicked, this, [this] { chooseAndOpenPackage(); });
     connect(addTrackButton, &QPushButton::clicked, this, [this] { addTrack(); });
+    connect(moveClipButton, &QPushButton::clicked, this, [this] { moveSelectedClip(grapple::foundation::TimeSeconds{1.0}); });
     connect(deleteClipButton, &QPushButton::clicked, this, [this] { deleteSelectedClip(); });
     connect(exportButton, &QPushButton::clicked, this, [this] { runExport(); });
     connect(saveButton, &QPushButton::clicked, this, [this] { savePackage(); });
@@ -1167,6 +1172,53 @@ public:
     log_->append(QString{"Deleted clip at %1"}.arg(qString(deleted.value().snapshot.revision.value())));
   }
 
+  void moveSelectedClip(grapple::foundation::TimeSeconds delta) {
+    if (!selectedNodeId_.has_value()) {
+      appendError(grapple::foundation::Error{"desktop.selection_missing", "Move Clip requires a selected clip."});
+      return;
+    }
+
+    const auto snapshot = workspace_.project().snapshot();
+    if (!snapshot) {
+      appendError(snapshot.error());
+      return;
+    }
+
+    const grapple::graph::GraphNode* node = snapshot.value().graph.findNode(selectedNodeId_.value());
+    if (node == nullptr || node->kind != grapple::graph::NodeKind::Clip) {
+      appendError(grapple::foundation::Error{"desktop.selected_node_not_clip", "Move Clip only applies to selected clips."});
+      return;
+    }
+
+    const auto* payload = std::get_if<grapple::timeline::ClipPayload>(&node->payload);
+    if (payload == nullptr) {
+      appendError(grapple::foundation::Error{"desktop.clip_payload_invalid", "Selected clip node must carry a clip payload."});
+      return;
+    }
+
+    grapple::timeline::ClipPayload updatedPayload = *payload;
+    const grapple::foundation::TimeSeconds nextStart{updatedPayload.timelineRange.start.value + delta.value};
+    const grapple::foundation::TimeSeconds nextEnd{updatedPayload.timelineRange.end.value + delta.value};
+    if (nextStart.value < 0.0) {
+      appendError(grapple::foundation::Error{"desktop.clip_move_before_zero", "Move Clip would place the clip before timeline start."});
+      return;
+    }
+    updatedPayload.timelineRange = grapple::foundation::TimeRange{nextStart, nextEnd};
+
+    const auto moved = workspace_.commandWriter().apply(
+      grapple::project::UpdateClipCommand{selectedNodeId_.value(), updatedPayload},
+      userSource()
+    );
+    if (!moved) {
+      appendError(moved.error());
+      return;
+    }
+
+    refreshViewModel();
+    refreshPreview();
+    log_->append(QString{"Moved clip at %1"}.arg(qString(moved.value().snapshot.revision.value())));
+  }
+
   void runExport() {
     const auto prepare = workspace_.exportSession().prepareFromProject();
     if (!prepare) {
@@ -1325,6 +1377,7 @@ int main(int argc, char* argv[]) {
   bool selectCameraSmoke = false;
   bool importSmoke = false;
   bool addVideoSmoke = false;
+  bool moveClipSmoke = false;
   bool deleteSmoke = false;
   bool playbackSmoke = false;
   bool openPackageSmoke = false;
@@ -1348,6 +1401,8 @@ int main(int argc, char* argv[]) {
       importSmoke = true;
     } else if (argument == "--add-video-smoke") {
       addVideoSmoke = true;
+    } else if (argument == "--move-clip-smoke") {
+      moveClipSmoke = true;
     } else if (argument == "--delete-smoke") {
       deleteSmoke = true;
     } else if (argument == "--playback-smoke") {
@@ -1359,7 +1414,7 @@ int main(int argc, char* argv[]) {
     } else if (argument == "--screenshot" && index + 1 < argc) {
       screenshotPath = argv[++index];
     } else {
-      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --select-camera-smoke, --import-smoke, --add-video-smoke, --delete-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, or --screenshot <path>.\n";
+      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --select-camera-smoke, --import-smoke, --add-video-smoke, --move-clip-smoke, --delete-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, or --screenshot <path>.\n";
       return 1;
     }
   }
@@ -1502,6 +1557,31 @@ int main(int argc, char* argv[]) {
     return viewModel.value().assets.count == 2 &&
            viewModel.value().timeline.clips.size() == 2 &&
            viewModel.value().timeline.duration.value > 19.9
+      ? 0
+      : 1;
+  }
+
+  if (moveClipSmoke) {
+    window.show();
+    app.processEvents();
+    window.clickFirstTimelineClip();
+    window.moveSelectedClip(grapple::foundation::TimeSeconds{1.0});
+    const auto viewModel = workspace.value().project().buildViewModel();
+    if (!viewModel) {
+      printError(viewModel.error());
+      return 1;
+    }
+    if (viewModel.value().timeline.clips.empty()) {
+      std::cerr << "No clips after move.\n";
+      return 1;
+    }
+    const grapple::app::AppClipRow& clip = viewModel.value().timeline.clips.front();
+    std::cout << "start=" << clip.timelineRange.start.value << '\n';
+    std::cout << "end=" << clip.timelineRange.end.value << '\n';
+    std::cout << "duration=" << viewModel.value().timeline.duration.value << '\n';
+    return clip.timelineRange.start == grapple::foundation::TimeSeconds{1.0} &&
+           clip.timelineRange.end == grapple::foundation::TimeSeconds{11.0} &&
+           viewModel.value().timeline.duration == grapple::foundation::TimeSeconds{11.0}
       ? 0
       : 1;
   }
