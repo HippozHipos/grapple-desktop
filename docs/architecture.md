@@ -3,7 +3,7 @@
 The core architecture is:
 
 ```text
-ProjectDocument -> ProjectSnapshot -> TimelineIR -> RenderPlan -> Runtime Evaluation -> Render Consumer
+ProjectDocument -> ProjectSnapshot -> TimelineIR -> RenderPlan -> Local Runtime/Render System
 ```
 
 Rules:
@@ -15,6 +15,7 @@ Rules:
 - `runtime` will be the only layer that executes scripts, shaders, tracking,
   segmentation, depth, motion, model-assisted runtime operations, or runtime
   caches.
-- `render` consumers will consume `RenderPlan`; they will not reinterpret the
-  project graph.
+- `render` will expose interactive playback and export modes over the same
+  local runtime/render system; those modes consume `RenderPlan` and will not
+  reinterpret the project graph.
 - `agent` tools will call typed project commands and queries only.
