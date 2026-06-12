@@ -3,7 +3,30 @@
 
 #include <TestAssert.hpp>
 
+#include <cstdint>
+#include <optional>
+#include <vector>
+
 namespace {
+
+class TestFrameSource final : public grapple::render::IRenderFrameSource {
+public:
+  grapple::foundation::Result<grapple::render::SourceFrame> frameAt(
+    const grapple::render::SourceFrameRequest& request
+  ) override {
+    ++requests;
+    lastRequest = request;
+    return grapple::render::SourceFrame{
+      request.assetId,
+      request.sourceTime,
+      grapple::foundation::Resolution{2, 1},
+      {10, 20, 30, 255, 40, 50, 60, 255}
+    };
+  }
+
+  int requests = 0;
+  std::optional<grapple::render::SourceFrameRequest> lastRequest;
+};
 
 grapple::projection::RenderPlan makeRenderPlan() {
   return grapple::projection::RenderPlan{
@@ -172,6 +195,25 @@ int main() {
   const auto stateAfterSettingsChange = finalRender.state();
   GRAPPLE_REQUIRE(stateAfterSettingsChange.core.preparedPlanHash == coreAfterLoad.preparedPlanHash);
   GRAPPLE_REQUIRE((stateAfterSettingsChange.lastSettings->resolution == foundation::Resolution{1920, 1080}));
+
+  TestFrameSource frameSource;
+  render::LocalRenderCore imageCore{runtime, frameSource};
+  render::PreviewRenderShell imagePreview{imageCore};
+  const auto imageLoad = imageCore.loadPlan(plan);
+  GRAPPLE_REQUIRE(imageLoad);
+  const auto imageFrame = imagePreview.renderFrame(render::RenderFrameRequest{
+    foundation::TimeSeconds{4.0},
+    render::RenderQuality::Draft
+  });
+  GRAPPLE_REQUIRE(imageFrame);
+  GRAPPLE_REQUIRE(imageFrame.value().frame.image.has_value());
+  GRAPPLE_REQUIRE((imageFrame.value().frame.image->resolution == foundation::Resolution{2, 1}));
+  GRAPPLE_REQUIRE((imageFrame.value().frame.image->rgbaPixels == std::vector<std::uint8_t>{10, 20, 30, 255, 40, 50, 60, 255}));
+  GRAPPLE_REQUIRE(frameSource.requests == 1);
+  GRAPPLE_REQUIRE(frameSource.lastRequest.has_value());
+  GRAPPLE_REQUIRE(frameSource.lastRequest->assetId == foundation::AssetId{"asset_video"});
+  GRAPPLE_REQUIRE(frameSource.lastRequest->sourceTime == foundation::TimeSeconds{4.0});
+  GRAPPLE_REQUIRE(frameSource.lastRequest->quality == render::RenderQuality::Draft);
 
   return 0;
 }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <grapple/foundation/Hash.hpp>
+#include <grapple/foundation/Geometry.hpp>
 #include <grapple/foundation/Result.hpp>
 #include <grapple/foundation/StrongId.hpp>
 #include <grapple/foundation/Time.hpp>
@@ -9,6 +10,7 @@
 #include <grapple/render/RenderQuality.hpp>
 #include <grapple/runtime/RuntimeEvaluator.hpp>
 
+#include <cstdint>
 #include <optional>
 #include <string>
 #include <vector>
@@ -28,10 +30,35 @@ struct RenderedMediaFrame {
   foundation::TimeSeconds sourceTime;
 };
 
+struct RenderedImage {
+  foundation::Resolution resolution;
+  std::vector<std::uint8_t> rgbaPixels;
+};
+
+struct SourceFrameRequest {
+  foundation::AssetId assetId;
+  foundation::TimeSeconds sourceTime;
+  RenderQuality quality = RenderQuality::Draft;
+};
+
+struct SourceFrame {
+  foundation::AssetId assetId;
+  foundation::TimeSeconds sourceTime;
+  foundation::Resolution resolution;
+  std::vector<std::uint8_t> rgbaPixels;
+};
+
+class IRenderFrameSource {
+public:
+  virtual ~IRenderFrameSource() = default;
+  virtual foundation::Result<SourceFrame> frameAt(const SourceFrameRequest& request) = 0;
+};
+
 struct RenderFrame {
   foundation::TimeSeconds time;
   std::string description;
   std::vector<RenderedMediaFrame> mediaFrames;
+  std::optional<RenderedImage> image;
 };
 
 struct RenderFrameRequest {
@@ -66,6 +93,7 @@ struct LocalRenderCoreState {
 class LocalRenderCore {
 public:
   explicit LocalRenderCore(runtime::RuntimeEvaluator& runtime);
+  LocalRenderCore(runtime::RuntimeEvaluator& runtime, IRenderFrameSource& frameSource);
 
   foundation::Result<void> loadPlan(const projection::RenderPlan& plan);
   foundation::Result<RenderFrameResult> renderFrame(const RenderFrameRequest& request) const;
@@ -74,6 +102,7 @@ public:
 
 private:
   runtime::RuntimeEvaluator& runtime_;
+  IRenderFrameSource* frameSource_ = nullptr;
   std::optional<runtime::PreparedRuntimePlan> prepared_;
   LocalRenderCoreState state_;
 };

@@ -5,7 +5,9 @@
 #include <grapple/foundation/Time.hpp>
 #include <grapple/media/MediaQuality.hpp>
 
+#include <cstdint>
 #include <string>
+#include <vector>
 
 namespace grapple::media {
 
@@ -15,7 +17,7 @@ struct MediaFrame {
   foundation::Resolution resolution;
   MediaQuality quality = MediaQuality::Proxy;
   std::string frameRef;
+  std::vector<std::uint8_t> rgbaPixels;
 };
 
 } // namespace grapple::media
-

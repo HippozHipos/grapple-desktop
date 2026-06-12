@@ -2,7 +2,9 @@
 
 #include <TestAssert.hpp>
 
+#include <cstdint>
 #include <string>
+#include <vector>
 
 namespace {
 
@@ -23,7 +25,8 @@ public:
       time,
       grapple::foundation::Resolution{640, 360},
       quality,
-      "source_frame_" + std::to_string(frameReads)
+      "source_frame_" + std::to_string(frameReads),
+      {static_cast<std::uint8_t>(frameReads), 0, 0, 255}
     };
   }
 
@@ -63,6 +66,7 @@ int main() {
   );
   GRAPPLE_REQUIRE(firstFrame);
   GRAPPLE_REQUIRE(firstFrame.value().frameRef == "source_frame_1");
+  GRAPPLE_REQUIRE((firstFrame.value().rgbaPixels == std::vector<std::uint8_t>{1, 0, 0, 255}));
   GRAPPLE_REQUIRE(source.frameReads == 1);
   GRAPPLE_REQUIRE(frameCache.size() == 1);
 
@@ -73,6 +77,7 @@ int main() {
   );
   GRAPPLE_REQUIRE(cachedFrame);
   GRAPPLE_REQUIRE(cachedFrame.value().frameRef == "source_frame_1");
+  GRAPPLE_REQUIRE((cachedFrame.value().rgbaPixels == std::vector<std::uint8_t>{1, 0, 0, 255}));
   GRAPPLE_REQUIRE(source.frameReads == 1);
 
   const auto secondFrame = reader.frameAt(

@@ -56,10 +56,39 @@ std::vector<RenderedMediaFrame> buildMediaFrames(const runtime::RuntimeSample& s
   return frames;
 }
 
+foundation::Result<std::optional<RenderedImage>> buildRenderedImage(
+  const std::vector<RenderedMediaFrame>& mediaFrames,
+  RenderQuality quality,
+  IRenderFrameSource* frameSource
+) {
+  if (frameSource == nullptr || mediaFrames.empty()) {
+    return std::optional<RenderedImage>{};
+  }
+
+  const RenderedMediaFrame& firstFrame = mediaFrames.front();
+  auto sourceFrame = frameSource->frameAt(SourceFrameRequest{
+    firstFrame.assetId,
+    firstFrame.sourceTime,
+    quality
+  });
+  if (!sourceFrame) {
+    return sourceFrame.error();
+  }
+
+  return std::optional<RenderedImage>{RenderedImage{
+    sourceFrame.value().resolution,
+    std::move(sourceFrame.value().rgbaPixels)
+  }};
+}
+
 } // namespace
 
 LocalRenderCore::LocalRenderCore(runtime::RuntimeEvaluator& runtime)
   : runtime_{runtime} {}
+
+LocalRenderCore::LocalRenderCore(runtime::RuntimeEvaluator& runtime, IRenderFrameSource& frameSource)
+  : runtime_{runtime},
+    frameSource_{&frameSource} {}
 
 foundation::Result<void> LocalRenderCore::loadPlan(const projection::RenderPlan& plan) {
   auto prepared = runtime_.prepare(runtime::PrepareRuntimePlanRequest{
@@ -90,11 +119,18 @@ foundation::Result<RenderFrameResult> LocalRenderCore::renderFrame(const RenderF
     return sample.error();
   }
 
+  const std::vector<RenderedMediaFrame> mediaFrames = buildMediaFrames(sample.value().sample);
+  auto image = buildRenderedImage(mediaFrames, request.quality, frameSource_);
+  if (!image) {
+    return image.error();
+  }
+
   return RenderFrameResult{
     RenderFrame{
       request.time,
       describeSample(sample.value().sample),
-      buildMediaFrames(sample.value().sample)
+      mediaFrames,
+      std::move(image.value())
     },
     sample.value().diagnostics,
     {}
