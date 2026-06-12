@@ -161,6 +161,17 @@ std::string serializeCanonicalParamValue(const ParamValue& value) {
   return stream.str();
 }
 
+std::string serializeCanonicalCameraPayload(const CameraPayload& payload) {
+  std::ostringstream stream;
+  stream << '{';
+  foundation::writeJsonStringProperty(stream, "name", payload.name);
+  stream << ",\"transform\":" << serializeCanonicalTransform(payload.transform);
+  stream << ",\"lens\":{\"focalLength\":";
+  writeNumber(stream, payload.lens.focalLength);
+  stream << "}}";
+  return stream.str();
+}
+
 std::string serializeCanonicalClipPayload(const ClipPayload& payload) {
   std::ostringstream stream;
   stream << '{';

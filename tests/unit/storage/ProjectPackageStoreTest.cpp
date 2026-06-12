@@ -21,7 +21,10 @@ grapple::history::CommandRecord makeCommandRecord(
     std::move(beforeRevision),
     std::move(afterRevision),
     std::string{grapple::project::serializedCommandName(grapple::project::CommandKind::CreateComposition)},
-    R"({"nodeId":"node_composition"})",
+    grapple::project::serializeCanonicalCommandPayload(grapple::project::CreateCompositionCommand{
+      grapple::foundation::NodeId{"node_composition"},
+      "Main"
+    }),
     std::chrono::system_clock::now()
   };
 }
@@ -30,12 +33,17 @@ grapple::history::EventRecord makeEventRecord(
   grapple::foundation::EventId eventId,
   grapple::foundation::RevisionId revision
 ) {
+  const grapple::foundation::RevisionId eventRevision = revision;
   return grapple::history::EventRecord{
     std::move(eventId),
     grapple::foundation::ProjectId{"proj_storage"},
     std::move(revision),
     std::string{grapple::project::serializedEventName(grapple::project::EventKind::ProjectCommandApplied)},
-    R"({"commandId":"cmd_1"})",
+    grapple::project::serializeCanonicalEventPayload(grapple::project::ProjectCommandAppliedEvent{
+      grapple::foundation::CommandId{"cmd_1"},
+      grapple::foundation::RevisionId{"rev_0"},
+      eventRevision
+    }),
     std::chrono::system_clock::now()
   };
 }

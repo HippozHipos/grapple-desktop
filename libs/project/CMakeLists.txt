@@ -18,4 +18,5 @@ target_link_libraries(grapple_project
   PUBLIC
     Grapple::Foundation
     Grapple::Graph
+    Grapple::Timeline
 )

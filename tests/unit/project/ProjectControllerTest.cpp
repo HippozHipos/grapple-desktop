@@ -40,6 +40,7 @@ int main() {
     makeCreateComposition(initialSnapshot.value().document.revision)
   );
   GRAPPLE_REQUIRE(createComposition);
+  GRAPPLE_REQUIRE(project::serializeCanonicalCommandPayload(makeCreateComposition(initialSnapshot.value().document.revision).payload) == "{\"nodeId\":\"node_composition\",\"name\":\"Main\"}");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::CreateComposition) == "project.create_composition");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::CreateTrack) == "project.create_track");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::CreateClip) == "project.create_clip");
@@ -53,6 +54,7 @@ int main() {
   GRAPPLE_REQUIRE(createComposition.value().events.size() == 2);
   GRAPPLE_REQUIRE(project::eventKind(createComposition.value().events[0]) == project::EventKind::ProjectCommandApplied);
   GRAPPLE_REQUIRE(project::eventKind(createComposition.value().events[1]) == project::EventKind::ProjectChanged);
+  GRAPPLE_REQUIRE(project::serializeCanonicalEventPayload(createComposition.value().events[0]) == "{\"commandId\":\"cmd_create_composition\",\"beforeRevision\":\"rev_0\",\"afterRevision\":\"rev_1\"}");
 
   const auto afterComposition = controller.snapshot();
   GRAPPLE_REQUIRE(afterComposition);
@@ -83,6 +85,7 @@ int main() {
     }
   };
   GRAPPLE_REQUIRE(project::commandKind(createTrack.payload) == project::CommandKind::CreateTrack);
+  GRAPPLE_REQUIRE(project::serializeCanonicalCommandPayload(createTrack.payload).find("\"containmentEdgeId\":\"edge_contains_track\"") != std::string::npos);
 
   const auto trackResult = controller.apply(createTrack);
   GRAPPLE_REQUIRE(trackResult);
@@ -103,6 +106,7 @@ int main() {
       afterComposition.value().document
     }
   };
+  GRAPPLE_REQUIRE(project::serializeCanonicalCommandPayload(restoreCompositionSnapshot.payload).find("\"snapshotId\":\"snap_after_composition\"") != std::string::npos);
 
   const auto restoreResult = controller.apply(restoreCompositionSnapshot);
   GRAPPLE_REQUIRE(restoreResult);
