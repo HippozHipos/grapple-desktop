@@ -49,7 +49,7 @@ int main() {
   GRAPPLE_REQUIRE(timeline::serializeCanonicalEffectPayload(effect).find("\"inlineSource\":\"def process(): pass\"") != std::string::npos);
   GRAPPLE_REQUIRE(timeline::serializeCanonicalParamSet(timeline::ParamSet{
     {timeline::Param{"target_x", 0.5}, timeline::Param{"enabled", true}}
-  }) == "[{\"name\":\"target_x\",\"value\":0.5},{\"name\":\"enabled\",\"value\":true}]");
+  }) == "[{\"name\":\"enabled\",\"value\":true},{\"name\":\"target_x\",\"value\":0.5}]");
 
   return 0;
 }

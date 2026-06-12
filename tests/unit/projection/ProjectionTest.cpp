@@ -246,7 +246,7 @@ int main() {
   GRAPPLE_REQUIRE(project::commandKind(setEffectParams.payload) == project::CommandKind::SetEffectParams);
   GRAPPLE_REQUIRE(
     project::serializeCanonicalCommandPayload(setEffectParams.payload) ==
-    "{\"effectNodeId\":\"node_effect\",\"params\":[{\"name\":\"target_x\",\"value\":0.5},{\"name\":\"subject_height\",\"value\":0.80000000000000004}]}"
+    "{\"effectNodeId\":\"node_effect\",\"params\":[{\"name\":\"subject_height\",\"value\":0.80000000000000004},{\"name\":\"target_x\",\"value\":0.5}]}"
   );
 
   const auto setEffectParamsResult = controller.apply(setEffectParams);

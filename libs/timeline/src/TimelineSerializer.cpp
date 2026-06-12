@@ -2,6 +2,7 @@
 
 #include <grapple/foundation/Json.hpp>
 
+#include <algorithm>
 #include <cstdlib>
 #include <iomanip>
 #include <sstream>
@@ -153,15 +154,20 @@ std::string serializeCanonicalParamValue(const ParamValue& value) {
 }
 
 std::string serializeCanonicalParamSet(const ParamSet& params) {
+  std::vector<Param> sortedParams = params.values;
+  std::sort(sortedParams.begin(), sortedParams.end(), [](const Param& left, const Param& right) {
+    return left.name < right.name;
+  });
+
   std::ostringstream stream;
   stream << '[';
-  for (std::size_t index = 0; index < params.values.size(); ++index) {
+  for (std::size_t index = 0; index < sortedParams.size(); ++index) {
     if (index != 0) {
       stream << ',';
     }
     stream << '{';
-    foundation::writeJsonStringProperty(stream, "name", params.values[index].name);
-    stream << ",\"value\":" << serializeCanonicalParamValue(params.values[index].value);
+    foundation::writeJsonStringProperty(stream, "name", sortedParams[index].name);
+    stream << ",\"value\":" << serializeCanonicalParamValue(sortedParams[index].value);
     stream << '}';
   }
   stream << ']';
