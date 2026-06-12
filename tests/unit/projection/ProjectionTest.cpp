@@ -197,5 +197,41 @@ int main() {
   GRAPPLE_REQUIRE(!malformedTimeline);
   GRAPPLE_REQUIRE(malformedTimeline.error().code == "projection.clip_track_missing");
 
+  project::ProjectDocument malformedTrackDocument = project::createEmptyProject(
+    foundation::ProjectId{"proj_malformed_track"},
+    "Malformed Track Projection Test"
+  );
+  const auto malformedTrack = malformedTrackDocument.graph.addNode(graph::GraphNode{
+    foundation::NodeId{"node_bad_track"},
+    graph::NodeKind::Track,
+    timeline::CompositionPayload{"Wrong Payload"},
+    true
+  });
+  GRAPPLE_REQUIRE(malformedTrack);
+
+  const auto malformedTrackTimeline = projector.buildTimelineIR(projection::BuildTimelineIRRequest{
+    project::ProjectSnapshot{malformedTrackDocument}
+  });
+  GRAPPLE_REQUIRE(!malformedTrackTimeline);
+  GRAPPLE_REQUIRE(malformedTrackTimeline.error().code == "projection.track_payload_invalid");
+
+  project::ProjectDocument untargetedEffectDocument = project::createEmptyProject(
+    foundation::ProjectId{"proj_untargeted_effect"},
+    "Untargeted Effect Projection Test"
+  );
+  const auto untargetedEffect = untargetedEffectDocument.graph.addNode(graph::GraphNode{
+    foundation::NodeId{"node_untargeted_effect"},
+    graph::NodeKind::Effect,
+    effectPayload,
+    true
+  });
+  GRAPPLE_REQUIRE(untargetedEffect);
+
+  const auto untargetedEffectTimeline = projector.buildTimelineIR(projection::BuildTimelineIRRequest{
+    project::ProjectSnapshot{untargetedEffectDocument}
+  });
+  GRAPPLE_REQUIRE(!untargetedEffectTimeline);
+  GRAPPLE_REQUIRE(untargetedEffectTimeline.error().code == "projection.effect_target_missing");
+
   return 0;
 }
