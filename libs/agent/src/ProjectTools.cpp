@@ -17,6 +17,72 @@ namespace grapple::agent {
 
 namespace {
 
+constexpr const char ProjectInspectSchema[] = R"json({
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+})json";
+
+constexpr const char ProjectCreateEffectSchema[] = R"json({
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "targetNodeId",
+    "displayName",
+    "implementationKind",
+    "language",
+    "entrypoint",
+    "source",
+    "sourcePort",
+    "targetPort",
+    "inputPorts",
+    "outputPorts",
+    "activeRange",
+    "params"
+  ],
+  "properties": {
+    "targetNodeId": {"type": "string"},
+    "displayName": {"type": "string"},
+    "implementationKind": {"enum": ["builtin", "python", "shader"]},
+    "language": {"type": "string"},
+    "entrypoint": {"type": "string"},
+    "source": {"type": "string"},
+    "sourcePort": {"type": "string"},
+    "targetPort": {"type": "string"},
+    "inputPorts": {"type": "array", "items": {"type": "string"}},
+    "outputPorts": {"type": "array", "items": {"type": "string"}},
+    "activeRange": {
+      "type": "object",
+      "required": ["start", "end"],
+      "properties": {
+        "start": {"type": "number"},
+        "end": {"type": "number"}
+      }
+    },
+    "params": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "value"],
+        "properties": {
+          "name": {"type": "string"},
+          "label": {"type": "string"},
+          "value": {"type": ["number", "string", "boolean"]},
+          "numeric": {
+            "type": "object",
+            "required": ["min", "max"],
+            "properties": {
+              "min": {"type": "number"},
+              "max": {"type": "number"},
+              "step": {"type": "number"}
+            }
+          }
+        }
+      }
+    }
+  }
+})json";
+
 foundation::Error argumentError(const std::string& path, const std::string& message) {
   return foundation::Error{"agent.tool_arguments_invalid", path + ": " + message};
 }
@@ -223,7 +289,7 @@ AgentTool makeProjectInspectTool() {
     "project.inspect",
     "Inspect Project",
     "Returns the current project revision and graph counts.",
-    "ProjectInspectRequest",
+    ProjectInspectSchema,
     [](const ToolCall& call, AgentToolContext& context) -> foundation::Result<ToolResult> {
       auto query = context.queries.query(project::GetProjectSnapshotQuery{});
       if (!query) {
@@ -264,7 +330,7 @@ AgentTool makeProjectCreateEffectTool() {
     "project.create_effect",
     "Create Effect",
     "Creates an editable effect node with canonical code, ports, params, and user-facing parameter controls. The tool allocates project ids; agents provide edit intent and payload data only.",
-    "ProjectCreateEffectRequest",
+    ProjectCreateEffectSchema,
     [](const ToolCall& call, AgentToolContext& context) -> foundation::Result<ToolResult> {
       auto arguments = parseArguments(call.arguments);
       if (!arguments) {
