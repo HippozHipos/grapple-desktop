@@ -59,6 +59,12 @@ grapple::projection::RenderPlan makeClipPlanWithAssetVersion(std::string assetVe
   return plan;
 }
 
+grapple::projection::RenderPlan makeClipPlanWithLayerName(std::string layerName) {
+  grapple::projection::RenderPlan plan = makeClipPlan(1.0);
+  plan.layers[0].name = std::move(layerName);
+  return plan;
+}
+
 grapple::projection::RenderPlan makeEffectPlan(std::string source) {
   grapple::projection::RenderPlan plan = makePlan("Video");
   plan.cameras.push_back(grapple::projection::RenderCamera{
@@ -334,6 +340,7 @@ int main() {
   const runtime::RuntimeDependencyGraph changed = planner.build(makePlan("Changed"));
   const runtime::RuntimeDependencyGraph firstClip = planner.build(makeClipPlan(1.0));
   const runtime::RuntimeDependencyGraph changedClip = planner.build(makeClipPlan(2.0));
+  const runtime::RuntimeDependencyGraph renamedLayerClip = planner.build(makeClipPlanWithLayerName("Renamed"));
   const runtime::RuntimeDependencyGraph firstEffect = planner.build(makeEffectPlan("def prepare(): pass"));
   const runtime::RuntimeDependencyGraph changedEffect = planner.build(makeEffectPlan("def prepare(): return 1"));
   const runtime::RuntimeDependencyGraph cameraEffect = planner.build(makeEffectPlanWithCameraX(0.0));
@@ -341,6 +348,7 @@ int main() {
   const runtime::RuntimeDependencyGraph effectChain = planner.build(makeEffectChainPlan(0.1));
 
   GRAPPLE_REQUIRE(first.planHash == second.planHash);
+  GRAPPLE_REQUIRE(first.projectId == foundation::ProjectId{"proj_runtime"});
   GRAPPLE_REQUIRE(!(first.planHash == changed.planHash));
   GRAPPLE_REQUIRE(firstClip.nodes.size() == 1);
   GRAPPLE_REQUIRE(firstClip.nodes[0].id == runtime::RuntimeDependencyId{"dep_node_clip"});
@@ -386,10 +394,13 @@ int main() {
     effectChain.nodes[0],
     "runtime_v1"
   );
-  GRAPPLE_REQUIRE(clipCacheKey.planHash == effectChain.planHash);
+  GRAPPLE_REQUIRE(clipCacheKey.projectId == foundation::ProjectId{"proj_runtime"});
   GRAPPLE_REQUIRE(clipCacheKey.nodeId == foundation::NodeId{"node_clip"});
   GRAPPLE_REQUIRE(clipCacheKey.assetDependencies.size() == 1);
   GRAPPLE_REQUIRE(clipCacheKey.assetDependencies[0].assetId == foundation::AssetId{"asset_video"});
+  GRAPPLE_REQUIRE(!(firstClip.planHash == renamedLayerClip.planHash));
+  GRAPPLE_REQUIRE(runtime::runtimeCacheKeyForDependency(firstClip, firstClip.nodes[0], "runtime_v1") ==
+                  runtime::runtimeCacheKeyForDependency(renamedLayerClip, renamedLayerClip.nodes[0], "runtime_v1"));
   const runtime::RuntimeDependencyGraph changedEffectChain = planner.build(makeEffectChainPlan(0.9));
   const runtime::RuntimeCacheKey effectBCacheKey = runtime::runtimeCacheKeyForDependency(
     effectChain,
@@ -523,7 +534,7 @@ int main() {
 
   runtime::MemoryRuntimeCache cache;
   const runtime::RuntimeCacheKey key{
-    first.planHash,
+    foundation::ProjectId{"proj_runtime"},
     foundation::NodeId{"node_track"},
     foundation::stableHash("implementation"),
     foundation::stableHash("params"),
@@ -538,7 +549,7 @@ int main() {
     "runtime_v1"
   };
   const runtime::RuntimeCacheKey unrelatedKey{
-    first.planHash,
+    foundation::ProjectId{"proj_runtime"},
     foundation::NodeId{"node_unrelated"},
     foundation::stableHash("implementation"),
     foundation::stableHash("params"),

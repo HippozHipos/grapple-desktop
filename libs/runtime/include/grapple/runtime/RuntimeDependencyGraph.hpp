@@ -29,6 +29,7 @@ struct RuntimeDependencyNode {
 };
 
 struct RuntimeDependencyGraph {
+  foundation::ProjectId projectId;
   foundation::Hash256 planHash;
   std::vector<RuntimeDependencyNode> nodes;
 };

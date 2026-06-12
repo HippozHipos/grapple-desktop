@@ -52,7 +52,7 @@ void appendNodeFingerprint(
 } // namespace
 
 bool operator==(const RuntimeCacheKey& left, const RuntimeCacheKey& right) {
-  return left.planHash == right.planHash &&
+  return left.projectId == right.projectId &&
          left.nodeId == right.nodeId &&
          left.implementationHash == right.implementationHash &&
          left.paramsHash == right.paramsHash &&
@@ -82,7 +82,7 @@ RuntimeCacheKey runtimeCacheKeyForDependency(
   std::string_view runtimeVersion
 ) {
   return RuntimeCacheKey{
-    graph.planHash,
+    graph.projectId,
     node.renderNodeId,
     node.implementationHash,
     node.paramsHash,

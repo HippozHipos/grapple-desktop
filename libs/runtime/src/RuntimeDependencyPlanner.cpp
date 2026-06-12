@@ -141,6 +141,7 @@ bool dependencyNodeChanged(
 
 RuntimeDependencyGraph RuntimeDependencyPlanner::build(const projection::RenderPlan& plan) const {
   RuntimeDependencyGraph graph{
+    plan.projectId,
     foundation::stableHash(projection::serializeCanonicalRenderPlan(plan)),
     {}
   };

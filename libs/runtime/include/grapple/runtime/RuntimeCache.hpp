@@ -14,7 +14,7 @@
 namespace grapple::runtime {
 
 struct RuntimeCacheKey {
-  foundation::Hash256 planHash;
+  foundation::ProjectId projectId;
   foundation::NodeId nodeId;
   foundation::Hash256 implementationHash;
   foundation::Hash256 paramsHash;
