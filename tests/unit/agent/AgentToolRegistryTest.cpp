@@ -1,6 +1,5 @@
 #include <grapple/agent/AgentToolRegistry.hpp>
 #include <grapple/agent/ProjectTools.hpp>
-#include <grapple/history/EventLogStore.hpp>
 #include <grapple/model/ModelService.hpp>
 #include <grapple/project/ProjectController.hpp>
 
@@ -61,8 +60,7 @@ int main() {
   GRAPPLE_REQUIRE(command);
 
   TestModelService models;
-  history::EventLogStore events;
-  agent::AgentToolContext context{project, project, models, events};
+  agent::AgentToolContext context{project, project, models};
 
   const agent::AgentTool* inspect = registry.findBySerializedId("project.inspect");
   GRAPPLE_REQUIRE(inspect != nullptr);
