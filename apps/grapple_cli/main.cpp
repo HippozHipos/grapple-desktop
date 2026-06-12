@@ -2,9 +2,8 @@
 #include <grapple/foundation/Hash.hpp>
 #include <grapple/graph/GraphEdge.hpp>
 #include <grapple/project/ProjectController.hpp>
-#include <grapple/projection/RenderPlanBuilder.hpp>
+#include <grapple/projection/ProjectionQueryService.hpp>
 #include <grapple/projection/RenderPlanSerializer.hpp>
-#include <grapple/projection/TimelineProjector.hpp>
 #include <grapple/timeline/EffectPayload.hpp>
 #include <grapple/timeline/Payloads.hpp>
 
@@ -187,23 +186,8 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
-  const auto snapshot = controller.snapshot();
-  if (!snapshot) {
-    printError(snapshot.error());
-    return 1;
-  }
-
-  const projection::TimelineProjector projector;
-  const auto timeline = projector.buildTimelineIR(projection::BuildTimelineIRRequest{snapshot.value()});
-  if (!timeline) {
-    printError(timeline.error());
-    return 1;
-  }
-
-  const projection::RenderPlanBuilder builder;
-  const auto renderPlan = builder.buildRenderPlan(
-    projection::BuildRenderPlanRequest{timeline.value().timeline}
-  );
+  const projection::ProjectionQueryService projectionQueries{controller};
+  const auto renderPlan = projectionQueries.buildCurrentRenderPlan();
   if (!renderPlan) {
     printError(renderPlan.error());
     return 1;
