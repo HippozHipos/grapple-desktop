@@ -11,6 +11,11 @@
 
 namespace grapple::app {
 
+struct NativePackageWriteResult {
+  foundation::FilePath snapshotPath;
+  foundation::FilePath manifestPath;
+};
+
 class NativeProjectSession final : public project::IProjectQueryService {
 public:
   NativeProjectSession(foundation::ProjectId projectId, std::string projectName, storage::ProjectPackage package);
@@ -26,6 +31,7 @@ public:
   [[nodiscard]] foundation::Result<AppViewModel> buildViewModel() const;
   [[nodiscard]] foundation::Result<projection::BuildTimelineIRResult> buildTimelineIR() const;
   [[nodiscard]] foundation::Result<projection::BuildRenderPlanResult> buildRenderPlan() const;
+  [[nodiscard]] foundation::Result<NativePackageWriteResult> writePackage() const;
   [[nodiscard]] const storage::ProjectPackageState& packageState() const noexcept;
 
 private:

@@ -1,11 +1,15 @@
 #include <grapple/app/NativeExportSession.hpp>
 #include <grapple/app/NativePreviewSession.hpp>
 #include <grapple/app/NativeProjectSession.hpp>
+#include <grapple/project/ProjectSerializer.hpp>
 #include <grapple/storage/ProjectPackageManifest.hpp>
 
 #include <TestAssert.hpp>
 
 #include <chrono>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
 #include <variant>
 
 int main() {
@@ -17,6 +21,19 @@ int main() {
     storage::ProjectPackage{
       foundation::ProjectId{"proj_app"},
       foundation::FilePath{"app.grapple"},
+      1
+    }
+  };
+
+  const std::filesystem::path packageRoot =
+    std::filesystem::temp_directory_path() /
+    ("grapple_native_app_" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+  app::NativeProjectSession savedSession{
+    foundation::ProjectId{"proj_app_saved"},
+    "Saved App Project",
+    storage::ProjectPackage{
+      foundation::ProjectId{"proj_app_saved"},
+      foundation::FilePath{packageRoot.string()},
       1
     }
   };
@@ -84,6 +101,10 @@ int main() {
   GRAPPLE_REQUIRE(manifest.value().head->lastCommandId == foundation::CommandId{"cmd_composition"});
   GRAPPLE_REQUIRE(!manifest.value().latestSnapshot.has_value());
 
+  const auto writeWithoutCurrentSnapshot = session.writePackage();
+  GRAPPLE_REQUIRE(!writeWithoutCurrentSnapshot);
+  GRAPPLE_REQUIRE(writeWithoutCurrentSnapshot.error().code == "app.package_snapshot_missing");
+
   app::NativePreviewSession preview{session};
   const auto frameBeforeRefresh = preview.renderFrame(render::RenderFrameRequest{
     foundation::TimeSeconds{0.0},
@@ -141,6 +162,47 @@ int main() {
   GRAPPLE_REQUIRE(exportResult.value().runtimeDiagnostics.empty());
   GRAPPLE_REQUIRE(exportResult.value().renderDiagnostics.empty());
   GRAPPLE_REQUIRE(exportSession.state().lastOutputPath->value == "/tmp/app-export.mov");
+
+  const auto savedInitial = savedSession.snapshot();
+  GRAPPLE_REQUIRE(savedInitial);
+  const auto savedComposition = savedSession.applyAndCommit(
+    project::ProjectCommandEnvelope{
+      foundation::CommandId{"cmd_saved_composition"},
+      foundation::ProjectId{"proj_app_saved"},
+      savedInitial.value().revision,
+      project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+      project::CreateCompositionCommand{foundation::NodeId{"node_saved_composition"}, "Saved Main"}
+    },
+    storage::ProjectCommitRecordOptions{
+      std::chrono::system_clock::now(),
+      storage::SnapshotCommitRecord{
+        foundation::SnapshotId{"snap_saved_rev_1"},
+        foundation::FilePath{"snapshots/rev_1.json"},
+        std::optional<std::string>{"saved"}
+      }
+    }
+  );
+  GRAPPLE_REQUIRE(savedComposition);
+
+  const auto savedWrite = savedSession.writePackage();
+  GRAPPLE_REQUIRE(savedWrite);
+  GRAPPLE_REQUIRE(savedWrite.value().snapshotPath.value == (packageRoot / "snapshots/rev_1.json").lexically_normal().string());
+  GRAPPLE_REQUIRE(savedWrite.value().manifestPath.value == (packageRoot / "manifest.json").lexically_normal().string());
+
+  std::ifstream savedSnapshotFile{savedWrite.value().snapshotPath.value, std::ios::binary};
+  GRAPPLE_REQUIRE(savedSnapshotFile.good());
+  std::ostringstream savedSnapshotContents;
+  savedSnapshotContents << savedSnapshotFile.rdbuf();
+  GRAPPLE_REQUIRE(savedSnapshotContents.str() == project::serializeCanonicalProjectSnapshot(savedComposition.value().snapshot));
+
+  const auto savedManifest = storage::buildProjectPackageManifest(savedSession.packageState());
+  GRAPPLE_REQUIRE(savedManifest);
+  std::ifstream savedManifestFile{savedWrite.value().manifestPath.value, std::ios::binary};
+  GRAPPLE_REQUIRE(savedManifestFile.good());
+  std::ostringstream savedManifestContents;
+  savedManifestContents << savedManifestFile.rdbuf();
+  GRAPPLE_REQUIRE(savedManifestContents.str() == storage::serializeCanonicalProjectPackageManifest(savedManifest.value()));
+  std::filesystem::remove_all(packageRoot);
 
   const auto duplicate = session.applyAndCommit(
     project::ProjectCommandEnvelope{

@@ -12,6 +12,7 @@
 #include <iostream>
 #include <optional>
 #include <string>
+#include <utility>
 
 namespace {
 
@@ -26,6 +27,13 @@ grapple::storage::ProjectCommitRecordOptions commandOptions() {
   };
 }
 
+grapple::storage::ProjectCommitRecordOptions commandOptions(grapple::storage::SnapshotCommitRecord snapshot) {
+  return grapple::storage::ProjectCommitRecordOptions{
+    std::chrono::system_clock::now(),
+    std::move(snapshot)
+  };
+}
+
 } // namespace
 
 int main(int argc, char* argv[]) {
@@ -34,6 +42,7 @@ int main(int argc, char* argv[]) {
   bool printRenderPlanJson = false;
   bool printPreviewFrame = false;
   bool runExportSmoke = false;
+  bool savePackage = false;
   if (argc == 2) {
     const std::string argument{argv[1]};
     if (argument == "--render-plan-json") {
@@ -42,12 +51,14 @@ int main(int argc, char* argv[]) {
       printPreviewFrame = true;
     } else if (argument == "--export-smoke") {
       runExportSmoke = true;
+    } else if (argument == "--save-package") {
+      savePackage = true;
     } else {
       std::cerr << "Unknown argument: " << argument << '\n';
       return 1;
     }
   } else if (argc > 2) {
-    std::cerr << "Expected zero arguments, --render-plan-json, --preview-frame, or --export-smoke.\n";
+    std::cerr << "Expected zero arguments, --render-plan-json, --preview-frame, --export-smoke, or --save-package.\n";
     return 1;
   }
 
@@ -56,7 +67,7 @@ int main(int argc, char* argv[]) {
     "CLI Smoke Project",
     storage::ProjectPackage{
       foundation::ProjectId{"proj_cli"},
-      foundation::FilePath{"cli.grapple"},
+      foundation::FilePath{savePackage ? "/tmp/grapple-cli-package" : "cli.grapple"},
       1
     }
   };
@@ -219,7 +230,13 @@ int main(int argc, char* argv[]) {
         0
       }
     },
-    commandOptions()
+    savePackage
+      ? commandOptions(storage::SnapshotCommitRecord{
+          foundation::SnapshotId{"snap_cli_rev_6"},
+          foundation::FilePath{"snapshots/rev_6.json"},
+          std::optional<std::string>{"cli"}
+        })
+      : commandOptions()
   );
   if (!effect) {
     printError(effect.error());
@@ -283,6 +300,18 @@ int main(int argc, char* argv[]) {
     std::cout << "revision=" << prepare.value().revision.value() << '\n';
     std::cout << "output=" << result.value().outputPath.value << '\n';
     std::cout << "frames=" << result.value().framesEvaluated << '\n';
+    return 0;
+  }
+
+  if (savePackage) {
+    const auto write = session.writePackage();
+    if (!write) {
+      printError(write.error());
+      return 1;
+    }
+
+    std::cout << "snapshot=" << write.value().snapshotPath.value << '\n';
+    std::cout << "manifest=" << write.value().manifestPath.value << '\n';
     return 0;
   }
 
