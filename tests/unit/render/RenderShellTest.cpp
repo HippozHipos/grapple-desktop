@@ -36,6 +36,24 @@ grapple::projection::RenderPlan makeRenderPlan() {
           grapple::foundation::AssetId{"asset_video"},
           grapple::timeline::Transform{}
         }
+      },
+      grapple::projection::RenderClip{
+        grapple::foundation::NodeId{"node_audio_clip"},
+        grapple::foundation::NodeId{"node_track"},
+        grapple::timeline::ClipPayload{
+          grapple::timeline::ClipKind::Audio,
+          grapple::foundation::TimeRange{
+            grapple::foundation::TimeSeconds{0.0},
+            grapple::foundation::TimeSeconds{6.0}
+          },
+          grapple::foundation::TimeRange{
+            grapple::foundation::TimeSeconds{10.0},
+            grapple::foundation::TimeSeconds{16.0}
+          },
+          1.0,
+          grapple::foundation::AssetId{"asset_audio"},
+          grapple::timeline::Transform{}
+        }
       }
     },
     {},
@@ -108,7 +126,13 @@ int main() {
   });
   GRAPPLE_REQUIRE(renderedActiveFrame);
   GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.time == foundation::TimeSeconds{4.0});
-  GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.description == "layers=1 clips=1 cameras=0 effects=0");
+  GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.description == "layers=1 clips=2 cameras=0 effects=0");
+  GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.mediaFrames.size() == 1);
+  GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.mediaFrames[0].clipNodeId == foundation::NodeId{"node_clip"});
+  GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.mediaFrames[0].trackNodeId == foundation::NodeId{"node_track"});
+  GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.mediaFrames[0].assetId == foundation::AssetId{"asset_video"});
+  GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.mediaFrames[0].kind == render::RenderedMediaKind::Video);
+  GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.mediaFrames[0].sourceTime == foundation::TimeSeconds{4.0});
   GRAPPLE_REQUIRE(renderedActiveFrame.value().runtimeDiagnostics.empty());
   GRAPPLE_REQUIRE(renderedActiveFrame.value().renderDiagnostics.empty());
 
@@ -118,6 +142,7 @@ int main() {
   });
   GRAPPLE_REQUIRE(renderedInactiveFrame);
   GRAPPLE_REQUIRE(renderedInactiveFrame.value().frame.description == "layers=1 clips=0 cameras=0 effects=0");
+  GRAPPLE_REQUIRE(renderedInactiveFrame.value().frame.mediaFrames.empty());
 
   const auto pause = preview.pause();
   GRAPPLE_REQUIRE(pause);

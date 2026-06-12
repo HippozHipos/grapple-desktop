@@ -16,6 +16,7 @@
 #include <QPaintEvent>
 #include <QPixmap>
 #include <QPushButton>
+#include <QStringList>
 #include <QTextEdit>
 #include <QVBoxLayout>
 #include <QWidget>
@@ -57,6 +58,122 @@ QString summaryText(const grapple::app::AppViewModel& viewModel) {
     .arg(viewModel.timeline.cameras.size())
     .arg(viewModel.timeline.effectGraphs.size());
 }
+
+QString mediaKindText(grapple::render::RenderedMediaKind kind) {
+  switch (kind) {
+    case grapple::render::RenderedMediaKind::Video:
+      return "Video";
+    case grapple::render::RenderedMediaKind::Image:
+      return "Image";
+  }
+
+  return "Unknown";
+}
+
+class PreviewSurface final : public QWidget {
+public:
+  explicit PreviewSurface(QWidget* parent = nullptr)
+    : QWidget{parent} {
+    setObjectName("previewSurface");
+    setMinimumSize(480, 280);
+  }
+
+  void setFrame(grapple::render::RenderFrame frame) {
+    frame_ = std::move(frame);
+    update();
+  }
+
+protected:
+  void paintEvent(QPaintEvent* event) override {
+    QWidget::paintEvent(event);
+
+    QPainter painter{this};
+    painter.setRenderHint(QPainter::Antialiasing);
+    painter.fillRect(rect(), QColor{"#0e1118"});
+
+    if (!frame_.has_value()) {
+      drawCenteredText(painter, "No frame rendered");
+      return;
+    }
+
+    const grapple::render::RenderFrame& frame = frame_.value();
+    if (frame.mediaFrames.empty()) {
+      drawCenteredText(painter, QString{"%1\nNo active media at playhead"}.arg(timeText(frame.time)));
+      return;
+    }
+
+    const QRect canvas = rect().adjusted(36, 34, -36, -34);
+    painter.setPen(QColor{"#3e536e"});
+    painter.setBrush(QColor{"#151b25"});
+    painter.drawRoundedRect(canvas, 14, 14);
+
+    const int stackOffset = 18;
+    int index = 0;
+    for (const grapple::render::RenderedMediaFrame& mediaFrame : frame.mediaFrames) {
+      const QRect card = canvas.adjusted(
+        28 + (index * stackOffset),
+        28 + (index * stackOffset),
+        -28 + (index * stackOffset),
+        -28 + (index * stackOffset)
+      );
+      drawMediaFrame(painter, mediaFrame, card);
+      ++index;
+      if (index == 3) {
+        break;
+      }
+    }
+
+    painter.setPen(QColor{"#d8f3ff"});
+    painter.setFont(QFont{"DejaVu Sans", 13, QFont::Bold});
+    painter.drawText(rect().adjusted(18, 10, -18, -10), Qt::AlignTop | Qt::AlignHCenter, timeText(frame.time));
+
+    if (frame.mediaFrames.size() > 3) {
+      painter.setPen(QColor{"#9fb7d5"});
+      painter.setFont(QFont{"DejaVu Sans", 10});
+      painter.drawText(rect().adjusted(18, -34, -18, -12), Qt::AlignBottom | Qt::AlignHCenter, QString{"+%1 more active clips"}.arg(frame.mediaFrames.size() - 3));
+    }
+  }
+
+private:
+  static QString elidedText(QPainter& painter, const QString& text, int width) {
+    return QFontMetrics{painter.font()}.elidedText(text, Qt::ElideRight, std::max(12, width));
+  }
+
+  void drawCenteredText(QPainter& painter, const QString& text) const {
+    painter.setPen(QColor{"#d8f3ff"});
+    painter.setFont(QFont{"DejaVu Sans", 16, QFont::Bold});
+    painter.drawText(rect().adjusted(24, 24, -24, -24), Qt::AlignCenter, text);
+  }
+
+  void drawMediaFrame(
+    QPainter& painter,
+    const grapple::render::RenderedMediaFrame& mediaFrame,
+    const QRect& card
+  ) const {
+    painter.setPen(QColor{"#b9c7f0"});
+    painter.setBrush(QColor{"#30436a"});
+    painter.drawRoundedRect(card, 12, 12);
+
+    painter.setPen(QColor{"#edf5ff"});
+    painter.setFont(QFont{"DejaVu Sans", 18, QFont::Bold});
+    painter.drawText(card.adjusted(18, 18, -18, -18), Qt::AlignTop | Qt::AlignLeft, mediaKindText(mediaFrame.kind));
+
+    painter.setFont(QFont{"DejaVu Sans", 12});
+    const QRect detailsRect = card.adjusted(18, 58, -18, -18);
+    const QStringList lines{
+      QString{"asset %1"}.arg(qString(mediaFrame.assetId.value())),
+      QString{"clip %1"}.arg(qString(mediaFrame.clipNodeId.value())),
+      QString{"source %1"}.arg(timeText(mediaFrame.sourceTime))
+    };
+    int y = detailsRect.top();
+    for (const QString& line : lines) {
+      painter.drawText(detailsRect.left(), y + 18, elidedText(painter, line, detailsRect.width()));
+      y += 24;
+    }
+  }
+
+  std::optional<grapple::render::RenderFrame> frame_;
+};
 
 class TimelinePanel final : public QWidget {
 public:
@@ -255,11 +372,9 @@ public:
     auto* previewLayout = new QVBoxLayout{previewFrame_};
     previewTitle_ = new QLabel{"Preview"};
     previewTitle_->setObjectName("panelTitle");
-    previewOutput_ = new QLabel;
-    previewOutput_->setObjectName("previewOutput");
-    previewOutput_->setAlignment(Qt::AlignCenter);
+    previewSurface_ = new PreviewSurface;
     previewLayout->addWidget(previewTitle_);
-    previewLayout->addWidget(previewOutput_, 1);
+    previewLayout->addWidget(previewSurface_, 1);
 
     timeline_ = new TimelinePanel;
 
@@ -323,7 +438,6 @@ public:
         border: 1px solid #3c526f; border-radius: 12px;
       }
       QLabel#panelTitle { color: #9fb7d5; font-weight: 700; letter-spacing: 1px; }
-      QLabel#previewOutput { color: #d8f3ff; font-size: 22px; font-weight: 700; }
       QLabel#playheadLabel { color: #d8f3ff; font-weight: 700; padding: 6px 0; }
       QPushButton {
         background: #58c7d8; color: #071015; border: 0; border-radius: 8px; padding: 10px 14px; font-weight: 700;
@@ -366,9 +480,7 @@ public:
       appendError(frame.error());
       return;
     }
-    previewOutput_->setText(QString{"%1\n%2"}
-      .arg(timeText(previewState.playhead))
-      .arg(qString(frame.value().frame.description)));
+    previewSurface_->setFrame(frame.value().frame);
     playheadLabel_->setText(QString{"Playhead: %1"}.arg(timeText(previewState.playhead)));
     timeline_->setPlayhead(previewState.playhead);
   }
@@ -469,8 +581,8 @@ private:
   grapple::app::NativeProjectCommandWriter commandWriter_;
   QLabel* summary_ = nullptr;
   QLabel* previewTitle_ = nullptr;
-  QLabel* previewOutput_ = nullptr;
   QLabel* playheadLabel_ = nullptr;
+  PreviewSurface* previewSurface_ = nullptr;
   TimelinePanel* timeline_ = nullptr;
   QTextEdit* log_ = nullptr;
   QFrame* previewFrame_ = nullptr;

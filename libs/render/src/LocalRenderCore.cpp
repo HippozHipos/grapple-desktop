@@ -22,6 +22,40 @@ std::string describeSample(const runtime::RuntimeSample& sample) {
   return description.str();
 }
 
+bool isVisualClipKind(timeline::ClipKind kind) {
+  return kind == timeline::ClipKind::Video || kind == timeline::ClipKind::Image;
+}
+
+RenderedMediaKind renderedMediaKindFor(timeline::ClipKind kind) {
+  return kind == timeline::ClipKind::Image
+    ? RenderedMediaKind::Image
+    : RenderedMediaKind::Video;
+}
+
+std::vector<RenderedMediaFrame> buildMediaFrames(const runtime::RuntimeSample& sample) {
+  std::vector<RenderedMediaFrame> frames;
+  frames.reserve(sample.clips.size());
+
+  for (const projection::RenderClip& clip : sample.clips) {
+    const timeline::ClipPayload& payload = clip.payload;
+    if (!isVisualClipKind(payload.kind)) {
+      continue;
+    }
+
+    frames.push_back(RenderedMediaFrame{
+      clip.sourceNodeId,
+      clip.trackNodeId,
+      payload.assetId,
+      renderedMediaKindFor(payload.kind),
+      foundation::TimeSeconds{
+        payload.sourceRange.start.value + ((sample.time.value - payload.timelineRange.start.value) * payload.playbackRate)
+      }
+    });
+  }
+
+  return frames;
+}
+
 } // namespace
 
 LocalRenderCore::LocalRenderCore(runtime::RuntimeEvaluator& runtime)
@@ -57,7 +91,11 @@ foundation::Result<RenderFrameResult> LocalRenderCore::renderFrame(const RenderF
   }
 
   return RenderFrameResult{
-    RenderFrame{request.time, describeSample(sample.value().sample)},
+    RenderFrame{
+      request.time,
+      describeSample(sample.value().sample),
+      buildMediaFrames(sample.value().sample)
+    },
     sample.value().diagnostics,
     {}
   };

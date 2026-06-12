@@ -2,6 +2,7 @@
 
 #include <grapple/foundation/Hash.hpp>
 #include <grapple/foundation/Result.hpp>
+#include <grapple/foundation/StrongId.hpp>
 #include <grapple/foundation/Time.hpp>
 #include <grapple/projection/RenderPlan.hpp>
 #include <grapple/render/RenderDiagnostic.hpp>
@@ -14,9 +15,23 @@
 
 namespace grapple::render {
 
+enum class RenderedMediaKind {
+  Video,
+  Image
+};
+
+struct RenderedMediaFrame {
+  foundation::NodeId clipNodeId;
+  foundation::NodeId trackNodeId;
+  foundation::AssetId assetId;
+  RenderedMediaKind kind = RenderedMediaKind::Video;
+  foundation::TimeSeconds sourceTime;
+};
+
 struct RenderFrame {
   foundation::TimeSeconds time;
   std::string description;
+  std::vector<RenderedMediaFrame> mediaFrames;
 };
 
 struct RenderFrameRequest {
