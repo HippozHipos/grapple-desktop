@@ -16,6 +16,10 @@ foundation::Result<void> ProjectPackageStore::commit(const AtomicProjectCommit& 
     return foundation::Error{"storage.command_project_id_mismatch", "Command record must match package project id."};
   }
 
+  if (commit.command.afterRevision != commit.document.revision) {
+    return foundation::Error{"storage.command_revision_mismatch", "Command record after revision must match committed document revision."};
+  }
+
   ProjectPackageState next = state_;
   next.document = commit.document;
 
@@ -27,6 +31,10 @@ foundation::Result<void> ProjectPackageStore::commit(const AtomicProjectCommit& 
   for (const history::EventRecord& event : commit.events) {
     if (event.projectId != state_.package.projectId) {
       return foundation::Error{"storage.event_project_id_mismatch", "Event record must match package project id."};
+    }
+
+    if (event.revision != commit.document.revision) {
+      return foundation::Error{"storage.event_revision_mismatch", "Event record revision must match committed document revision."};
     }
 
     auto eventAppend = next.eventLog.append(event);

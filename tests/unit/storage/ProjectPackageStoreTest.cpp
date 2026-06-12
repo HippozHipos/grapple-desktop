@@ -123,6 +123,36 @@ int main() {
   GRAPPLE_REQUIRE(store.state().commandLog.records().size() == 1);
   GRAPPLE_REQUIRE(store.state().eventLog.records().size() == 1);
 
+  const auto badCommandRevisionCommit = store.commit(storage::AtomicProjectCommit{
+    committedSnapshot.value().document,
+    makeCommandRecord(
+      foundation::CommandId{"cmd_bad_command_revision"},
+      commandResult.value().beforeRevision,
+      foundation::RevisionId{"rev_wrong"}
+    ),
+    {makeEventRecord(foundation::EventId{"event_bad_command_revision"}, commandResult.value().afterRevision)},
+    std::nullopt
+  });
+  GRAPPLE_REQUIRE(!badCommandRevisionCommit);
+  GRAPPLE_REQUIRE(badCommandRevisionCommit.error().code == "storage.command_revision_mismatch");
+  GRAPPLE_REQUIRE(store.state().commandLog.records().size() == 1);
+  GRAPPLE_REQUIRE(store.state().eventLog.records().size() == 1);
+
+  const auto badEventRevisionCommit = store.commit(storage::AtomicProjectCommit{
+    committedSnapshot.value().document,
+    makeCommandRecord(
+      foundation::CommandId{"cmd_bad_event_revision"},
+      commandResult.value().beforeRevision,
+      commandResult.value().afterRevision
+    ),
+    {makeEventRecord(foundation::EventId{"event_bad_revision"}, foundation::RevisionId{"rev_wrong"})},
+    std::nullopt
+  });
+  GRAPPLE_REQUIRE(!badEventRevisionCommit);
+  GRAPPLE_REQUIRE(badEventRevisionCommit.error().code == "storage.event_revision_mismatch");
+  GRAPPLE_REQUIRE(store.state().commandLog.records().size() == 1);
+  GRAPPLE_REQUIRE(store.state().eventLog.records().size() == 1);
+
   const auto badHashCommit = store.commit(storage::AtomicProjectCommit{
     committedSnapshot.value().document,
     makeCommandRecord(
