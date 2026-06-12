@@ -73,8 +73,8 @@ int main(int argc, char* argv[]) {
     session,
     savePackage
       ? std::optional<storage::SnapshotCommitRecord>{storage::SnapshotCommitRecord{
-          foundation::SnapshotId{"snap_cli_rev_6"},
-          foundation::FilePath{"snapshots/rev_6.json"},
+          foundation::SnapshotId{"snap_cli_rev_5"},
+          foundation::FilePath{"snapshots/rev_5.json"},
           std::optional<std::string>{"cli"}
         }}
       : std::nullopt

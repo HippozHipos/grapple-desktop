@@ -706,8 +706,8 @@ grapple::foundation::Result<void> populateDemo(grapple::app::NativeProjectSessio
     session,
     savePackage
       ? std::optional<grapple::storage::SnapshotCommitRecord>{grapple::storage::SnapshotCommitRecord{
-          grapple::foundation::SnapshotId{"snap_desktop_rev_6"},
-          grapple::foundation::FilePath{"snapshots/rev_6.json"},
+          grapple::foundation::SnapshotId{"snap_desktop_rev_5"},
+          grapple::foundation::FilePath{"snapshots/rev_5.json"},
           std::optional<std::string>{"desktop"}
         }}
       : std::nullopt
@@ -831,7 +831,7 @@ public:
     auto* openPackageButton = new QPushButton{"Open Package"};
     auto* addTrackButton = new QPushButton{"Add Track"};
     auto* moveClipButton = new QPushButton{"Move Clip +1s"};
-    auto* addEffectButton = new QPushButton{"Add Effect"};
+    auto* addEffectButton = new QPushButton{"Add Camera Effect"};
     auto* deleteClipButton = new QPushButton{"Delete Clip"};
     auto* exportButton = new QPushButton{"Export Smoke"};
     auto* saveButton = new QPushButton{"Save Package"};
@@ -1330,24 +1330,36 @@ public:
 
   void addEffectToSelectedTarget() {
     if (!selectedNodeId_.has_value()) {
-      appendError(grapple::foundation::Error{"desktop.selection_missing", "Add Effect requires a selected timeline target."});
+      appendError(grapple::foundation::Error{"desktop.selection_missing", "Add Effect requires a selected camera."});
       return;
     }
 
-    const std::string effectSource = "def prepare(ctx):\n  return {'frame': ctx.time}\n";
+    const auto snapshot = workspace_.project().snapshot();
+    if (!snapshot) {
+      appendError(snapshot.error());
+      return;
+    }
+
+    const grapple::graph::GraphNode* selectedNode = snapshot.value().graph.findNode(selectedNodeId_.value());
+    if (selectedNode == nullptr || selectedNode->kind != grapple::graph::NodeKind::Camera) {
+      appendError(grapple::foundation::Error{"desktop.selected_node_not_camera", "Add Effect creates a camera transform effect and requires a selected camera."});
+      return;
+    }
+
+    const std::string effectSource = "builtin:camera_transform";
     const auto created = workspace_.commandWriter().apply(
       grapple::project::CreateEffectCommand{
         workspace_.commandWriter().nextNodeId("effect"),
         selectedNodeId_.value(),
         workspace_.commandWriter().nextEdgeId("effect_targets"),
         grapple::timeline::EffectPayload{
-          "Python Effect",
+          "Camera Transform",
           grapple::timeline::EffectImplementation{
-            grapple::timeline::EffectImplementationKind::Python,
-            "prepare",
+            grapple::timeline::EffectImplementationKind::Builtin,
+            "camera_transform",
             grapple::timeline::EffectSource{
               grapple::timeline::EffectSourceKind::InlineSource,
-              "python",
+              "builtin",
               effectSource,
               std::nullopt,
               grapple::foundation::stableHash(effectSource)
@@ -1355,21 +1367,31 @@ public:
           },
           grapple::timeline::EffectPortSet{
             {grapple::timeline::EffectPort{"frame"}},
-            {grapple::timeline::EffectPort{"frame"}}
+            {grapple::timeline::EffectPort{"camera_transform"}}
           },
           grapple::timeline::ParamSet{
-            {grapple::timeline::Param{
-              "amount",
-              1.0,
-              grapple::timeline::Param::Control{
-                "Amount",
-                grapple::timeline::Param::NumericControl{0.0, 1.0, 0.01}
+            {
+              grapple::timeline::Param{
+                "position_x",
+                0.0,
+                grapple::timeline::Param::Control{
+                  "Position X",
+                  grapple::timeline::Param::NumericControl{-1.0, 1.0, 0.01}
+                }
+              },
+              grapple::timeline::Param{
+                "position_y",
+                0.0,
+                grapple::timeline::Param::Control{
+                  "Position Y",
+                  grapple::timeline::Param::NumericControl{-1.0, 1.0, 0.01}
+                }
               }
-            }}
+            }
           },
           grapple::foundation::TimeRange{grapple::foundation::TimeSeconds{0.0}, timelineDuration_}
         },
-        grapple::graph::PortName{"frame"},
+        grapple::graph::PortName{"camera_transform"},
         grapple::graph::PortName{"input"},
         0
       },
@@ -1815,8 +1837,7 @@ int main(int argc, char* argv[]) {
     std::cout << "selected=" << selectedNodeId->value() << '\n';
     std::cout << "inspector=" << inspector << '\n';
     return selectedNodeId.value() == grapple::foundation::NodeId{"node_camera_4"} &&
-           inspector.find("Camera Transform") != std::string::npos &&
-           inspector.find("Position X (position_x)=0.1") != std::string::npos
+           inspector.find("Effects: none") != std::string::npos
       ? 0
       : 1;
   }
@@ -1825,8 +1846,7 @@ int main(int argc, char* argv[]) {
     const std::string steward = window.stewardContents();
     std::cout << "steward=" << steward << '\n';
     return steward.find("Bet: prompt -> editable graph") != std::string::npos &&
-           steward.find("Camera Transform / Camera") != std::string::npos &&
-           steward.find("Position X, Position Y") != std::string::npos
+           steward.find("- none yet") != std::string::npos
       ? 0
       : 1;
   }
@@ -1899,6 +1919,7 @@ int main(int argc, char* argv[]) {
     window.show();
     app.processEvents();
     window.clickFirstTimelineCamera();
+    window.addEffectToSelectedTarget();
     window.setSelectedTargetNumericEffectParam("position_x", "0.25");
     const std::string inspector = window.inspectorContents();
     const auto viewModel = workspace.value().project().buildViewModel();
@@ -1917,7 +1938,7 @@ int main(int argc, char* argv[]) {
   if (addEffectSmoke) {
     window.show();
     app.processEvents();
-    window.clickFirstTimelineClip();
+    window.clickFirstTimelineCamera();
     window.addEffectToSelectedTarget();
     const std::string inspector = window.inspectorContents();
     const std::string logText = window.logContents();
@@ -1930,20 +1951,21 @@ int main(int argc, char* argv[]) {
     std::cout << "effectGraphs=" << viewModel.value().timeline.effectGraphs.size() << '\n';
     std::cout << "inspector=" << inspector << '\n';
     std::cout << "log=" << logText << '\n';
-    const bool clipHasEffect = std::any_of(
+    const bool cameraHasEffect = std::any_of(
       viewModel.value().timeline.effectGraphs.begin(),
       viewModel.value().timeline.effectGraphs.end(),
       [](const grapple::app::AppEffectGraphRow& graph) {
-        return graph.targetNodeId == grapple::foundation::NodeId{"node_clip_3"} &&
+        return graph.targetNodeId == grapple::foundation::NodeId{"node_camera_4"} &&
                graph.effects.size() == 1 &&
-               graph.effects.front().displayName == "Python Effect";
+               graph.effects.front().displayName == "Camera Transform" &&
+               graph.effects.front().implementationKind == "builtin";
       }
     );
-    return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_7"} &&
-           clipHasEffect &&
-           inspector.find("Python Effect") != std::string::npos &&
-           inspector.find("Amount (amount)=1") != std::string::npos &&
-           logText.find("runtime.effect_runtime_missing") != std::string::npos
+    return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_6"} &&
+           cameraHasEffect &&
+           inspector.find("Camera Transform") != std::string::npos &&
+           inspector.find("Position X (position_x)=0") != std::string::npos &&
+           logText.find("runtime.effect_runtime_missing") == std::string::npos
       ? 0
       : 1;
   }
@@ -1987,8 +2009,8 @@ int main(int argc, char* argv[]) {
     std::cout << "revision=" << viewModel.value().project.revision.value() << '\n';
     std::cout << "commands=" << workspace.value().project().packageState().commandLog.records().size() << '\n';
     return viewModel.value().project.projectId == grapple::foundation::ProjectId{"proj_desktop"} &&
-           viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_6"} &&
-           workspace.value().project().packageState().commandLog.records().size() == 6
+           viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_5"} &&
+           workspace.value().project().packageState().commandLog.records().size() == 5
       ? 0
       : 1;
   }
@@ -2015,10 +2037,10 @@ int main(int argc, char* argv[]) {
     std::cout << "assets=" << viewModel.value().assets.count << '\n';
     std::cout << "clips=" << viewModel.value().timeline.clips.size() << '\n';
     std::cout << "commands=" << reopened.value().project().packageState().commandLog.records().size() << '\n';
-    return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_8"} &&
+    return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_7"} &&
            viewModel.value().assets.count == 2 &&
            viewModel.value().timeline.clips.size() == 2 &&
-           reopened.value().project().packageState().commandLog.records().size() == 8
+           reopened.value().project().packageState().commandLog.records().size() == 7
       ? 0
       : 1;
   }

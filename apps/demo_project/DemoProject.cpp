@@ -2,8 +2,6 @@
 
 #include <grapple/app/NativeProjectCommandWriter.hpp>
 #include <grapple/asset/Asset.hpp>
-#include <grapple/foundation/Hash.hpp>
-#include <grapple/timeline/EffectPayload.hpp>
 #include <grapple/timeline/Payloads.hpp>
 
 namespace grapple::demo {
@@ -23,14 +21,6 @@ project::CommandSource userSource() {
     project::CommandSourceKind::User,
     std::nullopt,
     "demo"
-  };
-}
-
-project::CommandSource agentSource() {
-  return project::CommandSource{
-    project::CommandSourceKind::Agent,
-    foundation::RunId{"run_demo"},
-    "demo-agent"
   };
 }
 
@@ -118,64 +108,11 @@ foundation::Result<void> populateWalkingWomanDemo(
         timeline::CameraLens{35.0}
       }
     },
-    userSource()
+    userSource(),
+    std::move(headSnapshot)
   );
   if (!camera) {
     return camera.error();
-  }
-
-  const std::string effectSource = "builtin:camera_transform";
-  const auto effect = writer.apply(
-    project::CreateEffectCommand{
-      writer.nextNodeId("effect"),
-      cameraNodeId,
-      writer.nextEdgeId("effect_targets_camera"),
-      timeline::EffectPayload{
-        "Camera Transform",
-        timeline::EffectImplementation{
-          timeline::EffectImplementationKind::Builtin,
-          "camera_transform",
-          timeline::EffectSource{
-            timeline::EffectSourceKind::InlineSource,
-            "builtin",
-            effectSource,
-            std::nullopt,
-            foundation::stableHash(effectSource)
-          }
-        },
-        timeline::EffectPortSet{
-          {timeline::EffectPort{"frame"}},
-          {timeline::EffectPort{"camera_transform"}}
-        },
-        timeline::ParamSet{{
-          {timeline::Param{
-            "position_x",
-            0.1,
-            timeline::Param::Control{
-              "Position X",
-              timeline::Param::NumericControl{-1.0, 1.0, 0.01}
-            }
-          }},
-          {timeline::Param{
-            "position_y",
-            0.0,
-            timeline::Param::Control{
-              "Position Y",
-              timeline::Param::NumericControl{-1.0, 1.0, 0.01}
-            }
-          }}
-        }},
-        foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{10.0}}
-      },
-      graph::PortName{"camera_transform"},
-      graph::PortName{"input"},
-      0
-    },
-    agentSource(),
-    std::move(headSnapshot)
-  );
-  if (!effect) {
-    return effect.error();
   }
 
   return {};
