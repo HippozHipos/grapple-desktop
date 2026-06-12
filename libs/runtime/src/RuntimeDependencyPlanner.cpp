@@ -205,6 +205,10 @@ RuntimeDependencyGraph RuntimeDependencyPlanner::build(const projection::RenderP
       }
 
       for (const projection::RenderEffectEdge& edge : effectGraph.edges) {
+        if (!edge.enabled) {
+          continue;
+        }
+
         if (edge.targetNodeId != effectNode.sourceNodeId) {
           continue;
         }

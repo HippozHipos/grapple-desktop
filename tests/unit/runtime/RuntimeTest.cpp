@@ -254,6 +254,12 @@ grapple::projection::RenderPlan makeEffectChainPlanWithAssetVersion(std::string 
   return plan;
 }
 
+grapple::projection::RenderPlan makeEffectChainPlanWithDisabledLink(double effectAParam) {
+  grapple::projection::RenderPlan plan = makeEffectChainPlan(effectAParam);
+  plan.effectGraphs[0].edges[3].enabled = false;
+  return plan;
+}
+
 grapple::projection::RenderPlan makeOutOfOrderEffectChainPlan(double effectAParam) {
   grapple::projection::RenderPlan plan = makeClipPlan(1.0);
   plan.effectGraphs.push_back(grapple::projection::RenderEffectGraph{
@@ -375,6 +381,9 @@ int main() {
   GRAPPLE_REQUIRE(containsDependency(effectChain.nodes[2].inputDependencies, runtime::RuntimeDependencyId{"dep_node_effect_a"}));
   GRAPPLE_REQUIRE(effectChain.nodes[3].inputDependencies.size() == 1);
   GRAPPLE_REQUIRE(effectChain.nodes[3].inputDependencies[0] == runtime::RuntimeDependencyId{"dep_node_clip"});
+  const runtime::RuntimeDependencyGraph disabledLinkEffectChain = planner.build(makeEffectChainPlanWithDisabledLink(0.1));
+  GRAPPLE_REQUIRE(disabledLinkEffectChain.nodes[2].inputDependencies.size() == 1);
+  GRAPPLE_REQUIRE(disabledLinkEffectChain.nodes[2].inputDependencies[0] == runtime::RuntimeDependencyId{"dep_node_clip"});
   const runtime::RuntimeInvalidationResult effectAParamInvalidation = planner.diff(runtime::RuntimeInvalidationRequest{
     effectChain,
     makeEffectChainPlan(0.9)
@@ -390,6 +399,12 @@ int main() {
   GRAPPLE_REQUIRE(outOfOrderEffectInvalidation.invalidatedDependencies.size() == 2);
   GRAPPLE_REQUIRE(outOfOrderEffectInvalidation.invalidatedDependencies[0] == runtime::RuntimeDependencyId{"dep_node_effect_a"});
   GRAPPLE_REQUIRE(outOfOrderEffectInvalidation.invalidatedDependencies[1] == runtime::RuntimeDependencyId{"dep_node_effect_b"});
+  const runtime::RuntimeInvalidationResult disabledLinkEffectInvalidation = planner.diff(runtime::RuntimeInvalidationRequest{
+    disabledLinkEffectChain,
+    makeEffectChainPlanWithDisabledLink(0.9)
+  });
+  GRAPPLE_REQUIRE(disabledLinkEffectInvalidation.invalidatedDependencies.size() == 1);
+  GRAPPLE_REQUIRE(disabledLinkEffectInvalidation.invalidatedDependencies[0] == runtime::RuntimeDependencyId{"dep_node_effect_a"});
   const runtime::RuntimeInvalidationResult clipParamInvalidation = planner.diff(runtime::RuntimeInvalidationRequest{
     effectChain,
     makeEffectChainPlan(0.1, 2.0)
