@@ -108,7 +108,7 @@ int main() {
   });
   GRAPPLE_REQUIRE(renderedActiveFrame);
   GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.time == foundation::TimeSeconds{4.0});
-  GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.description == "layers=1 clips=1 cameras=0");
+  GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.description == "layers=1 clips=1 cameras=0 effects=0");
   GRAPPLE_REQUIRE(renderedActiveFrame.value().runtimeDiagnostics.empty());
   GRAPPLE_REQUIRE(renderedActiveFrame.value().renderDiagnostics.empty());
 
@@ -117,7 +117,7 @@ int main() {
     render::RenderQuality::Final
   });
   GRAPPLE_REQUIRE(renderedInactiveFrame);
-  GRAPPLE_REQUIRE(renderedInactiveFrame.value().frame.description == "layers=1 clips=0 cameras=0");
+  GRAPPLE_REQUIRE(renderedInactiveFrame.value().frame.description == "layers=1 clips=0 cameras=0 effects=0");
 
   const auto pause = preview.pause();
   GRAPPLE_REQUIRE(pause);

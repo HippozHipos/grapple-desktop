@@ -17,7 +17,8 @@ std::string describeSample(const runtime::RuntimeSample& sample) {
   std::ostringstream description;
   description << "layers=" << sample.layers.size()
               << " clips=" << sample.clips.size()
-              << " cameras=" << sample.cameras.size();
+              << " cameras=" << sample.cameras.size()
+              << " effects=" << sample.effectOutputs.size();
   return description.str();
 }
 
