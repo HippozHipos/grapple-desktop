@@ -7,6 +7,8 @@
 #include <grapple/graph/GraphEdge.hpp>
 #include <grapple/graph/GraphNode.hpp>
 #include <grapple/media/MediaSource.hpp>
+#include <grapple/render/RenderDiagnostic.hpp>
+#include <grapple/runtime/RuntimeDiagnostic.hpp>
 #include <grapple/timeline/Payloads.hpp>
 
 #include <QApplication>
@@ -182,6 +184,54 @@ QString mediaKindText(grapple::render::RenderedMediaKind kind) {
   }
 
   return "Unknown";
+}
+
+QString runtimeSeverityText(grapple::runtime::DiagnosticSeverity severity) {
+  switch (severity) {
+    case grapple::runtime::DiagnosticSeverity::Info:
+      return "info";
+    case grapple::runtime::DiagnosticSeverity::Warning:
+      return "warning";
+    case grapple::runtime::DiagnosticSeverity::Error:
+      return "error";
+  }
+
+  return "unknown";
+}
+
+QString renderSeverityText(grapple::render::DiagnosticSeverity severity) {
+  switch (severity) {
+    case grapple::render::DiagnosticSeverity::Info:
+      return "info";
+    case grapple::render::DiagnosticSeverity::Warning:
+      return "warning";
+    case grapple::render::DiagnosticSeverity::Error:
+      return "error";
+  }
+
+  return "unknown";
+}
+
+QString runtimeDiagnosticText(const grapple::runtime::RuntimeDiagnostic& diagnostic) {
+  const QString node = diagnostic.location.nodeId.has_value()
+    ? QString{" node=%1"}.arg(qString(diagnostic.location.nodeId->value()))
+    : QString{};
+  return QString{"Runtime diagnostic [%1] %2%3: %4"}
+    .arg(runtimeSeverityText(diagnostic.severity))
+    .arg(qString(diagnostic.code))
+    .arg(node)
+    .arg(qString(diagnostic.message));
+}
+
+QString renderDiagnosticText(const grapple::render::RenderDiagnostic& diagnostic) {
+  const QString node = diagnostic.location.nodeId.has_value()
+    ? QString{" node=%1"}.arg(qString(diagnostic.location.nodeId->value()))
+    : QString{};
+  return QString{"Render diagnostic [%1] %2%3: %4"}
+    .arg(renderSeverityText(diagnostic.severity))
+    .arg(qString(diagnostic.code))
+    .arg(node)
+    .arg(qString(diagnostic.message));
 }
 
 grapple::foundation::Result<void> ensureDemoVideoFile(const grapple::foundation::FilePath& path) {
@@ -892,11 +942,11 @@ public:
       appendError(refresh.error());
       return;
     }
-    renderCurrentFrame();
+    renderCurrentFrame(true);
     log_->append(QString{"Preview refreshed at %1"}.arg(qString(refresh.value().revision.value())));
   }
 
-  void renderCurrentFrame() {
+  void renderCurrentFrame(bool logDiagnostics = false) {
     const grapple::render::PreviewRenderShellState previewState = workspace_.preview().state();
     const auto frame = workspace_.preview().renderFrame(grapple::render::RenderFrameRequest{
       previewState.playhead,
@@ -905,6 +955,9 @@ public:
     if (!frame) {
       appendError(frame.error());
       return;
+    }
+    if (logDiagnostics) {
+      appendDiagnostics(frame.value());
     }
     previewSurface_->setFrame(frame.value().frame);
     playheadLabel_->setText(QString{"Playhead: %1"}.arg(timeText(previewState.playhead)));
@@ -977,6 +1030,10 @@ public:
 
   std::string inspectorContents() const {
     return inspector_->toPlainText().toStdString();
+  }
+
+  std::string logContents() const {
+    return log_->toPlainText().toStdString();
   }
 
   void startPlayback() {
@@ -1390,6 +1447,7 @@ public:
       appendError(result.error());
       return;
     }
+    appendDiagnostics(result.value());
     log_->append(QString{"Export evaluated %1 frames -> %2"}
       .arg(result.value().framesEvaluated)
       .arg(qString(result.value().outputPath.value)));
@@ -1425,6 +1483,24 @@ public:
 private:
   void appendError(const grapple::foundation::Error& error) {
     log_->append(QString{"%1: %2"}.arg(qString(error.code)).arg(qString(error.message)));
+  }
+
+  void appendDiagnostics(const grapple::render::RenderFrameResult& result) {
+    for (const grapple::runtime::RuntimeDiagnostic& diagnostic : result.runtimeDiagnostics) {
+      log_->append(runtimeDiagnosticText(diagnostic));
+    }
+    for (const grapple::render::RenderDiagnostic& diagnostic : result.renderDiagnostics) {
+      log_->append(renderDiagnosticText(diagnostic));
+    }
+  }
+
+  void appendDiagnostics(const grapple::render::FinalRenderResult& result) {
+    for (const grapple::runtime::RuntimeDiagnostic& diagnostic : result.runtimeDiagnostics) {
+      log_->append(runtimeDiagnosticText(diagnostic));
+    }
+    for (const grapple::render::RenderDiagnostic& diagnostic : result.renderDiagnostics) {
+      log_->append(renderDiagnosticText(diagnostic));
+    }
   }
 
   void selectNode(grapple::foundation::NodeId nodeId) {
@@ -1674,6 +1750,7 @@ int main(int argc, char* argv[]) {
       return 1;
     }
     const std::string inspector = window.inspectorContents();
+    const std::string log = window.logContents();
     std::cout << "selected=" << selectedNodeId->value() << '\n';
     std::cout << "inspector=" << inspector << '\n';
     return selectedNodeId.value() == grapple::foundation::NodeId{"node_camera_4"} &&
@@ -1772,6 +1849,7 @@ int main(int argc, char* argv[]) {
     window.clickFirstTimelineClip();
     window.addEffectToSelectedTarget();
     const std::string inspector = window.inspectorContents();
+    const std::string logText = window.logContents();
     const auto viewModel = workspace.value().project().buildViewModel();
     if (!viewModel) {
       printError(viewModel.error());
@@ -1780,6 +1858,7 @@ int main(int argc, char* argv[]) {
     std::cout << "revision=" << viewModel.value().project.revision.value() << '\n';
     std::cout << "effectGraphs=" << viewModel.value().timeline.effectGraphs.size() << '\n';
     std::cout << "inspector=" << inspector << '\n';
+    std::cout << "log=" << logText << '\n';
     const bool clipHasEffect = std::any_of(
       viewModel.value().timeline.effectGraphs.begin(),
       viewModel.value().timeline.effectGraphs.end(),
@@ -1792,7 +1871,8 @@ int main(int argc, char* argv[]) {
     return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_7"} &&
            clipHasEffect &&
            inspector.find("Python Effect") != std::string::npos &&
-           inspector.find("amount=1") != std::string::npos
+           inspector.find("amount=1") != std::string::npos &&
+           logText.find("runtime.effect_runtime_missing") != std::string::npos
       ? 0
       : 1;
   }
