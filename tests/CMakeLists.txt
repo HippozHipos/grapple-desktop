@@ -5,6 +5,7 @@ add_subdirectory(unit/projection)
 add_subdirectory(unit/history)
 add_subdirectory(unit/storage)
 add_subdirectory(unit/runtime)
+add_subdirectory(unit/model)
 
 add_test(
   NAME architecture_guards
