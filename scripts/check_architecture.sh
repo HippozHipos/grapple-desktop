@@ -27,6 +27,11 @@ if grep -RInE 'browser|downloaded|renderer-specific' "$root/libs" "$root/tests" 
   exit 1
 fi
 
+if grep -RInE '(Preview|Export)(Session|Renderer)|I(Preview|Export)Renderer|grapple_render_export_tests' "$root/libs" "$root/tests" 2>/dev/null; then
+  echo "Architecture guard failed: separate playback/export render systems are forbidden." >&2
+  exit 1
+fi
+
 check_no_matches \
   "project must not depend on downstream or infrastructure modules." \
   '#include <grapple/(projection|runtime|render|model|agent|storage|media|jobs)/' \
