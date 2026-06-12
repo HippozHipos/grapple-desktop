@@ -245,8 +245,15 @@ foundation::Result<void> ProjectController::handleUpdateCamera(const UpdateCamer
 }
 
 foundation::Result<void> ProjectController::handleCreateEffect(const CreateEffectCommand& command) {
-  if (!document_.graph.hasNode(command.targetNodeId)) {
+  const graph::GraphNode* target = document_.graph.findNode(command.targetNodeId);
+  if (target == nullptr) {
     return foundation::Error{"project.effect_target_missing", "Effect target node must exist."};
+  }
+
+  if (target->kind != graph::NodeKind::Track &&
+      target->kind != graph::NodeKind::Clip &&
+      target->kind != graph::NodeKind::Camera) {
+    return foundation::Error{"project.effect_target_invalid", "Effects can target tracks, clips, or cameras."};
   }
 
   auto nodeResult = document_.graph.addNode(graph::GraphNode{

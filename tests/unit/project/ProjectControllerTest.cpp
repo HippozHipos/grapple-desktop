@@ -487,6 +487,88 @@ int main() {
   GRAPPLE_REQUIRE(!updateMissingCamera);
   GRAPPLE_REQUIRE(updateMissingCamera.error().code == "project.camera_missing");
 
+  project::ProjectController effectProject{
+    project::createEmptyProject(foundation::ProjectId{"proj_effect"}, "Effect Project")
+  };
+  const auto effectInitial = effectProject.snapshot();
+  GRAPPLE_REQUIRE(effectInitial);
+  const auto effectComposition = effectProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_effect_composition"},
+    foundation::ProjectId{"proj_effect"},
+    effectInitial.value().revision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::CreateCompositionCommand{foundation::NodeId{"node_effect_composition"}, "Main"}
+  });
+  GRAPPLE_REQUIRE(effectComposition);
+  const timeline::EffectPayload projectEffectPayload{
+    "Effect",
+    timeline::EffectImplementation{
+      timeline::EffectImplementationKind::Python,
+      "prepare",
+      timeline::EffectSource{
+        timeline::EffectSourceKind::InlineSource,
+        "python",
+        "def prepare(ctx):\n  return {}\n",
+        std::nullopt,
+        foundation::stableHash("def prepare(ctx):\n  return {}\n")
+      }
+    },
+    timeline::EffectPortSet{{timeline::EffectPort{"input"}}, {timeline::EffectPort{"output"}}},
+    timeline::ParamSet{},
+    foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}}
+  };
+  const auto invalidEffectTarget = effectProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_invalid_effect_target"},
+    foundation::ProjectId{"proj_effect"},
+    effectComposition.value().afterRevision,
+    project::CommandSource{project::CommandSourceKind::Agent, foundation::RunId{"run_effect"}, "agent"},
+    project::CreateEffectCommand{
+      foundation::NodeId{"node_invalid_effect"},
+      foundation::NodeId{"node_effect_composition"},
+      foundation::EdgeId{"edge_invalid_effect_target"},
+      projectEffectPayload,
+      graph::PortName{"output"},
+      graph::PortName{"input"}
+    }
+  });
+  GRAPPLE_REQUIRE(!invalidEffectTarget);
+  GRAPPLE_REQUIRE(invalidEffectTarget.error().code == "project.effect_target_invalid");
+  const auto afterInvalidEffectTarget = effectProject.snapshot();
+  GRAPPLE_REQUIRE(afterInvalidEffectTarget);
+  GRAPPLE_REQUIRE(afterInvalidEffectTarget.value().revision == effectComposition.value().afterRevision);
+  GRAPPLE_REQUIRE(!afterInvalidEffectTarget.value().graph.hasNode(foundation::NodeId{"node_invalid_effect"}));
+  const auto effectTrack = effectProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_effect_track"},
+    foundation::ProjectId{"proj_effect"},
+    effectComposition.value().afterRevision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::CreateTrackCommand{
+      foundation::NodeId{"node_effect_track"},
+      foundation::NodeId{"node_effect_composition"},
+      foundation::EdgeId{"edge_effect_contains_track"},
+      "Video"
+    }
+  });
+  GRAPPLE_REQUIRE(effectTrack);
+  const auto validTrackEffect = effectProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_valid_track_effect"},
+    foundation::ProjectId{"proj_effect"},
+    effectTrack.value().afterRevision,
+    project::CommandSource{project::CommandSourceKind::Agent, foundation::RunId{"run_effect"}, "agent"},
+    project::CreateEffectCommand{
+      foundation::NodeId{"node_track_effect"},
+      foundation::NodeId{"node_effect_track"},
+      foundation::EdgeId{"edge_track_effect_target"},
+      projectEffectPayload,
+      graph::PortName{"output"},
+      graph::PortName{"input"}
+    }
+  });
+  GRAPPLE_REQUIRE(validTrackEffect);
+  const auto afterTrackEffect = effectProject.snapshot();
+  GRAPPLE_REQUIRE(afterTrackEffect);
+  GRAPPLE_REQUIRE(afterTrackEffect.value().graph.hasNode(foundation::NodeId{"node_track_effect"}));
+
   const auto graphQuery = controller.query(project::GetGraphQuery{});
   GRAPPLE_REQUIRE(graphQuery);
   const auto* graphResult = std::get_if<project::GraphResult>(&graphQuery.value());
