@@ -1,6 +1,7 @@
 add_library(grapple_projection
   src/TimelineProjector.cpp
   src/RenderPlanBuilder.cpp
+  src/RenderPlanHashes.cpp
   src/RenderPlanSerializer.cpp
 )
 
@@ -16,4 +17,5 @@ target_link_libraries(grapple_projection
     Grapple::Foundation
     Grapple::Graph
     Grapple::Project
+    Grapple::Timeline
 )

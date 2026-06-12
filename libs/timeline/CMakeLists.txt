@@ -1,5 +1,6 @@
 add_library(grapple_timeline
   src/ParamValue.cpp
+  src/TimelineSerializer.cpp
 )
 
 add_library(Grapple::Timeline ALIAS grapple_timeline)
@@ -13,4 +14,3 @@ target_link_libraries(grapple_timeline
   PUBLIC
     Grapple::Foundation
 )
-

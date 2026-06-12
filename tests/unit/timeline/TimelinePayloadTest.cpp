@@ -1,7 +1,10 @@
 #include <grapple/timeline/EffectPayload.hpp>
 #include <grapple/timeline/Payloads.hpp>
+#include <grapple/timeline/TimelineSerializer.hpp>
 
 #include <TestAssert.hpp>
+
+#include <string>
 
 int main() {
   using namespace grapple;
@@ -41,7 +44,8 @@ int main() {
   GRAPPLE_REQUIRE(effect.implementation.kind == timeline::EffectImplementationKind::Python);
   GRAPPLE_REQUIRE(effect.implementation.source.language == "python");
   GRAPPLE_REQUIRE(effect.implementation.source.sourceHash == foundation::stableHash("def process(): pass"));
+  GRAPPLE_REQUIRE(timeline::serializeCanonicalClipPayload(clip).find("\"assetId\":\"asset_video\"") != std::string::npos);
+  GRAPPLE_REQUIRE(timeline::serializeCanonicalEffectPayload(effect).find("\"inlineSource\":\"def process(): pass\"") != std::string::npos);
 
   return 0;
 }
-

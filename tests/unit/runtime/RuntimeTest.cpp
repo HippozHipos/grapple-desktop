@@ -25,6 +25,24 @@ grapple::projection::RenderPlan makePlan(std::string layerName) {
   };
 }
 
+grapple::projection::RenderPlan makeClipPlan(double playbackRate) {
+  grapple::projection::RenderPlan plan = makePlan("Video");
+  plan.clips.push_back(grapple::projection::RenderClip{
+    grapple::foundation::NodeId{"node_clip"},
+    grapple::foundation::NodeId{"node_track"},
+    grapple::timeline::ClipPayload{
+      grapple::timeline::ClipKind::Video,
+      grapple::foundation::TimeRange{grapple::foundation::TimeSeconds{0.0}, grapple::foundation::TimeSeconds{10.0}},
+      grapple::foundation::TimeRange{grapple::foundation::TimeSeconds{1.0}, grapple::foundation::TimeSeconds{11.0}},
+      playbackRate,
+      grapple::foundation::AssetId{"asset_video"},
+      grapple::timeline::Transform{}
+    },
+    true
+  });
+  return plan;
+}
+
 grapple::projection::RenderPlan makeEffectPlan(std::string source) {
   grapple::projection::RenderPlan plan = makePlan("Video");
   plan.cameras.push_back(grapple::projection::RenderCamera{
@@ -81,12 +99,27 @@ int main() {
   const runtime::RuntimeDependencyGraph first = planner.build(makePlan("Video"));
   const runtime::RuntimeDependencyGraph second = planner.build(makePlan("Video"));
   const runtime::RuntimeDependencyGraph changed = planner.build(makePlan("Changed"));
+  const runtime::RuntimeDependencyGraph firstClip = planner.build(makeClipPlan(1.0));
+  const runtime::RuntimeDependencyGraph changedClip = planner.build(makeClipPlan(2.0));
   const runtime::RuntimeDependencyGraph firstEffect = planner.build(makeEffectPlan("def prepare(): pass"));
   const runtime::RuntimeDependencyGraph changedEffect = planner.build(makeEffectPlan("def prepare(): return 1"));
 
   GRAPPLE_REQUIRE(first.planHash == second.planHash);
   GRAPPLE_REQUIRE(!(first.planHash == changed.planHash));
+  GRAPPLE_REQUIRE(firstClip.nodes.size() == 1);
+  GRAPPLE_REQUIRE(firstClip.nodes[0].id == runtime::RuntimeDependencyId{"dep_node_clip"});
+  GRAPPLE_REQUIRE(firstClip.nodes[0].renderNodeId == foundation::NodeId{"node_clip"});
+  GRAPPLE_REQUIRE(!(firstClip.nodes[0].paramsHash == changedClip.nodes[0].paramsHash));
+  const foundation::TimeRange expectedClipRange{
+    foundation::TimeSeconds{0.0},
+    foundation::TimeSeconds{10.0}
+  };
+  GRAPPLE_REQUIRE(firstClip.nodes[0].activeRange == expectedClipRange);
+  GRAPPLE_REQUIRE(firstEffect.nodes.size() == 1);
+  GRAPPLE_REQUIRE(firstEffect.nodes[0].id == runtime::RuntimeDependencyId{"dep_node_effect"});
+  GRAPPLE_REQUIRE(firstEffect.nodes[0].renderNodeId == foundation::NodeId{"node_effect"});
   GRAPPLE_REQUIRE(!(firstEffect.planHash == changedEffect.planHash));
+  GRAPPLE_REQUIRE(!(firstEffect.nodes[0].implementationHash == changedEffect.nodes[0].implementationHash));
   GRAPPLE_REQUIRE(first.nodes.empty());
 
   const runtime::RuntimeEvaluator evaluator;
