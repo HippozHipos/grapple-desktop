@@ -90,6 +90,25 @@ foundation::Result<void> GraphDocument::replaceNodePayload(foundation::NodeId no
   return {};
 }
 
+foundation::Result<void> GraphDocument::removeNode(foundation::NodeId nodeId) {
+  const auto nodeIterator = std::find_if(nodes_.begin(), nodes_.end(), [&](const GraphNode& node) {
+    return node.id == nodeId;
+  });
+
+  if (nodeIterator == nodes_.end()) {
+    return foundation::Error{"graph.node_missing", "Graph node must exist before removing it."};
+  }
+
+  nodes_.erase(nodeIterator);
+  edges_.erase(
+    std::remove_if(edges_.begin(), edges_.end(), [&](const GraphEdge& edge) {
+      return edge.sourceNodeId == nodeId || edge.targetNodeId == nodeId;
+    }),
+    edges_.end()
+  );
+  return {};
+}
+
 foundation::Result<void> GraphDocument::addEdge(GraphEdge edge) {
   if (!edge.id) {
     return foundation::Error{"graph.edge_id_empty", "Graph edge id must not be empty."};

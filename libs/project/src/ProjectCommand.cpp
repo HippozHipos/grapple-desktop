@@ -18,6 +18,8 @@ CommandKind commandKind(const ProjectCommand& command) {
         return CommandKind::CreateClip;
       } else if constexpr (std::is_same_v<Command, UpdateClipCommand>) {
         return CommandKind::UpdateClip;
+      } else if constexpr (std::is_same_v<Command, DeleteClipCommand>) {
+        return CommandKind::DeleteClip;
       } else if constexpr (std::is_same_v<Command, CreateCameraCommand>) {
         return CommandKind::CreateCamera;
       } else if constexpr (std::is_same_v<Command, UpdateCameraCommand>) {

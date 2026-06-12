@@ -20,6 +20,7 @@ public:
 
   foundation::Result<void> addNode(GraphNode node);
   foundation::Result<void> replaceNodePayload(foundation::NodeId nodeId, NodePayload payload);
+  foundation::Result<void> removeNode(foundation::NodeId nodeId);
   foundation::Result<void> addEdge(GraphEdge edge);
 
 private:

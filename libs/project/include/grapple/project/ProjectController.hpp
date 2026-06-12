@@ -27,6 +27,7 @@ private:
   foundation::Result<void> handleCreateTrack(const CreateTrackCommand& command);
   foundation::Result<void> handleCreateClip(const CreateClipCommand& command);
   foundation::Result<void> handleUpdateClip(const UpdateClipCommand& command);
+  foundation::Result<void> handleDeleteClip(const DeleteClipCommand& command);
   foundation::Result<void> handleCreateCamera(const CreateCameraCommand& command);
   foundation::Result<void> handleUpdateCamera(const UpdateCameraCommand& command);
   foundation::Result<void> handleCreateEffect(const CreateEffectCommand& command);

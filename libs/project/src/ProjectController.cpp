@@ -82,6 +82,8 @@ foundation::Result<void> ProjectController::applyPayload(const ProjectCommand& p
         return handleCreateClip(typedCommand);
       } else if constexpr (std::is_same_v<Command, UpdateClipCommand>) {
         return handleUpdateClip(typedCommand);
+      } else if constexpr (std::is_same_v<Command, DeleteClipCommand>) {
+        return handleDeleteClip(typedCommand);
       } else if constexpr (std::is_same_v<Command, CreateCameraCommand>) {
         return handleCreateCamera(typedCommand);
       } else if constexpr (std::is_same_v<Command, UpdateCameraCommand>) {
@@ -192,6 +194,15 @@ foundation::Result<void> ProjectController::handleUpdateClip(const UpdateClipCom
   }
 
   return document_.graph.replaceNodePayload(command.nodeId, command.payload);
+}
+
+foundation::Result<void> ProjectController::handleDeleteClip(const DeleteClipCommand& command) {
+  const graph::GraphNode* clip = document_.graph.findNode(command.nodeId);
+  if (clip == nullptr || clip->kind != graph::NodeKind::Clip) {
+    return foundation::Error{"project.clip_missing", "Clip deletion requires an existing clip node."};
+  }
+
+  return document_.graph.removeNode(command.nodeId);
 }
 
 foundation::Result<void> ProjectController::handleCreateCamera(const CreateCameraCommand& command) {

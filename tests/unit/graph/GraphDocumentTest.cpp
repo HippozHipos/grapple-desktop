@@ -124,6 +124,15 @@ int main() {
   GRAPPLE_REQUIRE(diff.removedNodes.empty());
   GRAPPLE_REQUIRE(diff.changedNodes.empty());
 
+  graph::GraphDocument removedTrack = next;
+  const auto removeTrack = removedTrack.removeNode(foundation::NodeId{"node_track"});
+  GRAPPLE_REQUIRE(removeTrack);
+  GRAPPLE_REQUIRE(!removedTrack.hasNode(foundation::NodeId{"node_track"}));
+  GRAPPLE_REQUIRE(removedTrack.edges().empty());
+  const auto removeMissing = removedTrack.removeNode(foundation::NodeId{"node_track"});
+  GRAPPLE_REQUIRE(!removeMissing);
+  GRAPPLE_REQUIRE(removeMissing.error().code == "graph.node_missing");
+
   graph::GraphDocument unorderedNext = graph;
   GRAPPLE_REQUIRE(unorderedNext.addNode(graph::GraphNode{
     foundation::NodeId{"node_z"},

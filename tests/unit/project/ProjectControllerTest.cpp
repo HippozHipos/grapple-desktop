@@ -49,6 +49,7 @@ int main() {
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::CreateTrack) == "project.create_track");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::CreateClip) == "project.create_clip");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::UpdateClip) == "project.update_clip");
+  GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::DeleteClip) == "project.delete_clip");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::CreateCamera) == "project.create_camera");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::UpdateCamera) == "project.update_camera");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::CreateEffect) == "project.create_effect");
@@ -331,10 +332,32 @@ int main() {
   });
   GRAPPLE_REQUIRE(clipTimeline);
   GRAPPLE_REQUIRE(clipTimeline.value().timeline.duration == foundation::TimeSeconds{12.0});
+  const project::ProjectCommandEnvelope deleteClip{
+    foundation::CommandId{"cmd_delete_clip"},
+    foundation::ProjectId{"proj_clip"},
+    afterClipUpdate.value().revision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::DeleteClipCommand{foundation::NodeId{"node_clip"}}
+  };
+  GRAPPLE_REQUIRE(project::commandKind(deleteClip.payload) == project::CommandKind::DeleteClip);
+  GRAPPLE_REQUIRE(project::serializeCanonicalCommandPayload(deleteClip.payload) == "{\"nodeId\":\"node_clip\"}");
+  const auto deleteClipResult = clipProject.apply(deleteClip);
+  GRAPPLE_REQUIRE(deleteClipResult);
+  GRAPPLE_REQUIRE(deleteClipResult.value().afterRevision == foundation::RevisionId{"rev_5"});
+  const auto afterClipDelete = clipProject.snapshot();
+  GRAPPLE_REQUIRE(afterClipDelete);
+  GRAPPLE_REQUIRE(!afterClipDelete.value().graph.hasNode(foundation::NodeId{"node_clip"}));
+  GRAPPLE_REQUIRE(afterClipDelete.value().graph.edges().size() == 1);
+  const auto emptyClipTimeline = clipProjector.buildTimelineIR(projection::BuildTimelineIRRequest{
+    afterClipDelete.value()
+  });
+  GRAPPLE_REQUIRE(emptyClipTimeline);
+  GRAPPLE_REQUIRE(emptyClipTimeline.value().timeline.clips.empty());
+  GRAPPLE_REQUIRE(emptyClipTimeline.value().timeline.duration == foundation::TimeSeconds{0.0});
   const auto updateMissingClip = clipProject.apply(project::ProjectCommandEnvelope{
     foundation::CommandId{"cmd_update_missing_clip"},
     foundation::ProjectId{"proj_clip"},
-    afterClipUpdate.value().revision,
+    afterClipDelete.value().revision,
     project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
     project::UpdateClipCommand{
       foundation::NodeId{"node_missing_clip"},
@@ -343,6 +366,15 @@ int main() {
   });
   GRAPPLE_REQUIRE(!updateMissingClip);
   GRAPPLE_REQUIRE(updateMissingClip.error().code == "project.clip_missing");
+  const auto deleteMissingClip = clipProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_delete_missing_clip"},
+    foundation::ProjectId{"proj_clip"},
+    afterClipDelete.value().revision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::DeleteClipCommand{foundation::NodeId{"node_missing_clip"}}
+  });
+  GRAPPLE_REQUIRE(!deleteMissingClip);
+  GRAPPLE_REQUIRE(deleteMissingClip.error().code == "project.clip_missing");
 
   project::ProjectController cameraProject{
     project::createEmptyProject(foundation::ProjectId{"proj_camera"}, "Camera Project")
