@@ -58,6 +58,8 @@ int main() {
     project::CreateCompositionCommand{foundation::NodeId{"node_composition"}, "Main"}
   });
   GRAPPLE_REQUIRE(command);
+  const auto afterCommandSnapshot = project.snapshot();
+  GRAPPLE_REQUIRE(afterCommandSnapshot);
 
   TestModelService models;
   agent::AgentToolContext context{project, project, models};
@@ -78,8 +80,12 @@ int main() {
   GRAPPLE_REQUIRE(result);
   GRAPPLE_REQUIRE(result.value().status == agent::ToolResultStatus::Succeeded);
   GRAPPLE_REQUIRE(result.value().observedRevision == foundation::RevisionId{"rev_1"});
-  GRAPPLE_REQUIRE(result.value().payload.find("project=proj_agent") != std::string::npos);
-  GRAPPLE_REQUIRE(result.value().payload.find("nodes=1") != std::string::npos);
+  GRAPPLE_REQUIRE(
+    result.value().payload ==
+    "{\"projectId\":\"proj_agent\",\"revision\":\"rev_1\",\"revisionNumber\":1,\"canonicalHash\":\"" +
+      afterCommandSnapshot.value().canonicalHash.toHex() +
+      "\",\"graph\":{\"nodes\":1,\"edges\":0},\"assets\":{\"count\":0}}"
+  );
 
   return 0;
 }

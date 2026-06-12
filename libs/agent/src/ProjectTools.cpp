@@ -1,5 +1,6 @@
 #include <grapple/agent/ProjectTools.hpp>
 
+#include <grapple/foundation/Json.hpp>
 #include <grapple/project/ProjectQuery.hpp>
 
 #include <sstream>
@@ -26,10 +27,15 @@ AgentTool makeProjectInspectTool() {
 
       const project::ProjectSnapshot& snapshot = snapshotResult->snapshot;
       std::ostringstream payload;
-      payload << "project=" << snapshot.info.id.value()
-              << "\nrevision=" << snapshot.revision.value()
-              << "\nnodes=" << snapshot.graph.nodes().size()
-              << "\nedges=" << snapshot.graph.edges().size();
+      payload << '{'
+              << "\"projectId\":" << foundation::jsonQuoted(snapshot.info.id.value())
+              << ",\"revision\":" << foundation::jsonQuoted(snapshot.revision.value())
+              << ",\"revisionNumber\":" << snapshot.revisionNumber
+              << ",\"canonicalHash\":" << foundation::jsonQuoted(snapshot.canonicalHash.toHex())
+              << ",\"graph\":{\"nodes\":" << snapshot.graph.nodes().size()
+              << ",\"edges\":" << snapshot.graph.edges().size()
+              << "},\"assets\":{\"count\":" << snapshot.assets.assets().size()
+              << "}}";
 
       return ToolResult{
         call.toolId,
