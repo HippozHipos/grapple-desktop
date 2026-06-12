@@ -1346,6 +1346,30 @@ public:
       return;
     }
 
+    for (const grapple::graph::GraphEdge& edge : snapshot.value().graph.edges()) {
+      if (!edge.enabled ||
+          edge.kind != grapple::graph::EdgeKind::Targets ||
+          edge.targetNodeId != selectedNodeId_.value()) {
+        continue;
+      }
+
+      const grapple::graph::GraphNode* effectNode = snapshot.value().graph.findNode(edge.sourceNodeId);
+      if (effectNode == nullptr || effectNode->kind != grapple::graph::NodeKind::Effect) {
+        appendError(grapple::foundation::Error{"desktop.effect_node_invalid", "Camera target edge points to a missing or invalid effect node."});
+        return;
+      }
+      const auto* effectPayload = std::get_if<grapple::timeline::EffectPayload>(&effectNode->payload);
+      if (effectPayload == nullptr) {
+        appendError(grapple::foundation::Error{"desktop.effect_payload_invalid", "Camera target effect node must carry an effect payload."});
+        return;
+      }
+      if (effectPayload->implementation.kind == grapple::timeline::EffectImplementationKind::Builtin &&
+          effectPayload->implementation.entrypoint == "camera_transform") {
+        appendError(grapple::foundation::Error{"desktop.camera_transform_exists", "Selected camera already has a Camera Transform effect."});
+        return;
+      }
+    }
+
     const std::string effectSource = "builtin:camera_transform";
     const auto created = workspace_.commandWriter().apply(
       grapple::project::CreateEffectCommand{
@@ -1940,6 +1964,7 @@ int main(int argc, char* argv[]) {
     app.processEvents();
     window.clickFirstTimelineCamera();
     window.addEffectToSelectedTarget();
+    window.addEffectToSelectedTarget();
     const std::string inspector = window.inspectorContents();
     const std::string logText = window.logContents();
     const auto viewModel = workspace.value().project().buildViewModel();
@@ -1965,6 +1990,7 @@ int main(int argc, char* argv[]) {
            cameraHasEffect &&
            inspector.find("Camera Transform") != std::string::npos &&
            inspector.find("Position X (position_x)=0") != std::string::npos &&
+           logText.find("desktop.camera_transform_exists") != std::string::npos &&
            logText.find("runtime.effect_runtime_missing") == std::string::npos
       ? 0
       : 1;
