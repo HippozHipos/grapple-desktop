@@ -84,6 +84,8 @@ foundation::Result<void> ProjectController::applyPayload(const ProjectCommand& p
         return handleCreateCamera(typedCommand);
       } else if constexpr (std::is_same_v<Command, CreateEffectCommand>) {
         return handleCreateEffect(typedCommand);
+      } else if constexpr (std::is_same_v<Command, ConnectNodesCommand>) {
+        return handleConnectNodes(typedCommand);
       } else if constexpr (std::is_same_v<Command, SetEffectParamsCommand>) {
         return handleSetEffectParams(typedCommand);
       } else if constexpr (std::is_same_v<Command, RestoreSnapshotCommand>) {
@@ -226,6 +228,19 @@ foundation::Result<void> ProjectController::handleCreateEffect(const CreateEffec
     command.targetEdgeId,
     graph::EdgeKind::Targets,
     command.nodeId,
+    command.sourcePort,
+    command.targetNodeId,
+    command.targetPort,
+    command.order,
+    true
+  });
+}
+
+foundation::Result<void> ProjectController::handleConnectNodes(const ConnectNodesCommand& command) {
+  return document_.graph.addEdge(graph::GraphEdge{
+    command.edgeId,
+    graph::EdgeKind::Connects,
+    command.sourceNodeId,
     command.sourcePort,
     command.targetNodeId,
     command.targetPort,

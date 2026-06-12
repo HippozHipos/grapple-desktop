@@ -27,6 +27,7 @@ private:
   foundation::Result<void> handleCreateClip(const CreateClipCommand& command);
   foundation::Result<void> handleCreateCamera(const CreateCameraCommand& command);
   foundation::Result<void> handleCreateEffect(const CreateEffectCommand& command);
+  foundation::Result<void> handleConnectNodes(const ConnectNodesCommand& command);
   foundation::Result<void> handleSetEffectParams(const SetEffectParamsCommand& command);
   foundation::Result<void> handleRestoreSnapshot(const RestoreSnapshotCommand& command);
 

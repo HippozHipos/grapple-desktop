@@ -20,6 +20,7 @@ enum class CommandKind {
   CreateClip,
   CreateCamera,
   CreateEffect,
+  ConnectNodes,
   SetEffectParams,
   RestoreSnapshot
 };
@@ -80,6 +81,15 @@ struct CreateEffectCommand {
   std::int64_t order = 0;
 };
 
+struct ConnectNodesCommand {
+  foundation::EdgeId edgeId;
+  foundation::NodeId sourceNodeId;
+  graph::PortName sourcePort;
+  foundation::NodeId targetNodeId;
+  graph::PortName targetPort;
+  std::int64_t order = 0;
+};
+
 struct SetEffectParamsCommand {
   foundation::NodeId effectNodeId;
   timeline::ParamSet params;
@@ -97,6 +107,7 @@ using ProjectCommand = std::variant<
   CreateClipCommand,
   CreateCameraCommand,
   CreateEffectCommand,
+  ConnectNodesCommand,
   SetEffectParamsCommand,
   RestoreSnapshotCommand
 >;

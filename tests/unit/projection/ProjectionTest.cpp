@@ -282,6 +282,74 @@ int main() {
   GRAPPLE_REQUIRE(std::get<double>(updatedPlan.value().plan.effectGraphs[0].nodes[0].payload.params.values[0].value) == 0.5);
   GRAPPLE_REQUIRE(std::get<double>(updatedPlan.value().plan.effectGraphs[0].nodes[0].payload.params.values[1].value) == 0.8);
 
+  project::ProjectDocument connectedEffectsDocument = project::createEmptyProject(
+    foundation::ProjectId{"proj_connected_effects"},
+    "Connected Effects Projection Test"
+  );
+  GRAPPLE_REQUIRE(connectedEffectsDocument.graph.addNode(graph::GraphNode{
+    foundation::NodeId{"node_connected_camera"},
+    graph::NodeKind::Camera,
+    cameraPayload,
+    true
+  }));
+  GRAPPLE_REQUIRE(connectedEffectsDocument.graph.addNode(graph::GraphNode{
+    foundation::NodeId{"node_connected_effect_a"},
+    graph::NodeKind::Effect,
+    effectPayload,
+    true
+  }));
+  GRAPPLE_REQUIRE(connectedEffectsDocument.graph.addNode(graph::GraphNode{
+    foundation::NodeId{"node_connected_effect_b"},
+    graph::NodeKind::Effect,
+    effectPayload,
+    true
+  }));
+  GRAPPLE_REQUIRE(connectedEffectsDocument.graph.addEdge(graph::GraphEdge{
+    foundation::EdgeId{"edge_connected_effect_a_targets_camera"},
+    graph::EdgeKind::Targets,
+    foundation::NodeId{"node_connected_effect_a"},
+    graph::PortName{"camera_transform"},
+    foundation::NodeId{"node_connected_camera"},
+    graph::PortName{"input"},
+    0,
+    true
+  }));
+  GRAPPLE_REQUIRE(connectedEffectsDocument.graph.addEdge(graph::GraphEdge{
+    foundation::EdgeId{"edge_connected_effect_b_targets_camera"},
+    graph::EdgeKind::Targets,
+    foundation::NodeId{"node_connected_effect_b"},
+    graph::PortName{"camera_transform"},
+    foundation::NodeId{"node_connected_camera"},
+    graph::PortName{"input"},
+    1,
+    true
+  }));
+  GRAPPLE_REQUIRE(connectedEffectsDocument.graph.addEdge(graph::GraphEdge{
+    foundation::EdgeId{"edge_connected_effects"},
+    graph::EdgeKind::Connects,
+    foundation::NodeId{"node_connected_effect_a"},
+    graph::PortName{"camera_transform"},
+    foundation::NodeId{"node_connected_effect_b"},
+    graph::PortName{"input_frame"},
+    2,
+    true
+  }));
+
+  const auto connectedTimeline = projector.buildTimelineIR(projection::BuildTimelineIRRequest{
+    project::ProjectSnapshot{connectedEffectsDocument}
+  });
+  GRAPPLE_REQUIRE(connectedTimeline);
+  const auto connectedPlan = builder.buildRenderPlan(projection::BuildRenderPlanRequest{
+    connectedTimeline.value().timeline
+  });
+  GRAPPLE_REQUIRE(connectedPlan);
+  GRAPPLE_REQUIRE(connectedPlan.value().plan.effectGraphs.size() == 1);
+  GRAPPLE_REQUIRE(connectedPlan.value().plan.effectGraphs[0].nodes.size() == 2);
+  GRAPPLE_REQUIRE(connectedPlan.value().plan.effectGraphs[0].edges.size() == 3);
+  GRAPPLE_REQUIRE(connectedPlan.value().plan.effectGraphs[0].edges[2].sourceEdgeId == foundation::EdgeId{"edge_connected_effects"});
+  GRAPPLE_REQUIRE(connectedPlan.value().plan.effectGraphs[0].edges[2].sourcePort == graph::PortName{"camera_transform"});
+  GRAPPLE_REQUIRE(connectedPlan.value().plan.effectGraphs[0].edges[2].targetPort == graph::PortName{"input_frame"});
+
   project::ProjectDocument malformedDocument = project::createEmptyProject(
     foundation::ProjectId{"proj_malformed"},
     "Malformed Projection Test"

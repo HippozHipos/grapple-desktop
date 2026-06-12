@@ -1,3 +1,4 @@
+#include <grapple/graph/GraphEdge.hpp>
 #include <grapple/project/ProjectController.hpp>
 #include <grapple/project/ProjectCommandNames.hpp>
 #include <grapple/project/ProjectEventNames.hpp>
@@ -47,6 +48,7 @@ int main() {
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::CreateClip) == "project.create_clip");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::CreateCamera) == "project.create_camera");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::CreateEffect) == "project.create_effect");
+  GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::ConnectNodes) == "project.connect_nodes");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::SetEffectParams) == "project.set_effect_params");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::RestoreSnapshot) == "project.restore_snapshot");
   GRAPPLE_REQUIRE(project::serializedEventName(project::EventKind::ProjectCommandApplied) == "project.command_applied");
@@ -181,6 +183,59 @@ int main() {
   GRAPPLE_REQUIRE(afterDuplicateAsset);
   GRAPPLE_REQUIRE(afterDuplicateAsset.value().document.revision == foundation::RevisionId{"rev_1"});
   GRAPPLE_REQUIRE(afterDuplicateAsset.value().document.assets.assets().size() == 1);
+
+  project::ProjectController connectionProject{
+    project::createEmptyProject(foundation::ProjectId{"proj_connection"}, "Connection Project")
+  };
+  const auto connectionInitialSnapshot = connectionProject.snapshot();
+  GRAPPLE_REQUIRE(connectionInitialSnapshot);
+  const auto connectionComposition = connectionProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_connection_composition"},
+    foundation::ProjectId{"proj_connection"},
+    connectionInitialSnapshot.value().document.revision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::CreateCompositionCommand{foundation::NodeId{"node_connection_composition"}, "Main"}
+  });
+  GRAPPLE_REQUIRE(connectionComposition);
+  const auto connectionTrack = connectionProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_connection_track"},
+    foundation::ProjectId{"proj_connection"},
+    connectionComposition.value().afterRevision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::CreateTrackCommand{
+      foundation::NodeId{"node_connection_track"},
+      foundation::NodeId{"node_connection_composition"},
+      foundation::EdgeId{"edge_connection_contains_track"},
+      "Video"
+    }
+  });
+  GRAPPLE_REQUIRE(connectionTrack);
+
+  const project::ProjectCommandEnvelope connectNodes{
+    foundation::CommandId{"cmd_connect_nodes"},
+    foundation::ProjectId{"proj_connection"},
+    connectionTrack.value().afterRevision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::ConnectNodesCommand{
+      foundation::EdgeId{"edge_connect_nodes"},
+      foundation::NodeId{"node_connection_composition"},
+      graph::PortName{"output"},
+      foundation::NodeId{"node_connection_track"},
+      graph::PortName{"input"},
+      2
+    }
+  };
+  GRAPPLE_REQUIRE(project::commandKind(connectNodes.payload) == project::CommandKind::ConnectNodes);
+  GRAPPLE_REQUIRE(
+    project::serializeCanonicalCommandPayload(connectNodes.payload) ==
+    "{\"edgeId\":\"edge_connect_nodes\",\"sourceNodeId\":\"node_connection_composition\",\"sourcePort\":\"output\",\"targetNodeId\":\"node_connection_track\",\"targetPort\":\"input\",\"order\":2}"
+  );
+  const auto connectNodesResult = connectionProject.apply(connectNodes);
+  GRAPPLE_REQUIRE(connectNodesResult);
+  GRAPPLE_REQUIRE(connectNodesResult.value().afterRevision == foundation::RevisionId{"rev_3"});
+  const auto connectionSnapshot = connectionProject.snapshot();
+  GRAPPLE_REQUIRE(connectionSnapshot);
+  GRAPPLE_REQUIRE(connectionSnapshot.value().document.graph.edges().size() == 2);
 
   const auto graphQuery = controller.query(project::GetGraphQuery{});
   GRAPPLE_REQUIRE(graphQuery);

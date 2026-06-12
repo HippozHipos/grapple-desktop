@@ -35,6 +35,34 @@ bool containsNodeId(const std::vector<foundation::NodeId>& nodeIds, foundation::
   return false;
 }
 
+bool effectGraphHasNode(const TimelineEffectGraph& effectGraph, foundation::NodeId nodeId) {
+  for (const TimelineEffectNode& node : effectGraph.nodes) {
+    if (node.sourceNodeId == nodeId) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+TimelineEffectGraph* findEffectGraphForConnection(
+  std::vector<TimelineEffectGraph>& effectGraphs,
+  foundation::NodeId sourceNodeId,
+  foundation::NodeId targetNodeId
+) {
+  TimelineEffectGraph* foundGraph = nullptr;
+  for (TimelineEffectGraph& effectGraph : effectGraphs) {
+    if (effectGraphHasNode(effectGraph, sourceNodeId) && effectGraphHasNode(effectGraph, targetNodeId)) {
+      if (foundGraph != nullptr) {
+        return nullptr;
+      }
+      foundGraph = &effectGraph;
+    }
+  }
+
+  return foundGraph;
+}
+
 } // namespace
 
 foundation::Result<BuildTimelineIRResult> TimelineProjector::buildTimelineIR(
@@ -138,6 +166,37 @@ foundation::Result<BuildTimelineIRResult> TimelineProjector::buildTimelineIR(
       edge.enabled
     });
     targetedEffectNodeIds.push_back(edge.sourceNodeId);
+  }
+
+  for (const graph::GraphEdge& edge : document.graph.edges()) {
+    if (edge.kind != graph::EdgeKind::Connects) {
+      continue;
+    }
+
+    const graph::GraphNode* source = document.graph.findNode(edge.sourceNodeId);
+    const graph::GraphNode* target = document.graph.findNode(edge.targetNodeId);
+    if (source == nullptr || source->kind != graph::NodeKind::Effect || target == nullptr || target->kind != graph::NodeKind::Effect) {
+      return foundation::Error{"projection.effect_connection_endpoint_invalid", "Effect connection edges must connect effect nodes."};
+    }
+
+    TimelineEffectGraph* effectGraph = findEffectGraphForConnection(
+      timeline.effectGraphs,
+      edge.sourceNodeId,
+      edge.targetNodeId
+    );
+    if (effectGraph == nullptr) {
+      return foundation::Error{"projection.effect_connection_graph_missing", "Effect connection endpoints must belong to one effect graph."};
+    }
+
+    effectGraph->edges.push_back(TimelineEffectEdge{
+      edge.id,
+      edge.sourceNodeId,
+      edge.sourcePort,
+      edge.targetNodeId,
+      edge.targetPort,
+      edge.order,
+      edge.enabled
+    });
   }
 
   for (const graph::GraphNode& node : document.graph.nodes()) {
