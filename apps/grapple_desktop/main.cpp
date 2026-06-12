@@ -1,5 +1,7 @@
 #include <DemoProject.hpp>
 
+#include "EffectParamPanel.hpp"
+
 #include <grapple/app/NativeProjectSession.hpp>
 #include <grapple/app/NativeWorkspaceSession.hpp>
 #include <grapple/asset/Asset.hpp>
@@ -17,10 +19,8 @@
 #include <QFileDialog>
 #include <QFontMetrics>
 #include <QGridLayout>
-#include <QHBoxLayout>
 #include <QImage>
 #include <QLabel>
-#include <QLineEdit>
 #include <QListWidget>
 #include <QListWidgetItem>
 #include <QMainWindow>
@@ -798,11 +798,14 @@ public:
     inspector_->setObjectName("inspector");
     inspector_->setReadOnly(true);
 
-    effectParams_ = new QWidget;
-    effectParams_->setObjectName("effectParams");
-    effectParamsLayout_ = new QVBoxLayout{effectParams_};
-    effectParamsLayout_->setContentsMargins(12, 12, 12, 12);
-    effectParamsLayout_->setSpacing(10);
+    effectParams_ = new grapple::desktop::EffectParamPanel;
+    effectParams_->setApplyHandler([this](
+      grapple::foundation::NodeId effectNodeId,
+      std::string paramName,
+      std::string rawValue
+    ) {
+      setEffectNumericParam(effectNodeId, paramName, rawValue);
+    });
 
     log_ = new QTextEdit;
     log_->setObjectName("log");
@@ -1561,93 +1564,7 @@ private:
 
   void updateInspector(const grapple::app::AppViewModel& viewModel) {
     inspector_->setPlainText(inspectorText(viewModel, selectedNodeId_, selectedAssetId_));
-    rebuildEffectParamControls(viewModel);
-  }
-
-  void clearEffectParamControls() {
-    while (QLayoutItem* item = effectParamsLayout_->takeAt(0)) {
-      if (QWidget* widget = item->widget()) {
-        delete widget;
-      }
-      delete item;
-    }
-  }
-
-  void addEffectParamMessage(const QString& message) {
-    auto* title = new QLabel{"Effect Parameters"};
-    title->setObjectName("effectParamTitle");
-    auto* help = new QLabel{message};
-    help->setObjectName("effectParamHelp");
-    help->setWordWrap(true);
-    effectParamsLayout_->addWidget(title);
-    effectParamsLayout_->addWidget(help);
-  }
-
-  void rebuildEffectParamControls(const grapple::app::AppViewModel& viewModel) {
-    clearEffectParamControls();
-    if (!selectedNodeId_.has_value()) {
-      addEffectParamMessage("Select a timeline item to edit its agent-authored controls.");
-      return;
-    }
-
-    bool hasAttachedEffect = false;
-    for (const grapple::app::AppEffectGraphRow& graph : viewModel.timeline.effectGraphs) {
-      if (graph.targetNodeId != selectedNodeId_.value()) {
-        continue;
-      }
-
-      for (const grapple::app::AppEffectRow& effect : graph.effects) {
-        hasAttachedEffect = true;
-        auto* effectTitle = new QLabel{QString{"%1 Parameters"}.arg(qString(effect.displayName))};
-        effectTitle->setObjectName("effectParamTitle");
-        effectParamsLayout_->addWidget(effectTitle);
-
-        if (effect.params.empty()) {
-          auto* empty = new QLabel{"This effect has no exposed parameters."};
-          empty->setObjectName("effectParamHelp");
-          effectParamsLayout_->addWidget(empty);
-          continue;
-        }
-
-        for (const grapple::app::AppEffectParamRow& param : effect.params) {
-          const QString displayName = param.label.empty()
-            ? qString(param.name)
-            : qString(param.label);
-
-          auto* row = new QWidget;
-          auto* rowLayout = new QHBoxLayout{row};
-          rowLayout->setContentsMargins(0, 0, 0, 0);
-          rowLayout->setSpacing(8);
-
-          auto* label = new QLabel{displayName};
-          label->setMinimumWidth(92);
-          label->setToolTip(qString(param.name));
-          auto* editor = new QLineEdit{qString(param.value)};
-          editor->setObjectName("effectParamEditor");
-          if (param.numericMin.has_value() && param.numericMax.has_value()) {
-            editor->setToolTip(QString{"%1..%2"}.arg(*param.numericMin).arg(*param.numericMax));
-          }
-          auto* apply = new QPushButton{"Apply"};
-          apply->setObjectName("effectParamApply");
-
-          const grapple::foundation::NodeId effectNodeId = effect.sourceNodeId;
-          const std::string paramName = param.name;
-          connect(apply, &QPushButton::clicked, this, [this, effectNodeId, paramName, editor] {
-            setEffectNumericParam(effectNodeId, paramName, editor->text().toStdString());
-          });
-
-          rowLayout->addWidget(label);
-          rowLayout->addWidget(editor, 1);
-          rowLayout->addWidget(apply);
-          effectParamsLayout_->addWidget(row);
-        }
-      }
-    }
-
-    if (!hasAttachedEffect) {
-      addEffectParamMessage("No effects are attached to the selected timeline item.");
-    }
-    effectParamsLayout_->addStretch(1);
+    effectParams_->setSelection(viewModel, selectedNodeId_);
   }
 
   void rebuildMediaBin(const grapple::app::AppViewModel& viewModel) {
@@ -1716,8 +1633,7 @@ private:
   PreviewSurface* previewSurface_ = nullptr;
   TimelinePanel* timeline_ = nullptr;
   QTextEdit* inspector_ = nullptr;
-  QWidget* effectParams_ = nullptr;
-  QVBoxLayout* effectParamsLayout_ = nullptr;
+  grapple::desktop::EffectParamPanel* effectParams_ = nullptr;
   QTextEdit* log_ = nullptr;
   QFrame* previewFrame_ = nullptr;
   QTimer* playbackTimer_ = nullptr;
