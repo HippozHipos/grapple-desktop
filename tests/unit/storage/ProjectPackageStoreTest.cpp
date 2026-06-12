@@ -162,6 +162,21 @@ int main() {
   });
   GRAPPLE_REQUIRE(!absoluteSnapshotPath);
   GRAPPLE_REQUIRE(absoluteSnapshotPath.error().code == "storage.snapshot_document_path_absolute");
+  const auto wrongProjectSnapshotPath = packageWriter.writeSnapshot(storage::ProjectSnapshotWriteRequest{
+    storage::ProjectPackage{
+      foundation::ProjectId{"proj_other"},
+      foundation::FilePath{packageRoot.string()},
+      1
+    },
+    committedSnapshot.value(),
+    storage::SnapshotCommitRecord{
+      foundation::SnapshotId{"snap_wrong_project"},
+      foundation::FilePath{"snapshots/wrong_project.json"},
+      std::nullopt
+    }
+  });
+  GRAPPLE_REQUIRE(!wrongProjectSnapshotPath);
+  GRAPPLE_REQUIRE(wrongProjectSnapshotPath.error().code == "storage.snapshot_project_id_mismatch");
   std::filesystem::remove_all(packageRoot);
 
   const auto duplicateCommit = store.commit(storage::AtomicProjectCommit{

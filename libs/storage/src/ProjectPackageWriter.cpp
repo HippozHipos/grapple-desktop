@@ -14,6 +14,10 @@ foundation::Result<foundation::FilePath> ProjectPackageWriter::writeSnapshot(
     return foundation::Error{"storage.package_root_empty", "Project package root path must not be empty."};
   }
 
+  if (request.snapshot.info.id != request.package.projectId) {
+    return foundation::Error{"storage.snapshot_project_id_mismatch", "Snapshot project id must match package project id."};
+  }
+
   if (request.snapshotRecord.documentPath.value.empty()) {
     return foundation::Error{"storage.snapshot_document_path_empty", "Snapshot document path must not be empty."};
   }
