@@ -1,0 +1,42 @@
+#pragma once
+
+#include <grapple/foundation/StrongId.hpp>
+#include <grapple/foundation/Time.hpp>
+#include <grapple/projection/RenderPlan.hpp>
+#include <grapple/runtime/RuntimeDiagnostic.hpp>
+
+#include <vector>
+
+namespace grapple::runtime {
+
+struct PreparedRuntimePlan;
+
+enum class RuntimeQuality {
+  Interactive,
+  Final
+};
+
+using ResolvedLayer = projection::RenderLayer;
+using ResolvedClip = projection::RenderClip;
+using ResolvedCamera = projection::RenderCamera;
+
+struct RuntimeSample {
+  foundation::TimeSeconds time;
+  std::vector<ResolvedLayer> layers;
+  std::vector<ResolvedClip> clips;
+  std::vector<ResolvedCamera> cameras;
+  std::vector<RuntimeDiagnostic> diagnostics;
+};
+
+struct RuntimeSampleRequest {
+  const PreparedRuntimePlan& prepared;
+  foundation::TimeSeconds time;
+  RuntimeQuality quality = RuntimeQuality::Interactive;
+};
+
+struct RuntimeSampleResult {
+  RuntimeSample sample;
+  std::vector<RuntimeDiagnostic> diagnostics;
+};
+
+} // namespace grapple::runtime

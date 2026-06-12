@@ -4,6 +4,7 @@
 #include <grapple/projection/RenderPlan.hpp>
 #include <grapple/runtime/RuntimeDependencyGraph.hpp>
 #include <grapple/runtime/RuntimeDiagnostic.hpp>
+#include <grapple/runtime/RuntimeSample.hpp>
 
 #include <vector>
 
@@ -18,6 +19,9 @@ struct PreparedRuntimePlan {
   foundation::RevisionId sourceRevision;
   foundation::Hash256 planHash;
   RuntimeDependencyGraph dependencyGraph;
+  std::vector<projection::RenderLayer> layers;
+  std::vector<projection::RenderClip> clips;
+  std::vector<projection::RenderCamera> cameras;
   std::vector<RuntimeDiagnostic> diagnostics;
 };
 
@@ -36,7 +40,9 @@ public:
   foundation::Result<PrepareRuntimePlanResult> prepare(
     const PrepareRuntimePlanRequest& request
   ) const;
+  foundation::Result<RuntimeSampleResult> sample(
+    const RuntimeSampleRequest& request
+  ) const;
 };
 
 } // namespace grapple::runtime
-

@@ -352,6 +352,47 @@ int main() {
   GRAPPLE_REQUIRE(prepared.value().prepared.planHash == first.planHash);
   GRAPPLE_REQUIRE(prepared.value().diagnostics.empty());
 
+  const auto preparedClipPlan = evaluator.prepare(runtime::PrepareRuntimePlanRequest{
+    makeClipPlan(1.0),
+    runtime::RuntimePrepareMode::Interactive
+  });
+  GRAPPLE_REQUIRE(preparedClipPlan);
+  const auto activeSample = evaluator.sample(runtime::RuntimeSampleRequest{
+    preparedClipPlan.value().prepared,
+    foundation::TimeSeconds{4.0},
+    runtime::RuntimeQuality::Interactive
+  });
+  GRAPPLE_REQUIRE(activeSample);
+  GRAPPLE_REQUIRE(activeSample.value().sample.time == foundation::TimeSeconds{4.0});
+  GRAPPLE_REQUIRE(activeSample.value().sample.layers.size() == 1);
+  GRAPPLE_REQUIRE(activeSample.value().sample.layers[0].sourceNodeId == foundation::NodeId{"node_track"});
+  GRAPPLE_REQUIRE(activeSample.value().sample.clips.size() == 1);
+  GRAPPLE_REQUIRE(activeSample.value().sample.clips[0].sourceNodeId == foundation::NodeId{"node_clip"});
+  GRAPPLE_REQUIRE(activeSample.value().sample.clips[0].payload.sourceRange.start == foundation::TimeSeconds{1.0});
+  const auto inactiveSample = evaluator.sample(runtime::RuntimeSampleRequest{
+    preparedClipPlan.value().prepared,
+    foundation::TimeSeconds{12.0},
+    runtime::RuntimeQuality::Interactive
+  });
+  GRAPPLE_REQUIRE(inactiveSample);
+  GRAPPLE_REQUIRE(inactiveSample.value().sample.layers.size() == 1);
+  GRAPPLE_REQUIRE(inactiveSample.value().sample.clips.empty());
+
+  const auto preparedCameraPlan = evaluator.prepare(runtime::PrepareRuntimePlanRequest{
+    makeEffectPlan("def prepare(): pass"),
+    runtime::RuntimePrepareMode::Interactive
+  });
+  GRAPPLE_REQUIRE(preparedCameraPlan);
+  const auto cameraSample = evaluator.sample(runtime::RuntimeSampleRequest{
+    preparedCameraPlan.value().prepared,
+    foundation::TimeSeconds{2.0},
+    runtime::RuntimeQuality::Interactive
+  });
+  GRAPPLE_REQUIRE(cameraSample);
+  GRAPPLE_REQUIRE(cameraSample.value().sample.cameras.size() == 1);
+  GRAPPLE_REQUIRE(cameraSample.value().sample.cameras[0].sourceNodeId == foundation::NodeId{"node_camera"});
+  GRAPPLE_REQUIRE(cameraSample.value().diagnostics.empty());
+
   runtime::MemoryRuntimeCache cache;
   const runtime::RuntimeCacheKey key{
     first.planHash,
