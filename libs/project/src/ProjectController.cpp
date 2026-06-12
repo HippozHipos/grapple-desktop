@@ -76,6 +76,12 @@ foundation::Result<void> ProjectController::applyPayload(const ProjectCommand& p
         return handleCreateComposition(typedCommand);
       } else if constexpr (std::is_same_v<Command, CreateTrackCommand>) {
         return handleCreateTrack(typedCommand);
+      } else if constexpr (std::is_same_v<Command, CreateClipCommand>) {
+        return handleCreateClip(typedCommand);
+      } else if constexpr (std::is_same_v<Command, CreateCameraCommand>) {
+        return handleCreateCamera(typedCommand);
+      } else if constexpr (std::is_same_v<Command, CreateEffectCommand>) {
+        return handleCreateEffect(typedCommand);
       } else if constexpr (std::is_same_v<Command, RestoreSnapshotCommand>) {
         return handleRestoreSnapshot(typedCommand);
       }
@@ -130,6 +136,80 @@ foundation::Result<void> ProjectController::handleCreateTrack(const CreateTrackC
     graph::EdgeKind::Contains,
     command.compositionNodeId,
     command.nodeId,
+    true
+  });
+}
+
+foundation::Result<void> ProjectController::handleCreateClip(const CreateClipCommand& command) {
+  const graph::GraphNode* track = document_.graph.findNode(command.trackNodeId);
+  if (track == nullptr || track->kind != graph::NodeKind::Track) {
+    return foundation::Error{"project.track_missing", "Clip must be created inside an existing track."};
+  }
+
+  auto nodeResult = document_.graph.addNode(graph::GraphNode{
+    command.nodeId,
+    graph::NodeKind::Clip,
+    command.payload,
+    true
+  });
+  if (!nodeResult) {
+    return nodeResult;
+  }
+
+  return document_.graph.addEdge(graph::GraphEdge{
+    command.containmentEdgeId,
+    graph::EdgeKind::Contains,
+    command.trackNodeId,
+    command.nodeId,
+    true
+  });
+}
+
+foundation::Result<void> ProjectController::handleCreateCamera(const CreateCameraCommand& command) {
+  const graph::GraphNode* composition = document_.graph.findNode(command.compositionNodeId);
+  if (composition == nullptr || composition->kind != graph::NodeKind::Composition) {
+    return foundation::Error{"project.composition_missing", "Camera must be created inside an existing composition."};
+  }
+
+  auto nodeResult = document_.graph.addNode(graph::GraphNode{
+    command.nodeId,
+    graph::NodeKind::Camera,
+    command.payload,
+    true
+  });
+  if (!nodeResult) {
+    return nodeResult;
+  }
+
+  return document_.graph.addEdge(graph::GraphEdge{
+    command.containmentEdgeId,
+    graph::EdgeKind::Contains,
+    command.compositionNodeId,
+    command.nodeId,
+    true
+  });
+}
+
+foundation::Result<void> ProjectController::handleCreateEffect(const CreateEffectCommand& command) {
+  if (!document_.graph.hasNode(command.targetNodeId)) {
+    return foundation::Error{"project.effect_target_missing", "Effect target node must exist."};
+  }
+
+  auto nodeResult = document_.graph.addNode(graph::GraphNode{
+    command.nodeId,
+    graph::NodeKind::Effect,
+    command.payload,
+    true
+  });
+  if (!nodeResult) {
+    return nodeResult;
+  }
+
+  return document_.graph.addEdge(graph::GraphEdge{
+    command.targetEdgeId,
+    graph::EdgeKind::Targets,
+    command.nodeId,
+    command.targetNodeId,
     true
   });
 }

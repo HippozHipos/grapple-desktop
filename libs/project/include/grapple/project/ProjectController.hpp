@@ -23,6 +23,9 @@ private:
   foundation::Result<ProjectQueryResult> readQuery(const ProjectQuery& query) const;
   foundation::Result<void> handleCreateComposition(const CreateCompositionCommand& command);
   foundation::Result<void> handleCreateTrack(const CreateTrackCommand& command);
+  foundation::Result<void> handleCreateClip(const CreateClipCommand& command);
+  foundation::Result<void> handleCreateCamera(const CreateCameraCommand& command);
+  foundation::Result<void> handleCreateEffect(const CreateEffectCommand& command);
   foundation::Result<void> handleRestoreSnapshot(const RestoreSnapshotCommand& command);
 
   ProjectDocument document_;

@@ -5,6 +5,28 @@
 
 namespace grapple::projection {
 
+namespace {
+
+foundation::GraphId makeEffectGraphId(foundation::NodeId targetNodeId) {
+  return foundation::GraphId{"effect_graph_" + targetNodeId.value()};
+}
+
+TimelineEffectGraph& getOrCreateEffectGraph(
+  std::vector<TimelineEffectGraph>& effectGraphs,
+  foundation::NodeId targetNodeId
+) {
+  for (TimelineEffectGraph& effectGraph : effectGraphs) {
+    if (effectGraph.targetNodeId == targetNodeId) {
+      return effectGraph;
+    }
+  }
+
+  effectGraphs.push_back(TimelineEffectGraph{makeEffectGraphId(targetNodeId), targetNodeId, {}, {}});
+  return effectGraphs.back();
+}
+
+} // namespace
+
 foundation::Result<BuildTimelineIRResult> TimelineProjector::buildTimelineIR(
   const BuildTimelineIRRequest& request
 ) const {
@@ -15,6 +37,8 @@ foundation::Result<BuildTimelineIRResult> TimelineProjector::buildTimelineIR(
     document.revision,
     TimelineStage{document.info.name},
     foundation::TimeSeconds{0.0},
+    {},
+    {},
     {},
     {},
     {}
@@ -28,12 +52,59 @@ foundation::Result<BuildTimelineIRResult> TimelineProjector::buildTimelineIR(
       }
     }
 
+    if (node.kind == graph::NodeKind::Clip) {
+      const auto* payload = std::get_if<timeline::ClipPayload>(&node.payload);
+      if (payload != nullptr) {
+        bool foundTrack = false;
+        for (const graph::GraphEdge& edge : document.graph.edges()) {
+          if (edge.kind == graph::EdgeKind::Contains && edge.targetNodeId == node.id) {
+            const graph::GraphNode* track = document.graph.findNode(edge.sourceNodeId);
+            if (track == nullptr || track->kind != graph::NodeKind::Track) {
+              return foundation::Error{"projection.clip_track_invalid", "Clip containment source must be a track."};
+            }
+
+            timeline.clips.push_back(TimelineClip{node.id, edge.sourceNodeId, *payload, node.enabled && edge.enabled});
+            foundTrack = true;
+            break;
+          }
+        }
+
+        if (!foundTrack) {
+          return foundation::Error{"projection.clip_track_missing", "Clip must be contained by a track."};
+        }
+      }
+    }
+
     if (node.kind == graph::NodeKind::Camera) {
       const auto* payload = std::get_if<timeline::CameraPayload>(&node.payload);
       if (payload != nullptr) {
-        timeline.cameras.push_back(TimelineCamera{node.id, payload->name, node.enabled});
+        timeline.cameras.push_back(TimelineCamera{node.id, payload->name, payload->transform, payload->lens, node.enabled});
       }
     }
+  }
+
+  for (const graph::GraphEdge& edge : document.graph.edges()) {
+    if (edge.kind != graph::EdgeKind::Targets) {
+      continue;
+    }
+
+    const graph::GraphNode* effect = document.graph.findNode(edge.sourceNodeId);
+    if (effect == nullptr || effect->kind != graph::NodeKind::Effect) {
+      return foundation::Error{"projection.effect_source_invalid", "Effect target edge source must be an effect."};
+    }
+
+    if (!document.graph.hasNode(edge.targetNodeId)) {
+      return foundation::Error{"projection.effect_target_missing", "Effect target edge target must exist."};
+    }
+
+    const auto* payload = std::get_if<timeline::EffectPayload>(&effect->payload);
+    if (payload == nullptr) {
+      return foundation::Error{"projection.effect_payload_invalid", "Effect node must carry an effect payload."};
+    }
+
+    TimelineEffectGraph& effectGraph = getOrCreateEffectGraph(timeline.effectGraphs, edge.targetNodeId);
+    effectGraph.nodes.push_back(TimelineEffectNode{effect->id, *payload, effect->enabled});
+    effectGraph.edges.push_back(TimelineEffectEdge{edge.id, edge.sourceNodeId, edge.targetNodeId, edge.enabled});
   }
 
   return BuildTimelineIRResult{timeline, timeline.diagnostics};

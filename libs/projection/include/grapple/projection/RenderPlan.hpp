@@ -3,6 +3,8 @@
 #include <grapple/foundation/StrongId.hpp>
 #include <grapple/foundation/Time.hpp>
 #include <grapple/projection/Diagnostics.hpp>
+#include <grapple/timeline/EffectPayload.hpp>
+#include <grapple/timeline/Payloads.hpp>
 
 #include <string>
 #include <vector>
@@ -19,15 +21,39 @@ struct RenderLayer {
   bool enabled = true;
 };
 
+struct RenderClip {
+  foundation::NodeId sourceNodeId;
+  foundation::NodeId trackNodeId;
+  timeline::ClipPayload payload;
+  bool enabled = true;
+};
+
 struct RenderCamera {
   foundation::NodeId sourceNodeId;
   std::string name;
+  timeline::Transform transform;
+  timeline::CameraLens lens;
+  bool enabled = true;
+};
+
+struct RenderEffectNode {
+  foundation::NodeId sourceNodeId;
+  timeline::EffectPayload payload;
+  bool enabled = true;
+};
+
+struct RenderEffectEdge {
+  foundation::EdgeId sourceEdgeId;
+  foundation::NodeId sourceNodeId;
+  foundation::NodeId targetNodeId;
   bool enabled = true;
 };
 
 struct RenderEffectGraph {
   foundation::GraphId id;
   foundation::NodeId targetNodeId;
+  std::vector<RenderEffectNode> nodes;
+  std::vector<RenderEffectEdge> edges;
 };
 
 struct RenderPlan {
@@ -36,10 +62,10 @@ struct RenderPlan {
   RenderStage stage;
   foundation::TimeSeconds duration;
   std::vector<RenderLayer> layers;
+  std::vector<RenderClip> clips;
   std::vector<RenderCamera> cameras;
   std::vector<RenderEffectGraph> effectGraphs;
   std::vector<ProjectionDiagnostic> diagnostics;
 };
 
 } // namespace grapple::projection
-

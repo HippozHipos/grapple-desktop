@@ -10,6 +10,12 @@ std::string_view serializedCommandName(CommandKind kind) {
       return "project.create_composition";
     case CommandKind::CreateTrack:
       return "project.create_track";
+    case CommandKind::CreateClip:
+      return "project.create_clip";
+    case CommandKind::CreateCamera:
+      return "project.create_camera";
+    case CommandKind::CreateEffect:
+      return "project.create_effect";
     case CommandKind::RestoreSnapshot:
       return "project.restore_snapshot";
   }
