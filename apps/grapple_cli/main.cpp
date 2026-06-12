@@ -1,7 +1,10 @@
+#include <grapple/foundation/Hash.hpp>
 #include <grapple/project/ProjectController.hpp>
 #include <grapple/projection/RenderPlanBuilder.hpp>
 #include <grapple/projection/RenderPlanSerializer.hpp>
 #include <grapple/projection/TimelineProjector.hpp>
+#include <grapple/timeline/EffectPayload.hpp>
+#include <grapple/timeline/Payloads.hpp>
 
 #include <iostream>
 #include <optional>
@@ -70,6 +73,90 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
+  const auto clip = controller.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_create_clip"},
+    foundation::ProjectId{"proj_cli"},
+    track.value().afterRevision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "cli"},
+    project::CreateClipCommand{
+      foundation::NodeId{"node_clip"},
+      foundation::NodeId{"node_track"},
+      foundation::EdgeId{"edge_contains_clip"},
+      timeline::ClipPayload{
+        timeline::ClipKind::Video,
+        foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{10.0}},
+        foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{10.0}},
+        1.0,
+        foundation::AssetId{"asset_video"},
+        timeline::Transform{}
+      }
+    }
+  });
+  if (!clip) {
+    printError(clip.error());
+    return 1;
+  }
+
+  const auto camera = controller.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_create_camera"},
+    foundation::ProjectId{"proj_cli"},
+    clip.value().afterRevision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "cli"},
+    project::CreateCameraCommand{
+      foundation::NodeId{"node_camera"},
+      foundation::NodeId{"node_composition"},
+      foundation::EdgeId{"edge_contains_camera"},
+      timeline::CameraPayload{
+        "Camera",
+        timeline::Transform{},
+        timeline::CameraLens{35.0}
+      }
+    }
+  });
+  if (!camera) {
+    printError(camera.error());
+    return 1;
+  }
+
+  const std::string effectSource = "def prepare(ctx):\n  return {'camera': ctx.time}\n";
+  const auto effect = controller.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_create_effect"},
+    foundation::ProjectId{"proj_cli"},
+    camera.value().afterRevision,
+    project::CommandSource{project::CommandSourceKind::Agent, foundation::RunId{"run_cli"}, "cli-agent"},
+    project::CreateEffectCommand{
+      foundation::NodeId{"node_effect"},
+      foundation::NodeId{"node_camera"},
+      foundation::EdgeId{"edge_effect_targets_camera"},
+      timeline::EffectPayload{
+        "Camera Follow",
+        timeline::EffectImplementation{
+          timeline::EffectImplementationKind::Python,
+          "prepare",
+          timeline::EffectSource{
+            timeline::EffectSourceKind::InlineSource,
+            "python",
+            effectSource,
+            std::nullopt,
+            foundation::stableHash(effectSource)
+          }
+        },
+        timeline::EffectPortSet{
+          {timeline::EffectPort{"frame"}},
+          {timeline::EffectPort{"camera"}}
+        },
+        timeline::ParamSet{
+          {timeline::Param{"target_x", 0.5}}
+        },
+        foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{10.0}}
+      }
+    }
+  });
+  if (!effect) {
+    printError(effect.error());
+    return 1;
+  }
+
   const auto snapshot = controller.snapshot();
   if (!snapshot) {
     printError(snapshot.error());
@@ -100,6 +187,9 @@ int main(int argc, char* argv[]) {
   std::cout << "project=" << renderPlan.value().plan.projectId.value() << '\n';
   std::cout << "revision=" << renderPlan.value().plan.revision.value() << '\n';
   std::cout << "layers=" << renderPlan.value().plan.layers.size() << '\n';
+  std::cout << "clips=" << renderPlan.value().plan.clips.size() << '\n';
+  std::cout << "cameras=" << renderPlan.value().plan.cameras.size() << '\n';
+  std::cout << "effectGraphs=" << renderPlan.value().plan.effectGraphs.size() << '\n';
   std::cout << "diagnostics=" << renderPlan.value().diagnostics.size() << '\n';
 
   return 0;
