@@ -936,7 +936,7 @@ public:
       QPushButton {
         background: #58c7d8; color: #071015; border: 0; border-radius: 8px; padding: 6px 10px; min-height: 24px; font-weight: 700;
       }
-      QLineEdit {
+      QLineEdit, QDoubleSpinBox {
         background: #10141d; color: #e8f4ff; border: 1px solid #343b4a; border-radius: 8px; padding: 8px 10px;
       }
       QPushButton:hover { background: #79ddea; }

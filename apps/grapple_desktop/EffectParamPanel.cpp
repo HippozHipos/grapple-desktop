@@ -1,8 +1,8 @@
 #include "EffectParamPanel.hpp"
 
+#include <QDoubleSpinBox>
 #include <QHBoxLayout>
 #include <QLabel>
-#include <QLineEdit>
 #include <QPushButton>
 #include <QVBoxLayout>
 
@@ -14,6 +14,10 @@ namespace {
 
 QString qString(const std::string& value) {
   return QString::fromStdString(value);
+}
+
+std::string numericString(double value) {
+  return QString::number(value, 'g', 15).toStdString();
 }
 
 } // namespace
@@ -73,11 +77,35 @@ void EffectParamPanel::setSelection(
         label->setMinimumWidth(92);
         label->setToolTip(qString(param.name));
 
-        auto* editor = new QLineEdit{qString(param.value)};
-        editor->setObjectName("effectParamEditor");
-        if (param.numericMin.has_value() && param.numericMax.has_value()) {
-          editor->setToolTip(QString{"%1..%2"}.arg(*param.numericMin).arg(*param.numericMax));
+        if (!param.numericMin.has_value() || !param.numericMax.has_value()) {
+          auto* value = new QLabel{qString(param.value)};
+          value->setObjectName("effectParamHelp");
+          rowLayout->addWidget(label);
+          rowLayout->addWidget(value, 1);
+          layout_->addWidget(row);
+          continue;
         }
+
+        bool parsed = false;
+        const double currentValue = qString(param.value).toDouble(&parsed);
+        if (!parsed) {
+          auto* value = new QLabel{QString{"Invalid numeric value: %1"}.arg(qString(param.value))};
+          value->setObjectName("effectParamHelp");
+          rowLayout->addWidget(label);
+          rowLayout->addWidget(value, 1);
+          layout_->addWidget(row);
+          continue;
+        }
+
+        auto* editor = new QDoubleSpinBox;
+        editor->setObjectName("effectParamEditor");
+        editor->setRange(*param.numericMin, *param.numericMax);
+        editor->setDecimals(4);
+        if (param.numericStep.has_value()) {
+          editor->setSingleStep(*param.numericStep);
+        }
+        editor->setValue(currentValue);
+        editor->setToolTip(QString{"%1..%2"}.arg(*param.numericMin).arg(*param.numericMax));
 
         auto* apply = new QPushButton{"Apply"};
         apply->setObjectName("effectParamApply");
@@ -85,7 +113,7 @@ void EffectParamPanel::setSelection(
         const std::string paramName = param.name;
         connect(apply, &QPushButton::clicked, this, [this, effectNodeId, paramName, editor] {
           if (applyHandler_) {
-            applyHandler_(effectNodeId, paramName, editor->text().toStdString());
+            applyHandler_(effectNodeId, paramName, numericString(editor->value()));
           }
         });
 
