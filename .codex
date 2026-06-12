@@ -1,0 +1,31 @@
+CRITICAL ENGINEERING RULES
+
+Before implementing anything, ask:
+Is this the simplest, minimal, cleanest, architecturally correct way to do it?
+
+If the issue comes from bad existing code, stop and rewrite/delete the bad code path.
+Do not add support code, aliases, shims, fallbacks, compatibility layers, or compensating
+conditionals to preserve bad architecture unless explicitly approved.
+
+Core rules:
+- Keep the minimum possible number of code paths.
+- Prefer one canonical registry/state/flow over inferred or duplicated paths.
+- Keep single canonical states. Do not maintain parallel source-of-truth state.
+- Rewrite bad existing code when it is in the path of the work.
+- Delete duplicate interpretation paths instead of adding conditionals.
+- No backward compatibility layers unless explicitly requested.
+- Make invalid old states fail loudly, or deliberately repair persisted state at the owning boundary.
+- Do not patch symptoms. Trace to the exact wrong layer and fix that layer.
+- Do not propose or add fallbacks as a solution. Find and fix the actual bug.
+- Do not add validation as a substitute for understanding the broken invariant.
+- Keep providers dumb: exact inputs in, exact provider calls out.
+- Resolve product/system concepts at one clear boundary.
+- Project Core owns canonical graph state, TimelineIR, and RenderPlan construction requests.
+- Preview/export are consumers of backend/core-produced RenderPlan.
+- RenderPlan construction must stay pure: no script, shader, tracking, depth, or runtime execution.
+- Render architecture is render-agnostic: Grapple graph state -> TimelineIR projection -> RenderPlan -> consumer runtime.
+- Do not put consumer-specific render language in agent-facing graph, script, shader, node, or tool contracts.
+- Agent-authored effect code should target canonical graph/runtime APIs, not a specific render implementation.
+- If a clean fix requires deleting old bloat in the touched path, delete it instead of supporting it.
+- Do not build full future features early. Build the minimal correct foundation that keeps the later feature possible without putting that feature into the core path now.
+
