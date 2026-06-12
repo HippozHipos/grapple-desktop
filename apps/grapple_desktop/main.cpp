@@ -3,6 +3,7 @@
 #include <grapple/app/NativeProjectSession.hpp>
 #include <grapple/app/NativeWorkspaceSession.hpp>
 #include <grapple/asset/Asset.hpp>
+#include <grapple/graph/GraphEdge.hpp>
 #include <grapple/graph/GraphNode.hpp>
 #include <grapple/media/MediaSource.hpp>
 #include <grapple/timeline/Payloads.hpp>
@@ -15,6 +16,7 @@
 #include <QGridLayout>
 #include <QImage>
 #include <QLabel>
+#include <QLineEdit>
 #include <QListWidget>
 #include <QListWidgetItem>
 #include <QMainWindow>
@@ -34,6 +36,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <charconv>
 #include <filesystem>
 #include <functional>
 #include <iomanip>
@@ -753,6 +756,11 @@ public:
     auto* openPackageButton = new QPushButton{"Open Package"};
     auto* addTrackButton = new QPushButton{"Add Track"};
     auto* moveClipButton = new QPushButton{"Move Clip +1s"};
+    effectParamName_ = new QLineEdit{"target_x"};
+    effectParamName_->setObjectName("effectParamName");
+    effectParamValue_ = new QLineEdit{"0.75"};
+    effectParamValue_->setObjectName("effectParamValue");
+    auto* setEffectParamButton = new QPushButton{"Set Effect Param"};
     auto* deleteClipButton = new QPushButton{"Delete Clip"};
     auto* exportButton = new QPushButton{"Export Smoke"};
     auto* saveButton = new QPushButton{"Save Package"};
@@ -769,6 +777,9 @@ public:
     actionColumn->addWidget(openPackageButton);
     actionColumn->addWidget(addTrackButton);
     actionColumn->addWidget(moveClipButton);
+    actionColumn->addWidget(effectParamName_);
+    actionColumn->addWidget(effectParamValue_);
+    actionColumn->addWidget(setEffectParamButton);
     actionColumn->addWidget(deleteClipButton);
     actionColumn->addWidget(exportButton);
     actionColumn->addWidget(saveButton);
@@ -816,6 +827,9 @@ public:
     connect(openPackageButton, &QPushButton::clicked, this, [this] { chooseAndOpenPackage(); });
     connect(addTrackButton, &QPushButton::clicked, this, [this] { addTrack(); });
     connect(moveClipButton, &QPushButton::clicked, this, [this] { moveSelectedClip(grapple::foundation::TimeSeconds{1.0}); });
+    connect(setEffectParamButton, &QPushButton::clicked, this, [this] {
+      setSelectedTargetNumericEffectParam(effectParamName_->text().toStdString(), effectParamValue_->text().toStdString());
+    });
     connect(deleteClipButton, &QPushButton::clicked, this, [this] { deleteSelectedClip(); });
     connect(exportButton, &QPushButton::clicked, this, [this] { runExport(); });
     connect(saveButton, &QPushButton::clicked, this, [this] { savePackage(); });
@@ -842,6 +856,9 @@ public:
       QLabel#playheadLabel { color: #d8f3ff; font-weight: 700; padding: 6px 0; }
       QPushButton {
         background: #58c7d8; color: #071015; border: 0; border-radius: 8px; padding: 10px 14px; font-weight: 700;
+      }
+      QLineEdit {
+        background: #10141d; color: #e8f4ff; border: 1px solid #343b4a; border-radius: 8px; padding: 8px 10px;
       }
       QPushButton:hover { background: #79ddea; }
     )");
@@ -1219,6 +1236,88 @@ public:
     log_->append(QString{"Moved clip at %1"}.arg(qString(moved.value().snapshot.revision.value())));
   }
 
+  void setSelectedTargetNumericEffectParam(const std::string& paramName, const std::string& rawValue) {
+    if (paramName.empty()) {
+      appendError(grapple::foundation::Error{"desktop.effect_param_name_empty", "Effect parameter name must not be empty."});
+      return;
+    }
+    if (!selectedNodeId_.has_value()) {
+      appendError(grapple::foundation::Error{"desktop.selection_missing", "Set Effect Param requires a selected timeline target."});
+      return;
+    }
+
+    double parsedValue = 0.0;
+    const char* begin = rawValue.data();
+    const char* end = rawValue.data() + rawValue.size();
+    const auto parsed = std::from_chars(begin, end, parsedValue);
+    if (parsed.ec != std::errc{} || parsed.ptr != end) {
+      appendError(grapple::foundation::Error{"desktop.effect_param_value_invalid", "Effect parameter value must be a number."});
+      return;
+    }
+
+    const auto snapshot = workspace_.project().snapshot();
+    if (!snapshot) {
+      appendError(snapshot.error());
+      return;
+    }
+
+    const grapple::graph::GraphEdge* targetEdge = nullptr;
+    for (const grapple::graph::GraphEdge& edge : snapshot.value().graph.edges()) {
+      if (edge.enabled &&
+          edge.kind == grapple::graph::EdgeKind::Targets &&
+          edge.targetNodeId == selectedNodeId_.value()) {
+        if (targetEdge != nullptr) {
+          appendError(grapple::foundation::Error{"desktop.effect_target_ambiguous", "Selected target has multiple attached effects; select a single-effect target for this edit."});
+          return;
+        }
+        targetEdge = &edge;
+      }
+    }
+    if (targetEdge == nullptr) {
+      appendError(grapple::foundation::Error{"desktop.effect_target_missing", "Selected target has no attached effect."});
+      return;
+    }
+
+    const grapple::graph::GraphNode* effectNode = snapshot.value().graph.findNode(targetEdge->sourceNodeId);
+    if (effectNode == nullptr || effectNode->kind != grapple::graph::NodeKind::Effect) {
+      appendError(grapple::foundation::Error{"desktop.effect_node_invalid", "Attached effect node is missing or invalid."});
+      return;
+    }
+
+    const auto* effectPayload = std::get_if<grapple::timeline::EffectPayload>(&effectNode->payload);
+    if (effectPayload == nullptr) {
+      appendError(grapple::foundation::Error{"desktop.effect_payload_invalid", "Attached effect node must carry an effect payload."});
+      return;
+    }
+
+    grapple::timeline::ParamSet params = effectPayload->params;
+    auto param = std::find_if(params.values.begin(), params.values.end(), [&](const grapple::timeline::Param& current) {
+      return current.name == paramName;
+    });
+    if (param == params.values.end()) {
+      appendError(grapple::foundation::Error{"desktop.effect_param_missing", "Attached effect does not define parameter " + paramName + "."});
+      return;
+    }
+    if (!std::holds_alternative<double>(param->value)) {
+      appendError(grapple::foundation::Error{"desktop.effect_param_not_numeric", "Effect parameter " + paramName + " is not numeric."});
+      return;
+    }
+    param->value = parsedValue;
+
+    const auto updated = workspace_.commandWriter().apply(
+      grapple::project::SetEffectParamsCommand{effectNode->id, params},
+      userSource()
+    );
+    if (!updated) {
+      appendError(updated.error());
+      return;
+    }
+
+    refreshViewModel();
+    refreshPreview();
+    log_->append(QString{"Updated effect parameter at %1"}.arg(qString(updated.value().snapshot.revision.value())));
+  }
+
   void runExport() {
     const auto prepare = workspace_.exportSession().prepareFromProject();
     if (!prepare) {
@@ -1353,6 +1452,8 @@ private:
   grapple::app::NativeWorkspaceSession& workspace_;
   QLabel* summary_ = nullptr;
   QListWidget* mediaBin_ = nullptr;
+  QLineEdit* effectParamName_ = nullptr;
+  QLineEdit* effectParamValue_ = nullptr;
   QLabel* previewTitle_ = nullptr;
   QLabel* playheadLabel_ = nullptr;
   PreviewSurface* previewSurface_ = nullptr;
@@ -1378,6 +1479,7 @@ int main(int argc, char* argv[]) {
   bool importSmoke = false;
   bool addVideoSmoke = false;
   bool moveClipSmoke = false;
+  bool setEffectParamSmoke = false;
   bool deleteSmoke = false;
   bool playbackSmoke = false;
   bool openPackageSmoke = false;
@@ -1403,6 +1505,8 @@ int main(int argc, char* argv[]) {
       addVideoSmoke = true;
     } else if (argument == "--move-clip-smoke") {
       moveClipSmoke = true;
+    } else if (argument == "--set-effect-param-smoke") {
+      setEffectParamSmoke = true;
     } else if (argument == "--delete-smoke") {
       deleteSmoke = true;
     } else if (argument == "--playback-smoke") {
@@ -1414,7 +1518,7 @@ int main(int argc, char* argv[]) {
     } else if (argument == "--screenshot" && index + 1 < argc) {
       screenshotPath = argv[++index];
     } else {
-      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --select-camera-smoke, --import-smoke, --add-video-smoke, --move-clip-smoke, --delete-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, or --screenshot <path>.\n";
+      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --select-camera-smoke, --import-smoke, --add-video-smoke, --move-clip-smoke, --set-effect-param-smoke, --delete-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, or --screenshot <path>.\n";
       return 1;
     }
   }
@@ -1582,6 +1686,25 @@ int main(int argc, char* argv[]) {
     return clip.timelineRange.start == grapple::foundation::TimeSeconds{1.0} &&
            clip.timelineRange.end == grapple::foundation::TimeSeconds{11.0} &&
            viewModel.value().timeline.duration == grapple::foundation::TimeSeconds{11.0}
+      ? 0
+      : 1;
+  }
+
+  if (setEffectParamSmoke) {
+    window.show();
+    app.processEvents();
+    window.clickFirstTimelineCamera();
+    window.setSelectedTargetNumericEffectParam("target_x", "0.9");
+    const std::string inspector = window.inspectorContents();
+    const auto viewModel = workspace.value().project().buildViewModel();
+    if (!viewModel) {
+      printError(viewModel.error());
+      return 1;
+    }
+    std::cout << "revision=" << viewModel.value().project.revision.value() << '\n';
+    std::cout << "inspector=" << inspector << '\n';
+    return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_7"} &&
+           inspector.find("target_x=0.9") != std::string::npos
       ? 0
       : 1;
   }
