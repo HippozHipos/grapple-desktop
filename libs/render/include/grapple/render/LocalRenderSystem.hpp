@@ -41,7 +41,6 @@ struct PlaybackFrameResult {
 };
 
 struct ExportRequest {
-  projection::RenderPlan plan;
   ExportSettings settings;
 };
 

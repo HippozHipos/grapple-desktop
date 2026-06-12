@@ -343,8 +343,7 @@ int main() {
 
   const runtime::RuntimeEvaluator evaluator;
   const auto prepared = evaluator.prepare(runtime::PrepareRuntimePlanRequest{
-    makePlan("Video"),
-    runtime::RuntimePrepareMode::Interactive
+    makePlan("Video")
   });
 
   GRAPPLE_REQUIRE(prepared);
@@ -353,8 +352,7 @@ int main() {
   GRAPPLE_REQUIRE(prepared.value().diagnostics.empty());
 
   const auto preparedClipPlan = evaluator.prepare(runtime::PrepareRuntimePlanRequest{
-    makeClipPlan(1.0),
-    runtime::RuntimePrepareMode::Interactive
+    makeClipPlan(1.0)
   });
   GRAPPLE_REQUIRE(preparedClipPlan);
   const auto activeSample = evaluator.sample(runtime::RuntimeSampleRequest{
@@ -379,8 +377,7 @@ int main() {
   GRAPPLE_REQUIRE(inactiveSample.value().sample.clips.empty());
 
   const auto preparedCameraPlan = evaluator.prepare(runtime::PrepareRuntimePlanRequest{
-    makeEffectPlan("def prepare(): pass"),
-    runtime::RuntimePrepareMode::Interactive
+    makeEffectPlan("def prepare(): pass")
   });
   GRAPPLE_REQUIRE(preparedCameraPlan);
   const auto cameraSample = evaluator.sample(runtime::RuntimeSampleRequest{

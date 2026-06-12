@@ -10,11 +10,6 @@
 
 namespace grapple::runtime {
 
-enum class RuntimePrepareMode {
-  Interactive,
-  Export
-};
-
 struct PreparedRuntimePlan {
   foundation::RevisionId sourceRevision;
   foundation::Hash256 planHash;
@@ -27,7 +22,6 @@ struct PreparedRuntimePlan {
 
 struct PrepareRuntimePlanRequest {
   projection::RenderPlan plan;
-  RuntimePrepareMode mode = RuntimePrepareMode::Interactive;
 };
 
 struct PrepareRuntimePlanResult {

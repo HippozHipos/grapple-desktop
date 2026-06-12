@@ -34,8 +34,7 @@ LocalRenderSystem::LocalRenderSystem(runtime::RuntimeEvaluator& runtime)
 
 foundation::Result<void> LocalRenderSystem::loadPlan(const projection::RenderPlan& plan) {
   auto prepared = runtime_.prepare(runtime::PrepareRuntimePlanRequest{
-    plan,
-    runtime::RuntimePrepareMode::Interactive
+    plan
   });
   if (!prepared) {
     return prepared.error();
@@ -101,16 +100,12 @@ foundation::Result<PlaybackFrameResult> LocalRenderSystem::renderPlaybackFrame(
 }
 
 foundation::Result<ExportResult> LocalRenderSystem::exportRange(const ExportRequest& request) {
-  auto prepared = runtime_.prepare(runtime::PrepareRuntimePlanRequest{
-    request.plan,
-    runtime::RuntimePrepareMode::Export
-  });
-  if (!prepared) {
-    return prepared.error();
+  if (!prepared_.has_value()) {
+    return foundation::Error{"render.plan_missing", "LocalRenderSystem requires a loaded RenderPlan before export."};
   }
 
   auto range = runtime_.evaluateRange(runtime::RuntimeRangeRequest{
-    prepared.value().prepared,
+    prepared_.value(),
     request.settings.range,
     request.settings.frameRate,
     runtimeQualityFor(renderQualityFor(request.settings.quality))

@@ -71,6 +71,12 @@ int main() {
   GRAPPLE_REQUIRE(!seekBeforeLoad);
   GRAPPLE_REQUIRE(seekBeforeLoad.error().code == "render.plan_missing");
 
+  const auto exportBeforeLoad = renderSystem.exportRange(render::ExportRequest{
+    makeExportSettings(foundation::Resolution{1920, 1080})
+  });
+  GRAPPLE_REQUIRE(!exportBeforeLoad);
+  GRAPPLE_REQUIRE(exportBeforeLoad.error().code == "render.plan_missing");
+
   const projection::RenderPlan plan = makeRenderPlan();
   const auto load = renderSystem.loadPlan(plan);
   GRAPPLE_REQUIRE(load);
@@ -118,7 +124,7 @@ int main() {
   GRAPPLE_REQUIRE(stateAfterPause.value().playback == render::PlaybackState::Paused);
 
   const render::ExportSettings exportSettings = makeExportSettings(foundation::Resolution{3840, 2160});
-  const auto exportResult = renderSystem.exportRange(render::ExportRequest{plan, exportSettings});
+  const auto exportResult = renderSystem.exportRange(render::ExportRequest{exportSettings});
   GRAPPLE_REQUIRE(exportResult);
   GRAPPLE_REQUIRE(exportResult.value().outputPath.value == "/exports/test.mov");
   GRAPPLE_REQUIRE(exportResult.value().framesEvaluated == 2);
@@ -134,7 +140,6 @@ int main() {
   GRAPPLE_REQUIRE(stateAfterExport.value().lastExportOutputPath->value == "/exports/test.mov");
 
   const auto changedExportSettings = renderSystem.exportRange(render::ExportRequest{
-    plan,
     makeExportSettings(foundation::Resolution{1920, 1080})
   });
   GRAPPLE_REQUIRE(changedExportSettings);
