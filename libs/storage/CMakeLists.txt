@@ -1,5 +1,6 @@
 add_library(grapple_storage
   src/ProjectCommitBuilder.cpp
+  src/ProjectPackageSession.cpp
   src/ProjectPackageStore.cpp
 )
 

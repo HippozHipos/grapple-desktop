@@ -3,6 +3,7 @@
 #include <grapple/project/ProjectEventNames.hpp>
 #include <grapple/project/ProjectSerializer.hpp>
 #include <grapple/storage/ProjectCommitBuilder.hpp>
+#include <grapple/storage/ProjectPackageSession.hpp>
 #include <grapple/storage/ProjectPackageStore.hpp>
 
 #include <TestAssert.hpp>
@@ -194,6 +195,62 @@ int main() {
   GRAPPLE_REQUIRE(store.state().commandLog.records().size() == 1);
   GRAPPLE_REQUIRE(store.state().eventLog.records().size() == 2);
   GRAPPLE_REQUIRE(store.state().snapshots.records().size() == 1);
+
+  storage::ProjectPackageSession session{
+    project::createEmptyProject(foundation::ProjectId{"proj_session"}, "Session Project"),
+    storage::ProjectPackage{
+      foundation::ProjectId{"proj_session"},
+      foundation::FilePath{"session.grapple"},
+      1
+    }
+  };
+  const auto sessionInitial = session.snapshot();
+  GRAPPLE_REQUIRE(sessionInitial);
+  const auto sessionComposition = session.applyAndCommit(
+    project::ProjectCommandEnvelope{
+      foundation::CommandId{"cmd_session_1"},
+      foundation::ProjectId{"proj_session"},
+      sessionInitial.value().revision,
+      project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+      project::CreateCompositionCommand{foundation::NodeId{"node_session_composition"}, "Main"}
+    },
+    storage::ProjectCommitRecordOptions{
+      std::chrono::system_clock::now(),
+      std::nullopt
+    }
+  );
+  GRAPPLE_REQUIRE(sessionComposition);
+  GRAPPLE_REQUIRE(sessionComposition.value().snapshot.revision == foundation::RevisionId{"rev_1"});
+  GRAPPLE_REQUIRE(session.packageState().head.has_value());
+  GRAPPLE_REQUIRE(session.packageState().head->currentRevision == foundation::RevisionId{"rev_1"});
+  GRAPPLE_REQUIRE(session.packageState().commandLog.records().size() == 1);
+
+  const auto duplicateSessionCommand = session.applyAndCommit(
+    project::ProjectCommandEnvelope{
+      foundation::CommandId{"cmd_session_1"},
+      foundation::ProjectId{"proj_session"},
+      sessionComposition.value().snapshot.revision,
+      project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+      project::CreateTrackCommand{
+        foundation::NodeId{"node_session_track"},
+        foundation::NodeId{"node_session_composition"},
+        foundation::EdgeId{"edge_session_contains_track"},
+        "Video"
+      }
+    },
+    storage::ProjectCommitRecordOptions{
+      std::chrono::system_clock::now(),
+      std::nullopt
+    }
+  );
+  GRAPPLE_REQUIRE(!duplicateSessionCommand);
+  GRAPPLE_REQUIRE(duplicateSessionCommand.error().code == "history.command_id_duplicate");
+  const auto afterDuplicateSessionCommand = session.snapshot();
+  GRAPPLE_REQUIRE(afterDuplicateSessionCommand);
+  GRAPPLE_REQUIRE(afterDuplicateSessionCommand.value().revision == foundation::RevisionId{"rev_1"});
+  GRAPPLE_REQUIRE(afterDuplicateSessionCommand.value().graph.nodes().size() == 1);
+  GRAPPLE_REQUIRE(session.packageState().head->currentRevision == foundation::RevisionId{"rev_1"});
+  GRAPPLE_REQUIRE(session.packageState().commandLog.records().size() == 1);
 
   return 0;
 }
