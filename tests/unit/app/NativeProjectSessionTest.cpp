@@ -1,5 +1,6 @@
 #include <grapple/app/NativeExportSession.hpp>
 #include <grapple/app/NativePreviewSession.hpp>
+#include <grapple/app/NativeProjectCommandWriter.hpp>
 #include <grapple/app/NativeProjectSession.hpp>
 #include <grapple/project/ProjectSerializer.hpp>
 #include <grapple/storage/ProjectPackageManifest.hpp>
@@ -11,6 +12,18 @@
 #include <fstream>
 #include <sstream>
 #include <variant>
+
+namespace {
+
+grapple::project::CommandSource userSource() {
+  return grapple::project::CommandSource{
+    grapple::project::CommandSourceKind::User,
+    std::nullopt,
+    "test"
+  };
+}
+
+} // namespace
 
 int main() {
   using namespace grapple;
@@ -41,21 +54,18 @@ int main() {
   const auto initial = session.snapshot();
   GRAPPLE_REQUIRE(initial);
 
-  const auto composition = session.applyAndCommit(
-    project::ProjectCommandEnvelope{
-      foundation::CommandId{"cmd_composition"},
-      foundation::ProjectId{"proj_app"},
-      initial.value().revision,
-      project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
-      project::CreateCompositionCommand{foundation::NodeId{"node_composition"}, "Main"}
-    },
-    storage::ProjectCommitRecordOptions{
-      std::chrono::system_clock::now(),
-      std::nullopt
-    }
+  app::NativeProjectCommandWriter writer{session};
+  const foundation::NodeId compositionNodeId = writer.nextNodeId("composition");
+  const auto composition = writer.apply(
+    project::CreateCompositionCommand{compositionNodeId, "Main"},
+    userSource()
   );
   GRAPPLE_REQUIRE(composition);
   GRAPPLE_REQUIRE(composition.value().snapshot.revision == foundation::RevisionId{"rev_1"});
+  GRAPPLE_REQUIRE(composition.value().commandResult.commandId == foundation::CommandId{"cmd_app_1"});
+  GRAPPLE_REQUIRE(compositionNodeId == foundation::NodeId{"node_composition_1"});
+  GRAPPLE_REQUIRE(writer.nextEdgeId("contains track") == foundation::EdgeId{"edge_contains_track_1"});
+  GRAPPLE_REQUIRE(writer.nextSnapshotId("rev 1") == foundation::SnapshotId{"snap_rev_1_1"});
   GRAPPLE_REQUIRE(session.packageState().head.has_value());
   GRAPPLE_REQUIRE(session.packageState().head->currentRevision == foundation::RevisionId{"rev_1"});
   GRAPPLE_REQUIRE(session.packageState().commandLog.records().size() == 1);
@@ -98,7 +108,7 @@ int main() {
   const auto manifest = storage::buildProjectPackageManifest(session.packageState());
   GRAPPLE_REQUIRE(manifest);
   GRAPPLE_REQUIRE(manifest.value().head.has_value());
-  GRAPPLE_REQUIRE(manifest.value().head->lastCommandId == foundation::CommandId{"cmd_composition"});
+  GRAPPLE_REQUIRE(manifest.value().head->lastCommandId == foundation::CommandId{"cmd_app_1"});
   GRAPPLE_REQUIRE(!manifest.value().latestSnapshot.has_value());
 
   const auto writeWithoutCurrentSnapshot = session.writePackage();
@@ -165,21 +175,14 @@ int main() {
 
   const auto savedInitial = savedSession.snapshot();
   GRAPPLE_REQUIRE(savedInitial);
-  const auto savedComposition = savedSession.applyAndCommit(
-    project::ProjectCommandEnvelope{
-      foundation::CommandId{"cmd_saved_composition"},
-      foundation::ProjectId{"proj_app_saved"},
-      savedInitial.value().revision,
-      project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
-      project::CreateCompositionCommand{foundation::NodeId{"node_saved_composition"}, "Saved Main"}
-    },
-    storage::ProjectCommitRecordOptions{
-      std::chrono::system_clock::now(),
-      storage::SnapshotCommitRecord{
-        foundation::SnapshotId{"snap_saved_rev_1"},
-        foundation::FilePath{"snapshots/rev_1.json"},
-        std::optional<std::string>{"saved"}
-      }
+  app::NativeProjectCommandWriter savedWriter{savedSession};
+  const auto savedComposition = savedWriter.apply(
+    project::CreateCompositionCommand{savedWriter.nextNodeId("saved composition"), "Saved Main"},
+    userSource(),
+    storage::SnapshotCommitRecord{
+      foundation::SnapshotId{"snap_saved_rev_1"},
+      foundation::FilePath{"snapshots/rev_1.json"},
+      std::optional<std::string>{"saved"}
     }
   );
   GRAPPLE_REQUIRE(savedComposition);
@@ -204,17 +207,22 @@ int main() {
   GRAPPLE_REQUIRE(savedManifestContents.str() == storage::serializeCanonicalProjectPackageManifest(savedManifest.value()));
   std::filesystem::remove_all(packageRoot);
 
+  const auto firstCommandId = session.packageState().commandLog.records()[0].id;
   const auto duplicate = session.applyAndCommit(
     project::ProjectCommandEnvelope{
-      foundation::CommandId{"cmd_composition"},
+      firstCommandId,
       foundation::ProjectId{"proj_app"},
       composition.value().snapshot.revision,
-      project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+      userSource(),
       project::CreateCompositionCommand{foundation::NodeId{"node_other"}, "Other"}
     },
     storage::ProjectCommitRecordOptions{
       std::chrono::system_clock::now(),
-      std::nullopt
+      storage::SnapshotCommitRecord{
+        foundation::SnapshotId{"snap_duplicate_rev_2"},
+        foundation::FilePath{"snapshots/rev_1.json"},
+        std::optional<std::string>{"duplicate"}
+      }
     }
   );
   GRAPPLE_REQUIRE(!duplicate);
