@@ -1,4 +1,6 @@
 #include <grapple/project/ProjectController.hpp>
+#include <grapple/project/ProjectCommandNames.hpp>
+#include <grapple/project/ProjectEventNames.hpp>
 #include <grapple/project/ProjectSerializer.hpp>
 
 #include <TestAssert.hpp>
@@ -39,6 +41,11 @@ int main() {
     makeCreateComposition(initialSnapshot.value().document.revision)
   );
   GRAPPLE_REQUIRE(createComposition);
+  GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::CreateComposition) == "project.create_composition");
+  GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::CreateTrack) == "project.create_track");
+  GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::RestoreSnapshot) == "project.restore_snapshot");
+  GRAPPLE_REQUIRE(project::serializedEventName(project::EventKind::ProjectCommandApplied) == "project.command_applied");
+  GRAPPLE_REQUIRE(project::serializedEventName(project::EventKind::ProjectChanged) == "project.changed");
   GRAPPLE_REQUIRE(createComposition.value().beforeRevision == foundation::RevisionId{"rev_0"});
   GRAPPLE_REQUIRE(createComposition.value().afterRevision == foundation::RevisionId{"rev_1"});
   GRAPPLE_REQUIRE(createComposition.value().events.size() == 2);

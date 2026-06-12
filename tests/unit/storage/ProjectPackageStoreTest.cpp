@@ -1,4 +1,6 @@
 #include <grapple/project/ProjectController.hpp>
+#include <grapple/project/ProjectCommandNames.hpp>
+#include <grapple/project/ProjectEventNames.hpp>
 #include <grapple/project/ProjectSerializer.hpp>
 #include <grapple/storage/ProjectPackageStore.hpp>
 
@@ -18,7 +20,7 @@ grapple::history::CommandRecord makeCommandRecord(
     grapple::foundation::ProjectId{"proj_storage"},
     std::move(beforeRevision),
     std::move(afterRevision),
-    "project.create_composition",
+    std::string{grapple::project::serializedCommandName(grapple::project::CommandKind::CreateComposition)},
     R"({"nodeId":"node_composition"})",
     std::chrono::system_clock::now()
   };
@@ -32,7 +34,7 @@ grapple::history::EventRecord makeEventRecord(
     std::move(eventId),
     grapple::foundation::ProjectId{"proj_storage"},
     std::move(revision),
-    "project.command_applied",
+    std::string{grapple::project::serializedEventName(grapple::project::EventKind::ProjectCommandApplied)},
     R"({"commandId":"cmd_1"})",
     std::chrono::system_clock::now()
   };
