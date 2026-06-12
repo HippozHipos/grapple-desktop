@@ -3,6 +3,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <string_view>
 
@@ -25,6 +26,6 @@ private:
 };
 
 [[nodiscard]] Hash256 stableHash(std::string_view value);
+[[nodiscard]] std::optional<Hash256> hashFromHex(std::string_view hex);
 
 } // namespace grapple::foundation
-

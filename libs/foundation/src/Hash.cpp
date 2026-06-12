@@ -1,6 +1,7 @@
 #include <grapple/foundation/Hash.hpp>
 
 #include <array>
+#include <cctype>
 #include <iomanip>
 #include <sstream>
 
@@ -21,6 +22,17 @@ void write64(Hash256::Bytes& bytes, std::size_t offset, std::uint64_t value) {
   for (std::size_t index = 0; index < 8; ++index) {
     bytes[offset + index] = static_cast<std::uint8_t>((value >> (index * 8)) & 0xffu);
   }
+}
+
+int hexValue(char character) {
+  if (character >= '0' && character <= '9') {
+    return character - '0';
+  }
+  const char lower = static_cast<char>(std::tolower(static_cast<unsigned char>(character)));
+  if (lower >= 'a' && lower <= 'f') {
+    return 10 + (lower - 'a');
+  }
+  return -1;
 }
 
 } // namespace
@@ -50,5 +62,21 @@ Hash256 stableHash(std::string_view value) {
   return Hash256{bytes};
 }
 
-} // namespace grapple::foundation
+std::optional<Hash256> hashFromHex(std::string_view hex) {
+  if (hex.size() != 64) {
+    return std::nullopt;
+  }
 
+  Hash256::Bytes bytes{};
+  for (std::size_t index = 0; index < bytes.size(); ++index) {
+    const int high = hexValue(hex[index * 2]);
+    const int low = hexValue(hex[(index * 2) + 1]);
+    if (high < 0 || low < 0) {
+      return std::nullopt;
+    }
+    bytes[index] = static_cast<std::uint8_t>((high << 4) | low);
+  }
+  return Hash256{bytes};
+}
+
+} // namespace grapple::foundation

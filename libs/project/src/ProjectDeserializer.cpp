@@ -2,6 +2,7 @@
 
 #include <grapple/asset/Asset.hpp>
 #include <grapple/foundation/FilePath.hpp>
+#include <grapple/foundation/Hash.hpp>
 #include <grapple/graph/GraphEdge.hpp>
 #include <grapple/graph/GraphNode.hpp>
 #include <grapple/timeline/EffectPayload.hpp>
@@ -9,9 +10,6 @@
 
 #include <json/json.h>
 
-#include <array>
-#include <cctype>
-#include <cstdint>
 #include <memory>
 #include <optional>
 #include <string>
@@ -122,32 +120,12 @@ foundation::Result<int> requiredIntMember(const Json::Value& object, const char*
   return static_cast<int>(value.value());
 }
 
-int hexValue(char character) {
-  if (character >= '0' && character <= '9') {
-    return character - '0';
-  }
-  const char lower = static_cast<char>(std::tolower(static_cast<unsigned char>(character)));
-  if (lower >= 'a' && lower <= 'f') {
-    return 10 + (lower - 'a');
-  }
-  return -1;
-}
-
 foundation::Result<foundation::Hash256> parseHash(const std::string& hex, const std::string& path) {
-  if (hex.size() != 64) {
+  const std::optional<foundation::Hash256> hash = foundation::hashFromHex(hex);
+  if (!hash.has_value()) {
     return parseError(path, "Hash must be 64 hex characters.");
   }
-
-  foundation::Hash256::Bytes bytes{};
-  for (std::size_t index = 0; index < bytes.size(); ++index) {
-    const int high = hexValue(hex[index * 2]);
-    const int low = hexValue(hex[(index * 2) + 1]);
-    if (high < 0 || low < 0) {
-      return parseError(path, "Hash contains non-hex characters.");
-    }
-    bytes[index] = static_cast<std::uint8_t>((high << 4) | low);
-  }
-  return foundation::Hash256{bytes};
+  return hash.value();
 }
 
 foundation::Result<asset::AssetMediaType> parseMediaType(const std::string& value, const std::string& path) {

@@ -7,6 +7,7 @@
 
 #include <TestAssert.hpp>
 
+#include <optional>
 #include <string>
 
 int main() {
@@ -32,6 +33,13 @@ int main() {
   GRAPPLE_REQUIRE(first == second);
   GRAPPLE_REQUIRE(!(first == third));
   GRAPPLE_REQUIRE(first.toHex().size() == 64);
+  const std::optional<Hash256> parsedHash = hashFromHex(first.toHex());
+  GRAPPLE_REQUIRE(parsedHash.has_value());
+  GRAPPLE_REQUIRE(parsedHash.value() == first);
+  const std::optional<Hash256> parsedUpperHash = hashFromHex("ABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCD");
+  GRAPPLE_REQUIRE(parsedUpperHash.has_value());
+  GRAPPLE_REQUIRE(parsedUpperHash->toHex() == "abcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd");
+  GRAPPLE_REQUIRE(!hashFromHex("not-a-hash").has_value());
   GRAPPLE_REQUIRE(jsonQuoted("a\"b\\c\n") == "\"a\\\"b\\\\c\\n\"");
 
   const Result<std::string> ok{std::string{"value"}};
