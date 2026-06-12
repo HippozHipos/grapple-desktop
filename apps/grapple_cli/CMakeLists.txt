@@ -5,5 +5,6 @@ add_executable(grapple_cli
 target_link_libraries(grapple_cli
   PRIVATE
     Grapple::App
+    Grapple::DemoProject
     Grapple::Projection
 )
