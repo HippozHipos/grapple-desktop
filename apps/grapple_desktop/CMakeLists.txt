@@ -8,5 +8,6 @@ target_link_libraries(grapple_desktop
   PRIVATE
     Grapple::App
     Grapple::DemoProject
+    Grapple::Media
     Qt5::Widgets
 )

@@ -4,12 +4,14 @@
 #include <grapple/app/NativePreviewSession.hpp>
 #include <grapple/app/NativeProjectCommandWriter.hpp>
 #include <grapple/app/NativeProjectSession.hpp>
+#include <grapple/media/MediaReader.hpp>
 
 #include <QApplication>
 #include <QColor>
 #include <QFrame>
 #include <QFontMetrics>
 #include <QGridLayout>
+#include <QImage>
 #include <QLabel>
 #include <QMainWindow>
 #include <QPainter>
@@ -22,11 +24,13 @@
 #include <QWidget>
 
 #include <algorithm>
+#include <cstdint>
 #include <iomanip>
 #include <iostream>
 #include <optional>
 #include <sstream>
 #include <string>
+#include <vector>
 
 namespace {
 
@@ -59,6 +63,12 @@ QString summaryText(const grapple::app::AppViewModel& viewModel) {
     .arg(viewModel.timeline.effectGraphs.size());
 }
 
+grapple::media::MediaQuality mediaQualityFor(grapple::render::RenderQuality quality) {
+  return quality == grapple::render::RenderQuality::Final
+    ? grapple::media::MediaQuality::Full
+    : grapple::media::MediaQuality::Proxy;
+}
+
 QString mediaKindText(grapple::render::RenderedMediaKind kind) {
   switch (kind) {
     case grapple::render::RenderedMediaKind::Video:
@@ -69,6 +79,83 @@ QString mediaKindText(grapple::render::RenderedMediaKind kind) {
 
   return "Unknown";
 }
+
+class DemoMediaReader final : public grapple::media::IMediaReader {
+public:
+  grapple::foundation::Result<grapple::media::MediaFrame> frameAt(
+    grapple::foundation::AssetId assetId,
+    grapple::foundation::TimeSeconds time,
+    grapple::media::MediaQuality quality
+  ) override {
+    constexpr int width = 320;
+    constexpr int height = 180;
+    std::vector<std::uint8_t> pixels;
+    pixels.resize(static_cast<std::size_t>(width * height * 4));
+
+    const int timeBand = static_cast<int>(time.value * 24.0) % 255;
+    for (int y = 0; y < height; ++y) {
+      for (int x = 0; x < width; ++x) {
+        const std::size_t offset = static_cast<std::size_t>((y * width + x) * 4);
+        pixels[offset + 0] = static_cast<std::uint8_t>((x + timeBand) % 255);
+        pixels[offset + 1] = static_cast<std::uint8_t>((y * 2 + 80) % 255);
+        pixels[offset + 2] = static_cast<std::uint8_t>((180 + timeBand) % 255);
+        pixels[offset + 3] = 255;
+      }
+    }
+
+    return grapple::media::MediaFrame{
+      assetId,
+      time,
+      grapple::foundation::Resolution{width, height},
+      quality,
+      "demo_rgba",
+      std::move(pixels)
+    };
+  }
+
+  grapple::foundation::Result<grapple::media::AudioBuffer> audioRange(
+    grapple::foundation::AssetId assetId,
+    grapple::foundation::TimeRange range,
+    grapple::media::MediaQuality quality
+  ) override {
+    return grapple::media::AudioBuffer{
+      assetId,
+      range,
+      quality,
+      48000,
+      {}
+    };
+  }
+};
+
+class MediaFrameSourceAdapter final : public grapple::render::IRenderFrameSource {
+public:
+  explicit MediaFrameSourceAdapter(grapple::media::IMediaReader& reader)
+    : reader_{reader} {}
+
+  grapple::foundation::Result<grapple::render::SourceFrame> frameAt(
+    const grapple::render::SourceFrameRequest& request
+  ) override {
+    auto frame = reader_.frameAt(
+      request.assetId,
+      request.sourceTime,
+      mediaQualityFor(request.quality)
+    );
+    if (!frame) {
+      return frame.error();
+    }
+
+    return grapple::render::SourceFrame{
+      frame.value().assetId,
+      frame.value().time,
+      frame.value().resolution,
+      std::move(frame.value().rgbaPixels)
+    };
+  }
+
+private:
+  grapple::media::IMediaReader& reader_;
+};
 
 class PreviewSurface final : public QWidget {
 public:
@@ -97,6 +184,11 @@ protected:
     }
 
     const grapple::render::RenderFrame& frame = frame_.value();
+    if (frame.image.has_value()) {
+      drawRenderedImage(painter, frame);
+      return;
+    }
+
     if (frame.mediaFrames.empty()) {
       drawCenteredText(painter, QString{"%1\nNo active media at playhead"}.arg(timeText(frame.time)));
       return;
@@ -143,6 +235,57 @@ private:
     painter.setPen(QColor{"#d8f3ff"});
     painter.setFont(QFont{"DejaVu Sans", 16, QFont::Bold});
     painter.drawText(rect().adjusted(24, 24, -24, -24), Qt::AlignCenter, text);
+  }
+
+  void drawRenderedImage(QPainter& painter, const grapple::render::RenderFrame& frame) const {
+    const grapple::render::RenderedImage& image = frame.image.value();
+    const int expectedBytes = image.resolution.width * image.resolution.height * 4;
+    if (image.resolution.width <= 0 ||
+        image.resolution.height <= 0 ||
+        static_cast<int>(image.rgbaPixels.size()) != expectedBytes) {
+      drawCenteredText(painter, "Invalid rendered image");
+      return;
+    }
+
+    const QImage qImage{
+      image.rgbaPixels.data(),
+      image.resolution.width,
+      image.resolution.height,
+      image.resolution.width * 4,
+      QImage::Format_RGBA8888
+    };
+    const QRect target = scaledRect(qImage.size(), rect().adjusted(30, 30, -30, -30));
+    painter.drawImage(target, qImage);
+
+    painter.setPen(QColor{"#d8f3ff"});
+    painter.setFont(QFont{"DejaVu Sans", 13, QFont::Bold});
+    painter.drawText(rect().adjusted(18, 10, -18, -10), Qt::AlignTop | Qt::AlignHCenter, timeText(frame.time));
+
+    if (!frame.mediaFrames.empty()) {
+      painter.setPen(QColor{"#e8f4ff"});
+      painter.setFont(QFont{"DejaVu Sans", 10});
+      const grapple::render::RenderedMediaFrame& mediaFrame = frame.mediaFrames.front();
+      painter.drawText(
+        rect().adjusted(18, -32, -18, -10),
+        Qt::AlignBottom | Qt::AlignHCenter,
+        QString{"%1  %2"}.arg(qString(mediaFrame.assetId.value())).arg(timeText(mediaFrame.sourceTime))
+      );
+    }
+  }
+
+  static QRect scaledRect(const QSize& sourceSize, const QRect& bounds) {
+    const double scale = std::min(
+      static_cast<double>(bounds.width()) / static_cast<double>(sourceSize.width()),
+      static_cast<double>(bounds.height()) / static_cast<double>(sourceSize.height())
+    );
+    const int width = static_cast<int>(static_cast<double>(sourceSize.width()) * scale);
+    const int height = static_cast<int>(static_cast<double>(sourceSize.height()) * scale);
+    return QRect{
+      bounds.left() + ((bounds.width() - width) / 2),
+      bounds.top() + ((bounds.height() - height) / 2),
+      width,
+      height
+    };
   }
 
   void drawMediaFrame(
@@ -627,7 +770,9 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
-  grapple::app::NativePreviewSession preview{session};
+  DemoMediaReader mediaReader;
+  MediaFrameSourceAdapter frameSource{mediaReader};
+  grapple::app::NativePreviewSession preview{session, frameSource};
   grapple::app::NativeExportSession exportSession{session};
   DesktopWindow window{session, preview, exportSession};
 

@@ -20,6 +20,7 @@ struct NativePreviewRefreshResult {
 class NativePreviewSession {
 public:
   explicit NativePreviewSession(NativeProjectSession& project);
+  NativePreviewSession(NativeProjectSession& project, render::IRenderFrameSource& frameSource);
   NativePreviewSession(NativeProjectSession& project, std::vector<runtime::IEffectRuntime*> effectRuntimes);
 
   foundation::Result<NativePreviewRefreshResult> refreshFromProject();

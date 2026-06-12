@@ -9,6 +9,14 @@ NativePreviewSession::NativePreviewSession(NativeProjectSession& project)
 
 NativePreviewSession::NativePreviewSession(
   NativeProjectSession& project,
+  render::IRenderFrameSource& frameSource
+) : project_{project},
+    runtime_{},
+    core_{runtime_, frameSource},
+    preview_{core_} {}
+
+NativePreviewSession::NativePreviewSession(
+  NativeProjectSession& project,
   std::vector<runtime::IEffectRuntime*> effectRuntimes
 ) : project_{project},
     runtime_{std::move(effectRuntimes)},
