@@ -21,8 +21,10 @@
 #include <QWidget>
 
 #include <algorithm>
+#include <iomanip>
 #include <iostream>
 #include <optional>
+#include <sstream>
 #include <string>
 
 namespace {
@@ -33,6 +35,12 @@ void printError(const grapple::foundation::Error& error) {
 
 QString qString(const std::string& value) {
   return QString::fromStdString(value);
+}
+
+QString timeText(grapple::foundation::TimeSeconds time) {
+  std::ostringstream output;
+  output << std::fixed << std::setprecision(2) << time.value << "s";
+  return qString(output.str());
 }
 
 QString summaryText(const grapple::app::AppViewModel& viewModel) {
@@ -60,6 +68,11 @@ public:
 
   void setViewModel(grapple::app::AppViewModel viewModel) {
     viewModel_ = std::move(viewModel);
+    update();
+  }
+
+  void setPlayhead(grapple::foundation::TimeSeconds playhead) {
+    playhead_ = playhead;
     update();
   }
 
@@ -111,6 +124,8 @@ protected:
     if (!viewModel.timeline.cameras.empty()) {
       drawCameraRow(painter, viewModel, QRect{0, y, width(), rowHeight}, left, trackWidth);
     }
+
+    drawPlayhead(painter, left, trackWidth, duration);
   }
 
 private:
@@ -177,7 +192,17 @@ private:
     );
   }
 
+  void drawPlayhead(QPainter& painter, int left, int trackWidth, double duration) const {
+    const double normalized = std::clamp(playhead_.value / duration, 0.0, 1.0);
+    const int x = left + static_cast<int>(normalized * static_cast<double>(trackWidth));
+    painter.setPen(QPen{QColor{"#ff5b5b"}, 2});
+    painter.drawLine(x, 0, x, height());
+    painter.setBrush(QColor{"#ff5b5b"});
+    painter.drawPolygon(QPolygon{{QPoint{x - 6, 0}, QPoint{x + 6, 0}, QPoint{x, 9}}});
+  }
+
   std::optional<grapple::app::AppViewModel> viewModel_;
+  grapple::foundation::TimeSeconds playhead_;
 };
 
 grapple::foundation::Result<void> populateDemo(grapple::app::NativeProjectSession& session, bool savePackage) {
@@ -243,11 +268,20 @@ public:
     log_->setReadOnly(true);
 
     auto* refreshButton = new QPushButton{"Refresh Preview"};
+    playheadLabel_ = new QLabel;
+    playheadLabel_->setObjectName("playheadLabel");
+    auto* seekStartButton = new QPushButton{"Seek Start"};
+    auto* stepBackButton = new QPushButton{"Step -1s"};
+    auto* stepForwardButton = new QPushButton{"Step +1s"};
     auto* addTrackButton = new QPushButton{"Add Track"};
     auto* exportButton = new QPushButton{"Export Smoke"};
     auto* saveButton = new QPushButton{"Save Package"};
     auto* actionColumn = new QVBoxLayout;
     actionColumn->addWidget(refreshButton);
+    actionColumn->addWidget(playheadLabel_);
+    actionColumn->addWidget(seekStartButton);
+    actionColumn->addWidget(stepBackButton);
+    actionColumn->addWidget(stepForwardButton);
     actionColumn->addWidget(addTrackButton);
     actionColumn->addWidget(exportButton);
     actionColumn->addWidget(saveButton);
@@ -271,6 +305,9 @@ public:
     setCentralWidget(root);
 
     connect(refreshButton, &QPushButton::clicked, this, [this] { refreshPreview(); });
+    connect(seekStartButton, &QPushButton::clicked, this, [this] { seekTo(grapple::foundation::TimeSeconds{0.0}); });
+    connect(stepBackButton, &QPushButton::clicked, this, [this] { stepPlayhead(-1.0); });
+    connect(stepForwardButton, &QPushButton::clicked, this, [this] { stepPlayhead(1.0); });
     connect(addTrackButton, &QPushButton::clicked, this, [this] { addTrack(); });
     connect(exportButton, &QPushButton::clicked, this, [this] { runExport(); });
     connect(saveButton, &QPushButton::clicked, this, [this] { savePackage(); });
@@ -287,6 +324,7 @@ public:
       }
       QLabel#panelTitle { color: #9fb7d5; font-weight: 700; letter-spacing: 1px; }
       QLabel#previewOutput { color: #d8f3ff; font-size: 22px; font-weight: 700; }
+      QLabel#playheadLabel { color: #d8f3ff; font-weight: 700; padding: 6px 0; }
       QPushButton {
         background: #58c7d8; color: #071015; border: 0; border-radius: 8px; padding: 10px 14px; font-weight: 700;
       }
@@ -305,6 +343,7 @@ public:
     }
     summary_->setText(summaryText(viewModel.value()));
     timeline_->setViewModel(viewModel.value());
+    timeline_->setPlayhead(preview_.state().playhead);
   }
 
   void refreshPreview() {
@@ -313,16 +352,45 @@ public:
       appendError(refresh.error());
       return;
     }
+    renderCurrentFrame();
+    log_->append(QString{"Preview refreshed at %1"}.arg(qString(refresh.value().revision.value())));
+  }
+
+  void renderCurrentFrame() {
+    const grapple::render::PreviewRenderShellState previewState = preview_.state();
     const auto frame = preview_.renderFrame(grapple::render::RenderFrameRequest{
-      grapple::foundation::TimeSeconds{0.0},
+      previewState.playhead,
       grapple::render::RenderQuality::Draft
     });
     if (!frame) {
       appendError(frame.error());
       return;
     }
-    previewOutput_->setText(qString(frame.value().frame.description));
-    log_->append(QString{"Preview refreshed at %1"}.arg(qString(refresh.value().revision.value())));
+    previewOutput_->setText(QString{"%1\n%2"}
+      .arg(timeText(previewState.playhead))
+      .arg(qString(frame.value().frame.description)));
+    playheadLabel_->setText(QString{"Playhead: %1"}.arg(timeText(previewState.playhead)));
+    timeline_->setPlayhead(previewState.playhead);
+  }
+
+  void seekTo(grapple::foundation::TimeSeconds time) {
+    const auto seek = preview_.seek(time);
+    if (!seek) {
+      appendError(seek.error());
+      return;
+    }
+    renderCurrentFrame();
+  }
+
+  void stepPlayhead(double deltaSeconds) {
+    const auto viewModel = session_.buildViewModel();
+    if (!viewModel) {
+      appendError(viewModel.error());
+      return;
+    }
+    const double duration = std::max(0.0, viewModel.value().timeline.duration.value);
+    const double current = preview_.state().playhead.value;
+    seekTo(grapple::foundation::TimeSeconds{std::clamp(current + deltaSeconds, 0.0, duration)});
   }
 
   void addTrack() {
@@ -402,6 +470,7 @@ private:
   QLabel* summary_ = nullptr;
   QLabel* previewTitle_ = nullptr;
   QLabel* previewOutput_ = nullptr;
+  QLabel* playheadLabel_ = nullptr;
   TimelinePanel* timeline_ = nullptr;
   QTextEdit* log_ = nullptr;
   QFrame* previewFrame_ = nullptr;
@@ -412,6 +481,7 @@ private:
 int main(int argc, char* argv[]) {
   bool smoke = false;
   bool mutateSmoke = false;
+  bool seekSmoke = false;
   std::optional<std::string> screenshotPath;
   for (int index = 1; index < argc; ++index) {
     const std::string argument{argv[index]};
@@ -419,10 +489,12 @@ int main(int argc, char* argv[]) {
       smoke = true;
     } else if (argument == "--mutate-smoke") {
       mutateSmoke = true;
+    } else if (argument == "--seek-smoke") {
+      seekSmoke = true;
     } else if (argument == "--screenshot" && index + 1 < argc) {
       screenshotPath = argv[++index];
     } else {
-      std::cerr << "Expected --smoke, --mutate-smoke, or --screenshot <path>.\n";
+      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, or --screenshot <path>.\n";
       return 1;
     }
   }
@@ -470,6 +542,13 @@ int main(int argc, char* argv[]) {
     std::cout << "revision=" << viewModel.value().project.revision.value() << '\n';
     std::cout << "layers=" << viewModel.value().timeline.layers.size() << '\n';
     return viewModel.value().timeline.layers.size() == 2 ? 0 : 1;
+  }
+
+  if (seekSmoke) {
+    window.seekTo(grapple::foundation::TimeSeconds{5.0});
+    const grapple::render::PreviewRenderShellState previewState = preview.state();
+    std::cout << "playhead=" << previewState.playhead.value << '\n';
+    return previewState.playhead == grapple::foundation::TimeSeconds{5.0} ? 0 : 1;
   }
 
   if (screenshotPath.has_value()) {
