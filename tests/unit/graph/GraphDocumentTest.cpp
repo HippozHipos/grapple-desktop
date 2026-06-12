@@ -28,6 +28,16 @@ int main() {
   GRAPPLE_REQUIRE(!duplicateNode);
   GRAPPLE_REQUIRE(duplicateNode.error().code == "graph.node_id_duplicate");
 
+  auto mismatchedNodePayload = graph.addNode(graph::GraphNode{
+    foundation::NodeId{"node_payload_mismatch"},
+    graph::NodeKind::Track,
+    timeline::CompositionPayload{"Wrong payload"},
+    true
+  });
+  GRAPPLE_REQUIRE(!mismatchedNodePayload);
+  GRAPPLE_REQUIRE(mismatchedNodePayload.error().code == "graph.node_payload_kind_mismatch");
+  GRAPPLE_REQUIRE(graph.nodes().size() == 1);
+
   auto missingEndpoint = graph.addEdge(graph::GraphEdge{
     foundation::EdgeId{"edge_missing"},
     graph::EdgeKind::Contains,

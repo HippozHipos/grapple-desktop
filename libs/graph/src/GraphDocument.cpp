@@ -1,8 +1,34 @@
 #include <grapple/graph/GraphDocument.hpp>
 
 #include <algorithm>
+#include <cstdlib>
 
 namespace grapple::graph {
+
+namespace {
+
+bool payloadMatchesNodeKind(const GraphNode& node) {
+  switch (node.kind) {
+    case NodeKind::Composition:
+      return std::holds_alternative<timeline::CompositionPayload>(node.payload);
+    case NodeKind::Track:
+      return std::holds_alternative<timeline::TrackPayload>(node.payload);
+    case NodeKind::Clip:
+      return std::holds_alternative<timeline::ClipPayload>(node.payload);
+    case NodeKind::Camera:
+      return std::holds_alternative<timeline::CameraPayload>(node.payload);
+    case NodeKind::Effect:
+      return std::holds_alternative<timeline::EffectPayload>(node.payload);
+    case NodeKind::Asset:
+      return std::holds_alternative<timeline::AssetPayload>(node.payload);
+    case NodeKind::Note:
+      return std::holds_alternative<timeline::NotePayload>(node.payload);
+  }
+
+  std::abort();
+}
+
+} // namespace
 
 const std::vector<GraphNode>& GraphDocument::nodes() const noexcept {
   return nodes_;
@@ -37,6 +63,10 @@ foundation::Result<void> GraphDocument::addNode(GraphNode node) {
     return foundation::Error{"graph.node_id_duplicate", "Graph node id already exists."};
   }
 
+  if (!payloadMatchesNodeKind(node)) {
+    return foundation::Error{"graph.node_payload_kind_mismatch", "Graph node payload must match graph node kind."};
+  }
+
   nodes_.push_back(std::move(node));
   return {};
 }
@@ -62,4 +92,3 @@ foundation::Result<void> GraphDocument::addEdge(GraphEdge edge) {
 }
 
 } // namespace grapple::graph
-
