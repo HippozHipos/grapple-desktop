@@ -77,4 +77,22 @@ check_no_matches \
   '#include <grapple/(projection|runtime|render|storage|media|jobs|graph|asset|timeline)/' \
   "$root/libs/agent"
 
+check_no_matches \
+  "lower-level modules must not depend on the app orchestration layer." \
+  '#include <grapple/app/' \
+  "$root/libs/foundation" \
+  "$root/libs/asset" \
+  "$root/libs/timeline" \
+  "$root/libs/graph" \
+  "$root/libs/project" \
+  "$root/libs/projection" \
+  "$root/libs/history" \
+  "$root/libs/storage" \
+  "$root/libs/jobs" \
+  "$root/libs/media" \
+  "$root/libs/runtime" \
+  "$root/libs/model" \
+  "$root/libs/render" \
+  "$root/libs/agent"
+
 echo "Architecture guards passed."
