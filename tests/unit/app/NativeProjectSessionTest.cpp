@@ -4,6 +4,8 @@
 #include <grapple/app/NativeProjectSession.hpp>
 #include <grapple/app/NativeWorkspaceSession.hpp>
 #include <grapple/asset/Asset.hpp>
+#include <grapple/foundation/Hash.hpp>
+#include <grapple/graph/GraphEdge.hpp>
 #include <grapple/history/HistorySerializer.hpp>
 #include <grapple/project/ProjectSerializer.hpp>
 #include <grapple/storage/ProjectPackageManifest.hpp>
@@ -173,6 +175,82 @@ int main() {
   GRAPPLE_REQUIRE(assetViewModel.value().assets.rows[0].dimensions.has_value());
   GRAPPLE_REQUIRE(assetViewModel.value().assets.rows[0].dimensions->width == 1920);
   GRAPPLE_REQUIRE(assetViewModel.value().assets.rows[0].dimensions->height == 1080);
+
+  app::NativeProjectSession effectSession{
+    foundation::ProjectId{"proj_app_effects"},
+    "Effect App Project",
+    storage::ProjectPackage{
+      foundation::ProjectId{"proj_app_effects"},
+      foundation::FilePath{"effect-app.grapple"},
+      1
+    }
+  };
+  app::NativeProjectCommandWriter effectWriter{effectSession};
+  const foundation::NodeId effectCompositionNodeId = effectWriter.nextNodeId("composition");
+  const auto effectComposition = effectWriter.apply(
+    project::CreateCompositionCommand{effectCompositionNodeId, "Effects Main"},
+    userSource()
+  );
+  GRAPPLE_REQUIRE(effectComposition);
+  const foundation::NodeId effectCameraNodeId = effectWriter.nextNodeId("camera");
+  const auto effectCamera = effectWriter.apply(
+    project::CreateCameraCommand{
+      effectCameraNodeId,
+      effectCompositionNodeId,
+      effectWriter.nextEdgeId("contains camera"),
+      timeline::CameraPayload{"Camera", timeline::Transform{}, timeline::CameraLens{35.0}}
+    },
+    userSource()
+  );
+  GRAPPLE_REQUIRE(effectCamera);
+  const auto effectCommand = effectWriter.apply(
+    project::CreateEffectCommand{
+      effectWriter.nextNodeId("effect"),
+      effectCameraNodeId,
+      effectWriter.nextEdgeId("effect targets camera"),
+      timeline::EffectPayload{
+        "Camera Follow",
+        timeline::EffectImplementation{
+          timeline::EffectImplementationKind::Python,
+          "prepare",
+          timeline::EffectSource{
+            timeline::EffectSourceKind::InlineSource,
+            "python",
+            "def prepare(ctx): return {}\n",
+            std::nullopt,
+            foundation::stableHash("def prepare(ctx): return {}\n")
+          }
+        },
+        timeline::EffectPortSet{
+          {timeline::EffectPort{"frame"}},
+          {timeline::EffectPort{"camera"}}
+        },
+        timeline::ParamSet{
+          {timeline::Param{"target_x", 0.5}}
+        },
+        foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{10.0}}
+      },
+      graph::PortName{"camera"},
+      graph::PortName{"input"},
+      0
+    },
+    userSource()
+  );
+  GRAPPLE_REQUIRE(effectCommand);
+  const auto effectViewModel = effectSession.buildViewModel();
+  GRAPPLE_REQUIRE(effectViewModel);
+  GRAPPLE_REQUIRE(effectViewModel.value().timeline.effectGraphs.size() == 1);
+  GRAPPLE_REQUIRE(effectViewModel.value().timeline.effectGraphs[0].targetNodeId == effectCameraNodeId);
+  GRAPPLE_REQUIRE(effectViewModel.value().timeline.effectGraphs[0].nodeCount == 1);
+  GRAPPLE_REQUIRE(effectViewModel.value().timeline.effectGraphs[0].edgeCount == 1);
+  GRAPPLE_REQUIRE(effectViewModel.value().timeline.effectGraphs[0].effects.size() == 1);
+  GRAPPLE_REQUIRE(effectViewModel.value().timeline.effectGraphs[0].effects[0].targetNodeId == effectCameraNodeId);
+  GRAPPLE_REQUIRE(effectViewModel.value().timeline.effectGraphs[0].effects[0].displayName == "Camera Follow");
+  GRAPPLE_REQUIRE(effectViewModel.value().timeline.effectGraphs[0].effects[0].implementationKind == "python");
+  GRAPPLE_REQUIRE(effectViewModel.value().timeline.effectGraphs[0].effects[0].entrypoint == "prepare");
+  GRAPPLE_REQUIRE(effectViewModel.value().timeline.effectGraphs[0].effects[0].params.size() == 1);
+  GRAPPLE_REQUIRE(effectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].name == "target_x");
+  GRAPPLE_REQUIRE(effectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].value == "0.5");
 
   app::NativePreviewSession preview{session};
   const auto frameBeforeRefresh = preview.renderFrame(render::RenderFrameRequest{

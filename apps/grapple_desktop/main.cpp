@@ -102,30 +102,65 @@ QString inspectorText(
     return "Inspector\nNo selection";
   }
 
+  auto attachedEffectsText = [&](const grapple::foundation::NodeId& targetNodeId) {
+    QStringList lines;
+    for (const grapple::app::AppEffectGraphRow& graph : viewModel.timeline.effectGraphs) {
+      if (graph.targetNodeId != targetNodeId) {
+        continue;
+      }
+      for (const grapple::app::AppEffectRow& effect : graph.effects) {
+        lines << QString{"Effect: %1 [%2]"}
+          .arg(qString(effect.displayName))
+          .arg(qString(effect.implementationKind));
+        if (!effect.entrypoint.empty()) {
+          lines << QString{"Entrypoint: %1"}.arg(qString(effect.entrypoint));
+        }
+        lines << QString{"Range: %1 - %2"}
+          .arg(timeText(effect.activeRange.start))
+          .arg(timeText(effect.activeRange.end));
+        if (!effect.params.empty()) {
+          QStringList params;
+          for (const grapple::app::AppEffectParamRow& param : effect.params) {
+            params << QString{"%1=%2"}.arg(qString(param.name)).arg(qString(param.value));
+          }
+          lines << QString{"Params: %1"}.arg(params.join(", "));
+        }
+      }
+    }
+
+    if (lines.empty()) {
+      return QString{"Effects: none"};
+    }
+    return QString{"Effects\n%1"}.arg(lines.join('\n'));
+  };
+
   for (const grapple::app::AppClipRow& clip : viewModel.timeline.clips) {
     if (clip.sourceNodeId == selectedNodeId.value()) {
-      return QString{"Inspector\nClip %1\nAsset: %2\nTrack: %3\nRange: %4s - %5s"}
+      return QString{"Inspector\nClip %1\nAsset: %2\nTrack: %3\nRange: %4s - %5s\n\n%6"}
         .arg(qString(clip.sourceNodeId.value()))
         .arg(qString(clip.assetId.value()))
         .arg(qString(clip.trackNodeId.value()))
         .arg(clip.timelineRange.start.value)
-        .arg(clip.timelineRange.end.value);
+        .arg(clip.timelineRange.end.value)
+        .arg(attachedEffectsText(clip.sourceNodeId));
     }
   }
 
   for (const grapple::app::AppCameraRow& camera : viewModel.timeline.cameras) {
     if (camera.sourceNodeId == selectedNodeId.value()) {
-      return QString{"Inspector\nCamera %1\nName: %2"}
+      return QString{"Inspector\nCamera %1\nName: %2\n\n%3"}
         .arg(qString(camera.sourceNodeId.value()))
-        .arg(qString(camera.name));
+        .arg(qString(camera.name))
+        .arg(attachedEffectsText(camera.sourceNodeId));
     }
   }
 
   for (const grapple::app::AppLayerRow& layer : viewModel.timeline.layers) {
     if (layer.sourceNodeId == selectedNodeId.value()) {
-      return QString{"Inspector\nLayer %1\nClips: %2"}
+      return QString{"Inspector\nLayer %1\nClips: %2\n\n%3"}
         .arg(qString(layer.name))
-        .arg(layer.clipCount);
+        .arg(layer.clipCount)
+        .arg(attachedEffectsText(layer.sourceNodeId));
     }
   }
 
@@ -895,12 +930,27 @@ public:
     QApplication::sendEvent(timeline_, &event);
   }
 
+  void clickFirstTimelineCamera() {
+    QMouseEvent event{
+      QEvent::MouseButtonPress,
+      QPointF{180.0, 100.0},
+      Qt::LeftButton,
+      Qt::LeftButton,
+      Qt::NoModifier
+    };
+    QApplication::sendEvent(timeline_, &event);
+  }
+
   std::optional<grapple::foundation::NodeId> selectedNodeId() const {
     return selectedNodeId_;
   }
 
   std::optional<grapple::foundation::AssetId> selectedAssetId() const {
     return selectedAssetId_;
+  }
+
+  std::string inspectorContents() const {
+    return inspector_->toPlainText().toStdString();
   }
 
   void startPlayback() {
@@ -1272,6 +1322,7 @@ int main(int argc, char* argv[]) {
   bool seekSmoke = false;
   bool timelineSeekSmoke = false;
   bool selectSmoke = false;
+  bool selectCameraSmoke = false;
   bool importSmoke = false;
   bool addVideoSmoke = false;
   bool deleteSmoke = false;
@@ -1291,6 +1342,8 @@ int main(int argc, char* argv[]) {
       timelineSeekSmoke = true;
     } else if (argument == "--select-smoke") {
       selectSmoke = true;
+    } else if (argument == "--select-camera-smoke") {
+      selectCameraSmoke = true;
     } else if (argument == "--import-smoke") {
       importSmoke = true;
     } else if (argument == "--add-video-smoke") {
@@ -1306,7 +1359,7 @@ int main(int argc, char* argv[]) {
     } else if (argument == "--screenshot" && index + 1 < argc) {
       screenshotPath = argv[++index];
     } else {
-      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --import-smoke, --add-video-smoke, --delete-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, or --screenshot <path>.\n";
+      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --select-camera-smoke, --import-smoke, --add-video-smoke, --delete-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, or --screenshot <path>.\n";
       return 1;
     }
   }
@@ -1393,6 +1446,25 @@ int main(int argc, char* argv[]) {
     }
     std::cout << "selected=" << selectedNodeId->value() << '\n';
     return selectedNodeId.value() == grapple::foundation::NodeId{"node_clip_3"} ? 0 : 1;
+  }
+
+  if (selectCameraSmoke) {
+    window.show();
+    app.processEvents();
+    window.clickFirstTimelineCamera();
+    const auto selectedNodeId = window.selectedNodeId();
+    if (!selectedNodeId.has_value()) {
+      std::cerr << "No selected camera node.\n";
+      return 1;
+    }
+    const std::string inspector = window.inspectorContents();
+    std::cout << "selected=" << selectedNodeId->value() << '\n';
+    std::cout << "inspector=" << inspector << '\n';
+    return selectedNodeId.value() == grapple::foundation::NodeId{"node_camera_4"} &&
+           inspector.find("Camera Follow") != std::string::npos &&
+           inspector.find("target_x=0.5") != std::string::npos
+      ? 0
+      : 1;
   }
 
   if (importSmoke) {

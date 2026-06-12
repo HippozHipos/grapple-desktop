@@ -59,11 +59,28 @@ struct AppCameraRow {
   std::string name;
 };
 
+struct AppEffectParamRow {
+  std::string name;
+  std::string value;
+};
+
+struct AppEffectRow {
+  foundation::GraphId graphId;
+  foundation::NodeId sourceNodeId;
+  foundation::NodeId targetNodeId;
+  std::string displayName;
+  std::string implementationKind;
+  std::string entrypoint;
+  foundation::TimeRange activeRange;
+  std::vector<AppEffectParamRow> params;
+};
+
 struct AppEffectGraphRow {
   foundation::GraphId graphId;
   foundation::NodeId targetNodeId;
   std::size_t nodeCount = 0;
   std::size_t edgeCount = 0;
+  std::vector<AppEffectRow> effects;
 };
 
 struct AppTimelineView {

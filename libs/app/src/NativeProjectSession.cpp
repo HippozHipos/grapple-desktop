@@ -5,6 +5,8 @@
 #include <grapple/storage/ProjectPackageWriter.hpp>
 
 #include <algorithm>
+#include <cstdlib>
+#include <sstream>
 #include <utility>
 #include <variant>
 
@@ -31,7 +33,44 @@ std::string mediaTypeName(asset::AssetMediaType mediaType) {
       return "image";
   }
 
-  return "unknown";
+  std::abort();
+}
+
+std::string implementationKindName(timeline::EffectImplementationKind kind) {
+  switch (kind) {
+    case timeline::EffectImplementationKind::Builtin:
+      return "builtin";
+    case timeline::EffectImplementationKind::Python:
+      return "python";
+    case timeline::EffectImplementationKind::Shader:
+      return "shader";
+  }
+
+  std::abort();
+}
+
+std::string paramValueText(const timeline::ParamValue& value) {
+  return std::visit(
+    [](const auto& typedValue) -> std::string {
+      using Value = std::decay_t<decltype(typedValue)>;
+      std::ostringstream output;
+      if constexpr (std::is_same_v<Value, double>) {
+        output << typedValue;
+      } else if constexpr (std::is_same_v<Value, bool>) {
+        output << (typedValue ? "true" : "false");
+      } else if constexpr (std::is_same_v<Value, std::string>) {
+        output << typedValue;
+      } else if constexpr (std::is_same_v<Value, foundation::Vec2>) {
+        output << typedValue.x << ", " << typedValue.y;
+      } else if constexpr (std::is_same_v<Value, foundation::Vec3>) {
+        output << typedValue.x << ", " << typedValue.y << ", " << typedValue.z;
+      } else if constexpr (std::is_same_v<Value, foundation::Rect>) {
+        output << typedValue.x << ", " << typedValue.y << ", " << typedValue.width << "x" << typedValue.height;
+      }
+      return output.str();
+    },
+    value
+  );
 }
 
 } // namespace
@@ -162,12 +201,37 @@ foundation::Result<AppViewModel> NativeProjectSession::buildViewModel() const {
   }
 
   for (const projection::RenderEffectGraph& effectGraph : plan.effectGraphs) {
-    viewModel.timeline.effectGraphs.push_back(AppEffectGraphRow{
+    AppEffectGraphRow effectGraphRow{
       effectGraph.id,
       effectGraph.targetNodeId,
       effectGraph.nodes.size(),
-      effectGraph.edges.size()
-    });
+      effectGraph.edges.size(),
+      {}
+    };
+
+    for (const projection::RenderEffectNode& effect : effectGraph.nodes) {
+      std::vector<AppEffectParamRow> params;
+      params.reserve(effect.payload.params.values.size());
+      for (const timeline::Param& param : effect.payload.params.values) {
+        params.push_back(AppEffectParamRow{
+          param.name,
+          paramValueText(param.value)
+        });
+      }
+
+      effectGraphRow.effects.push_back(AppEffectRow{
+        effectGraph.id,
+        effect.sourceNodeId,
+        effectGraph.targetNodeId,
+        effect.payload.displayName,
+        implementationKindName(effect.payload.implementation.kind),
+        effect.payload.implementation.entrypoint,
+        effect.payload.activeRange,
+        std::move(params)
+      });
+    }
+
+    viewModel.timeline.effectGraphs.push_back(std::move(effectGraphRow));
   }
 
   return viewModel;
