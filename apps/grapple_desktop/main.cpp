@@ -17,6 +17,7 @@
 #include <QFileDialog>
 #include <QFontMetrics>
 #include <QGridLayout>
+#include <QHBoxLayout>
 #include <QImage>
 #include <QLabel>
 #include <QLineEdit>
@@ -797,6 +798,12 @@ public:
     inspector_->setObjectName("inspector");
     inspector_->setReadOnly(true);
 
+    effectParams_ = new QWidget;
+    effectParams_->setObjectName("effectParams");
+    effectParamsLayout_ = new QVBoxLayout{effectParams_};
+    effectParamsLayout_->setContentsMargins(12, 12, 12, 12);
+    effectParamsLayout_->setSpacing(10);
+
     log_ = new QTextEdit;
     log_->setObjectName("log");
     log_->setReadOnly(true);
@@ -819,11 +826,6 @@ public:
     auto* addTrackButton = new QPushButton{"Add Track"};
     auto* moveClipButton = new QPushButton{"Move Clip +1s"};
     auto* addEffectButton = new QPushButton{"Add Effect"};
-    effectParamName_ = new QLineEdit{"position_x"};
-    effectParamName_->setObjectName("effectParamName");
-    effectParamValue_ = new QLineEdit{"0.75"};
-    effectParamValue_->setObjectName("effectParamValue");
-    auto* setEffectParamButton = new QPushButton{"Set Effect Param"};
     auto* deleteClipButton = new QPushButton{"Delete Clip"};
     auto* exportButton = new QPushButton{"Export Smoke"};
     auto* saveButton = new QPushButton{"Save Package"};
@@ -841,9 +843,6 @@ public:
     actionColumn->addWidget(addTrackButton);
     actionColumn->addWidget(moveClipButton);
     actionColumn->addWidget(addEffectButton);
-    actionColumn->addWidget(effectParamName_);
-    actionColumn->addWidget(effectParamValue_);
-    actionColumn->addWidget(setEffectParamButton);
     actionColumn->addWidget(deleteClipButton);
     actionColumn->addWidget(exportButton);
     actionColumn->addWidget(saveButton);
@@ -867,10 +866,17 @@ public:
     sideLayout->setContentsMargins(0, 0, 0, 0);
     sideLayout->setSpacing(16);
     sideLayout->addWidget(inspector_, 1);
+    sideLayout->addWidget(effectParams_);
     sideLayout->addWidget(log_, 1);
 
-    layout->addWidget(actions, 0, 2, 1, 1);
-    layout->addWidget(sidePanel, 1, 2, 1, 1);
+    auto* rightColumn = new QWidget;
+    auto* rightLayout = new QVBoxLayout{rightColumn};
+    rightLayout->setContentsMargins(0, 0, 0, 0);
+    rightLayout->setSpacing(16);
+    rightLayout->addWidget(actions);
+    rightLayout->addWidget(sidePanel, 1);
+
+    layout->addWidget(rightColumn, 0, 2, 2, 1);
     layout->addWidget(timeline_, 2, 0, 1, 3);
     layout->setColumnStretch(0, 2);
     layout->setColumnStretch(1, 4);
@@ -892,9 +898,6 @@ public:
     connect(addTrackButton, &QPushButton::clicked, this, [this] { addTrack(); });
     connect(moveClipButton, &QPushButton::clicked, this, [this] { moveSelectedClip(grapple::foundation::TimeSeconds{1.0}); });
     connect(addEffectButton, &QPushButton::clicked, this, [this] { addEffectToSelectedTarget(); });
-    connect(setEffectParamButton, &QPushButton::clicked, this, [this] {
-      setSelectedTargetNumericEffectParam(effectParamName_->text().toStdString(), effectParamValue_->text().toStdString());
-    });
     connect(deleteClipButton, &QPushButton::clicked, this, [this] { deleteSelectedClip(); });
     connect(exportButton, &QPushButton::clicked, this, [this] { runExport(); });
     connect(saveButton, &QPushButton::clicked, this, [this] { savePackage(); });
@@ -905,7 +908,7 @@ public:
     setStyleSheet(R"(
       QMainWindow { background: #15171c; color: #e9edf5; }
       QWidget { background: #15171c; color: #e9edf5; font-family: "DejaVu Sans"; font-size: 14px; }
-      QLabel#summary, QListWidget#mediaBin, QTextEdit#timeline, QTextEdit#inspector, QTextEdit#log, QWidget#actions {
+      QLabel#summary, QListWidget#mediaBin, QTextEdit#timeline, QTextEdit#inspector, QWidget#effectParams, QTextEdit#log, QWidget#actions {
         background: #20242d; border: 1px solid #343b4a; border-radius: 10px; padding: 12px;
       }
       QListWidget#mediaBin { color: #dce8f6; outline: 0; }
@@ -918,9 +921,11 @@ public:
         border: 1px solid #3c526f; border-radius: 12px;
       }
       QLabel#panelTitle { color: #9fb7d5; font-weight: 700; letter-spacing: 1px; }
+      QLabel#effectParamTitle { color: #e8f4ff; font-weight: 800; }
+      QLabel#effectParamHelp { color: #9fb0c8; }
       QLabel#playheadLabel { color: #d8f3ff; font-weight: 700; padding: 6px 0; }
       QPushButton {
-        background: #58c7d8; color: #071015; border: 0; border-radius: 8px; padding: 10px 14px; font-weight: 700;
+        background: #58c7d8; color: #071015; border: 0; border-radius: 8px; padding: 6px 10px; min-height: 24px; font-weight: 700;
       }
       QLineEdit {
         background: #10141d; color: #e8f4ff; border: 1px solid #343b4a; border-radius: 8px; padding: 8px 10px;
@@ -1375,15 +1380,6 @@ public:
       return;
     }
 
-    double parsedValue = 0.0;
-    const char* begin = rawValue.data();
-    const char* end = rawValue.data() + rawValue.size();
-    const auto parsed = std::from_chars(begin, end, parsedValue);
-    if (parsed.ec != std::errc{} || parsed.ptr != end) {
-      appendError(grapple::foundation::Error{"desktop.effect_param_value_invalid", "Effect parameter value must be a number."});
-      return;
-    }
-
     const auto snapshot = workspace_.project().snapshot();
     if (!snapshot) {
       appendError(snapshot.error());
@@ -1407,15 +1403,43 @@ public:
       return;
     }
 
-    const grapple::graph::GraphNode* effectNode = snapshot.value().graph.findNode(targetEdge->sourceNodeId);
+    setEffectNumericParam(targetEdge->sourceNodeId, paramName, rawValue);
+  }
+
+  void setEffectNumericParam(
+    const grapple::foundation::NodeId& effectNodeId,
+    const std::string& paramName,
+    const std::string& rawValue
+  ) {
+    if (paramName.empty()) {
+      appendError(grapple::foundation::Error{"desktop.effect_param_name_empty", "Effect parameter name must not be empty."});
+      return;
+    }
+
+    double parsedValue = 0.0;
+    const char* begin = rawValue.data();
+    const char* end = rawValue.data() + rawValue.size();
+    const auto parsed = std::from_chars(begin, end, parsedValue);
+    if (parsed.ec != std::errc{} || parsed.ptr != end) {
+      appendError(grapple::foundation::Error{"desktop.effect_param_value_invalid", "Effect parameter value must be a number."});
+      return;
+    }
+
+    const auto snapshot = workspace_.project().snapshot();
+    if (!snapshot) {
+      appendError(snapshot.error());
+      return;
+    }
+
+    const grapple::graph::GraphNode* effectNode = snapshot.value().graph.findNode(effectNodeId);
     if (effectNode == nullptr || effectNode->kind != grapple::graph::NodeKind::Effect) {
-      appendError(grapple::foundation::Error{"desktop.effect_node_invalid", "Attached effect node is missing or invalid."});
+      appendError(grapple::foundation::Error{"desktop.effect_node_invalid", "Effect node is missing or invalid."});
       return;
     }
 
     const auto* effectPayload = std::get_if<grapple::timeline::EffectPayload>(&effectNode->payload);
     if (effectPayload == nullptr) {
-      appendError(grapple::foundation::Error{"desktop.effect_payload_invalid", "Attached effect node must carry an effect payload."});
+      appendError(grapple::foundation::Error{"desktop.effect_payload_invalid", "Effect node must carry an effect payload."});
       return;
     }
 
@@ -1537,6 +1561,93 @@ private:
 
   void updateInspector(const grapple::app::AppViewModel& viewModel) {
     inspector_->setPlainText(inspectorText(viewModel, selectedNodeId_, selectedAssetId_));
+    rebuildEffectParamControls(viewModel);
+  }
+
+  void clearEffectParamControls() {
+    while (QLayoutItem* item = effectParamsLayout_->takeAt(0)) {
+      if (QWidget* widget = item->widget()) {
+        delete widget;
+      }
+      delete item;
+    }
+  }
+
+  void addEffectParamMessage(const QString& message) {
+    auto* title = new QLabel{"Effect Parameters"};
+    title->setObjectName("effectParamTitle");
+    auto* help = new QLabel{message};
+    help->setObjectName("effectParamHelp");
+    help->setWordWrap(true);
+    effectParamsLayout_->addWidget(title);
+    effectParamsLayout_->addWidget(help);
+  }
+
+  void rebuildEffectParamControls(const grapple::app::AppViewModel& viewModel) {
+    clearEffectParamControls();
+    if (!selectedNodeId_.has_value()) {
+      addEffectParamMessage("Select a timeline item to edit its agent-authored controls.");
+      return;
+    }
+
+    bool hasAttachedEffect = false;
+    for (const grapple::app::AppEffectGraphRow& graph : viewModel.timeline.effectGraphs) {
+      if (graph.targetNodeId != selectedNodeId_.value()) {
+        continue;
+      }
+
+      for (const grapple::app::AppEffectRow& effect : graph.effects) {
+        hasAttachedEffect = true;
+        auto* effectTitle = new QLabel{QString{"%1 Parameters"}.arg(qString(effect.displayName))};
+        effectTitle->setObjectName("effectParamTitle");
+        effectParamsLayout_->addWidget(effectTitle);
+
+        if (effect.params.empty()) {
+          auto* empty = new QLabel{"This effect has no exposed parameters."};
+          empty->setObjectName("effectParamHelp");
+          effectParamsLayout_->addWidget(empty);
+          continue;
+        }
+
+        for (const grapple::app::AppEffectParamRow& param : effect.params) {
+          const QString displayName = param.label.empty()
+            ? qString(param.name)
+            : qString(param.label);
+
+          auto* row = new QWidget;
+          auto* rowLayout = new QHBoxLayout{row};
+          rowLayout->setContentsMargins(0, 0, 0, 0);
+          rowLayout->setSpacing(8);
+
+          auto* label = new QLabel{displayName};
+          label->setMinimumWidth(92);
+          label->setToolTip(qString(param.name));
+          auto* editor = new QLineEdit{qString(param.value)};
+          editor->setObjectName("effectParamEditor");
+          if (param.numericMin.has_value() && param.numericMax.has_value()) {
+            editor->setToolTip(QString{"%1..%2"}.arg(*param.numericMin).arg(*param.numericMax));
+          }
+          auto* apply = new QPushButton{"Apply"};
+          apply->setObjectName("effectParamApply");
+
+          const grapple::foundation::NodeId effectNodeId = effect.sourceNodeId;
+          const std::string paramName = param.name;
+          connect(apply, &QPushButton::clicked, this, [this, effectNodeId, paramName, editor] {
+            setEffectNumericParam(effectNodeId, paramName, editor->text().toStdString());
+          });
+
+          rowLayout->addWidget(label);
+          rowLayout->addWidget(editor, 1);
+          rowLayout->addWidget(apply);
+          effectParamsLayout_->addWidget(row);
+        }
+      }
+    }
+
+    if (!hasAttachedEffect) {
+      addEffectParamMessage("No effects are attached to the selected timeline item.");
+    }
+    effectParamsLayout_->addStretch(1);
   }
 
   void rebuildMediaBin(const grapple::app::AppViewModel& viewModel) {
@@ -1600,13 +1711,13 @@ private:
   grapple::app::NativeWorkspaceSession& workspace_;
   QLabel* summary_ = nullptr;
   QListWidget* mediaBin_ = nullptr;
-  QLineEdit* effectParamName_ = nullptr;
-  QLineEdit* effectParamValue_ = nullptr;
   QLabel* previewTitle_ = nullptr;
   QLabel* playheadLabel_ = nullptr;
   PreviewSurface* previewSurface_ = nullptr;
   TimelinePanel* timeline_ = nullptr;
   QTextEdit* inspector_ = nullptr;
+  QWidget* effectParams_ = nullptr;
+  QVBoxLayout* effectParamsLayout_ = nullptr;
   QTextEdit* log_ = nullptr;
   QFrame* previewFrame_ = nullptr;
   QTimer* playbackTimer_ = nullptr;
