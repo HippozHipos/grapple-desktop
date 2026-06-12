@@ -13,6 +13,8 @@
 #include <QGridLayout>
 #include <QImage>
 #include <QLabel>
+#include <QListWidget>
+#include <QListWidgetItem>
 #include <QMainWindow>
 #include <QMouseEvent>
 #include <QPainter>
@@ -70,41 +72,32 @@ QString summaryText(const grapple::app::AppViewModel& viewModel) {
     .arg(viewModel.timeline.effectGraphs.size());
 }
 
-QString mediaBinText(const grapple::app::AppViewModel& viewModel) {
-  QStringList lines;
-  lines << "Media Bin";
-  if (viewModel.assets.rows.empty()) {
-    lines << "No assets";
-    return lines.join('\n');
-  }
-
-  for (const grapple::app::AppAssetRow& asset : viewModel.assets.rows) {
-    QString details = QString{"%1  [%2]\n%3"}
-      .arg(qString(asset.name))
-      .arg(qString(asset.mediaType))
-      .arg(qString(asset.assetId.value()));
-
-    QStringList metadata;
-    if (asset.duration.has_value()) {
-      metadata << QString{"%1s"}.arg(asset.duration->value, 0, 'f', 2);
-    }
-    if (asset.dimensions.has_value()) {
-      metadata << QString{"%1x%2"}.arg(asset.dimensions->width).arg(asset.dimensions->height);
-    }
-    if (!metadata.empty()) {
-      details += "\n" + metadata.join("  ");
-    }
-    details += "\n" + qString(asset.sourcePath.value);
-    lines << "" << details;
-  }
-
-  return lines.join('\n');
-}
-
 QString inspectorText(
   const grapple::app::AppViewModel& viewModel,
-  const std::optional<grapple::foundation::NodeId>& selectedNodeId
+  const std::optional<grapple::foundation::NodeId>& selectedNodeId,
+  const std::optional<grapple::foundation::AssetId>& selectedAssetId
 ) {
+  if (selectedAssetId.has_value()) {
+    for (const grapple::app::AppAssetRow& asset : viewModel.assets.rows) {
+      if (asset.assetId == selectedAssetId.value()) {
+        QStringList lines{
+          "Inspector",
+          QString{"Asset %1"}.arg(qString(asset.assetId.value())),
+          QString{"Name: %1"}.arg(qString(asset.name)),
+          QString{"Type: %1"}.arg(qString(asset.mediaType))
+        };
+        if (asset.duration.has_value()) {
+          lines << QString{"Duration: %1"}.arg(timeText(*asset.duration));
+        }
+        if (asset.dimensions.has_value()) {
+          lines << QString{"Dimensions: %1x%2"}.arg(asset.dimensions->width).arg(asset.dimensions->height);
+        }
+        lines << QString{"Source: %1"}.arg(qString(asset.sourcePath.value));
+        return lines.join('\n');
+      }
+    }
+  }
+
   if (!selectedNodeId.has_value()) {
     return "Inspector\nNo selection";
   }
@@ -682,9 +675,9 @@ public:
     summary_->setObjectName("summary");
     summary_->setAlignment(Qt::AlignTop | Qt::AlignLeft);
 
-    mediaBin_ = new QTextEdit;
+    mediaBin_ = new QListWidget;
     mediaBin_->setObjectName("mediaBin");
-    mediaBin_->setReadOnly(true);
+    mediaBin_->setSelectionMode(QAbstractItemView::SingleSelection);
 
     previewFrame_ = new QFrame;
     previewFrame_->setObjectName("previewFrame");
@@ -719,6 +712,7 @@ public:
     auto* stepBackButton = new QPushButton{"Step -1s"};
     auto* stepForwardButton = new QPushButton{"Step +1s"};
     auto* importVideoButton = new QPushButton{"Import Video"};
+    auto* addMediaButton = new QPushButton{"Add Video To Timeline"};
     auto* openPackageButton = new QPushButton{"Open Package"};
     auto* addTrackButton = new QPushButton{"Add Track"};
     auto* deleteClipButton = new QPushButton{"Delete Clip"};
@@ -733,6 +727,7 @@ public:
     actionColumn->addWidget(stepBackButton);
     actionColumn->addWidget(stepForwardButton);
     actionColumn->addWidget(importVideoButton);
+    actionColumn->addWidget(addMediaButton);
     actionColumn->addWidget(openPackageButton);
     actionColumn->addWidget(addTrackButton);
     actionColumn->addWidget(deleteClipButton);
@@ -778,21 +773,25 @@ public:
     connect(stepBackButton, &QPushButton::clicked, this, [this] { stepPlayhead(-1.0); });
     connect(stepForwardButton, &QPushButton::clicked, this, [this] { stepPlayhead(1.0); });
     connect(importVideoButton, &QPushButton::clicked, this, [this] { chooseAndImportVideo(); });
+    connect(addMediaButton, &QPushButton::clicked, this, [this] { addSelectedVideoToTimeline(); });
     connect(openPackageButton, &QPushButton::clicked, this, [this] { chooseAndOpenPackage(); });
     connect(addTrackButton, &QPushButton::clicked, this, [this] { addTrack(); });
     connect(deleteClipButton, &QPushButton::clicked, this, [this] { deleteSelectedClip(); });
     connect(exportButton, &QPushButton::clicked, this, [this] { runExport(); });
     connect(saveButton, &QPushButton::clicked, this, [this] { savePackage(); });
+    connect(mediaBin_, &QListWidget::currentRowChanged, this, [this](int row) { selectMediaAssetAtRow(row); });
     timeline_->setSeekHandler([this](grapple::foundation::TimeSeconds time) { seekTo(time); });
     timeline_->setSelectionHandler([this](grapple::foundation::NodeId nodeId) { selectNode(std::move(nodeId)); });
 
     setStyleSheet(R"(
       QMainWindow { background: #15171c; color: #e9edf5; }
       QWidget { background: #15171c; color: #e9edf5; font-family: "DejaVu Sans"; font-size: 14px; }
-      QLabel#summary, QTextEdit#mediaBin, QTextEdit#timeline, QTextEdit#inspector, QTextEdit#log, QWidget#actions {
+      QLabel#summary, QListWidget#mediaBin, QTextEdit#timeline, QTextEdit#inspector, QTextEdit#log, QWidget#actions {
         background: #20242d; border: 1px solid #343b4a; border-radius: 10px; padding: 12px;
       }
-      QTextEdit#mediaBin { color: #dce8f6; }
+      QListWidget#mediaBin { color: #dce8f6; outline: 0; }
+      QListWidget#mediaBin::item { padding: 10px; border-radius: 8px; }
+      QListWidget#mediaBin::item:selected { background: #36506f; color: #ffffff; }
       QTextEdit#inspector { color: #eaf3ff; }
       QTextEdit#log { color: #b8c7dc; }
       QFrame#previewFrame {
@@ -818,7 +817,7 @@ public:
       return;
     }
     summary_->setText(summaryText(viewModel.value()));
-    mediaBin_->setPlainText(mediaBinText(viewModel.value()));
+    rebuildMediaBin(viewModel.value());
     timeline_->setViewModel(viewModel.value());
     timeline_->setPlayhead(workspace_.preview().state().playhead);
     timeline_->setSelectedNodeId(selectedNodeId_);
@@ -900,6 +899,10 @@ public:
     return selectedNodeId_;
   }
 
+  std::optional<grapple::foundation::AssetId> selectedAssetId() const {
+    return selectedAssetId_;
+  }
+
   void startPlayback() {
     const auto play = workspace_.preview().play();
     if (!play) {
@@ -977,17 +980,6 @@ public:
       return;
     }
     const grapple::asset::Asset& videoAsset = asset.value();
-    const grapple::foundation::TimeSeconds videoDuration = videoAsset.metadata.duration.value();
-
-    const auto viewModel = workspace_.project().buildViewModel();
-    if (!viewModel) {
-      appendError(viewModel.error());
-      return;
-    }
-    if (viewModel.value().timeline.layers.empty()) {
-      appendError(grapple::foundation::Error{"desktop.track_missing", "Import Video requires a timeline track."});
-      return;
-    }
 
     const auto registeredAsset = workspace_.commandWriter().apply(
       grapple::project::RegisterAssetCommand{videoAsset},
@@ -1008,6 +1000,50 @@ public:
       return;
     }
 
+    selectedNodeId_ = std::nullopt;
+    selectedAssetId_ = videoAsset.id;
+    refreshViewModel();
+    refreshPreview();
+    log_->append(QString{"Imported %1"}.arg(qString(videoAsset.name)));
+  }
+
+  void addSelectedVideoToTimeline() {
+    if (!selectedAssetId_.has_value()) {
+      appendError(grapple::foundation::Error{"desktop.asset_selection_missing", "Add Video To Timeline requires a selected video asset."});
+      return;
+    }
+
+    const auto viewModel = workspace_.project().buildViewModel();
+    if (!viewModel) {
+      appendError(viewModel.error());
+      return;
+    }
+    if (viewModel.value().timeline.layers.empty()) {
+      appendError(grapple::foundation::Error{"desktop.track_missing", "Add Video To Timeline requires a timeline track."});
+      return;
+    }
+
+    const grapple::app::AppAssetRow* selectedAsset = nullptr;
+    for (const grapple::app::AppAssetRow& asset : viewModel.value().assets.rows) {
+      if (asset.assetId == selectedAssetId_.value()) {
+        selectedAsset = &asset;
+        break;
+      }
+    }
+    if (selectedAsset == nullptr) {
+      appendError(grapple::foundation::Error{"desktop.asset_selection_stale", "Selected media asset is not in the current project."});
+      return;
+    }
+    if (selectedAsset->mediaType != "video") {
+      appendError(grapple::foundation::Error{"desktop.asset_not_video", "Add Video To Timeline requires a video asset."});
+      return;
+    }
+    if (!selectedAsset->duration.has_value()) {
+      appendError(grapple::foundation::Error{"desktop.asset_duration_missing", "Selected media asset requires a duration before it can be placed on the timeline."});
+      return;
+    }
+
+    const grapple::foundation::TimeSeconds duration = *selectedAsset->duration;
     const auto clip = workspace_.commandWriter().apply(
       grapple::project::CreateClipCommand{
         workspace_.commandWriter().nextNodeId("clip"),
@@ -1017,14 +1053,14 @@ public:
           grapple::timeline::ClipKind::Video,
           grapple::foundation::TimeRange{
             viewModel.value().timeline.duration,
-            grapple::foundation::TimeSeconds{viewModel.value().timeline.duration.value + videoDuration.value}
+            grapple::foundation::TimeSeconds{viewModel.value().timeline.duration.value + duration.value}
           },
           grapple::foundation::TimeRange{
             grapple::foundation::TimeSeconds{0.0},
-            videoDuration
+            duration
           },
           1.0,
-          videoAsset.id,
+          selectedAsset->assetId,
           grapple::timeline::Transform{}
         },
         static_cast<std::int64_t>(viewModel.value().timeline.clips.size())
@@ -1038,7 +1074,7 @@ public:
 
     refreshViewModel();
     refreshPreview();
-    log_->append(QString{"Imported %1"}.arg(qString(videoAsset.name)));
+    log_->append(QString{"Added %1 to timeline"}.arg(qString(selectedAsset->name)));
   }
 
   void deleteSelectedClip() {
@@ -1075,6 +1111,7 @@ public:
     }
 
     selectedNodeId_ = std::nullopt;
+    selectedAssetId_ = std::nullopt;
     refreshViewModel();
     refreshPreview();
     log_->append(QString{"Deleted clip at %1"}.arg(qString(deleted.value().snapshot.revision.value())));
@@ -1137,6 +1174,8 @@ private:
 
   void selectNode(grapple::foundation::NodeId nodeId) {
     selectedNodeId_ = std::move(nodeId);
+    selectedAssetId_ = std::nullopt;
+    mediaBin_->clearSelection();
     timeline_->setSelectedNodeId(selectedNodeId_);
 
     const auto viewModel = workspace_.project().buildViewModel();
@@ -1148,7 +1187,49 @@ private:
   }
 
   void updateInspector(const grapple::app::AppViewModel& viewModel) {
-    inspector_->setPlainText(inspectorText(viewModel, selectedNodeId_));
+    inspector_->setPlainText(inspectorText(viewModel, selectedNodeId_, selectedAssetId_));
+  }
+
+  void rebuildMediaBin(const grapple::app::AppViewModel& viewModel) {
+    mediaBin_->blockSignals(true);
+    mediaBin_->clear();
+    for (const grapple::app::AppAssetRow& asset : viewModel.assets.rows) {
+      QStringList metadata;
+      if (asset.duration.has_value()) {
+        metadata << QString{"%1s"}.arg(asset.duration->value, 0, 'f', 2);
+      }
+      if (asset.dimensions.has_value()) {
+        metadata << QString{"%1x%2"}.arg(asset.dimensions->width).arg(asset.dimensions->height);
+      }
+      const QString label = metadata.empty()
+        ? QString{"%1 [%2]\n%3"}.arg(qString(asset.name)).arg(qString(asset.mediaType)).arg(qString(asset.assetId.value()))
+        : QString{"%1 [%2]\n%3  %4"}.arg(qString(asset.name)).arg(qString(asset.mediaType)).arg(qString(asset.assetId.value())).arg(metadata.join("  "));
+      auto* item = new QListWidgetItem{label};
+      item->setData(Qt::UserRole, qString(asset.assetId.value()));
+      mediaBin_->addItem(item);
+      if (selectedAssetId_.has_value() && asset.assetId == selectedAssetId_.value()) {
+        mediaBin_->setCurrentItem(item);
+      }
+    }
+    mediaBin_->blockSignals(false);
+  }
+
+  void selectMediaAssetAtRow(int row) {
+    QListWidgetItem* item = mediaBin_->item(row);
+    if (item == nullptr) {
+      return;
+    }
+
+    selectedAssetId_ = grapple::foundation::AssetId{item->data(Qt::UserRole).toString().toStdString()};
+    selectedNodeId_ = std::nullopt;
+    timeline_->setSelectedNodeId(selectedNodeId_);
+
+    const auto viewModel = workspace_.project().buildViewModel();
+    if (!viewModel) {
+      appendError(viewModel.error());
+      return;
+    }
+    updateInspector(viewModel.value());
   }
 
   void chooseAndImportVideo() {
@@ -1169,7 +1250,7 @@ private:
 
   grapple::app::NativeWorkspaceSession& workspace_;
   QLabel* summary_ = nullptr;
-  QTextEdit* mediaBin_ = nullptr;
+  QListWidget* mediaBin_ = nullptr;
   QLabel* previewTitle_ = nullptr;
   QLabel* playheadLabel_ = nullptr;
   PreviewSurface* previewSurface_ = nullptr;
@@ -1180,6 +1261,7 @@ private:
   QTimer* playbackTimer_ = nullptr;
   grapple::foundation::TimeSeconds timelineDuration_;
   std::optional<grapple::foundation::NodeId> selectedNodeId_;
+  std::optional<grapple::foundation::AssetId> selectedAssetId_;
 };
 
 } // namespace
@@ -1191,6 +1273,7 @@ int main(int argc, char* argv[]) {
   bool timelineSeekSmoke = false;
   bool selectSmoke = false;
   bool importSmoke = false;
+  bool addVideoSmoke = false;
   bool deleteSmoke = false;
   bool playbackSmoke = false;
   bool openPackageSmoke = false;
@@ -1209,6 +1292,8 @@ int main(int argc, char* argv[]) {
       selectSmoke = true;
     } else if (argument == "--import-smoke") {
       importSmoke = true;
+    } else if (argument == "--add-video-smoke") {
+      addVideoSmoke = true;
     } else if (argument == "--delete-smoke") {
       deleteSmoke = true;
     } else if (argument == "--playback-smoke") {
@@ -1218,7 +1303,7 @@ int main(int argc, char* argv[]) {
     } else if (argument == "--screenshot" && index + 1 < argc) {
       screenshotPath = argv[++index];
     } else {
-      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --import-smoke, --delete-smoke, --playback-smoke, --open-package-smoke, or --screenshot <path>.\n";
+      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --import-smoke, --add-video-smoke, --delete-smoke, --playback-smoke, --open-package-smoke, or --screenshot <path>.\n";
       return 1;
     }
   }
@@ -1309,6 +1394,28 @@ int main(int argc, char* argv[]) {
 
   if (importSmoke) {
     window.importVideoFile(grapple::foundation::FilePath{"/tmp/grapple-native-demo/walking-woman.avi"});
+    const auto viewModel = workspace.value().project().buildViewModel();
+    if (!viewModel) {
+      printError(viewModel.error());
+      return 1;
+    }
+    std::cout << "assets=" << viewModel.value().assets.count << '\n';
+    std::cout << "clips=" << viewModel.value().timeline.clips.size() << '\n';
+    std::cout << "duration=" << viewModel.value().timeline.duration.value << '\n';
+    if (window.selectedAssetId().has_value()) {
+      std::cout << "selectedAsset=" << window.selectedAssetId()->value() << '\n';
+    }
+    return viewModel.value().assets.count == 2 &&
+           viewModel.value().timeline.clips.size() == 1 &&
+           viewModel.value().timeline.duration.value > 9.9 &&
+           window.selectedAssetId().has_value()
+      ? 0
+      : 1;
+  }
+
+  if (addVideoSmoke) {
+    window.importVideoFile(grapple::foundation::FilePath{"/tmp/grapple-native-demo/walking-woman.avi"});
+    window.addSelectedVideoToTimeline();
     const auto viewModel = workspace.value().project().buildViewModel();
     if (!viewModel) {
       printError(viewModel.error());
