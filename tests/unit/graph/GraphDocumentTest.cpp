@@ -1,4 +1,5 @@
 #include <grapple/graph/GraphDocument.hpp>
+#include <grapple/graph/GraphDiff.hpp>
 #include <grapple/timeline/Payloads.hpp>
 
 #include <TestAssert.hpp>
@@ -35,6 +36,32 @@ int main() {
   });
   GRAPPLE_REQUIRE(!missingEndpoint);
   GRAPPLE_REQUIRE(missingEndpoint.error().code == "graph.edge_node_missing");
+
+  graph::GraphDocument next = graph;
+  auto addTrack = next.addNode(graph::GraphNode{
+    foundation::NodeId{"node_track"},
+    graph::NodeKind::Track,
+    timeline::TrackPayload{"Video"},
+    true
+  });
+  GRAPPLE_REQUIRE(addTrack);
+
+  auto addEdge = next.addEdge(graph::GraphEdge{
+    foundation::EdgeId{"edge_contains_track"},
+    graph::EdgeKind::Contains,
+    foundation::NodeId{"node_composition"},
+    foundation::NodeId{"node_track"},
+    true
+  });
+  GRAPPLE_REQUIRE(addEdge);
+
+  const graph::GraphDiff diff = graph::diffGraphs(graph, next);
+  GRAPPLE_REQUIRE(diff.addedNodes.size() == 1);
+  GRAPPLE_REQUIRE(diff.addedNodes[0] == foundation::NodeId{"node_track"});
+  GRAPPLE_REQUIRE(diff.addedEdges.size() == 1);
+  GRAPPLE_REQUIRE(diff.addedEdges[0] == foundation::EdgeId{"edge_contains_track"});
+  GRAPPLE_REQUIRE(diff.removedNodes.empty());
+  GRAPPLE_REQUIRE(diff.changedNodes.empty());
 
   return 0;
 }

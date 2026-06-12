@@ -1,5 +1,6 @@
 add_library(grapple_graph
   src/GraphDocument.cpp
+  src/GraphDiff.cpp
 )
 
 add_library(Grapple::Graph ALIAS grapple_graph)
