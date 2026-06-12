@@ -61,7 +61,11 @@ struct AppCameraRow {
 
 struct AppEffectParamRow {
   std::string name;
+  std::string label;
   std::string value;
+  std::optional<double> numericMin;
+  std::optional<double> numericMax;
+  std::optional<double> numericStep;
 };
 
 struct AppEffectRow {

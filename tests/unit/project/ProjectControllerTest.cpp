@@ -546,7 +546,16 @@ int main() {
       }
     },
     timeline::EffectPortSet{{timeline::EffectPort{"input"}}, {timeline::EffectPort{"output"}}},
-    timeline::ParamSet{},
+    timeline::ParamSet{
+      {timeline::Param{
+        "smoothing",
+        0.25,
+        timeline::Param::Control{
+          "Smoothing",
+          timeline::Param::NumericControl{0.0, 1.0, 0.01}
+        }
+      }}
+    },
     foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}}
   };
   const auto invalidEffectTarget = effectProject.apply(project::ProjectCommandEnvelope{
@@ -615,6 +624,13 @@ int main() {
   GRAPPLE_REQUIRE(roundTrippedEffect->implementation.kind == timeline::EffectImplementationKind::Python);
   GRAPPLE_REQUIRE(roundTrippedEffect->implementation.source.inlineSource == "def prepare(ctx):\n  return {}\n");
   GRAPPLE_REQUIRE(roundTrippedEffect->ports.inputs.size() == 1);
+  GRAPPLE_REQUIRE(roundTrippedEffect->params.values.size() == 1);
+  GRAPPLE_REQUIRE(roundTrippedEffect->params.values[0].name == "smoothing");
+  GRAPPLE_REQUIRE(roundTrippedEffect->params.values[0].control.label == "Smoothing");
+  GRAPPLE_REQUIRE(roundTrippedEffect->params.values[0].control.numeric.has_value());
+  GRAPPLE_REQUIRE(roundTrippedEffect->params.values[0].control.numeric->min == 0.0);
+  GRAPPLE_REQUIRE(roundTrippedEffect->params.values[0].control.numeric->max == 1.0);
+  GRAPPLE_REQUIRE(roundTrippedEffect->params.values[0].control.numeric->step == 0.01);
   GRAPPLE_REQUIRE(roundTrippedEffect->activeRange.end == foundation::TimeSeconds{1.0});
 
   const auto graphQuery = controller.query(project::GetGraphQuery{});

@@ -167,6 +167,21 @@ std::string serializeCanonicalParamSet(const ParamSet& params) {
     }
     stream << '{';
     foundation::writeJsonStringProperty(stream, "name", sortedParams[index].name);
+    if (!sortedParams[index].control.label.empty()) {
+      stream << ',';
+      foundation::writeJsonStringProperty(stream, "label", sortedParams[index].control.label);
+    }
+    if (sortedParams[index].control.numeric.has_value()) {
+      stream << ",\"numeric\":{\"min\":";
+      writeNumber(stream, sortedParams[index].control.numeric->min);
+      stream << ",\"max\":";
+      writeNumber(stream, sortedParams[index].control.numeric->max);
+      if (sortedParams[index].control.numeric->step.has_value()) {
+        stream << ",\"step\":";
+        writeNumber(stream, *sortedParams[index].control.numeric->step);
+      }
+      stream << '}';
+    }
     stream << ",\"value\":" << serializeCanonicalParamValue(sortedParams[index].value);
     stream << '}';
   }

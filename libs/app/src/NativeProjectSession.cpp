@@ -215,7 +215,11 @@ foundation::Result<AppViewModel> NativeProjectSession::buildViewModel() const {
       for (const timeline::Param& param : effect.payload.params.values) {
         params.push_back(AppEffectParamRow{
           param.name,
-          paramValueText(param.value)
+          param.control.label,
+          paramValueText(param.value),
+          param.control.numeric.has_value() ? std::optional<double>{param.control.numeric->min} : std::nullopt,
+          param.control.numeric.has_value() ? std::optional<double>{param.control.numeric->max} : std::nullopt,
+          param.control.numeric.has_value() ? param.control.numeric->step : std::nullopt
         });
       }
 

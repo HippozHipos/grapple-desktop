@@ -50,6 +50,16 @@ int main() {
   GRAPPLE_REQUIRE(timeline::serializeCanonicalParamSet(timeline::ParamSet{
     {timeline::Param{"target_x", 0.5}, timeline::Param{"enabled", true}}
   }) == "[{\"name\":\"enabled\",\"value\":true},{\"name\":\"target_x\",\"value\":0.5}]");
+  GRAPPLE_REQUIRE(timeline::serializeCanonicalParamSet(timeline::ParamSet{
+    {timeline::Param{
+      "smoothing",
+      0.25,
+      timeline::Param::Control{
+        "Smoothing",
+        timeline::Param::NumericControl{0.0, 1.0, 0.01}
+      }
+    }}
+  }) == "[{\"name\":\"smoothing\",\"label\":\"Smoothing\",\"numeric\":{\"min\":0,\"max\":1,\"step\":0.01},\"value\":0.25}]");
 
   return 0;
 }

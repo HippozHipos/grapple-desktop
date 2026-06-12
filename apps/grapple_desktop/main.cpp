@@ -129,7 +129,18 @@ QString inspectorText(
         if (!effect.params.empty()) {
           QStringList params;
           for (const grapple::app::AppEffectParamRow& param : effect.params) {
-            params << QString{"%1=%2"}.arg(qString(param.name)).arg(qString(param.value));
+            const QString displayName = param.label.empty()
+              ? qString(param.name)
+              : QString{"%1 (%2)"}.arg(qString(param.label)).arg(qString(param.name));
+            QString paramText = QString{"%1=%2"}.arg(displayName).arg(qString(param.value));
+            if (param.numericMin.has_value() && param.numericMax.has_value()) {
+              paramText += QString{" [%1..%2"}.arg(*param.numericMin).arg(*param.numericMax);
+              if (param.numericStep.has_value()) {
+                paramText += QString{", step %1"}.arg(*param.numericStep);
+              }
+              paramText += ']';
+            }
+            params << paramText;
           }
           lines << QString{"Params: %1"}.arg(params.join(", "));
         }
@@ -1327,7 +1338,14 @@ public:
             {grapple::timeline::EffectPort{"frame"}}
           },
           grapple::timeline::ParamSet{
-            {grapple::timeline::Param{"amount", 1.0}}
+            {grapple::timeline::Param{
+              "amount",
+              1.0,
+              grapple::timeline::Param::Control{
+                "Amount",
+                grapple::timeline::Param::NumericControl{0.0, 1.0, 0.01}
+              }
+            }}
           },
           grapple::foundation::TimeRange{grapple::foundation::TimeSeconds{0.0}, timelineDuration_}
         },
@@ -1871,7 +1889,7 @@ int main(int argc, char* argv[]) {
     return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_7"} &&
            clipHasEffect &&
            inspector.find("Python Effect") != std::string::npos &&
-           inspector.find("amount=1") != std::string::npos &&
+           inspector.find("Amount (amount)=1") != std::string::npos &&
            logText.find("runtime.effect_runtime_missing") != std::string::npos
       ? 0
       : 1;

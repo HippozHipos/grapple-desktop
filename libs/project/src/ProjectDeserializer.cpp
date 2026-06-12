@@ -469,7 +469,44 @@ foundation::Result<timeline::ParamSet> parseParamSet(const Json::Value& array, c
     if (!paramValue) {
       return paramValue.error();
     }
-    params.values.push_back(timeline::Param{name.value(), paramValue.value()});
+
+    timeline::Param::Control control;
+    if (array[index].isMember("label")) {
+      auto label = requiredStringMember(array[index], "label", itemPath);
+      if (!label) {
+        return label.error();
+      }
+      control.label = label.value();
+    }
+    if (array[index].isMember("numeric")) {
+      auto numericObject = requiredObjectMember(array[index], "numeric", itemPath);
+      if (!numericObject) {
+        return numericObject.error();
+      }
+      auto min = requiredDoubleMember(numericObject.value(), "min", itemPath + ".numeric");
+      if (!min) {
+        return min.error();
+      }
+      auto max = requiredDoubleMember(numericObject.value(), "max", itemPath + ".numeric");
+      if (!max) {
+        return max.error();
+      }
+      timeline::Param::NumericControl numeric{
+        min.value(),
+        max.value(),
+        std::nullopt
+      };
+      if (numericObject.value().isMember("step")) {
+        auto step = requiredDoubleMember(numericObject.value(), "step", itemPath + ".numeric");
+        if (!step) {
+          return step.error();
+        }
+        numeric.step = step.value();
+      }
+      control.numeric = numeric;
+    }
+
+    params.values.push_back(timeline::Param{name.value(), paramValue.value(), control});
   }
   return params;
 }

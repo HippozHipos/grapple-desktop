@@ -57,6 +57,23 @@ struct Param {
   std::string name;
   ParamValue value;
 
+  struct NumericControl {
+    double min = 0.0;
+    double max = 1.0;
+    std::optional<double> step;
+
+    friend bool operator==(const NumericControl&, const NumericControl&) = default;
+  };
+
+  struct Control {
+    std::string label;
+    std::optional<NumericControl> numeric;
+
+    friend bool operator==(const Control&, const Control&) = default;
+  };
+
+  Control control;
+
   friend bool operator==(const Param&, const Param&) = default;
 };
 

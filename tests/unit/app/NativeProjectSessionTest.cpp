@@ -226,7 +226,14 @@ int main() {
           {timeline::EffectPort{"camera"}}
         },
         timeline::ParamSet{
-          {timeline::Param{"target_x", 0.5}}
+          {timeline::Param{
+            "target_x",
+            0.5,
+            timeline::Param::Control{
+              "Target X",
+              timeline::Param::NumericControl{0.0, 1.0, 0.01}
+            }
+          }}
         },
         foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{10.0}}
       },
@@ -250,7 +257,11 @@ int main() {
   GRAPPLE_REQUIRE(effectViewModel.value().timeline.effectGraphs[0].effects[0].entrypoint == "prepare");
   GRAPPLE_REQUIRE(effectViewModel.value().timeline.effectGraphs[0].effects[0].params.size() == 1);
   GRAPPLE_REQUIRE(effectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].name == "target_x");
+  GRAPPLE_REQUIRE(effectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].label == "Target X");
   GRAPPLE_REQUIRE(effectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].value == "0.5");
+  GRAPPLE_REQUIRE(effectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].numericMin == 0.0);
+  GRAPPLE_REQUIRE(effectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].numericMax == 1.0);
+  GRAPPLE_REQUIRE(effectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].numericStep == 0.01);
 
   app::NativePreviewSession preview{session};
   const auto frameBeforeRefresh = preview.renderFrame(render::RenderFrameRequest{
