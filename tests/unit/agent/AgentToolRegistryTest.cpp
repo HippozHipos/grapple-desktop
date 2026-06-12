@@ -116,10 +116,7 @@ int main() {
       foundation::ProjectId{"proj_agent"},
       camera.value().afterRevision,
       R"({
-        "commandId": "cmd_agent_effect",
-        "effectNodeId": "node_agent_effect",
         "targetNodeId": "node_camera",
-        "targetEdgeId": "edge_agent_effect_targets_camera",
         "displayName": "Center Subject",
         "implementationKind": "python",
         "language": "python",
@@ -145,13 +142,23 @@ int main() {
   GRAPPLE_REQUIRE(createEffectResult);
   GRAPPLE_REQUIRE(createEffectResult.value().status == agent::ToolResultStatus::Succeeded);
   GRAPPLE_REQUIRE(createEffectResult.value().observedRevision == foundation::RevisionId{"rev_3"});
-  GRAPPLE_REQUIRE(createEffectResult.value().payload == "{\"effectNodeId\":\"node_agent_effect\",\"targetNodeId\":\"node_camera\",\"revision\":\"rev_3\"}");
+  GRAPPLE_REQUIRE(createEffectResult.value().payload == "{\"commandId\":\"cmd_agent_create_effect_rev_3\",\"effectNodeId\":\"node_agent_effect_rev_3\",\"targetEdgeId\":\"edge_agent_effect_targets_rev_3\",\"targetNodeId\":\"node_camera\",\"revision\":\"rev_3\"}");
 
   const auto afterEffectSnapshot = project.snapshot();
   GRAPPLE_REQUIRE(afterEffectSnapshot);
-  const graph::GraphNode* effectNode = afterEffectSnapshot.value().graph.findNode(foundation::NodeId{"node_agent_effect"});
+  const graph::GraphNode* effectNode = afterEffectSnapshot.value().graph.findNode(foundation::NodeId{"node_agent_effect_rev_3"});
   GRAPPLE_REQUIRE(effectNode != nullptr);
   GRAPPLE_REQUIRE(effectNode->kind == graph::NodeKind::Effect);
+  const graph::GraphEdge* effectEdge = nullptr;
+  for (const graph::GraphEdge& edge : afterEffectSnapshot.value().graph.edges()) {
+    if (edge.id == foundation::EdgeId{"edge_agent_effect_targets_rev_3"}) {
+      effectEdge = &edge;
+      break;
+    }
+  }
+  GRAPPLE_REQUIRE(effectEdge != nullptr);
+  GRAPPLE_REQUIRE(effectEdge->sourceNodeId == foundation::NodeId{"node_agent_effect_rev_3"});
+  GRAPPLE_REQUIRE(effectEdge->targetNodeId == foundation::NodeId{"node_camera"});
   const auto* effectPayload = std::get_if<timeline::EffectPayload>(&effectNode->payload);
   GRAPPLE_REQUIRE(effectPayload != nullptr);
   GRAPPLE_REQUIRE(effectPayload->displayName == "Center Subject");

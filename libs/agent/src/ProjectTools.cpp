@@ -7,6 +7,7 @@
 
 #include <json/json.h>
 
+#include <cstdint>
 #include <memory>
 #include <optional>
 #include <sstream>
@@ -262,7 +263,7 @@ AgentTool makeProjectCreateEffectTool() {
     foundation::ToolId{"tool_project_create_effect"},
     "project.create_effect",
     "Create Effect",
-    "Creates an editable effect node with canonical code, ports, params, and user-facing parameter controls.",
+    "Creates an editable effect node with canonical code, ports, params, and user-facing parameter controls. The tool allocates project ids; agents provide edit intent and payload data only.",
     "ProjectCreateEffectRequest",
     [](const ToolCall& call, AgentToolContext& context) -> foundation::Result<ToolResult> {
       auto arguments = parseArguments(call.arguments);
@@ -270,21 +271,22 @@ AgentTool makeProjectCreateEffectTool() {
         return arguments.error();
       }
 
-      auto commandId = requiredStringMember(arguments.value(), "commandId", "$");
-      if (!commandId) {
-        return commandId.error();
+      auto query = context.queries.query(project::GetProjectSnapshotQuery{});
+      if (!query) {
+        return query.error();
       }
-      auto effectNodeId = requiredStringMember(arguments.value(), "effectNodeId", "$");
-      if (!effectNodeId) {
-        return effectNodeId.error();
+      const auto* snapshotResult = std::get_if<project::ProjectSnapshotResult>(&query.value());
+      if (snapshotResult == nullptr) {
+        return foundation::Error{"agent.project_snapshot_result_missing", "Create effect query returned the wrong result type."};
       }
+      const std::int64_t nextRevisionNumber = snapshotResult->snapshot.revisionNumber + 1;
+      const foundation::CommandId commandId{"cmd_agent_create_effect_rev_" + std::to_string(nextRevisionNumber)};
+      const foundation::NodeId effectNodeId{"node_agent_effect_rev_" + std::to_string(nextRevisionNumber)};
+      const foundation::EdgeId targetEdgeId{"edge_agent_effect_targets_rev_" + std::to_string(nextRevisionNumber)};
+
       auto targetNodeId = requiredStringMember(arguments.value(), "targetNodeId", "$");
       if (!targetNodeId) {
         return targetNodeId.error();
-      }
-      auto targetEdgeId = requiredStringMember(arguments.value(), "targetEdgeId", "$");
-      if (!targetEdgeId) {
-        return targetEdgeId.error();
       }
       auto displayName = requiredStringMember(arguments.value(), "displayName", "$");
       if (!displayName) {
@@ -340,14 +342,14 @@ AgentTool makeProjectCreateEffectTool() {
       }
 
       auto command = context.commands.apply(project::ProjectCommandEnvelope{
-        foundation::CommandId{commandId.value()},
+        commandId,
         call.projectId,
         call.expectedRevision,
         project::CommandSource{project::CommandSourceKind::Agent, call.runId, "agent"},
         project::CreateEffectCommand{
-          foundation::NodeId{effectNodeId.value()},
+          effectNodeId,
           foundation::NodeId{targetNodeId.value()},
-          foundation::EdgeId{targetEdgeId.value()},
+          targetEdgeId,
           timeline::EffectPayload{
             displayName.value(),
             timeline::EffectImplementation{
@@ -376,7 +378,9 @@ AgentTool makeProjectCreateEffectTool() {
 
       std::ostringstream payload;
       payload << '{'
-              << "\"effectNodeId\":" << foundation::jsonQuoted(effectNodeId.value())
+              << "\"commandId\":" << foundation::jsonQuoted(commandId.value())
+              << ",\"effectNodeId\":" << foundation::jsonQuoted(effectNodeId.value())
+              << ",\"targetEdgeId\":" << foundation::jsonQuoted(targetEdgeId.value())
               << ",\"targetNodeId\":" << foundation::jsonQuoted(targetNodeId.value())
               << ",\"revision\":" << foundation::jsonQuoted(command.value().afterRevision.value())
               << '}';
