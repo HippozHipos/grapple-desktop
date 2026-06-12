@@ -25,6 +25,53 @@ grapple::projection::RenderPlan makePlan(std::string layerName) {
   };
 }
 
+grapple::projection::RenderPlan makeEffectPlan(std::string source) {
+  grapple::projection::RenderPlan plan = makePlan("Video");
+  plan.cameras.push_back(grapple::projection::RenderCamera{
+    grapple::foundation::NodeId{"node_camera"},
+    "Camera",
+    grapple::timeline::Transform{},
+    grapple::timeline::CameraLens{},
+    true
+  });
+  plan.effectGraphs.push_back(grapple::projection::RenderEffectGraph{
+    grapple::foundation::GraphId{"effect_graph_node_camera"},
+    grapple::foundation::NodeId{"node_camera"},
+    {
+      grapple::projection::RenderEffectNode{
+        grapple::foundation::NodeId{"node_effect"},
+        grapple::timeline::EffectPayload{
+          "Effect",
+          grapple::timeline::EffectImplementation{
+            grapple::timeline::EffectImplementationKind::Python,
+            "prepare",
+            grapple::timeline::EffectSource{
+              grapple::timeline::EffectSourceKind::InlineSource,
+              "python",
+              source,
+              std::nullopt,
+              grapple::foundation::stableHash(source)
+            }
+          },
+          grapple::timeline::EffectPortSet{},
+          grapple::timeline::ParamSet{},
+          grapple::foundation::TimeRange{grapple::foundation::TimeSeconds{0.0}, grapple::foundation::TimeSeconds{10.0}}
+        },
+        true
+      }
+    },
+    {
+      grapple::projection::RenderEffectEdge{
+        grapple::foundation::EdgeId{"edge_effect_targets_camera"},
+        grapple::foundation::NodeId{"node_effect"},
+        grapple::foundation::NodeId{"node_camera"},
+        true
+      }
+    }
+  });
+  return plan;
+}
+
 } // namespace
 
 int main() {
@@ -34,9 +81,12 @@ int main() {
   const runtime::RuntimeDependencyGraph first = planner.build(makePlan("Video"));
   const runtime::RuntimeDependencyGraph second = planner.build(makePlan("Video"));
   const runtime::RuntimeDependencyGraph changed = planner.build(makePlan("Changed"));
+  const runtime::RuntimeDependencyGraph firstEffect = planner.build(makeEffectPlan("def prepare(): pass"));
+  const runtime::RuntimeDependencyGraph changedEffect = planner.build(makeEffectPlan("def prepare(): return 1"));
 
   GRAPPLE_REQUIRE(first.planHash == second.planHash);
   GRAPPLE_REQUIRE(!(first.planHash == changed.planHash));
+  GRAPPLE_REQUIRE(!(firstEffect.planHash == changedEffect.planHash));
   GRAPPLE_REQUIRE(first.nodes.empty());
 
   const runtime::RuntimeEvaluator evaluator;
