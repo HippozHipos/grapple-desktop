@@ -16,6 +16,8 @@ std::string_view serializedCommandName(CommandKind kind) {
       return "project.create_camera";
     case CommandKind::CreateEffect:
       return "project.create_effect";
+    case CommandKind::SetEffectParams:
+      return "project.set_effect_params";
     case CommandKind::RestoreSnapshot:
       return "project.restore_snapshot";
   }

@@ -47,6 +47,9 @@ int main() {
   GRAPPLE_REQUIRE(timeline::serializeCanonicalCameraPayload(timeline::CameraPayload{"Camera", timeline::Transform{}, timeline::CameraLens{35.0}}).find("\"focalLength\":35") != std::string::npos);
   GRAPPLE_REQUIRE(timeline::serializeCanonicalClipPayload(clip).find("\"assetId\":\"asset_video\"") != std::string::npos);
   GRAPPLE_REQUIRE(timeline::serializeCanonicalEffectPayload(effect).find("\"inlineSource\":\"def process(): pass\"") != std::string::npos);
+  GRAPPLE_REQUIRE(timeline::serializeCanonicalParamSet(timeline::ParamSet{
+    {timeline::Param{"target_x", 0.5}, timeline::Param{"enabled", true}}
+  }) == "[{\"name\":\"target_x\",\"value\":0.5},{\"name\":\"enabled\",\"value\":true}]");
 
   return 0;
 }

@@ -1,5 +1,6 @@
 #include <grapple/graph/GraphNode.hpp>
 #include <grapple/project/ProjectController.hpp>
+#include <grapple/project/ProjectSerializer.hpp>
 #include <grapple/projection/RenderPlanBuilder.hpp>
 #include <grapple/projection/RenderPlanSerializer.hpp>
 #include <grapple/projection/TimelineProjector.hpp>
@@ -229,6 +230,46 @@ int main() {
     projection::serializeCanonicalRenderPlan(orderedPlan) ==
     projection::serializeCanonicalRenderPlan(reorderedPlan)
   );
+
+  const project::ProjectCommandEnvelope setEffectParams{
+    foundation::CommandId{"cmd_set_effect_params"},
+    foundation::ProjectId{"proj_projection"},
+    createEffect.value().afterRevision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::SetEffectParamsCommand{
+      foundation::NodeId{"node_effect"},
+      timeline::ParamSet{
+        {timeline::Param{"target_x", 0.5}, timeline::Param{"subject_height", 0.8}}
+      }
+    }
+  };
+  GRAPPLE_REQUIRE(project::commandKind(setEffectParams.payload) == project::CommandKind::SetEffectParams);
+  GRAPPLE_REQUIRE(
+    project::serializeCanonicalCommandPayload(setEffectParams.payload) ==
+    "{\"effectNodeId\":\"node_effect\",\"params\":[{\"name\":\"target_x\",\"value\":0.5},{\"name\":\"subject_height\",\"value\":0.80000000000000004}]}"
+  );
+
+  const auto setEffectParamsResult = controller.apply(setEffectParams);
+  GRAPPLE_REQUIRE(setEffectParamsResult);
+  GRAPPLE_REQUIRE(setEffectParamsResult.value().afterRevision == foundation::RevisionId{"rev_6"});
+
+  const auto updatedSnapshot = controller.snapshot();
+  GRAPPLE_REQUIRE(updatedSnapshot);
+  const auto updatedTimeline = projector.buildTimelineIR(projection::BuildTimelineIRRequest{
+    updatedSnapshot.value()
+  });
+  GRAPPLE_REQUIRE(updatedTimeline);
+  const auto updatedPlan = builder.buildRenderPlan(projection::BuildRenderPlanRequest{
+    updatedTimeline.value().timeline
+  });
+  GRAPPLE_REQUIRE(updatedPlan);
+  GRAPPLE_REQUIRE(updatedPlan.value().plan.revision == foundation::RevisionId{"rev_6"});
+  GRAPPLE_REQUIRE(updatedPlan.value().plan.effectGraphs.size() == 1);
+  GRAPPLE_REQUIRE(updatedPlan.value().plan.effectGraphs[0].nodes.size() == 1);
+  GRAPPLE_REQUIRE(updatedPlan.value().plan.effectGraphs[0].nodes[0].payload.implementation.entrypoint == "prepare");
+  GRAPPLE_REQUIRE(updatedPlan.value().plan.effectGraphs[0].nodes[0].payload.params.values.size() == 2);
+  GRAPPLE_REQUIRE(std::get<double>(updatedPlan.value().plan.effectGraphs[0].nodes[0].payload.params.values[0].value) == 0.5);
+  GRAPPLE_REQUIRE(std::get<double>(updatedPlan.value().plan.effectGraphs[0].nodes[0].payload.params.values[1].value) == 0.8);
 
   project::ProjectDocument malformedDocument = project::createEmptyProject(
     foundation::ProjectId{"proj_malformed"},

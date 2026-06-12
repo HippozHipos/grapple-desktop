@@ -98,17 +98,8 @@ void writeEffectParamsBody(std::ostringstream& stream, const EffectPayload& payl
     foundation::writeJsonStringProperty(stream, "name", payload.ports.outputs[index].name);
     stream << '}';
   }
-  stream << "]},\"params\":[";
-  for (std::size_t index = 0; index < payload.params.values.size(); ++index) {
-    if (index != 0) {
-      stream << ',';
-    }
-    stream << '{';
-    foundation::writeJsonStringProperty(stream, "name", payload.params.values[index].name);
-    stream << ",\"value\":" << serializeCanonicalParamValue(payload.params.values[index].value);
-    stream << '}';
-  }
-  stream << "],\"activeRange\":" << serializeCanonicalTimeRange(payload.activeRange);
+  stream << "]},\"params\":" << serializeCanonicalParamSet(payload.params);
+  stream << ",\"activeRange\":" << serializeCanonicalTimeRange(payload.activeRange);
 }
 
 } // namespace
@@ -158,6 +149,22 @@ std::string serializeCanonicalParamValue(const ParamValue& value) {
     },
     value
   );
+  return stream.str();
+}
+
+std::string serializeCanonicalParamSet(const ParamSet& params) {
+  std::ostringstream stream;
+  stream << '[';
+  for (std::size_t index = 0; index < params.values.size(); ++index) {
+    if (index != 0) {
+      stream << ',';
+    }
+    stream << '{';
+    foundation::writeJsonStringProperty(stream, "name", params.values[index].name);
+    stream << ",\"value\":" << serializeCanonicalParamValue(params.values[index].value);
+    stream << '}';
+  }
+  stream << ']';
   return stream.str();
 }
 

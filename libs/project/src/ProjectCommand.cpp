@@ -18,6 +18,8 @@ CommandKind commandKind(const ProjectCommand& command) {
         return CommandKind::CreateCamera;
       } else if constexpr (std::is_same_v<Command, CreateEffectCommand>) {
         return CommandKind::CreateEffect;
+      } else if constexpr (std::is_same_v<Command, SetEffectParamsCommand>) {
+        return CommandKind::SetEffectParams;
       } else if constexpr (std::is_same_v<Command, RestoreSnapshotCommand>) {
         return CommandKind::RestoreSnapshot;
       }

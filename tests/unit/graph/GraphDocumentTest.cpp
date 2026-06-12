@@ -38,6 +38,24 @@ int main() {
   GRAPPLE_REQUIRE(mismatchedNodePayload.error().code == "graph.node_payload_kind_mismatch");
   GRAPPLE_REQUIRE(graph.nodes().size() == 1);
 
+  auto mismatchedReplacementPayload = graph.replaceNodePayload(
+    foundation::NodeId{"node_composition"},
+    timeline::TrackPayload{"Wrong replacement"}
+  );
+  GRAPPLE_REQUIRE(!mismatchedReplacementPayload);
+  GRAPPLE_REQUIRE(mismatchedReplacementPayload.error().code == "graph.node_payload_kind_mismatch");
+
+  auto replacementPayload = graph.replaceNodePayload(
+    foundation::NodeId{"node_composition"},
+    timeline::CompositionPayload{"Renamed Main"}
+  );
+  GRAPPLE_REQUIRE(replacementPayload);
+  const auto* replacedComposition = graph.findNode(foundation::NodeId{"node_composition"});
+  GRAPPLE_REQUIRE(replacedComposition != nullptr);
+  const auto* replacedPayload = std::get_if<timeline::CompositionPayload>(&replacedComposition->payload);
+  GRAPPLE_REQUIRE(replacedPayload != nullptr);
+  GRAPPLE_REQUIRE(replacedPayload->name == "Renamed Main");
+
   auto missingEndpoint = graph.addEdge(graph::GraphEdge{
     foundation::EdgeId{"edge_missing"},
     graph::EdgeKind::Contains,
@@ -103,7 +121,7 @@ int main() {
   GRAPPLE_REQUIRE(sameRecordsDifferentOrder.addNode(graph::GraphNode{
     foundation::NodeId{"node_composition"},
     graph::NodeKind::Composition,
-    timeline::CompositionPayload{"Main"},
+    timeline::CompositionPayload{"Renamed Main"},
     true
   }));
   GRAPPLE_REQUIRE(sameRecordsDifferentOrder.addEdge(graph::GraphEdge{

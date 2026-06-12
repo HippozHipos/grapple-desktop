@@ -71,6 +71,25 @@ foundation::Result<void> GraphDocument::addNode(GraphNode node) {
   return {};
 }
 
+foundation::Result<void> GraphDocument::replaceNodePayload(foundation::NodeId nodeId, NodePayload payload) {
+  const auto iterator = std::find_if(nodes_.begin(), nodes_.end(), [&](const GraphNode& node) {
+    return node.id == nodeId;
+  });
+
+  if (iterator == nodes_.end()) {
+    return foundation::Error{"graph.node_missing", "Graph node must exist before replacing its payload."};
+  }
+
+  GraphNode updated = *iterator;
+  updated.payload = std::move(payload);
+  if (!payloadMatchesNodeKind(updated)) {
+    return foundation::Error{"graph.node_payload_kind_mismatch", "Graph node payload must match graph node kind."};
+  }
+
+  iterator->payload = std::move(updated.payload);
+  return {};
+}
+
 foundation::Result<void> GraphDocument::addEdge(GraphEdge edge) {
   if (!edge.id) {
     return foundation::Error{"graph.edge_id_empty", "Graph edge id must not be empty."};

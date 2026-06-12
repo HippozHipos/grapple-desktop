@@ -19,6 +19,7 @@ public:
   [[nodiscard]] bool hasNode(foundation::NodeId id) const noexcept;
 
   foundation::Result<void> addNode(GraphNode node);
+  foundation::Result<void> replaceNodePayload(foundation::NodeId nodeId, NodePayload payload);
   foundation::Result<void> addEdge(GraphEdge edge);
 
 private:
@@ -27,4 +28,3 @@ private:
 };
 
 } // namespace grapple::graph
-

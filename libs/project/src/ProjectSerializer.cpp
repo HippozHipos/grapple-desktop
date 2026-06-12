@@ -71,6 +71,9 @@ std::string serializeCanonicalCommandPayload(const ProjectCommand& command) {
         stream << ',';
         writeIdProperty(stream, "targetEdgeId", typedCommand.targetEdgeId.value());
         stream << ",\"payload\":" << timeline::serializeCanonicalEffectPayload(typedCommand.payload);
+      } else if constexpr (std::is_same_v<Command, SetEffectParamsCommand>) {
+        writeIdProperty(stream, "effectNodeId", typedCommand.effectNodeId.value());
+        stream << ",\"params\":" << timeline::serializeCanonicalParamSet(typedCommand.params);
       } else if constexpr (std::is_same_v<Command, RestoreSnapshotCommand>) {
         writeIdProperty(stream, "snapshotId", typedCommand.snapshotId.value());
         stream << ",\"document\":" << serializeCanonicalProjectDocument(typedCommand.document);

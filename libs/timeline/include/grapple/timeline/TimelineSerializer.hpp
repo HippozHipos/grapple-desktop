@@ -13,6 +13,7 @@ namespace grapple::timeline {
 std::string serializeCanonicalTimeRange(const foundation::TimeRange& range);
 std::string serializeCanonicalTransform(const Transform& transform);
 std::string serializeCanonicalParamValue(const ParamValue& value);
+std::string serializeCanonicalParamSet(const ParamSet& params);
 std::string serializeCanonicalCameraPayload(const CameraPayload& payload);
 std::string serializeCanonicalClipPayload(const ClipPayload& payload);
 std::string serializeCanonicalEffectImplementation(const EffectImplementation& implementation);

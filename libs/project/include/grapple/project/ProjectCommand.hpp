@@ -16,6 +16,7 @@ enum class CommandKind {
   CreateClip,
   CreateCamera,
   CreateEffect,
+  SetEffectParams,
   RestoreSnapshot
 };
 
@@ -65,6 +66,11 @@ struct CreateEffectCommand {
   timeline::EffectPayload payload;
 };
 
+struct SetEffectParamsCommand {
+  foundation::NodeId effectNodeId;
+  timeline::ParamSet params;
+};
+
 struct RestoreSnapshotCommand {
   foundation::SnapshotId snapshotId;
   ProjectDocument document;
@@ -76,6 +82,7 @@ using ProjectCommand = std::variant<
   CreateClipCommand,
   CreateCameraCommand,
   CreateEffectCommand,
+  SetEffectParamsCommand,
   RestoreSnapshotCommand
 >;
 

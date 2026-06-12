@@ -82,6 +82,8 @@ foundation::Result<void> ProjectController::applyPayload(const ProjectCommand& p
         return handleCreateCamera(typedCommand);
       } else if constexpr (std::is_same_v<Command, CreateEffectCommand>) {
         return handleCreateEffect(typedCommand);
+      } else if constexpr (std::is_same_v<Command, SetEffectParamsCommand>) {
+        return handleSetEffectParams(typedCommand);
       } else if constexpr (std::is_same_v<Command, RestoreSnapshotCommand>) {
         return handleRestoreSnapshot(typedCommand);
       }
@@ -212,6 +214,22 @@ foundation::Result<void> ProjectController::handleCreateEffect(const CreateEffec
     command.targetNodeId,
     true
   });
+}
+
+foundation::Result<void> ProjectController::handleSetEffectParams(const SetEffectParamsCommand& command) {
+  const graph::GraphNode* effect = document_.graph.findNode(command.effectNodeId);
+  if (effect == nullptr || effect->kind != graph::NodeKind::Effect) {
+    return foundation::Error{"project.effect_missing", "Effect params can only be set on an existing effect node."};
+  }
+
+  const auto* payload = std::get_if<timeline::EffectPayload>(&effect->payload);
+  if (payload == nullptr) {
+    return foundation::Error{"project.effect_payload_invalid", "Effect node must carry an effect payload."};
+  }
+
+  timeline::EffectPayload updated = *payload;
+  updated.params = command.params;
+  return document_.graph.replaceNodePayload(command.effectNodeId, std::move(updated));
 }
 
 foundation::Result<void> ProjectController::handleRestoreSnapshot(const RestoreSnapshotCommand& command) {
