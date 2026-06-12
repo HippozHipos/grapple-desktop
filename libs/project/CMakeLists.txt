@@ -1,5 +1,6 @@
 add_library(grapple_project
   src/ProjectController.cpp
+  src/ProjectSerializer.cpp
 )
 
 add_library(Grapple::Project ALIAS grapple_project)
@@ -14,4 +15,3 @@ target_link_libraries(grapple_project
     Grapple::Foundation
     Grapple::Graph
 )
-

@@ -1,4 +1,5 @@
 #include <grapple/project/ProjectController.hpp>
+#include <grapple/project/ProjectSerializer.hpp>
 
 #include <TestAssert.hpp>
 
@@ -104,6 +105,12 @@ int main() {
   GRAPPLE_REQUIRE(afterRestore.value().document.revisionNumber == 3);
   GRAPPLE_REQUIRE(afterRestore.value().document.graph.nodes().size() == 1);
   GRAPPLE_REQUIRE(afterRestore.value().document.graph.edges().empty());
+
+  const std::string serialized = project::serializeCanonicalProjectDocument(afterRestore.value().document);
+  GRAPPLE_REQUIRE(serialized.find("\"projectId\":\"proj_test\"") != std::string::npos);
+  GRAPPLE_REQUIRE(serialized.find("\"revision\":\"rev_3\"") != std::string::npos);
+  GRAPPLE_REQUIRE(serialized.find("\"nodes\"") != std::string::npos);
+  GRAPPLE_REQUIRE(project::hashProjectSnapshot(afterRestore.value()) == project::hashProjectSnapshot(afterRestore.value()));
 
   const auto graphQuery = controller.query(project::GetGraphQuery{});
   GRAPPLE_REQUIRE(graphQuery);
