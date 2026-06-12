@@ -1334,92 +1334,9 @@ public:
       return;
     }
 
-    const auto snapshot = workspace_.project().snapshot();
-    if (!snapshot) {
-      appendError(snapshot.error());
-      return;
-    }
-
-    const grapple::graph::GraphNode* selectedNode = snapshot.value().graph.findNode(selectedNodeId_.value());
-    if (selectedNode == nullptr || selectedNode->kind != grapple::graph::NodeKind::Camera) {
-      appendError(grapple::foundation::Error{"desktop.selected_node_not_camera", "Add Effect creates a camera transform effect and requires a selected camera."});
-      return;
-    }
-
-    for (const grapple::graph::GraphEdge& edge : snapshot.value().graph.edges()) {
-      if (!edge.enabled ||
-          edge.kind != grapple::graph::EdgeKind::Targets ||
-          edge.targetNodeId != selectedNodeId_.value()) {
-        continue;
-      }
-
-      const grapple::graph::GraphNode* effectNode = snapshot.value().graph.findNode(edge.sourceNodeId);
-      if (effectNode == nullptr || effectNode->kind != grapple::graph::NodeKind::Effect) {
-        appendError(grapple::foundation::Error{"desktop.effect_node_invalid", "Camera target edge points to a missing or invalid effect node."});
-        return;
-      }
-      const auto* effectPayload = std::get_if<grapple::timeline::EffectPayload>(&effectNode->payload);
-      if (effectPayload == nullptr) {
-        appendError(grapple::foundation::Error{"desktop.effect_payload_invalid", "Camera target effect node must carry an effect payload."});
-        return;
-      }
-      if (effectPayload->implementation.kind == grapple::timeline::EffectImplementationKind::Builtin &&
-          effectPayload->implementation.entrypoint == "camera_transform") {
-        appendError(grapple::foundation::Error{"desktop.camera_transform_exists", "Selected camera already has a Camera Transform effect."});
-        return;
-      }
-    }
-
-    const std::string effectSource = "builtin:camera_transform";
-    const auto created = workspace_.commandWriter().apply(
-      grapple::project::CreateEffectCommand{
-        workspace_.commandWriter().nextNodeId("effect"),
-        selectedNodeId_.value(),
-        workspace_.commandWriter().nextEdgeId("effect_targets"),
-        grapple::timeline::EffectPayload{
-          "Camera Transform",
-          grapple::timeline::EffectImplementation{
-            grapple::timeline::EffectImplementationKind::Builtin,
-            "camera_transform",
-            grapple::timeline::EffectSource{
-              grapple::timeline::EffectSourceKind::InlineSource,
-              "builtin",
-              effectSource,
-              std::nullopt,
-              grapple::foundation::stableHash(effectSource)
-            }
-          },
-          grapple::timeline::EffectPortSet{
-            {grapple::timeline::EffectPort{"frame"}},
-            {grapple::timeline::EffectPort{"camera_transform"}}
-          },
-          grapple::timeline::ParamSet{
-            {
-              grapple::timeline::Param{
-                "position_x",
-                0.0,
-                grapple::timeline::Param::Control{
-                  "Position X",
-                  grapple::timeline::Param::NumericControl{-1.0, 1.0, 0.01}
-                }
-              },
-              grapple::timeline::Param{
-                "position_y",
-                0.0,
-                grapple::timeline::Param::Control{
-                  "Position Y",
-                  grapple::timeline::Param::NumericControl{-1.0, 1.0, 0.01}
-                }
-              }
-            }
-          },
-          grapple::foundation::TimeRange{grapple::foundation::TimeSeconds{0.0}, timelineDuration_}
-        },
-        grapple::graph::PortName{"camera_transform"},
-        grapple::graph::PortName{"input"},
-        0
-      },
-      userSource()
+    const auto created = workspace_.steward().createCameraTransformEffect(
+      selectedNodeId_.value(),
+      grapple::foundation::TimeRange{grapple::foundation::TimeSeconds{0.0}, timelineDuration_}
     );
     if (!created) {
       appendError(created.error());
@@ -1990,7 +1907,7 @@ int main(int argc, char* argv[]) {
            cameraHasEffect &&
            inspector.find("Camera Transform") != std::string::npos &&
            inspector.find("Position X (position_x)=0") != std::string::npos &&
-           logText.find("desktop.camera_transform_exists") != std::string::npos &&
+           logText.find("steward.camera_transform_exists") != std::string::npos &&
            logText.find("runtime.effect_runtime_missing") == std::string::npos
       ? 0
       : 1;

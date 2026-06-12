@@ -291,41 +291,26 @@ int main() {
     userSource()
   );
   GRAPPLE_REQUIRE(runtimeCamera);
-  const auto runtimeEffect = runtimeWorkspace.value().commandWriter().apply(
-    project::CreateEffectCommand{
-      runtimeWorkspace.value().commandWriter().nextNodeId("effect"),
-      runtimeCameraNodeId,
-      runtimeWorkspace.value().commandWriter().nextEdgeId("effect targets camera"),
-      timeline::EffectPayload{
-        "Camera Transform",
-        timeline::EffectImplementation{
-          timeline::EffectImplementationKind::Builtin,
-          "camera_transform",
-          timeline::EffectSource{
-            timeline::EffectSourceKind::InlineSource,
-            "builtin",
-            "builtin:camera_transform",
-            std::nullopt,
-            foundation::stableHash("builtin:camera_transform")
-          }
-        },
-        timeline::EffectPortSet{
-          {timeline::EffectPort{"frame"}},
-          {timeline::EffectPort{"camera_transform"}}
-        },
-        timeline::ParamSet{{
-          {timeline::Param{"position_x", 0.4}},
-          {timeline::Param{"position_y", -0.25}}
-        }},
-        foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}}
-      },
-      graph::PortName{"camera_transform"},
-      graph::PortName{"input"},
-      0
-    },
-    userSource()
+  const auto runtimeEffect = runtimeWorkspace.value().steward().createCameraTransformEffect(
+    runtimeCameraNodeId,
+    foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}}
   );
   GRAPPLE_REQUIRE(runtimeEffect);
+  const auto duplicateRuntimeEffect = runtimeWorkspace.value().steward().createCameraTransformEffect(
+    runtimeCameraNodeId,
+    foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}}
+  );
+  GRAPPLE_REQUIRE(!duplicateRuntimeEffect);
+  GRAPPLE_REQUIRE(duplicateRuntimeEffect.error().code == "steward.camera_transform_exists");
+  const auto runtimeEffectViewModel = runtimeWorkspace.value().project().buildViewModel();
+  GRAPPLE_REQUIRE(runtimeEffectViewModel);
+  GRAPPLE_REQUIRE(runtimeEffectViewModel.value().timeline.effectGraphs.size() == 1);
+  GRAPPLE_REQUIRE(runtimeEffectViewModel.value().timeline.effectGraphs[0].effects.size() == 1);
+  GRAPPLE_REQUIRE(runtimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].displayName == "Camera Transform");
+  GRAPPLE_REQUIRE(runtimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].implementationKind == "builtin");
+  GRAPPLE_REQUIRE(runtimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].params.size() == 2);
+  GRAPPLE_REQUIRE(runtimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].label == "Position X");
+  GRAPPLE_REQUIRE(runtimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[1].label == "Position Y");
   const auto runtimeRefresh = runtimeWorkspace.value().preview().refreshFromProject();
   GRAPPLE_REQUIRE(runtimeRefresh);
   const auto runtimeFrame = runtimeWorkspace.value().preview().renderFrame(render::RenderFrameRequest{
@@ -336,8 +321,8 @@ int main() {
   GRAPPLE_REQUIRE(runtimeFrame.value().runtimeDiagnostics.empty());
   GRAPPLE_REQUIRE(runtimeFrame.value().frame.cameras.size() == 1);
   GRAPPLE_REQUIRE(runtimeFrame.value().frame.cameras[0].cameraNodeId == runtimeCameraNodeId);
-  GRAPPLE_REQUIRE(runtimeFrame.value().frame.cameras[0].transform.position.x == 0.4);
-  GRAPPLE_REQUIRE(runtimeFrame.value().frame.cameras[0].transform.position.y == -0.25);
+  GRAPPLE_REQUIRE(runtimeFrame.value().frame.cameras[0].transform.position.x == 0.0);
+  GRAPPLE_REQUIRE(runtimeFrame.value().frame.cameras[0].transform.position.y == 0.0);
   const auto runtimeExportPrepare = runtimeWorkspace.value().exportSession().prepareFromProject();
   GRAPPLE_REQUIRE(runtimeExportPrepare);
   const auto runtimeExport = runtimeWorkspace.value().exportSession().render(render::ExportSettings{

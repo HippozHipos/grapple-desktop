@@ -5,6 +5,7 @@
 #include <grapple/app/NativePreviewSession.hpp>
 #include <grapple/app/NativeProjectCommandWriter.hpp>
 #include <grapple/app/NativeProjectSession.hpp>
+#include <grapple/app/NativeStewardSession.hpp>
 #include <grapple/media/MediaSource.hpp>
 #include <grapple/media/OpenCVMediaReader.hpp>
 
@@ -37,6 +38,7 @@ public:
   [[nodiscard]] NativeProjectSession& project() noexcept;
   [[nodiscard]] const NativeProjectSession& project() const noexcept;
   [[nodiscard]] NativeProjectCommandWriter& commandWriter() noexcept;
+  [[nodiscard]] NativeStewardSession& steward() noexcept;
   [[nodiscard]] NativePreviewSession& preview() noexcept;
   [[nodiscard]] NativeExportSession& exportSession() noexcept;
   [[nodiscard]] media::MediaSourceCatalog& mediaSources() noexcept;

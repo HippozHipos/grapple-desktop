@@ -43,6 +43,7 @@ struct NativeWorkspaceSession::State {
   State(NativeProjectSession projectValue, media::MediaSourceCatalog mediaSourceCatalog)
     : project{std::move(projectValue)},
       commandWriter{project},
+      steward{project, commandWriter},
       mediaSources{std::move(mediaSourceCatalog)},
       mediaReader{mediaSources},
       frameSource{mediaReader},
@@ -51,6 +52,7 @@ struct NativeWorkspaceSession::State {
 
   NativeProjectSession project;
   NativeProjectCommandWriter commandWriter;
+  NativeStewardSession steward;
   media::MediaSourceCatalog mediaSources;
   media::OpenCVMediaReader mediaReader;
   NativeMediaFrameSource frameSource;
@@ -140,6 +142,10 @@ const NativeProjectSession& NativeWorkspaceSession::project() const noexcept {
 
 NativeProjectCommandWriter& NativeWorkspaceSession::commandWriter() noexcept {
   return state_->commandWriter;
+}
+
+NativeStewardSession& NativeWorkspaceSession::steward() noexcept {
+  return state_->steward;
 }
 
 NativePreviewSession& NativeWorkspaceSession::preview() noexcept {
