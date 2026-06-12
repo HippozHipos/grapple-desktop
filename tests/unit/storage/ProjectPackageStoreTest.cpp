@@ -1,4 +1,5 @@
 #include <grapple/project/ProjectController.hpp>
+#include <grapple/project/ProjectSerializer.hpp>
 #include <grapple/storage/ProjectPackageStore.hpp>
 
 #include <TestAssert.hpp>
@@ -80,7 +81,7 @@ int main() {
       foundation::SnapshotId{"snap_1"},
       foundation::ProjectId{"proj_storage"},
       commandResult.value().afterRevision,
-      foundation::stableHash("rev_1_document"),
+      project::hashProjectSnapshot(committedSnapshot.value()),
       foundation::FilePath{"snapshots/rev_1.json"},
       std::optional<std::string>{"first"},
       std::chrono::system_clock::now()
@@ -113,6 +114,29 @@ int main() {
   GRAPPLE_REQUIRE(store.state().commandLog.records().size() == 1);
   GRAPPLE_REQUIRE(store.state().eventLog.records().size() == 1);
 
+  const auto badHashCommit = store.commit(storage::AtomicProjectCommit{
+    committedSnapshot.value().document,
+    makeCommandRecord(
+      foundation::CommandId{"cmd_2"},
+      commandResult.value().beforeRevision,
+      commandResult.value().afterRevision
+    ),
+    {makeEventRecord(foundation::EventId{"event_3"}, commandResult.value().afterRevision)},
+    history::SnapshotRecord{
+      foundation::SnapshotId{"snap_bad_hash"},
+      foundation::ProjectId{"proj_storage"},
+      commandResult.value().afterRevision,
+      foundation::stableHash("not_the_document"),
+      foundation::FilePath{"snapshots/bad.json"},
+      std::nullopt,
+      std::chrono::system_clock::now()
+    }
+  });
+  GRAPPLE_REQUIRE(!badHashCommit);
+  GRAPPLE_REQUIRE(badHashCommit.error().code == "storage.snapshot_hash_mismatch");
+  GRAPPLE_REQUIRE(store.state().commandLog.records().size() == 1);
+  GRAPPLE_REQUIRE(store.state().eventLog.records().size() == 1);
+  GRAPPLE_REQUIRE(store.state().snapshots.records().size() == 1);
+
   return 0;
 }
-

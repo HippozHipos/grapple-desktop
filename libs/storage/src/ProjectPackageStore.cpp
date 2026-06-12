@@ -1,5 +1,7 @@
 #include <grapple/storage/ProjectPackageStore.hpp>
 
+#include <grapple/project/ProjectSerializer.hpp>
+
 namespace grapple::storage {
 
 ProjectPackageStore::ProjectPackageStore(ProjectPackage package)
@@ -39,6 +41,15 @@ foundation::Result<void> ProjectPackageStore::commit(const AtomicProjectCommit& 
       return foundation::Error{"storage.snapshot_project_id_mismatch", "Snapshot record must match package project id."};
     }
 
+    if (commit.snapshot->revision != commit.document.revision) {
+      return foundation::Error{"storage.snapshot_revision_mismatch", "Snapshot revision must match committed document revision."};
+    }
+
+    const foundation::Hash256 expectedHash = project::hashProjectSnapshot(project::ProjectSnapshot{commit.document});
+    if (commit.snapshot->canonicalHash != expectedHash) {
+      return foundation::Error{"storage.snapshot_hash_mismatch", "Snapshot hash must match committed document canonical hash."};
+    }
+
     auto snapshotAppend = next.snapshots.append(*commit.snapshot);
     if (!snapshotAppend) {
       return snapshotAppend;
@@ -63,4 +74,3 @@ const ProjectPackageState& ProjectPackageStore::state() const noexcept {
 }
 
 } // namespace grapple::storage
-
