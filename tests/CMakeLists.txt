@@ -7,3 +7,5 @@ add_test(
   NAME architecture_guards
   COMMAND bash ${CMAKE_SOURCE_DIR}/scripts/check_architecture.sh
 )
+
+add_test(NAME grapple_cli_smoke COMMAND grapple_cli)
