@@ -54,6 +54,7 @@ int main() {
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::UpdateCamera) == "project.update_camera");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::CreateEffect) == "project.create_effect");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::ConnectNodes) == "project.connect_nodes");
+  GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::DisconnectNodes) == "project.disconnect_nodes");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::SetEffectParams) == "project.set_effect_params");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::RestoreSnapshot) == "project.restore_snapshot");
   GRAPPLE_REQUIRE(project::serializedEventName(project::EventKind::ProjectCommandApplied) == "project.command_applied");
@@ -241,6 +242,31 @@ int main() {
   const auto connectionSnapshot = connectionProject.snapshot();
   GRAPPLE_REQUIRE(connectionSnapshot);
   GRAPPLE_REQUIRE(connectionSnapshot.value().graph.edges().size() == 2);
+  const project::ProjectCommandEnvelope disconnectNodes{
+    foundation::CommandId{"cmd_disconnect_nodes"},
+    foundation::ProjectId{"proj_connection"},
+    connectionSnapshot.value().revision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::DisconnectNodesCommand{foundation::EdgeId{"edge_connect_nodes"}}
+  };
+  GRAPPLE_REQUIRE(project::commandKind(disconnectNodes.payload) == project::CommandKind::DisconnectNodes);
+  GRAPPLE_REQUIRE(project::serializeCanonicalCommandPayload(disconnectNodes.payload) == "{\"edgeId\":\"edge_connect_nodes\"}");
+  const auto disconnectNodesResult = connectionProject.apply(disconnectNodes);
+  GRAPPLE_REQUIRE(disconnectNodesResult);
+  GRAPPLE_REQUIRE(disconnectNodesResult.value().afterRevision == foundation::RevisionId{"rev_4"});
+  const auto afterDisconnect = connectionProject.snapshot();
+  GRAPPLE_REQUIRE(afterDisconnect);
+  GRAPPLE_REQUIRE(afterDisconnect.value().graph.edges().size() == 1);
+  GRAPPLE_REQUIRE(afterDisconnect.value().graph.edges()[0].id == foundation::EdgeId{"edge_connection_contains_track"});
+  const auto disconnectMissing = connectionProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_disconnect_missing"},
+    foundation::ProjectId{"proj_connection"},
+    afterDisconnect.value().revision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::DisconnectNodesCommand{foundation::EdgeId{"edge_connect_nodes"}}
+  });
+  GRAPPLE_REQUIRE(!disconnectMissing);
+  GRAPPLE_REQUIRE(disconnectMissing.error().code == "graph.edge_missing");
 
   project::ProjectController clipProject{
     project::createEmptyProject(foundation::ProjectId{"proj_clip"}, "Clip Project")

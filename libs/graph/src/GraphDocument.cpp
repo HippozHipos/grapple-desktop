@@ -133,4 +133,17 @@ foundation::Result<void> GraphDocument::addEdge(GraphEdge edge) {
   return {};
 }
 
+foundation::Result<void> GraphDocument::removeEdge(foundation::EdgeId edgeId) {
+  const auto edgeIterator = std::find_if(edges_.begin(), edges_.end(), [&](const GraphEdge& edge) {
+    return edge.id == edgeId;
+  });
+
+  if (edgeIterator == edges_.end()) {
+    return foundation::Error{"graph.edge_missing", "Graph edge must exist before removing it."};
+  }
+
+  edges_.erase(edgeIterator);
+  return {};
+}
+
 } // namespace grapple::graph

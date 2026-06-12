@@ -133,6 +133,15 @@ int main() {
   GRAPPLE_REQUIRE(!removeMissing);
   GRAPPLE_REQUIRE(removeMissing.error().code == "graph.node_missing");
 
+  graph::GraphDocument removedEdge = next;
+  const auto removeConnectEdge = removedEdge.removeEdge(foundation::EdgeId{"edge_connect_ports"});
+  GRAPPLE_REQUIRE(removeConnectEdge);
+  GRAPPLE_REQUIRE(removedEdge.edges().size() == 1);
+  GRAPPLE_REQUIRE(removedEdge.edges()[0].id == foundation::EdgeId{"edge_contains_track"});
+  const auto removeMissingEdge = removedEdge.removeEdge(foundation::EdgeId{"edge_connect_ports"});
+  GRAPPLE_REQUIRE(!removeMissingEdge);
+  GRAPPLE_REQUIRE(removeMissingEdge.error().code == "graph.edge_missing");
+
   graph::GraphDocument unorderedNext = graph;
   GRAPPLE_REQUIRE(unorderedNext.addNode(graph::GraphNode{
     foundation::NodeId{"node_z"},

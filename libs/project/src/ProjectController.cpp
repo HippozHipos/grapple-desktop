@@ -92,6 +92,8 @@ foundation::Result<void> ProjectController::applyPayload(const ProjectCommand& p
         return handleCreateEffect(typedCommand);
       } else if constexpr (std::is_same_v<Command, ConnectNodesCommand>) {
         return handleConnectNodes(typedCommand);
+      } else if constexpr (std::is_same_v<Command, DisconnectNodesCommand>) {
+        return handleDisconnectNodes(typedCommand);
       } else if constexpr (std::is_same_v<Command, SetEffectParamsCommand>) {
         return handleSetEffectParams(typedCommand);
       } else if constexpr (std::is_same_v<Command, RestoreSnapshotCommand>) {
@@ -280,6 +282,10 @@ foundation::Result<void> ProjectController::handleConnectNodes(const ConnectNode
     command.order,
     true
   });
+}
+
+foundation::Result<void> ProjectController::handleDisconnectNodes(const DisconnectNodesCommand& command) {
+  return document_.graph.removeEdge(command.edgeId);
 }
 
 foundation::Result<void> ProjectController::handleSetEffectParams(const SetEffectParamsCommand& command) {

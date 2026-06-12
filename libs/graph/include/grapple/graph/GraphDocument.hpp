@@ -22,6 +22,7 @@ public:
   foundation::Result<void> replaceNodePayload(foundation::NodeId nodeId, NodePayload payload);
   foundation::Result<void> removeNode(foundation::NodeId nodeId);
   foundation::Result<void> addEdge(GraphEdge edge);
+  foundation::Result<void> removeEdge(foundation::EdgeId edgeId);
 
 private:
   std::vector<GraphNode> nodes_;

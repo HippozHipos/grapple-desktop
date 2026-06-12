@@ -28,6 +28,8 @@ CommandKind commandKind(const ProjectCommand& command) {
         return CommandKind::CreateEffect;
       } else if constexpr (std::is_same_v<Command, ConnectNodesCommand>) {
         return CommandKind::ConnectNodes;
+      } else if constexpr (std::is_same_v<Command, DisconnectNodesCommand>) {
+        return CommandKind::DisconnectNodes;
       } else if constexpr (std::is_same_v<Command, SetEffectParamsCommand>) {
         return CommandKind::SetEffectParams;
       } else if constexpr (std::is_same_v<Command, RestoreSnapshotCommand>) {
