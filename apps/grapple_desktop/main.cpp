@@ -1277,6 +1277,7 @@ int main(int argc, char* argv[]) {
   bool deleteSmoke = false;
   bool playbackSmoke = false;
   bool openPackageSmoke = false;
+  bool editSaveSmoke = false;
   std::optional<std::string> screenshotPath;
   for (int index = 1; index < argc; ++index) {
     const std::string argument{argv[index]};
@@ -1300,10 +1301,12 @@ int main(int argc, char* argv[]) {
       playbackSmoke = true;
     } else if (argument == "--open-package-smoke") {
       openPackageSmoke = true;
+    } else if (argument == "--edit-save-smoke") {
+      editSaveSmoke = true;
     } else if (argument == "--screenshot" && index + 1 < argc) {
       screenshotPath = argv[++index];
     } else {
-      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --import-smoke, --add-video-smoke, --delete-smoke, --playback-smoke, --open-package-smoke, or --screenshot <path>.\n";
+      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --import-smoke, --add-video-smoke, --delete-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, or --screenshot <path>.\n";
       return 1;
     }
   }
@@ -1472,6 +1475,36 @@ int main(int argc, char* argv[]) {
     return viewModel.value().project.projectId == grapple::foundation::ProjectId{"proj_desktop"} &&
            viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_6"} &&
            workspace.value().project().packageState().commandLog.records().size() == 6
+      ? 0
+      : 1;
+  }
+
+  if (editSaveSmoke) {
+    window.importVideoFile(grapple::foundation::FilePath{"/tmp/grapple-native-demo/walking-woman.avi"});
+    window.addSelectedVideoToTimeline();
+    const auto write = workspace.value().project().writePackage();
+    if (!write) {
+      printError(write.error());
+      return 1;
+    }
+    auto reopened = grapple::app::NativeWorkspaceSession::openPackageRoot(grapple::foundation::FilePath{"/tmp/grapple-desktop-package"});
+    if (!reopened) {
+      printError(reopened.error());
+      return 1;
+    }
+    const auto viewModel = reopened.value().project().buildViewModel();
+    if (!viewModel) {
+      printError(viewModel.error());
+      return 1;
+    }
+    std::cout << "revision=" << viewModel.value().project.revision.value() << '\n';
+    std::cout << "assets=" << viewModel.value().assets.count << '\n';
+    std::cout << "clips=" << viewModel.value().timeline.clips.size() << '\n';
+    std::cout << "commands=" << reopened.value().project().packageState().commandLog.records().size() << '\n';
+    return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_8"} &&
+           viewModel.value().assets.count == 2 &&
+           viewModel.value().timeline.clips.size() == 2 &&
+           reopened.value().project().packageState().commandLog.records().size() == 8
       ? 0
       : 1;
   }

@@ -45,5 +45,7 @@ add_test(NAME grapple_desktop_playback_smoke COMMAND grapple_desktop --playback-
 set_tests_properties(grapple_desktop_playback_smoke PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 add_test(NAME grapple_desktop_open_package_smoke COMMAND grapple_desktop --open-package-smoke)
 set_tests_properties(grapple_desktop_open_package_smoke PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+add_test(NAME grapple_desktop_edit_save_smoke COMMAND grapple_desktop --edit-save-smoke)
+set_tests_properties(grapple_desktop_edit_save_smoke PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 add_test(NAME grapple_desktop_screenshot COMMAND grapple_desktop --screenshot /tmp/grapple-desktop-ctest.png)
 set_tests_properties(grapple_desktop_screenshot PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")

@@ -45,9 +45,19 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeProjectCommandWri
     return currentSnapshot.error();
   }
 
+  foundation::CommandId commandId = nextCommandId();
+  if (!snapshot.has_value()) {
+    foundation::SnapshotId snapshotId = nextSnapshotId(commandId.value());
+    snapshot = storage::SnapshotCommitRecord{
+      snapshotId,
+      foundation::FilePath{"snapshots/" + snapshotId.value() + ".json"},
+      std::nullopt
+    };
+  }
+
   return session_.applyAndCommit(
     project::ProjectCommandEnvelope{
-      nextCommandId(),
+      std::move(commandId),
       currentSnapshot.value().info.id,
       currentSnapshot.value().revision,
       std::move(source),

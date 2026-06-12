@@ -32,12 +32,16 @@ grapple::project::CommandSource userSource() {
 int main() {
   using namespace grapple;
 
+  const std::filesystem::path appPackageRoot =
+    std::filesystem::temp_directory_path() /
+    ("grapple_native_app_primary_" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+
   app::NativeProjectSession session{
     foundation::ProjectId{"proj_app"},
     "App Project",
     storage::ProjectPackage{
       foundation::ProjectId{"proj_app"},
-      foundation::FilePath{"app.grapple"},
+      foundation::FilePath{appPackageRoot.string()},
       1
     }
   };
@@ -70,10 +74,12 @@ int main() {
   GRAPPLE_REQUIRE(compositionNodeId == foundation::NodeId{"node_composition_1"});
   GRAPPLE_REQUIRE(writer.nextAssetId("walking woman") == foundation::AssetId{"asset_walking_woman_1"});
   GRAPPLE_REQUIRE(writer.nextEdgeId("contains track") == foundation::EdgeId{"edge_contains_track_1"});
-  GRAPPLE_REQUIRE(writer.nextSnapshotId("rev 1") == foundation::SnapshotId{"snap_rev_1_1"});
+  GRAPPLE_REQUIRE(writer.nextSnapshotId("rev 1") == foundation::SnapshotId{"snap_rev_1_2"});
   GRAPPLE_REQUIRE(session.packageState().head.has_value());
   GRAPPLE_REQUIRE(session.packageState().head->currentRevision == foundation::RevisionId{"rev_1"});
+  GRAPPLE_REQUIRE(session.packageState().head->lastSnapshotId == foundation::SnapshotId{"snap_cmd_app_1_1"});
   GRAPPLE_REQUIRE(session.packageState().commandLog.records().size() == 1);
+  GRAPPLE_REQUIRE(session.packageState().snapshots.records().size() == 1);
 
   const auto snapshotQuery = session.query(project::GetProjectSnapshotQuery{});
   GRAPPLE_REQUIRE(snapshotQuery);
@@ -118,11 +124,16 @@ int main() {
   GRAPPLE_REQUIRE(manifest);
   GRAPPLE_REQUIRE(manifest.value().head.has_value());
   GRAPPLE_REQUIRE(manifest.value().head->lastCommandId == foundation::CommandId{"cmd_app_1"});
-  GRAPPLE_REQUIRE(!manifest.value().latestSnapshot.has_value());
+  GRAPPLE_REQUIRE(manifest.value().latestSnapshot.has_value());
+  GRAPPLE_REQUIRE(manifest.value().latestSnapshot->id == foundation::SnapshotId{"snap_cmd_app_1_1"});
+  GRAPPLE_REQUIRE(manifest.value().latestSnapshot->revision == foundation::RevisionId{"rev_1"});
 
-  const auto writeWithoutCurrentSnapshot = session.writePackage();
-  GRAPPLE_REQUIRE(!writeWithoutCurrentSnapshot);
-  GRAPPLE_REQUIRE(writeWithoutCurrentSnapshot.error().code == "app.package_snapshot_missing");
+  const auto writeCurrentSnapshot = session.writePackage();
+  GRAPPLE_REQUIRE(writeCurrentSnapshot);
+  GRAPPLE_REQUIRE(writeCurrentSnapshot.value().snapshotPath.value == (appPackageRoot / "snapshots/snap_cmd_app_1_1.json").lexically_normal().string());
+  GRAPPLE_REQUIRE(writeCurrentSnapshot.value().manifestPath.value == (appPackageRoot / "manifest.json").lexically_normal().string());
+  GRAPPLE_REQUIRE(writeCurrentSnapshot.value().commandLogPath.value == (appPackageRoot / "history/commands.json").lexically_normal().string());
+  GRAPPLE_REQUIRE(writeCurrentSnapshot.value().eventLogPath.value == (appPackageRoot / "history/events.json").lexically_normal().string());
 
   app::NativeProjectSession assetSession{
     foundation::ProjectId{"proj_app_assets"},
@@ -343,6 +354,7 @@ int main() {
   GRAPPLE_REQUIRE(afterDuplicate);
   GRAPPLE_REQUIRE(afterDuplicate.value().revision == foundation::RevisionId{"rev_1"});
   GRAPPLE_REQUIRE(session.packageState().commandLog.records().size() == 1);
+  std::filesystem::remove_all(appPackageRoot);
 
   return 0;
 }
