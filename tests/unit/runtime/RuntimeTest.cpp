@@ -392,6 +392,26 @@ int main() {
   GRAPPLE_REQUIRE(cameraSample.value().sample.cameras.size() == 1);
   GRAPPLE_REQUIRE(cameraSample.value().sample.cameras[0].sourceNodeId == foundation::NodeId{"node_camera"});
   GRAPPLE_REQUIRE(cameraSample.value().diagnostics.empty());
+  const auto sampledRange = evaluator.evaluateRange(runtime::RuntimeRangeRequest{
+    preparedClipPlan.value().prepared,
+    foundation::TimeRange{
+      foundation::TimeSeconds{0.0},
+      foundation::TimeSeconds{1.0}
+    },
+    foundation::FrameRate{2, 1},
+    runtime::RuntimeQuality::Final
+  });
+  GRAPPLE_REQUIRE(sampledRange);
+  GRAPPLE_REQUIRE(sampledRange.value().range.start == foundation::TimeSeconds{0.0});
+  GRAPPLE_REQUIRE(sampledRange.value().range.end == foundation::TimeSeconds{1.0});
+  GRAPPLE_REQUIRE(sampledRange.value().frames.size() == 2);
+  GRAPPLE_REQUIRE(sampledRange.value().frames[0].frame == foundation::FrameNumber{0});
+  GRAPPLE_REQUIRE(sampledRange.value().frames[0].sample.time == foundation::TimeSeconds{0.0});
+  GRAPPLE_REQUIRE(sampledRange.value().frames[0].sample.clips.size() == 1);
+  GRAPPLE_REQUIRE(sampledRange.value().frames[1].frame == foundation::FrameNumber{1});
+  GRAPPLE_REQUIRE(sampledRange.value().frames[1].sample.time == foundation::TimeSeconds{0.5});
+  GRAPPLE_REQUIRE(sampledRange.value().frames[1].sample.clips.size() == 1);
+  GRAPPLE_REQUIRE(sampledRange.value().diagnostics.empty());
 
   runtime::MemoryRuntimeCache cache;
   const runtime::RuntimeCacheKey key{

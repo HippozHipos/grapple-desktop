@@ -2,6 +2,10 @@
 
 #include <grapple/runtime/RuntimeDependencyPlanner.hpp>
 
+#include <cstddef>
+#include <cstdint>
+#include <utility>
+
 namespace grapple::runtime {
 
 foundation::Result<PrepareRuntimePlanResult> RuntimeEvaluator::prepare(
@@ -59,6 +63,42 @@ foundation::Result<RuntimeSampleResult> RuntimeEvaluator::sample(
   }
 
   return RuntimeSampleResult{sample, sample.diagnostics};
+}
+
+foundation::Result<RuntimeRangeResult> RuntimeEvaluator::evaluateRange(
+  const RuntimeRangeRequest& request
+) const {
+  RuntimeRangeResult result{
+    request.range,
+    {},
+    request.prepared.diagnostics
+  };
+
+  const double framesPerSecond = request.frameRate.framesPerSecond();
+  const double duration = request.range.duration();
+  const auto frameCount = static_cast<std::int64_t>(duration * framesPerSecond);
+  result.frames.reserve(static_cast<std::size_t>(frameCount));
+
+  for (std::int64_t frameIndex = 0; frameIndex < frameCount; ++frameIndex) {
+    const foundation::TimeSeconds time{
+      request.range.start.value + static_cast<double>(frameIndex) / framesPerSecond
+    };
+    auto frameSample = sample(RuntimeSampleRequest{
+      request.prepared,
+      time,
+      request.quality
+    });
+    if (!frameSample) {
+      return frameSample.error();
+    }
+
+    result.frames.push_back(RuntimeFrameResult{
+      foundation::FrameNumber{frameIndex},
+      std::move(frameSample.value().sample)
+    });
+  }
+
+  return result;
 }
 
 } // namespace grapple::runtime

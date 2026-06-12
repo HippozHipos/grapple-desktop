@@ -39,4 +39,22 @@ struct RuntimeSampleResult {
   std::vector<RuntimeDiagnostic> diagnostics;
 };
 
+struct RuntimeFrameResult {
+  foundation::FrameNumber frame;
+  RuntimeSample sample;
+};
+
+struct RuntimeRangeRequest {
+  const PreparedRuntimePlan& prepared;
+  foundation::TimeRange range;
+  foundation::FrameRate frameRate;
+  RuntimeQuality quality = RuntimeQuality::Interactive;
+};
+
+struct RuntimeRangeResult {
+  foundation::TimeRange range;
+  std::vector<RuntimeFrameResult> frames;
+  std::vector<RuntimeDiagnostic> diagnostics;
+};
+
 } // namespace grapple::runtime

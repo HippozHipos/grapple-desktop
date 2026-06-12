@@ -43,6 +43,9 @@ public:
   foundation::Result<RuntimeSampleResult> sample(
     const RuntimeSampleRequest& request
   ) const;
+  foundation::Result<RuntimeRangeResult> evaluateRange(
+    const RuntimeRangeRequest& request
+  ) const;
 };
 
 } // namespace grapple::runtime
