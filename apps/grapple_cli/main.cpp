@@ -216,6 +216,7 @@ int main(int argc, char* argv[]) {
 
   std::cout << "project=" << renderPlan.value().plan.projectId.value() << '\n';
   std::cout << "revision=" << renderPlan.value().plan.revision.value() << '\n';
+  std::cout << "duration=" << renderPlan.value().plan.duration.value << '\n';
   std::cout << "layers=" << renderPlan.value().plan.layers.size() << '\n';
   std::cout << "clips=" << renderPlan.value().plan.clips.size() << '\n';
   std::cout << "cameras=" << renderPlan.value().plan.cameras.size() << '\n';

@@ -169,6 +169,7 @@ int main() {
   GRAPPLE_REQUIRE(timelineResult);
   GRAPPLE_REQUIRE(timelineResult.value().timeline.projectId == foundation::ProjectId{"proj_projection"});
   GRAPPLE_REQUIRE(timelineResult.value().timeline.revision == foundation::RevisionId{"rev_5"});
+  GRAPPLE_REQUIRE(timelineResult.value().timeline.duration == foundation::TimeSeconds{10.0});
   GRAPPLE_REQUIRE(timelineResult.value().timeline.layers.size() == 1);
   GRAPPLE_REQUIRE(timelineResult.value().timeline.layers[0].sourceNodeId == foundation::NodeId{"node_track"});
   GRAPPLE_REQUIRE(timelineResult.value().timeline.clips.size() == 1);
@@ -191,6 +192,7 @@ int main() {
   GRAPPLE_REQUIRE(planResult);
   GRAPPLE_REQUIRE(planResult.value().plan.projectId == foundation::ProjectId{"proj_projection"});
   GRAPPLE_REQUIRE(planResult.value().plan.revision == foundation::RevisionId{"rev_5"});
+  GRAPPLE_REQUIRE(planResult.value().plan.duration == foundation::TimeSeconds{10.0});
   GRAPPLE_REQUIRE(planResult.value().plan.layers.size() == 1);
   GRAPPLE_REQUIRE(planResult.value().plan.layers[0].sourceNodeId == foundation::NodeId{"node_track"});
   GRAPPLE_REQUIRE(planResult.value().plan.clips.size() == 1);
@@ -226,6 +228,7 @@ int main() {
 
   const std::string serializedPlan = projection::serializeCanonicalRenderPlan(planResult.value().plan);
   GRAPPLE_REQUIRE(serializedPlan.find("\"projectId\":\"proj_projection\"") != std::string::npos);
+  GRAPPLE_REQUIRE(serializedPlan.find("\"duration\":10") != std::string::npos);
   GRAPPLE_REQUIRE(serializedPlan.find("\"inlineSource\":\"def prepare(ctx):\\n  return {'x': 1}\\n\"") != std::string::npos);
   GRAPPLE_REQUIRE(serializedPlan.find("\"name\":\"target_x\",\"value\":0.77000000000000002") != std::string::npos);
   GRAPPLE_REQUIRE(serializedPlan.find("\"sourceEdgeId\":\"edge_effect_targets_camera\"") != std::string::npos);

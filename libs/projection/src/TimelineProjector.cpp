@@ -64,6 +64,12 @@ TimelineEffectGraph* findEffectGraphForConnection(
   return foundGraph;
 }
 
+void extendDuration(foundation::TimeSeconds& duration, foundation::TimeSeconds end) {
+  if (duration < end) {
+    duration = end;
+  }
+}
+
 } // namespace
 
 foundation::Result<BuildTimelineIRResult> TimelineProjector::buildTimelineIR(
@@ -114,6 +120,7 @@ foundation::Result<BuildTimelineIRResult> TimelineProjector::buildTimelineIR(
           }
 
           timeline.clips.push_back(TimelineClip{node.id, edge.sourceNodeId, *payload, node.enabled && edge.enabled});
+          extendDuration(timeline.duration, payload->timelineRange.end);
           foundTrack = true;
           break;
         }
@@ -163,6 +170,7 @@ foundation::Result<BuildTimelineIRResult> TimelineProjector::buildTimelineIR(
 
     TimelineEffectGraph& effectGraph = getOrCreateEffectGraph(timeline.effectGraphs, edge.targetNodeId);
     effectGraph.nodes.push_back(TimelineEffectNode{effect->id, *payload, effect->enabled});
+    extendDuration(timeline.duration, payload->activeRange.end);
     effectGraph.edges.push_back(TimelineEffectEdge{
       edge.id,
       edge.sourceNodeId,
