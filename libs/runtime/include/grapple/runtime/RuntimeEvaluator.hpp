@@ -2,6 +2,7 @@
 
 #include <grapple/foundation/Result.hpp>
 #include <grapple/projection/RenderPlan.hpp>
+#include <grapple/runtime/EffectRuntime.hpp>
 #include <grapple/runtime/RuntimeDependencyGraph.hpp>
 #include <grapple/runtime/RuntimeDiagnostic.hpp>
 #include <grapple/runtime/RuntimeSample.hpp>
@@ -17,6 +18,7 @@ struct PreparedRuntimePlan {
   std::vector<projection::RenderLayer> layers;
   std::vector<projection::RenderClip> clips;
   std::vector<projection::RenderCamera> cameras;
+  std::vector<PreparedEffectNode> preparedEffects;
   std::vector<RuntimeDiagnostic> diagnostics;
 };
 
@@ -31,6 +33,9 @@ struct PrepareRuntimePlanResult {
 
 class RuntimeEvaluator {
 public:
+  RuntimeEvaluator();
+  explicit RuntimeEvaluator(std::vector<IEffectRuntime*> effectRuntimes);
+
   foundation::Result<PrepareRuntimePlanResult> prepare(
     const PrepareRuntimePlanRequest& request
   ) const;
@@ -40,6 +45,9 @@ public:
   foundation::Result<RuntimeRangeResult> evaluateRange(
     const RuntimeRangeRequest& request
   ) const;
+
+private:
+  std::vector<IEffectRuntime*> effectRuntimes_;
 };
 
 } // namespace grapple::runtime

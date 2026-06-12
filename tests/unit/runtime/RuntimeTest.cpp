@@ -11,6 +11,35 @@
 
 namespace {
 
+class TestEffectRuntime final : public grapple::runtime::IEffectRuntime {
+public:
+  bool supports(const grapple::projection::RenderEffectNode& node) const override {
+    return node.payload.implementation.kind == grapple::timeline::EffectImplementationKind::Python;
+  }
+
+  grapple::foundation::Result<grapple::runtime::EffectPrepareResult> prepare(
+    const grapple::runtime::EffectPrepareRequest& request
+  ) override {
+    ++prepareCount;
+    return grapple::runtime::EffectPrepareResult{
+      grapple::runtime::PreparedEffectNode{
+        request.graph.id,
+        request.graph.targetNodeId,
+        request.node.sourceNodeId,
+        {
+          grapple::runtime::RuntimeNamedValue{
+            "prepared",
+            grapple::runtime::RuntimeValue{true}
+          }
+        }
+      },
+      {}
+    };
+  }
+
+  int prepareCount = 0;
+};
+
 grapple::projection::RenderPlan makePlan(std::string layerName) {
   return grapple::projection::RenderPlan{
     grapple::foundation::ProjectId{"proj_runtime"},
@@ -492,6 +521,10 @@ int main() {
     makeEffectPlan("def prepare(): pass")
   });
   GRAPPLE_REQUIRE(preparedCameraPlan);
+  GRAPPLE_REQUIRE(preparedCameraPlan.value().prepared.preparedEffects.empty());
+  GRAPPLE_REQUIRE(preparedCameraPlan.value().diagnostics.size() == 1);
+  GRAPPLE_REQUIRE(preparedCameraPlan.value().diagnostics[0].code == "runtime.effect_runtime_missing");
+  GRAPPLE_REQUIRE(preparedCameraPlan.value().diagnostics[0].location.nodeId == foundation::NodeId{"node_effect"});
   const auto cameraSample = evaluator.sample(runtime::RuntimeSampleRequest{
     preparedCameraPlan.value().prepared,
     foundation::TimeSeconds{2.0},
@@ -500,7 +533,22 @@ int main() {
   GRAPPLE_REQUIRE(cameraSample);
   GRAPPLE_REQUIRE(cameraSample.value().sample.cameras.size() == 1);
   GRAPPLE_REQUIRE(cameraSample.value().sample.cameras[0].sourceNodeId == foundation::NodeId{"node_camera"});
-  GRAPPLE_REQUIRE(cameraSample.value().diagnostics.empty());
+  GRAPPLE_REQUIRE(cameraSample.value().diagnostics.size() == 1);
+
+  TestEffectRuntime effectRuntime;
+  const runtime::RuntimeEvaluator evaluatorWithEffectRuntime{{&effectRuntime}};
+  const auto preparedSupportedEffectPlan = evaluatorWithEffectRuntime.prepare(runtime::PrepareRuntimePlanRequest{
+    makeEffectPlan("def prepare(): pass")
+  });
+  GRAPPLE_REQUIRE(preparedSupportedEffectPlan);
+  GRAPPLE_REQUIRE(preparedSupportedEffectPlan.value().diagnostics.empty());
+  GRAPPLE_REQUIRE(preparedSupportedEffectPlan.value().prepared.preparedEffects.size() == 1);
+  GRAPPLE_REQUIRE(preparedSupportedEffectPlan.value().prepared.preparedEffects[0].effectGraphId == foundation::GraphId{"effect_graph_node_camera"});
+  GRAPPLE_REQUIRE(preparedSupportedEffectPlan.value().prepared.preparedEffects[0].targetNodeId == foundation::NodeId{"node_camera"});
+  GRAPPLE_REQUIRE(preparedSupportedEffectPlan.value().prepared.preparedEffects[0].sourceNodeId == foundation::NodeId{"node_effect"});
+  GRAPPLE_REQUIRE(preparedSupportedEffectPlan.value().prepared.preparedEffects[0].preparedValues.size() == 1);
+  GRAPPLE_REQUIRE(std::get<bool>(preparedSupportedEffectPlan.value().prepared.preparedEffects[0].preparedValues[0].value));
+  GRAPPLE_REQUIRE(effectRuntime.prepareCount == 1);
   const auto sampledRange = evaluator.evaluateRange(runtime::RuntimeRangeRequest{
     preparedClipPlan.value().prepared,
     foundation::TimeRange{

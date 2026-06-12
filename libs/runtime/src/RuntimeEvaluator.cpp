@@ -4,9 +4,15 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <string>
 #include <utility>
 
 namespace grapple::runtime {
+
+RuntimeEvaluator::RuntimeEvaluator() = default;
+
+RuntimeEvaluator::RuntimeEvaluator(std::vector<IEffectRuntime*> effectRuntimes)
+  : effectRuntimes_{std::move(effectRuntimes)} {}
 
 foundation::Result<PrepareRuntimePlanResult> RuntimeEvaluator::prepare(
   const PrepareRuntimePlanRequest& request
@@ -21,8 +27,50 @@ foundation::Result<PrepareRuntimePlanResult> RuntimeEvaluator::prepare(
     request.plan.layers,
     request.plan.clips,
     request.plan.cameras,
+    {},
     {}
   };
+
+  for (const projection::RenderEffectGraph& effectGraph : request.plan.effectGraphs) {
+    for (const projection::RenderEffectNode& effectNode : effectGraph.nodes) {
+      IEffectRuntime* selectedRuntime = nullptr;
+      for (IEffectRuntime* runtime : effectRuntimes_) {
+        if (runtime->supports(effectNode)) {
+          selectedRuntime = runtime;
+          break;
+        }
+      }
+
+      if (selectedRuntime == nullptr) {
+        prepared.diagnostics.push_back(RuntimeDiagnostic{
+          "runtime.effect_runtime_missing",
+          DiagnosticSeverity::Error,
+          DiagnosticLocation{
+            request.plan.projectId,
+            request.plan.revision,
+            effectNode.sourceNodeId
+          },
+          "No runtime supports effect node " + effectNode.sourceNodeId.value() + "."
+        });
+        continue;
+      }
+
+      auto effectPrepare = selectedRuntime->prepare(EffectPrepareRequest{
+        effectGraph,
+        effectNode
+      });
+      if (!effectPrepare) {
+        return effectPrepare.error();
+      }
+
+      prepared.preparedEffects.push_back(std::move(effectPrepare.value().prepared));
+      prepared.diagnostics.insert(
+        prepared.diagnostics.end(),
+        effectPrepare.value().diagnostics.begin(),
+        effectPrepare.value().diagnostics.end()
+      );
+    }
+  }
 
   return PrepareRuntimePlanResult{prepared, prepared.diagnostics};
 }
