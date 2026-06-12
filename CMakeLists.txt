@@ -9,5 +9,6 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 enable_testing()
 
 add_subdirectory(libs/foundation)
+add_subdirectory(libs/graph)
+add_subdirectory(libs/project)
 add_subdirectory(tests)
-
