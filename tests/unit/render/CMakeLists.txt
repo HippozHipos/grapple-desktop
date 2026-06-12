@@ -1,5 +1,5 @@
 add_executable(grapple_render_tests
-  LocalRenderSystemTest.cpp
+  RenderShellTest.cpp
 )
 
 target_link_libraries(grapple_render_tests

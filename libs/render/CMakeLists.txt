@@ -1,5 +1,7 @@
 add_library(grapple_render
-  src/LocalRenderSystem.cpp
+  src/FinalRenderShell.cpp
+  src/LocalRenderCore.cpp
+  src/PreviewRenderShell.cpp
 )
 
 add_library(Grapple::Render ALIAS grapple_render)
