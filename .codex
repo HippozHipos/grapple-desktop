@@ -34,6 +34,8 @@ Core rules:
 - Preview and final render may differ in shell policy only: latency/quality, frame stepping, surfaces, encoding, and progress reporting.
 - Do not put consumer-specific render language in agent-facing graph, script, shader, node, or tool contracts.
 - Agent-authored effect code should target canonical graph/runtime APIs, not a specific render implementation.
+- Agent-authored edits must expose user-editable parameters through canonical effect payload controls.
+- Do not let agents produce black-box edits when the same result can be represented as editable nodes and parameters.
 - If a clean fix requires deleting old bloat in the touched path, delete it instead of supporting it.
 - Do not build full future features early. Build the minimal correct foundation that keeps the later feature possible without putting that feature into the core path now.
 
