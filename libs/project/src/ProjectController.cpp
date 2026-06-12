@@ -29,6 +29,7 @@ foundation::Result<ProjectCommandResult> ProjectController::apply(const ProjectC
   }
 
   const foundation::RevisionId beforeRevision = document_.revision;
+  const std::int64_t beforeRevisionNumber = document_.revisionNumber;
   ProjectDocument nextDocument = document_;
   ProjectController nextController{nextDocument};
 
@@ -37,7 +38,7 @@ foundation::Result<ProjectCommandResult> ProjectController::apply(const ProjectC
     return payloadResult.error();
   }
 
-  nextController.document_.revisionNumber += 1;
+  nextController.document_.revisionNumber = beforeRevisionNumber + 1;
   nextController.document_.revision = nextController.nextRevisionId();
   document_ = std::move(nextController.document_);
 
@@ -75,6 +76,8 @@ foundation::Result<void> ProjectController::applyPayload(const ProjectCommand& p
         return handleCreateComposition(typedCommand);
       } else if constexpr (std::is_same_v<Command, CreateTrackCommand>) {
         return handleCreateTrack(typedCommand);
+      } else if constexpr (std::is_same_v<Command, RestoreSnapshotCommand>) {
+        return handleRestoreSnapshot(typedCommand);
       }
     },
     payload
@@ -129,6 +132,19 @@ foundation::Result<void> ProjectController::handleCreateTrack(const CreateTrackC
     command.nodeId,
     true
   });
+}
+
+foundation::Result<void> ProjectController::handleRestoreSnapshot(const RestoreSnapshotCommand& command) {
+  if (!command.snapshotId) {
+    return foundation::Error{"project.snapshot_id_empty", "Restore snapshot id must not be empty."};
+  }
+
+  if (command.document.info.id != document_.info.id) {
+    return foundation::Error{"project.restore_project_id_mismatch", "Restore snapshot document must match the open project."};
+  }
+
+  document_ = command.document;
+  return {};
 }
 
 ProjectDocument createEmptyProject(foundation::ProjectId projectId, std::string name) {

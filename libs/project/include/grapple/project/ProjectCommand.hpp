@@ -1,6 +1,7 @@
 #pragma once
 
 #include <grapple/foundation/StrongId.hpp>
+#include <grapple/project/ProjectDocument.hpp>
 
 #include <optional>
 #include <string>
@@ -10,7 +11,8 @@ namespace grapple::project {
 
 enum class CommandKind {
   CreateComposition,
-  CreateTrack
+  CreateTrack,
+  RestoreSnapshot
 };
 
 enum class CommandSourceKind {
@@ -38,9 +40,15 @@ struct CreateTrackCommand {
   std::string name;
 };
 
+struct RestoreSnapshotCommand {
+  foundation::SnapshotId snapshotId;
+  ProjectDocument document;
+};
+
 using ProjectCommand = std::variant<
   CreateCompositionCommand,
-  CreateTrackCommand
+  CreateTrackCommand,
+  RestoreSnapshotCommand
 >;
 
 struct ProjectCommandEnvelope {
@@ -53,4 +61,3 @@ struct ProjectCommandEnvelope {
 };
 
 } // namespace grapple::project
-

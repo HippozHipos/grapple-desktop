@@ -23,6 +23,7 @@ private:
   foundation::Result<ProjectQueryResult> readQuery(const ProjectQuery& query) const;
   foundation::Result<void> handleCreateComposition(const CreateCompositionCommand& command);
   foundation::Result<void> handleCreateTrack(const CreateTrackCommand& command);
+  foundation::Result<void> handleRestoreSnapshot(const RestoreSnapshotCommand& command);
 
   ProjectDocument document_;
 };

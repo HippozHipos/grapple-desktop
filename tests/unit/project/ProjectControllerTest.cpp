@@ -81,18 +81,42 @@ int main() {
   GRAPPLE_REQUIRE(finalSnapshot.value().document.graph.nodes().size() == 2);
   GRAPPLE_REQUIRE(finalSnapshot.value().document.graph.edges().size() == 1);
 
+  const project::ProjectCommandEnvelope restoreCompositionSnapshot{
+    foundation::CommandId{"cmd_restore_snapshot"},
+    project::CommandKind::RestoreSnapshot,
+    foundation::ProjectId{"proj_test"},
+    finalSnapshot.value().document.revision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::RestoreSnapshotCommand{
+      foundation::SnapshotId{"snap_after_composition"},
+      afterComposition.value().document
+    }
+  };
+
+  const auto restoreResult = controller.apply(restoreCompositionSnapshot);
+  GRAPPLE_REQUIRE(restoreResult);
+  GRAPPLE_REQUIRE(restoreResult.value().beforeRevision == foundation::RevisionId{"rev_2"});
+  GRAPPLE_REQUIRE(restoreResult.value().afterRevision == foundation::RevisionId{"rev_3"});
+
+  const auto afterRestore = controller.snapshot();
+  GRAPPLE_REQUIRE(afterRestore);
+  GRAPPLE_REQUIRE(afterRestore.value().document.revision == foundation::RevisionId{"rev_3"});
+  GRAPPLE_REQUIRE(afterRestore.value().document.revisionNumber == 3);
+  GRAPPLE_REQUIRE(afterRestore.value().document.graph.nodes().size() == 1);
+  GRAPPLE_REQUIRE(afterRestore.value().document.graph.edges().empty());
+
   const auto graphQuery = controller.query(project::GetGraphQuery{});
   GRAPPLE_REQUIRE(graphQuery);
   const auto* graphResult = std::get_if<project::GraphResult>(&graphQuery.value());
   GRAPPLE_REQUIRE(graphResult != nullptr);
-  GRAPPLE_REQUIRE(graphResult->graph.nodes().size() == 2);
-  GRAPPLE_REQUIRE(graphResult->graph.edges().size() == 1);
+  GRAPPLE_REQUIRE(graphResult->graph.nodes().size() == 1);
+  GRAPPLE_REQUIRE(graphResult->graph.edges().empty());
 
   const auto snapshotQuery = controller.query(project::GetProjectSnapshotQuery{});
   GRAPPLE_REQUIRE(snapshotQuery);
   const auto* snapshotResult = std::get_if<project::ProjectSnapshotResult>(&snapshotQuery.value());
   GRAPPLE_REQUIRE(snapshotResult != nullptr);
-  GRAPPLE_REQUIRE(snapshotResult->snapshot.document.revision == foundation::RevisionId{"rev_2"});
+  GRAPPLE_REQUIRE(snapshotResult->snapshot.document.revision == foundation::RevisionId{"rev_3"});
 
   return 0;
 }
