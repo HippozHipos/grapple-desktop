@@ -26,12 +26,13 @@ public:
   foundation::Result<void> seek(foundation::TimeSeconds time);
   foundation::Result<void> play();
   foundation::Result<void> pause();
+  foundation::Result<PreviewRenderFrameResult> renderFrame(const PreviewRenderFrameRequest& request) const;
   [[nodiscard]] foundation::Result<PreviewState> state() const;
 
 private:
   runtime::RuntimeEvaluator& runtime_;
+  std::optional<runtime::PreparedRuntimePlan> prepared_;
   PreviewState state_;
 };
 
 } // namespace grapple::render
-
