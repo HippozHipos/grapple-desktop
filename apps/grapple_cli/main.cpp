@@ -1,9 +1,11 @@
 #include <grapple/project/ProjectController.hpp>
 #include <grapple/projection/RenderPlanBuilder.hpp>
+#include <grapple/projection/RenderPlanSerializer.hpp>
 #include <grapple/projection/TimelineProjector.hpp>
 
 #include <iostream>
 #include <optional>
+#include <string>
 
 namespace {
 
@@ -13,8 +15,21 @@ void printError(const grapple::foundation::Error& error) {
 
 } // namespace
 
-int main() {
+int main(int argc, char* argv[]) {
   using namespace grapple;
+
+  bool printRenderPlanJson = false;
+  if (argc == 2) {
+    const std::string argument{argv[1]};
+    if (argument != "--render-plan-json") {
+      std::cerr << "Unknown argument: " << argument << '\n';
+      return 1;
+    }
+    printRenderPlanJson = true;
+  } else if (argc > 2) {
+    std::cerr << "Expected zero arguments or --render-plan-json.\n";
+    return 1;
+  }
 
   project::ProjectController controller{
     project::createEmptyProject(foundation::ProjectId{"proj_cli"}, "CLI Smoke Project")
@@ -79,6 +94,11 @@ int main() {
     return 1;
   }
 
+  if (printRenderPlanJson) {
+    std::cout << projection::serializeCanonicalRenderPlan(renderPlan.value().plan) << '\n';
+    return 0;
+  }
+
   std::cout << "project=" << renderPlan.value().plan.projectId.value() << '\n';
   std::cout << "revision=" << renderPlan.value().plan.revision.value() << '\n';
   std::cout << "layers=" << renderPlan.value().plan.layers.size() << '\n';
@@ -86,4 +106,3 @@ int main() {
 
   return 0;
 }
-

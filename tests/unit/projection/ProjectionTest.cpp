@@ -1,11 +1,13 @@
 #include <grapple/graph/GraphNode.hpp>
 #include <grapple/project/ProjectController.hpp>
 #include <grapple/projection/RenderPlanBuilder.hpp>
+#include <grapple/projection/RenderPlanSerializer.hpp>
 #include <grapple/projection/TimelineProjector.hpp>
 
 #include <TestAssert.hpp>
 
 #include <optional>
+#include <string>
 #include <variant>
 
 int main() {
@@ -174,6 +176,13 @@ int main() {
   GRAPPLE_REQUIRE(planResult.value().plan.effectGraphs[0].edges[0].sourceNodeId == foundation::NodeId{"node_effect"});
   GRAPPLE_REQUIRE(planResult.value().plan.effectGraphs[0].edges[0].targetNodeId == foundation::NodeId{"node_camera"});
   GRAPPLE_REQUIRE(planResult.value().diagnostics.empty());
+
+  const std::string serializedPlan = projection::serializeCanonicalRenderPlan(planResult.value().plan);
+  GRAPPLE_REQUIRE(serializedPlan.find("\"projectId\":\"proj_projection\"") != std::string::npos);
+  GRAPPLE_REQUIRE(serializedPlan.find("\"inlineSource\":\"def prepare(ctx):\\n  return {'x': 1}\\n\"") != std::string::npos);
+  GRAPPLE_REQUIRE(serializedPlan.find("\"name\":\"target_x\",\"value\":0.77000000000000002") != std::string::npos);
+  GRAPPLE_REQUIRE(serializedPlan.find("\"sourceEdgeId\":\"edge_effect_targets_camera\"") != std::string::npos);
+  GRAPPLE_REQUIRE(serializedPlan.find("\"inputs\":[{\"name\":\"input_frame\"}]") != std::string::npos);
 
   project::ProjectDocument malformedDocument = project::createEmptyProject(
     foundation::ProjectId{"proj_malformed"},
