@@ -82,7 +82,10 @@ grapple::projection::RenderPlan makeEffectPlan(std::string source) {
       grapple::projection::RenderEffectEdge{
         grapple::foundation::EdgeId{"edge_effect_targets_camera"},
         grapple::foundation::NodeId{"node_effect"},
+        grapple::graph::PortName{"camera_transform"},
         grapple::foundation::NodeId{"node_camera"},
+        grapple::graph::PortName{"input"},
+        0,
         true
       }
     }
@@ -122,7 +125,10 @@ grapple::projection::RenderPlan makeClipEffectPlan() {
       grapple::projection::RenderEffectEdge{
         grapple::foundation::EdgeId{"edge_effect_targets_clip"},
         grapple::foundation::NodeId{"node_effect"},
+        grapple::graph::PortName{"frame"},
         grapple::foundation::NodeId{"node_clip"},
+        grapple::graph::PortName{"input"},
+        0,
         true
       }
     }

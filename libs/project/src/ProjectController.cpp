@@ -143,7 +143,10 @@ foundation::Result<void> ProjectController::handleCreateTrack(const CreateTrackC
     command.containmentEdgeId,
     graph::EdgeKind::Contains,
     command.compositionNodeId,
+    graph::PortName{},
     command.nodeId,
+    graph::PortName{},
+    command.order,
     true
   });
 }
@@ -168,7 +171,10 @@ foundation::Result<void> ProjectController::handleCreateClip(const CreateClipCom
     command.containmentEdgeId,
     graph::EdgeKind::Contains,
     command.trackNodeId,
+    graph::PortName{},
     command.nodeId,
+    graph::PortName{},
+    command.order,
     true
   });
 }
@@ -193,7 +199,10 @@ foundation::Result<void> ProjectController::handleCreateCamera(const CreateCamer
     command.containmentEdgeId,
     graph::EdgeKind::Contains,
     command.compositionNodeId,
+    graph::PortName{},
     command.nodeId,
+    graph::PortName{},
+    command.order,
     true
   });
 }
@@ -217,7 +226,10 @@ foundation::Result<void> ProjectController::handleCreateEffect(const CreateEffec
     command.targetEdgeId,
     graph::EdgeKind::Targets,
     command.nodeId,
+    command.sourcePort,
     command.targetNodeId,
+    command.targetPort,
+    command.order,
     true
   });
 }

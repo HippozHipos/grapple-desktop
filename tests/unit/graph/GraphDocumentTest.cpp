@@ -60,7 +60,10 @@ int main() {
     foundation::EdgeId{"edge_missing"},
     graph::EdgeKind::Contains,
     foundation::NodeId{"node_composition"},
+    graph::PortName{},
     foundation::NodeId{"node_missing"},
+    graph::PortName{},
+    0,
     true
   });
   GRAPPLE_REQUIRE(!missingEndpoint);
@@ -79,7 +82,10 @@ int main() {
     foundation::EdgeId{"edge_contains_track"},
     graph::EdgeKind::Contains,
     foundation::NodeId{"node_composition"},
+    graph::PortName{},
     foundation::NodeId{"node_track"},
+    graph::PortName{},
+    3,
     true
   });
   GRAPPLE_REQUIRE(addEdge);
@@ -128,11 +134,15 @@ int main() {
     foundation::EdgeId{"edge_contains_track"},
     graph::EdgeKind::Contains,
     foundation::NodeId{"node_composition"},
+    graph::PortName{},
     foundation::NodeId{"node_track"},
+    graph::PortName{},
+    3,
     true
   }));
 
   GRAPPLE_REQUIRE(graph::serializeCanonicalGraph(next) == graph::serializeCanonicalGraph(sameRecordsDifferentOrder));
+  GRAPPLE_REQUIRE(graph::serializeCanonicalGraph(next).find("\"order\":3") != std::string::npos);
 
   return 0;
 }

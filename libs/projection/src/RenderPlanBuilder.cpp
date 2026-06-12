@@ -42,7 +42,10 @@ foundation::Result<BuildRenderPlanResult> RenderPlanBuilder::buildRenderPlan(
       renderEffectGraph.edges.push_back(RenderEffectEdge{
         edge.sourceEdgeId,
         edge.sourceNodeId,
+        edge.sourcePort,
         edge.targetNodeId,
+        edge.targetPort,
+        edge.order,
         edge.enabled
       });
     }

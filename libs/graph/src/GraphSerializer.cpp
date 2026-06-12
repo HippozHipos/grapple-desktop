@@ -140,7 +140,12 @@ std::string serializeCanonicalGraph(const GraphDocument& graph) {
     stream << ',';
     foundation::writeJsonStringProperty(stream, "sourceNodeId", edge.sourceNodeId.value());
     stream << ',';
+    foundation::writeJsonStringProperty(stream, "sourcePort", edge.sourcePort.value);
+    stream << ',';
     foundation::writeJsonStringProperty(stream, "targetNodeId", edge.targetNodeId.value());
+    stream << ',';
+    foundation::writeJsonStringProperty(stream, "targetPort", edge.targetPort.value);
+    stream << ",\"order\":" << edge.order;
     stream << ",\"enabled\":" << (edge.enabled ? "true" : "false");
     stream << '}';
   }

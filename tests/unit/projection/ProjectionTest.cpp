@@ -117,7 +117,10 @@ int main() {
       foundation::NodeId{"node_effect"},
       foundation::NodeId{"node_camera"},
       foundation::EdgeId{"edge_effect_targets_camera"},
-      effectPayload
+      effectPayload,
+      graph::PortName{"camera_transform"},
+      graph::PortName{"input"},
+      7
     }
   });
   GRAPPLE_REQUIRE(createEffect);
@@ -171,7 +174,10 @@ int main() {
   GRAPPLE_REQUIRE(planResult.value().plan.effectGraphs[0].nodes[0].payload.activeRange.end == foundation::TimeSeconds{10.0});
   GRAPPLE_REQUIRE(planResult.value().plan.effectGraphs[0].edges.size() == 1);
   GRAPPLE_REQUIRE(planResult.value().plan.effectGraphs[0].edges[0].sourceNodeId == foundation::NodeId{"node_effect"});
+  GRAPPLE_REQUIRE(planResult.value().plan.effectGraphs[0].edges[0].sourcePort == graph::PortName{"camera_transform"});
   GRAPPLE_REQUIRE(planResult.value().plan.effectGraphs[0].edges[0].targetNodeId == foundation::NodeId{"node_camera"});
+  GRAPPLE_REQUIRE(planResult.value().plan.effectGraphs[0].edges[0].targetPort == graph::PortName{"input"});
+  GRAPPLE_REQUIRE(planResult.value().plan.effectGraphs[0].edges[0].order == 7);
   GRAPPLE_REQUIRE(planResult.value().diagnostics.empty());
 
   const std::string serializedPlan = projection::serializeCanonicalRenderPlan(planResult.value().plan);
@@ -179,6 +185,8 @@ int main() {
   GRAPPLE_REQUIRE(serializedPlan.find("\"inlineSource\":\"def prepare(ctx):\\n  return {'x': 1}\\n\"") != std::string::npos);
   GRAPPLE_REQUIRE(serializedPlan.find("\"name\":\"target_x\",\"value\":0.77000000000000002") != std::string::npos);
   GRAPPLE_REQUIRE(serializedPlan.find("\"sourceEdgeId\":\"edge_effect_targets_camera\"") != std::string::npos);
+  GRAPPLE_REQUIRE(serializedPlan.find("\"sourcePort\":\"camera_transform\"") != std::string::npos);
+  GRAPPLE_REQUIRE(serializedPlan.find("\"targetPort\":\"input\"") != std::string::npos);
   GRAPPLE_REQUIRE(serializedPlan.find("\"inputs\":[{\"name\":\"input_frame\"}]") != std::string::npos);
 
   projection::RenderPlan orderedPlan = planResult.value().plan;
@@ -214,7 +222,10 @@ int main() {
       projection::RenderEffectEdge{
         foundation::EdgeId{"edge_alpha_effect_targets_camera"},
         foundation::NodeId{"node_alpha_effect"},
+        graph::PortName{"camera_transform"},
         foundation::NodeId{"node_alpha_camera"},
+        graph::PortName{"input"},
+        0,
         true
       }
     }

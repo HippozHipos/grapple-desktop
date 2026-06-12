@@ -27,7 +27,10 @@ bool nodeRecordChanged(const GraphNode& before, const GraphNode& after) {
 bool edgeRecordChanged(const GraphEdge& before, const GraphEdge& after) {
   return before.kind != after.kind ||
          before.sourceNodeId != after.sourceNodeId ||
+         before.sourcePort != after.sourcePort ||
          before.targetNodeId != after.targetNodeId ||
+         before.targetPort != after.targetPort ||
+         before.order != after.order ||
          before.enabled != after.enabled;
 }
 

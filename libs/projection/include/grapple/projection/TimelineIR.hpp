@@ -2,6 +2,7 @@
 
 #include <grapple/foundation/StrongId.hpp>
 #include <grapple/foundation/Time.hpp>
+#include <grapple/graph/GraphEdge.hpp>
 #include <grapple/projection/Diagnostics.hpp>
 #include <grapple/timeline/EffectPayload.hpp>
 #include <grapple/timeline/Payloads.hpp>
@@ -45,7 +46,10 @@ struct TimelineEffectNode {
 struct TimelineEffectEdge {
   foundation::EdgeId sourceEdgeId;
   foundation::NodeId sourceNodeId;
+  graph::PortName sourcePort;
   foundation::NodeId targetNodeId;
+  graph::PortName targetPort;
+  std::int64_t order = 0;
   bool enabled = true;
 };
 

@@ -128,7 +128,15 @@ foundation::Result<BuildTimelineIRResult> TimelineProjector::buildTimelineIR(
 
     TimelineEffectGraph& effectGraph = getOrCreateEffectGraph(timeline.effectGraphs, edge.targetNodeId);
     effectGraph.nodes.push_back(TimelineEffectNode{effect->id, *payload, effect->enabled});
-    effectGraph.edges.push_back(TimelineEffectEdge{edge.id, edge.sourceNodeId, edge.targetNodeId, edge.enabled});
+    effectGraph.edges.push_back(TimelineEffectEdge{
+      edge.id,
+      edge.sourceNodeId,
+      edge.sourcePort,
+      edge.targetNodeId,
+      edge.targetPort,
+      edge.order,
+      edge.enabled
+    });
     targetedEffectNodeIds.push_back(edge.sourceNodeId);
   }
 

@@ -54,6 +54,7 @@ std::string serializeCanonicalCommandPayload(const ProjectCommand& command) {
         writeIdProperty(stream, "containmentEdgeId", typedCommand.containmentEdgeId.value());
         stream << ',';
         foundation::writeJsonStringProperty(stream, "name", typedCommand.name);
+        stream << ",\"order\":" << typedCommand.order;
       } else if constexpr (std::is_same_v<Command, CreateClipCommand>) {
         writeIdProperty(stream, "nodeId", typedCommand.nodeId.value());
         stream << ',';
@@ -61,6 +62,7 @@ std::string serializeCanonicalCommandPayload(const ProjectCommand& command) {
         stream << ',';
         writeIdProperty(stream, "containmentEdgeId", typedCommand.containmentEdgeId.value());
         stream << ",\"payload\":" << timeline::serializeCanonicalClipPayload(typedCommand.payload);
+        stream << ",\"order\":" << typedCommand.order;
       } else if constexpr (std::is_same_v<Command, CreateCameraCommand>) {
         writeIdProperty(stream, "nodeId", typedCommand.nodeId.value());
         stream << ',';
@@ -68,6 +70,7 @@ std::string serializeCanonicalCommandPayload(const ProjectCommand& command) {
         stream << ',';
         writeIdProperty(stream, "containmentEdgeId", typedCommand.containmentEdgeId.value());
         stream << ",\"payload\":" << timeline::serializeCanonicalCameraPayload(typedCommand.payload);
+        stream << ",\"order\":" << typedCommand.order;
       } else if constexpr (std::is_same_v<Command, CreateEffectCommand>) {
         writeIdProperty(stream, "nodeId", typedCommand.nodeId.value());
         stream << ',';
@@ -75,6 +78,11 @@ std::string serializeCanonicalCommandPayload(const ProjectCommand& command) {
         stream << ',';
         writeIdProperty(stream, "targetEdgeId", typedCommand.targetEdgeId.value());
         stream << ",\"payload\":" << timeline::serializeCanonicalEffectPayload(typedCommand.payload);
+        stream << ',';
+        foundation::writeJsonStringProperty(stream, "sourcePort", typedCommand.sourcePort.value);
+        stream << ',';
+        foundation::writeJsonStringProperty(stream, "targetPort", typedCommand.targetPort.value);
+        stream << ",\"order\":" << typedCommand.order;
       } else if constexpr (std::is_same_v<Command, SetEffectParamsCommand>) {
         writeIdProperty(stream, "effectNodeId", typedCommand.effectNodeId.value());
         stream << ",\"params\":" << timeline::serializeCanonicalParamSet(typedCommand.params);

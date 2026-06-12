@@ -2,9 +2,11 @@
 
 #include <grapple/asset/Asset.hpp>
 #include <grapple/foundation/StrongId.hpp>
+#include <grapple/graph/GraphEdge.hpp>
 #include <grapple/project/ProjectDocument.hpp>
 #include <grapple/timeline/Payloads.hpp>
 
+#include <cstdint>
 #include <optional>
 #include <string>
 #include <variant>
@@ -49,6 +51,7 @@ struct CreateTrackCommand {
   foundation::NodeId compositionNodeId;
   foundation::EdgeId containmentEdgeId;
   std::string name;
+  std::int64_t order = 0;
 };
 
 struct CreateClipCommand {
@@ -56,6 +59,7 @@ struct CreateClipCommand {
   foundation::NodeId trackNodeId;
   foundation::EdgeId containmentEdgeId;
   timeline::ClipPayload payload;
+  std::int64_t order = 0;
 };
 
 struct CreateCameraCommand {
@@ -63,6 +67,7 @@ struct CreateCameraCommand {
   foundation::NodeId compositionNodeId;
   foundation::EdgeId containmentEdgeId;
   timeline::CameraPayload payload;
+  std::int64_t order = 0;
 };
 
 struct CreateEffectCommand {
@@ -70,6 +75,9 @@ struct CreateEffectCommand {
   foundation::NodeId targetNodeId;
   foundation::EdgeId targetEdgeId;
   timeline::EffectPayload payload;
+  graph::PortName sourcePort;
+  graph::PortName targetPort;
+  std::int64_t order = 0;
 };
 
 struct SetEffectParamsCommand {

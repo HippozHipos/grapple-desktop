@@ -1,4 +1,5 @@
 #include <grapple/foundation/Hash.hpp>
+#include <grapple/graph/GraphEdge.hpp>
 #include <grapple/project/ProjectController.hpp>
 #include <grapple/projection/RenderPlanBuilder.hpp>
 #include <grapple/projection/RenderPlanSerializer.hpp>
@@ -149,7 +150,10 @@ int main(int argc, char* argv[]) {
           {timeline::Param{"target_x", 0.5}}
         },
         foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{10.0}}
-      }
+      },
+      graph::PortName{"camera"},
+      graph::PortName{"input"},
+      0
     }
   });
   if (!effect) {
