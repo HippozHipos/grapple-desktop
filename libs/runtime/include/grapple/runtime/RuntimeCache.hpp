@@ -8,6 +8,7 @@
 #include <grapple/runtime/RuntimeValue.hpp>
 
 #include <optional>
+#include <vector>
 
 namespace grapple::runtime {
 
@@ -31,7 +32,7 @@ public:
 
   virtual std::optional<RuntimeValue> get(const RuntimeCacheKey& key) = 0;
   virtual foundation::Result<void> put(const RuntimeCacheKey& key, RuntimeValue value) = 0;
+  virtual foundation::Result<void> invalidate(const std::vector<RuntimeCacheKey>& keys) = 0;
 };
 
 } // namespace grapple::runtime
-

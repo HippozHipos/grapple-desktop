@@ -366,14 +366,36 @@ int main() {
     foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}},
     "runtime_v1"
   };
+  const runtime::RuntimeCacheKey unrelatedKey{
+    first.planHash,
+    foundation::NodeId{"node_unrelated"},
+    foundation::stableHash("implementation"),
+    foundation::stableHash("params"),
+    foundation::stableHash("inputs"),
+    std::nullopt,
+    foundation::Hash256{},
+    std::nullopt,
+    "",
+    foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}},
+    "runtime_v1"
+  };
 
   const auto put = cache.put(key, runtime::RuntimeValue{42.0});
   GRAPPLE_REQUIRE(put);
-  GRAPPLE_REQUIRE(cache.size() == 1);
+  const auto putUnrelated = cache.put(unrelatedKey, runtime::RuntimeValue{7.0});
+  GRAPPLE_REQUIRE(putUnrelated);
+  GRAPPLE_REQUIRE(cache.size() == 2);
 
   const auto cached = cache.get(key);
   GRAPPLE_REQUIRE(cached.has_value());
   GRAPPLE_REQUIRE(std::get<double>(*cached) == 42.0);
+  const auto invalidate = cache.invalidate({key});
+  GRAPPLE_REQUIRE(invalidate);
+  GRAPPLE_REQUIRE(cache.size() == 1);
+  GRAPPLE_REQUIRE(!cache.get(key).has_value());
+  const auto cachedUnrelated = cache.get(unrelatedKey);
+  GRAPPLE_REQUIRE(cachedUnrelated.has_value());
+  GRAPPLE_REQUIRE(std::get<double>(*cachedUnrelated) == 7.0);
 
   return 0;
 }

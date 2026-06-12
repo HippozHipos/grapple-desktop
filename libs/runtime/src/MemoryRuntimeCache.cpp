@@ -44,9 +44,20 @@ foundation::Result<void> MemoryRuntimeCache::put(const RuntimeCacheKey& key, Run
   return {};
 }
 
+foundation::Result<void> MemoryRuntimeCache::invalidate(const std::vector<RuntimeCacheKey>& keys) {
+  for (const RuntimeCacheKey& key : keys) {
+    entries_.erase(
+      std::remove_if(entries_.begin(), entries_.end(), [&](const auto& existing) {
+        return existing.first == key;
+      }),
+      entries_.end()
+    );
+  }
+  return {};
+}
+
 std::size_t MemoryRuntimeCache::size() const noexcept {
   return entries_.size();
 }
 
 } // namespace grapple::runtime
-
