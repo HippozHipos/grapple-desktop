@@ -373,7 +373,8 @@ int main() {
   GRAPPLE_REQUIRE(!(firstEffect.nodes[1].implementationHash == changedEffect.nodes[1].implementationHash));
   const runtime::RuntimeInvalidationResult cameraParamInvalidation = planner.diff(runtime::RuntimeInvalidationRequest{
     cameraEffect,
-    makeEffectPlanWithCameraX(24.0)
+    makeEffectPlanWithCameraX(24.0),
+    "runtime_v1"
   });
   GRAPPLE_REQUIRE(cameraParamInvalidation.invalidatedDependencies.size() == 2);
   GRAPPLE_REQUIRE(cameraParamInvalidation.invalidatedDependencies[0] == runtime::RuntimeDependencyId{"dep_node_camera"});
@@ -418,28 +419,37 @@ int main() {
   GRAPPLE_REQUIRE(disabledLinkEffectChain.nodes[2].inputDependencies[0] == runtime::RuntimeDependencyId{"dep_node_clip"});
   const runtime::RuntimeInvalidationResult effectAParamInvalidation = planner.diff(runtime::RuntimeInvalidationRequest{
     effectChain,
-    makeEffectChainPlan(0.9)
+    makeEffectChainPlan(0.9),
+    "runtime_v1"
   });
   GRAPPLE_REQUIRE(effectAParamInvalidation.invalidatedDependencies.size() == 2);
   GRAPPLE_REQUIRE(effectAParamInvalidation.invalidatedDependencies[0] == runtime::RuntimeDependencyId{"dep_node_effect_a"});
   GRAPPLE_REQUIRE(effectAParamInvalidation.invalidatedDependencies[1] == runtime::RuntimeDependencyId{"dep_node_effect_b"});
+  GRAPPLE_REQUIRE(effectAParamInvalidation.invalidatedCacheKeys.size() == 2);
+  GRAPPLE_REQUIRE(effectAParamInvalidation.invalidatedCacheKeys[0] ==
+                  runtime::runtimeCacheKeyForDependency(effectChain, effectChain.nodes[1], "runtime_v1"));
+  GRAPPLE_REQUIRE(effectAParamInvalidation.invalidatedCacheKeys[1] ==
+                  runtime::runtimeCacheKeyForDependency(effectChain, effectChain.nodes[2], "runtime_v1"));
   const runtime::RuntimeDependencyGraph outOfOrderEffectChain = planner.build(makeOutOfOrderEffectChainPlan(0.1));
   const runtime::RuntimeInvalidationResult outOfOrderEffectInvalidation = planner.diff(runtime::RuntimeInvalidationRequest{
     outOfOrderEffectChain,
-    makeOutOfOrderEffectChainPlan(0.9)
+    makeOutOfOrderEffectChainPlan(0.9),
+    "runtime_v1"
   });
   GRAPPLE_REQUIRE(outOfOrderEffectInvalidation.invalidatedDependencies.size() == 2);
   GRAPPLE_REQUIRE(outOfOrderEffectInvalidation.invalidatedDependencies[0] == runtime::RuntimeDependencyId{"dep_node_effect_a"});
   GRAPPLE_REQUIRE(outOfOrderEffectInvalidation.invalidatedDependencies[1] == runtime::RuntimeDependencyId{"dep_node_effect_b"});
   const runtime::RuntimeInvalidationResult disabledLinkEffectInvalidation = planner.diff(runtime::RuntimeInvalidationRequest{
     disabledLinkEffectChain,
-    makeEffectChainPlanWithDisabledLink(0.9)
+    makeEffectChainPlanWithDisabledLink(0.9),
+    "runtime_v1"
   });
   GRAPPLE_REQUIRE(disabledLinkEffectInvalidation.invalidatedDependencies.size() == 1);
   GRAPPLE_REQUIRE(disabledLinkEffectInvalidation.invalidatedDependencies[0] == runtime::RuntimeDependencyId{"dep_node_effect_a"});
   const runtime::RuntimeInvalidationResult clipParamInvalidation = planner.diff(runtime::RuntimeInvalidationRequest{
     effectChain,
-    makeEffectChainPlan(0.1, 2.0)
+    makeEffectChainPlan(0.1, 2.0),
+    "runtime_v1"
   });
   GRAPPLE_REQUIRE(clipParamInvalidation.invalidatedDependencies.size() == 4);
   GRAPPLE_REQUIRE(clipParamInvalidation.invalidatedDependencies[0] == runtime::RuntimeDependencyId{"dep_node_clip"});
@@ -448,19 +458,34 @@ int main() {
   GRAPPLE_REQUIRE(clipParamInvalidation.invalidatedDependencies[3] == runtime::RuntimeDependencyId{"dep_node_effect_c"});
   const runtime::RuntimeInvalidationResult assetVersionInvalidation = planner.diff(runtime::RuntimeInvalidationRequest{
     firstClip,
-    makeClipPlanWithAssetVersion("asset_video_v2")
+    makeClipPlanWithAssetVersion("asset_video_v2"),
+    "runtime_v1"
   });
   GRAPPLE_REQUIRE(assetVersionInvalidation.invalidatedDependencies.size() == 1);
   GRAPPLE_REQUIRE(assetVersionInvalidation.invalidatedDependencies[0] == runtime::RuntimeDependencyId{"dep_node_clip"});
+  GRAPPLE_REQUIRE(assetVersionInvalidation.invalidatedCacheKeys.size() == 1);
+  GRAPPLE_REQUIRE(assetVersionInvalidation.invalidatedCacheKeys[0].assetDependencies[0].versionHash ==
+                  foundation::stableHash("asset_video_v1"));
   const runtime::RuntimeInvalidationResult downstreamAssetVersionInvalidation = planner.diff(runtime::RuntimeInvalidationRequest{
     effectChain,
-    makeEffectChainPlanWithAssetVersion("asset_video_v2")
+    makeEffectChainPlanWithAssetVersion("asset_video_v2"),
+    "runtime_v1"
   });
   GRAPPLE_REQUIRE(downstreamAssetVersionInvalidation.invalidatedDependencies.size() == 4);
   GRAPPLE_REQUIRE(downstreamAssetVersionInvalidation.invalidatedDependencies[0] == runtime::RuntimeDependencyId{"dep_node_clip"});
   GRAPPLE_REQUIRE(downstreamAssetVersionInvalidation.invalidatedDependencies[1] == runtime::RuntimeDependencyId{"dep_node_effect_a"});
   GRAPPLE_REQUIRE(downstreamAssetVersionInvalidation.invalidatedDependencies[2] == runtime::RuntimeDependencyId{"dep_node_effect_b"});
   GRAPPLE_REQUIRE(downstreamAssetVersionInvalidation.invalidatedDependencies[3] == runtime::RuntimeDependencyId{"dep_node_effect_c"});
+  const runtime::RuntimeInvalidationResult removedDependencyInvalidation = planner.diff(runtime::RuntimeInvalidationRequest{
+    firstClip,
+    makePlan("Video"),
+    "runtime_v1"
+  });
+  GRAPPLE_REQUIRE(removedDependencyInvalidation.invalidatedDependencies.size() == 1);
+  GRAPPLE_REQUIRE(removedDependencyInvalidation.invalidatedDependencies[0] == runtime::RuntimeDependencyId{"dep_node_clip"});
+  GRAPPLE_REQUIRE(removedDependencyInvalidation.invalidatedCacheKeys.size() == 1);
+  GRAPPLE_REQUIRE(removedDependencyInvalidation.invalidatedCacheKeys[0] ==
+                  runtime::runtimeCacheKeyForDependency(firstClip, firstClip.nodes[0], "runtime_v1"));
   GRAPPLE_REQUIRE(first.nodes.empty());
 
   const runtime::RuntimeEvaluator evaluator;

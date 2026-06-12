@@ -2,6 +2,7 @@
 
 #include <grapple/projection/RenderPlanHashes.hpp>
 #include <grapple/projection/RenderPlanSerializer.hpp>
+#include <grapple/runtime/RuntimeCache.hpp>
 
 #include <optional>
 #include <utility>
@@ -231,6 +232,7 @@ RuntimeDependencyGraph RuntimeDependencyPlanner::build(const projection::RenderP
 RuntimeInvalidationResult RuntimeDependencyPlanner::diff(const RuntimeInvalidationRequest& request) const {
   RuntimeDependencyGraph nextGraph = build(request.nextPlan);
   std::vector<RuntimeDependencyId> invalidatedDependencies;
+  std::vector<RuntimeCacheKey> invalidatedCacheKeys;
 
   for (const RuntimeDependencyNode& nextNode : nextGraph.nodes) {
     const RuntimeDependencyNode* previousNode = findDependencyNode(
@@ -240,6 +242,13 @@ RuntimeInvalidationResult RuntimeDependencyPlanner::diff(const RuntimeInvalidati
 
     if (previousNode == nullptr || dependencyNodeChanged(*previousNode, nextNode)) {
       invalidatedDependencies.push_back(nextNode.id);
+    }
+  }
+
+  for (const RuntimeDependencyNode& previousNode : request.previousGraph.nodes) {
+    if (findDependencyNode(nextGraph.nodes, previousNode.id) == nullptr &&
+        !containsDependency(invalidatedDependencies, previousNode.id)) {
+      invalidatedDependencies.push_back(previousNode.id);
     }
   }
 
@@ -261,7 +270,25 @@ RuntimeInvalidationResult RuntimeDependencyPlanner::diff(const RuntimeInvalidati
     }
   }
 
-  return RuntimeInvalidationResult{std::move(nextGraph), std::move(invalidatedDependencies)};
+  for (RuntimeDependencyId dependencyId : invalidatedDependencies) {
+    const RuntimeDependencyNode* previousNode = findDependencyNode(
+      request.previousGraph.nodes,
+      dependencyId
+    );
+    if (previousNode != nullptr) {
+      invalidatedCacheKeys.push_back(runtimeCacheKeyForDependency(
+        request.previousGraph,
+        *previousNode,
+        request.runtimeVersion
+      ));
+    }
+  }
+
+  return RuntimeInvalidationResult{
+    std::move(nextGraph),
+    std::move(invalidatedDependencies),
+    std::move(invalidatedCacheKeys)
+  };
 }
 
 } // namespace grapple::runtime
