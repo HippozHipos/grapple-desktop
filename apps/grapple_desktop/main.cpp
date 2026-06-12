@@ -831,7 +831,6 @@ public:
     auto* openPackageButton = new QPushButton{"Open Package"};
     auto* addTrackButton = new QPushButton{"Add Track"};
     auto* moveClipButton = new QPushButton{"Move Clip +1s"};
-    auto* addEffectButton = new QPushButton{"Add Camera Effect"};
     auto* deleteClipButton = new QPushButton{"Delete Clip"};
     auto* exportButton = new QPushButton{"Export Smoke"};
     auto* saveButton = new QPushButton{"Save Package"};
@@ -848,7 +847,6 @@ public:
     actionColumn->addWidget(openPackageButton);
     actionColumn->addWidget(addTrackButton);
     actionColumn->addWidget(moveClipButton);
-    actionColumn->addWidget(addEffectButton);
     actionColumn->addWidget(deleteClipButton);
     actionColumn->addWidget(exportButton);
     actionColumn->addWidget(saveButton);
@@ -904,10 +902,10 @@ public:
     connect(openPackageButton, &QPushButton::clicked, this, [this] { chooseAndOpenPackage(); });
     connect(addTrackButton, &QPushButton::clicked, this, [this] { addTrack(); });
     connect(moveClipButton, &QPushButton::clicked, this, [this] { moveSelectedClip(grapple::foundation::TimeSeconds{1.0}); });
-    connect(addEffectButton, &QPushButton::clicked, this, [this] { addEffectToSelectedTarget(); });
     connect(deleteClipButton, &QPushButton::clicked, this, [this] { deleteSelectedClip(); });
     connect(exportButton, &QPushButton::clicked, this, [this] { runExport(); });
     connect(saveButton, &QPushButton::clicked, this, [this] { savePackage(); });
+    steward_->setCreateCameraEffectHandler([this] { addEffectToSelectedTarget(); });
     connect(mediaBin_, &QListWidget::currentRowChanged, this, [this](int row) { selectMediaAssetAtRow(row); });
     timeline_->setSeekHandler([this](grapple::foundation::TimeSeconds time) { seekTo(time); });
     timeline_->setSelectionHandler([this](grapple::foundation::NodeId nodeId) { selectNode(std::move(nodeId)); });
@@ -1065,6 +1063,10 @@ public:
 
   std::string stewardContents() const {
     return steward_->contents();
+  }
+
+  void clickStewardCreateCameraEffect() {
+    steward_->triggerCreateCameraEffect();
   }
 
   void startPlayback() {
@@ -1345,7 +1347,7 @@ public:
 
     refreshViewModel();
     refreshPreview();
-    log_->append(QString{"Added effect at %1"}.arg(qString(created.value().snapshot.revision.value())));
+    log_->append(QString{"Steward added effect at %1"}.arg(qString(created.value().snapshot.revision.value())));
   }
 
   void setSelectedTargetNumericEffectParam(const std::string& paramName, const std::string& rawValue) {
@@ -1787,6 +1789,7 @@ int main(int argc, char* argv[]) {
     const std::string steward = window.stewardContents();
     std::cout << "steward=" << steward << '\n';
     return steward.find("Bet: prompt -> editable graph") != std::string::npos &&
+           steward.find("Action: selected camera -> editable Camera Transform") != std::string::npos &&
            steward.find("- none yet") != std::string::npos
       ? 0
       : 1;
@@ -1860,7 +1863,7 @@ int main(int argc, char* argv[]) {
     window.show();
     app.processEvents();
     window.clickFirstTimelineCamera();
-    window.addEffectToSelectedTarget();
+    window.clickStewardCreateCameraEffect();
     window.setSelectedTargetNumericEffectParam("position_x", "0.25");
     const std::string inspector = window.inspectorContents();
     const auto viewModel = workspace.value().project().buildViewModel();
@@ -1880,8 +1883,8 @@ int main(int argc, char* argv[]) {
     window.show();
     app.processEvents();
     window.clickFirstTimelineCamera();
-    window.addEffectToSelectedTarget();
-    window.addEffectToSelectedTarget();
+    window.clickStewardCreateCameraEffect();
+    window.clickStewardCreateCameraEffect();
     const std::string inspector = window.inspectorContents();
     const std::string logText = window.logContents();
     const auto viewModel = workspace.value().project().buildViewModel();

@@ -1,7 +1,10 @@
 #include "StewardPanel.hpp"
 
+#include <QPushButton>
 #include <QTextEdit>
 #include <QVBoxLayout>
+
+#include <utility>
 
 namespace grapple::desktop {
 
@@ -47,6 +50,15 @@ StewardPanel::StewardPanel(QWidget* parent)
   auto* layout = new QVBoxLayout{this};
   layout->setContentsMargins(0, 0, 0, 0);
 
+  createCameraEffectButton_ = new QPushButton{"Steward: Create Camera Transform"};
+  createCameraEffectButton_->setObjectName("stewardCreateCameraEffect");
+  layout->addWidget(createCameraEffectButton_);
+  connect(createCameraEffectButton_, &QPushButton::clicked, this, [this] {
+    if (createCameraEffectHandler_) {
+      createCameraEffectHandler_();
+    }
+  });
+
   text_ = new QTextEdit;
   text_->setObjectName("stewardText");
   text_->setReadOnly(true);
@@ -55,10 +67,15 @@ StewardPanel::StewardPanel(QWidget* parent)
   layout->addWidget(text_);
 }
 
+void StewardPanel::setCreateCameraEffectHandler(CreateCameraEffectHandler handler) {
+  createCameraEffectHandler_ = std::move(handler);
+}
+
 void StewardPanel::setViewModel(const app::AppViewModel& viewModel) {
   QStringList lines{
     "Steward",
     "Bet: prompt -> editable graph",
+    "Action: selected camera -> editable Camera Transform",
     QString{"%1 | %2 clips | %3 cameras | %4 effects"}
       .arg(qString(viewModel.project.revision.value()))
       .arg(viewModel.timeline.clips.size())
@@ -89,6 +106,10 @@ void StewardPanel::setViewModel(const app::AppViewModel& viewModel) {
   }
 
   text_->setPlainText(lines.join('\n'));
+}
+
+void StewardPanel::triggerCreateCameraEffect() {
+  createCameraEffectButton_->click();
 }
 
 std::string StewardPanel::contents() const {
