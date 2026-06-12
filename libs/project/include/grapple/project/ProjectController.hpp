@@ -6,6 +6,7 @@
 #include <grapple/project/ProjectCommandService.hpp>
 #include <grapple/project/ProjectDocument.hpp>
 #include <grapple/project/ProjectQuery.hpp>
+#include <grapple/project/ProjectSnapshot.hpp>
 
 namespace grapple::project {
 

@@ -1,6 +1,5 @@
 #include <grapple/agent/ProjectTools.hpp>
 
-#include <grapple/project/ProjectDocument.hpp>
 #include <grapple/project/ProjectQuery.hpp>
 
 #include <sstream>
@@ -25,17 +24,17 @@ AgentTool makeProjectInspectTool() {
         return foundation::Error{"agent.project_snapshot_result_missing", "Project inspect query returned the wrong result type."};
       }
 
-      const project::ProjectDocument& document = snapshotResult->snapshot.document;
+      const project::ProjectSnapshot& snapshot = snapshotResult->snapshot;
       std::ostringstream payload;
-      payload << "project=" << document.info.id.value()
-              << "\nrevision=" << document.revision.value()
-              << "\nnodes=" << document.graph.nodes().size()
-              << "\nedges=" << document.graph.edges().size();
+      payload << "project=" << snapshot.info.id.value()
+              << "\nrevision=" << snapshot.revision.value()
+              << "\nnodes=" << snapshot.graph.nodes().size()
+              << "\nedges=" << snapshot.graph.edges().size();
 
       return ToolResult{
         call.toolId,
         ToolResultStatus::Succeeded,
-        document.revision,
+        snapshot.revision,
         payload.str(),
         {}
       };
@@ -44,4 +43,3 @@ AgentTool makeProjectInspectTool() {
 }
 
 } // namespace grapple::agent
-

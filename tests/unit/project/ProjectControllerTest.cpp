@@ -34,14 +34,15 @@ int main() {
 
   const auto initialSnapshot = controller.snapshot();
   GRAPPLE_REQUIRE(initialSnapshot);
-  GRAPPLE_REQUIRE(initialSnapshot.value().document.revision == foundation::RevisionId{"rev_0"});
-  GRAPPLE_REQUIRE(initialSnapshot.value().document.graph.nodes().empty());
+  GRAPPLE_REQUIRE(initialSnapshot.value().revision == foundation::RevisionId{"rev_0"});
+  GRAPPLE_REQUIRE(initialSnapshot.value().canonicalHash == project::hashProjectSnapshot(initialSnapshot.value()));
+  GRAPPLE_REQUIRE(initialSnapshot.value().graph.nodes().empty());
 
   const auto createComposition = controller.apply(
-    makeCreateComposition(initialSnapshot.value().document.revision)
+    makeCreateComposition(initialSnapshot.value().revision)
   );
   GRAPPLE_REQUIRE(createComposition);
-  GRAPPLE_REQUIRE(project::serializeCanonicalCommandPayload(makeCreateComposition(initialSnapshot.value().document.revision).payload) == "{\"nodeId\":\"node_composition\",\"name\":\"Main\"}");
+  GRAPPLE_REQUIRE(project::serializeCanonicalCommandPayload(makeCreateComposition(initialSnapshot.value().revision).payload) == "{\"nodeId\":\"node_composition\",\"name\":\"Main\"}");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::RegisterAsset) == "project.register_asset");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::CreateComposition) == "project.create_composition");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::CreateTrack) == "project.create_track");
@@ -62,8 +63,8 @@ int main() {
 
   const auto afterComposition = controller.snapshot();
   GRAPPLE_REQUIRE(afterComposition);
-  GRAPPLE_REQUIRE(afterComposition.value().document.revision == foundation::RevisionId{"rev_1"});
-  GRAPPLE_REQUIRE(afterComposition.value().document.graph.nodes().size() == 1);
+  GRAPPLE_REQUIRE(afterComposition.value().revision == foundation::RevisionId{"rev_1"});
+  GRAPPLE_REQUIRE(afterComposition.value().graph.nodes().size() == 1);
 
   const auto staleCommand = controller.apply(
     makeCreateComposition(foundation::RevisionId{"rev_0"})
@@ -73,13 +74,13 @@ int main() {
 
   const auto afterStale = controller.snapshot();
   GRAPPLE_REQUIRE(afterStale);
-  GRAPPLE_REQUIRE(afterStale.value().document.revision == foundation::RevisionId{"rev_1"});
-  GRAPPLE_REQUIRE(afterStale.value().document.graph.nodes().size() == 1);
+  GRAPPLE_REQUIRE(afterStale.value().revision == foundation::RevisionId{"rev_1"});
+  GRAPPLE_REQUIRE(afterStale.value().graph.nodes().size() == 1);
 
   const project::ProjectCommandEnvelope createTrack{
     foundation::CommandId{"cmd_create_track"},
     foundation::ProjectId{"proj_test"},
-    afterStale.value().document.revision,
+    afterStale.value().revision,
     project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
     project::CreateTrackCommand{
       foundation::NodeId{"node_track"},
@@ -97,17 +98,17 @@ int main() {
 
   const auto finalSnapshot = controller.snapshot();
   GRAPPLE_REQUIRE(finalSnapshot);
-  GRAPPLE_REQUIRE(finalSnapshot.value().document.graph.nodes().size() == 2);
-  GRAPPLE_REQUIRE(finalSnapshot.value().document.graph.edges().size() == 1);
+  GRAPPLE_REQUIRE(finalSnapshot.value().graph.nodes().size() == 2);
+  GRAPPLE_REQUIRE(finalSnapshot.value().graph.edges().size() == 1);
 
   const project::ProjectCommandEnvelope restoreCompositionSnapshot{
     foundation::CommandId{"cmd_restore_snapshot"},
     foundation::ProjectId{"proj_test"},
-    finalSnapshot.value().document.revision,
+    finalSnapshot.value().revision,
     project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
     project::RestoreSnapshotCommand{
       foundation::SnapshotId{"snap_after_composition"},
-      afterComposition.value().document
+      afterComposition.value()
     }
   };
   GRAPPLE_REQUIRE(project::serializeCanonicalCommandPayload(restoreCompositionSnapshot.payload).find("\"snapshotId\":\"snap_after_composition\"") != std::string::npos);
@@ -119,12 +120,12 @@ int main() {
 
   const auto afterRestore = controller.snapshot();
   GRAPPLE_REQUIRE(afterRestore);
-  GRAPPLE_REQUIRE(afterRestore.value().document.revision == foundation::RevisionId{"rev_3"});
-  GRAPPLE_REQUIRE(afterRestore.value().document.revisionNumber == 3);
-  GRAPPLE_REQUIRE(afterRestore.value().document.graph.nodes().size() == 1);
-  GRAPPLE_REQUIRE(afterRestore.value().document.graph.edges().empty());
+  GRAPPLE_REQUIRE(afterRestore.value().revision == foundation::RevisionId{"rev_3"});
+  GRAPPLE_REQUIRE(afterRestore.value().revisionNumber == 3);
+  GRAPPLE_REQUIRE(afterRestore.value().graph.nodes().size() == 1);
+  GRAPPLE_REQUIRE(afterRestore.value().graph.edges().empty());
 
-  const std::string serialized = project::serializeCanonicalProjectDocument(afterRestore.value().document);
+  const std::string serialized = project::serializeCanonicalProjectSnapshot(afterRestore.value());
   GRAPPLE_REQUIRE(serialized.find("\"projectId\":\"proj_test\"") != std::string::npos);
   GRAPPLE_REQUIRE(serialized.find("\"revision\":\"rev_3\"") != std::string::npos);
   GRAPPLE_REQUIRE(serialized.find("\"nodes\"") != std::string::npos);
@@ -135,7 +136,7 @@ int main() {
   };
   const auto assetInitialSnapshot = assetProject.snapshot();
   GRAPPLE_REQUIRE(assetInitialSnapshot);
-  GRAPPLE_REQUIRE(assetInitialSnapshot.value().document.assets.assets().empty());
+  GRAPPLE_REQUIRE(assetInitialSnapshot.value().assets.assets().empty());
 
   const asset::Asset registeredAsset{
     foundation::AssetId{"asset_walking_woman"},
@@ -152,7 +153,7 @@ int main() {
   const project::ProjectCommandEnvelope registerAsset{
     foundation::CommandId{"cmd_register_asset"},
     foundation::ProjectId{"proj_assets"},
-    assetInitialSnapshot.value().document.revision,
+    assetInitialSnapshot.value().revision,
     project::CommandSource{project::CommandSourceKind::Importer, std::nullopt, "import"},
     project::RegisterAssetCommand{registeredAsset}
   };
@@ -165,15 +166,15 @@ int main() {
 
   const auto assetSnapshot = assetProject.snapshot();
   GRAPPLE_REQUIRE(assetSnapshot);
-  GRAPPLE_REQUIRE(assetSnapshot.value().document.assets.assets().size() == 1);
-  GRAPPLE_REQUIRE(assetSnapshot.value().document.assets.find(foundation::AssetId{"asset_walking_woman"}) != nullptr);
-  const std::string serializedAssetProject = project::serializeCanonicalProjectDocument(assetSnapshot.value().document);
+  GRAPPLE_REQUIRE(assetSnapshot.value().assets.assets().size() == 1);
+  GRAPPLE_REQUIRE(assetSnapshot.value().assets.find(foundation::AssetId{"asset_walking_woman"}) != nullptr);
+  const std::string serializedAssetProject = project::serializeCanonicalProjectSnapshot(assetSnapshot.value());
   GRAPPLE_REQUIRE(serializedAssetProject.find("\"assets\":[{\"id\":\"asset_walking_woman\"") != std::string::npos);
 
   const auto duplicateAsset = assetProject.apply(project::ProjectCommandEnvelope{
     foundation::CommandId{"cmd_register_asset_duplicate"},
     foundation::ProjectId{"proj_assets"},
-    assetSnapshot.value().document.revision,
+    assetSnapshot.value().revision,
     project::CommandSource{project::CommandSourceKind::Importer, std::nullopt, "import"},
     project::RegisterAssetCommand{registeredAsset}
   });
@@ -181,8 +182,8 @@ int main() {
   GRAPPLE_REQUIRE(duplicateAsset.error().code == "asset.id_duplicate");
   const auto afterDuplicateAsset = assetProject.snapshot();
   GRAPPLE_REQUIRE(afterDuplicateAsset);
-  GRAPPLE_REQUIRE(afterDuplicateAsset.value().document.revision == foundation::RevisionId{"rev_1"});
-  GRAPPLE_REQUIRE(afterDuplicateAsset.value().document.assets.assets().size() == 1);
+  GRAPPLE_REQUIRE(afterDuplicateAsset.value().revision == foundation::RevisionId{"rev_1"});
+  GRAPPLE_REQUIRE(afterDuplicateAsset.value().assets.assets().size() == 1);
 
   project::ProjectController connectionProject{
     project::createEmptyProject(foundation::ProjectId{"proj_connection"}, "Connection Project")
@@ -192,7 +193,7 @@ int main() {
   const auto connectionComposition = connectionProject.apply(project::ProjectCommandEnvelope{
     foundation::CommandId{"cmd_connection_composition"},
     foundation::ProjectId{"proj_connection"},
-    connectionInitialSnapshot.value().document.revision,
+    connectionInitialSnapshot.value().revision,
     project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
     project::CreateCompositionCommand{foundation::NodeId{"node_connection_composition"}, "Main"}
   });
@@ -235,7 +236,7 @@ int main() {
   GRAPPLE_REQUIRE(connectNodesResult.value().afterRevision == foundation::RevisionId{"rev_3"});
   const auto connectionSnapshot = connectionProject.snapshot();
   GRAPPLE_REQUIRE(connectionSnapshot);
-  GRAPPLE_REQUIRE(connectionSnapshot.value().document.graph.edges().size() == 2);
+  GRAPPLE_REQUIRE(connectionSnapshot.value().graph.edges().size() == 2);
 
   const auto graphQuery = controller.query(project::GetGraphQuery{});
   GRAPPLE_REQUIRE(graphQuery);
@@ -248,7 +249,7 @@ int main() {
   GRAPPLE_REQUIRE(snapshotQuery);
   const auto* snapshotResult = std::get_if<project::ProjectSnapshotResult>(&snapshotQuery.value());
   GRAPPLE_REQUIRE(snapshotResult != nullptr);
-  GRAPPLE_REQUIRE(snapshotResult->snapshot.document.revision == foundation::RevisionId{"rev_3"});
+  GRAPPLE_REQUIRE(snapshotResult->snapshot.revision == foundation::RevisionId{"rev_3"});
 
   return 0;
 }

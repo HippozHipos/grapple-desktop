@@ -5,7 +5,7 @@
 #include <grapple/history/EventLogStore.hpp>
 #include <grapple/history/HistoryHead.hpp>
 #include <grapple/history/SnapshotStore.hpp>
-#include <grapple/project/ProjectDocument.hpp>
+#include <grapple/project/ProjectSnapshot.hpp>
 #include <grapple/storage/ProjectPackage.hpp>
 
 #include <optional>
@@ -14,7 +14,7 @@
 namespace grapple::storage {
 
 struct AtomicProjectCommit {
-  project::ProjectDocument document;
+  project::ProjectSnapshot projectSnapshot;
   history::CommandRecord command;
   std::vector<history::EventRecord> events;
   std::optional<history::SnapshotRecord> snapshot;
@@ -22,7 +22,7 @@ struct AtomicProjectCommit {
 
 struct ProjectPackageState {
   ProjectPackage package;
-  std::optional<project::ProjectDocument> document;
+  std::optional<project::ProjectSnapshot> projectSnapshot;
   history::CommandLogStore commandLog;
   history::EventLogStore eventLog;
   history::SnapshotStore snapshots;
@@ -41,4 +41,3 @@ private:
 };
 
 } // namespace grapple::storage
-

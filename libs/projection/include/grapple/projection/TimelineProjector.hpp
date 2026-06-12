@@ -1,7 +1,7 @@
 #pragma once
 
 #include <grapple/foundation/Result.hpp>
-#include <grapple/project/ProjectDocument.hpp>
+#include <grapple/project/ProjectSnapshot.hpp>
 #include <grapple/projection/TimelineIR.hpp>
 
 namespace grapple::projection {
@@ -23,4 +23,3 @@ public:
 };
 
 } // namespace grapple::projection
-

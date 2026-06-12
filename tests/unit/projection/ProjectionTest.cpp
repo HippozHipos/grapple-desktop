@@ -25,7 +25,7 @@ int main() {
   const auto createComposition = controller.apply(project::ProjectCommandEnvelope{
     foundation::CommandId{"cmd_composition"},
     foundation::ProjectId{"proj_projection"},
-    initialSnapshot.value().document.revision,
+    initialSnapshot.value().revision,
     project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
     project::CreateCompositionCommand{foundation::NodeId{"node_composition"}, "Main"}
   });
@@ -336,7 +336,7 @@ int main() {
   }));
 
   const auto connectedTimeline = projector.buildTimelineIR(projection::BuildTimelineIRRequest{
-    project::ProjectSnapshot{connectedEffectsDocument}
+    project::makeProjectSnapshot(connectedEffectsDocument)
   });
   GRAPPLE_REQUIRE(connectedTimeline);
   const auto connectedPlan = builder.buildRenderPlan(projection::BuildRenderPlanRequest{
@@ -363,7 +363,7 @@ int main() {
   GRAPPLE_REQUIRE(malformedClip);
 
   const auto malformedTimeline = projector.buildTimelineIR(projection::BuildTimelineIRRequest{
-    project::ProjectSnapshot{malformedDocument}
+    project::makeProjectSnapshot(malformedDocument)
   });
   GRAPPLE_REQUIRE(!malformedTimeline);
   GRAPPLE_REQUIRE(malformedTimeline.error().code == "projection.clip_track_missing");
@@ -381,7 +381,7 @@ int main() {
   GRAPPLE_REQUIRE(untargetedEffect);
 
   const auto untargetedEffectTimeline = projector.buildTimelineIR(projection::BuildTimelineIRRequest{
-    project::ProjectSnapshot{untargetedEffectDocument}
+    project::makeProjectSnapshot(untargetedEffectDocument)
   });
   GRAPPLE_REQUIRE(!untargetedEffectTimeline);
   GRAPPLE_REQUIRE(untargetedEffectTimeline.error().code == "projection.effect_target_missing");

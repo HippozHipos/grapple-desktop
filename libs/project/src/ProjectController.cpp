@@ -57,7 +57,7 @@ foundation::Result<ProjectCommandResult> ProjectController::apply(const ProjectC
 }
 
 foundation::Result<ProjectSnapshot> ProjectController::snapshot() const {
-  return ProjectSnapshot{document_};
+  return makeProjectSnapshot(document_);
 }
 
 foundation::Result<ProjectQueryResult> ProjectController::query(const ProjectQuery& query) const {
@@ -101,7 +101,7 @@ foundation::Result<ProjectQueryResult> ProjectController::readQuery(const Projec
     [&](const auto& typedQuery) -> foundation::Result<ProjectQueryResult> {
       using Query = std::decay_t<decltype(typedQuery)>;
       if constexpr (std::is_same_v<Query, GetProjectSnapshotQuery>) {
-        return ProjectQueryResult{ProjectSnapshotResult{ProjectSnapshot{document_}}};
+        return ProjectQueryResult{ProjectSnapshotResult{makeProjectSnapshot(document_)}};
       } else if constexpr (std::is_same_v<Query, GetGraphQuery>) {
         return ProjectQueryResult{GraphResult{document_.graph}};
       }
@@ -270,11 +270,13 @@ foundation::Result<void> ProjectController::handleRestoreSnapshot(const RestoreS
     return foundation::Error{"project.snapshot_id_empty", "Restore snapshot id must not be empty."};
   }
 
-  if (command.document.info.id != document_.info.id) {
-    return foundation::Error{"project.restore_project_id_mismatch", "Restore snapshot document must match the open project."};
+  if (command.snapshot.info.id != document_.info.id) {
+    return foundation::Error{"project.restore_project_id_mismatch", "Restore snapshot must match the open project."};
   }
 
-  document_ = command.document;
+  document_.info = command.snapshot.info;
+  document_.assets = command.snapshot.assets;
+  document_.graph = command.snapshot.graph;
   return {};
 }
 

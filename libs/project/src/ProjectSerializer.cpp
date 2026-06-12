@@ -33,6 +33,21 @@ std::string serializeCanonicalProjectDocument(const ProjectDocument& document) {
   return stream.str();
 }
 
+std::string serializeCanonicalProjectSnapshot(const ProjectSnapshot& snapshot) {
+  std::ostringstream stream;
+  stream << '{';
+  foundation::writeJsonStringProperty(stream, "projectId", snapshot.info.id.value());
+  stream << ',';
+  foundation::writeJsonStringProperty(stream, "name", snapshot.info.name);
+  stream << ',';
+  foundation::writeJsonStringProperty(stream, "revision", snapshot.revision.value());
+  stream << ",\"revisionNumber\":" << snapshot.revisionNumber;
+  stream << ",\"assets\":" << asset::serializeCanonicalAssetCatalog(snapshot.assets);
+  stream << ",\"graph\":" << graph::serializeCanonicalGraph(snapshot.graph);
+  stream << '}';
+  return stream.str();
+}
+
 std::string serializeCanonicalCommandPayload(const ProjectCommand& command) {
   return std::visit(
     [](const auto& typedCommand) -> std::string {
@@ -99,7 +114,7 @@ std::string serializeCanonicalCommandPayload(const ProjectCommand& command) {
         stream << ",\"params\":" << timeline::serializeCanonicalParamSet(typedCommand.params);
       } else if constexpr (std::is_same_v<Command, RestoreSnapshotCommand>) {
         writeIdProperty(stream, "snapshotId", typedCommand.snapshotId.value());
-        stream << ",\"document\":" << serializeCanonicalProjectDocument(typedCommand.document);
+        stream << ",\"snapshot\":" << serializeCanonicalProjectSnapshot(typedCommand.snapshot);
       }
 
       stream << '}';
@@ -138,7 +153,7 @@ std::string serializeCanonicalEventPayload(const ProjectEvent& event) {
 }
 
 foundation::Hash256 hashProjectSnapshot(const ProjectSnapshot& snapshot) {
-  return foundation::stableHash(serializeCanonicalProjectDocument(snapshot.document));
+  return foundation::stableHash(serializeCanonicalProjectSnapshot(snapshot));
 }
 
 } // namespace grapple::project

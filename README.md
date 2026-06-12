@@ -10,6 +10,7 @@ Initial product flow:
 
 ```text
 project::ProjectDocument
+  -> project::ProjectSnapshot
   -> projection::TimelineIR
   -> projection::RenderPlan
   -> runtime::RuntimeEvaluator
@@ -23,4 +24,3 @@ cmake -S . -B build
 cmake --build build
 ctest --test-dir build --output-on-failure
 ```
-

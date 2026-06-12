@@ -54,7 +54,7 @@ int main() {
   const auto command = project.apply(project::ProjectCommandEnvelope{
     foundation::CommandId{"cmd_composition"},
     foundation::ProjectId{"proj_agent"},
-    initial.value().document.revision,
+    initial.value().revision,
     project::CommandSource{project::CommandSourceKind::Agent, foundation::RunId{"run_1"}, "agent"},
     project::CreateCompositionCommand{foundation::NodeId{"node_composition"}, "Main"}
   });
@@ -85,4 +85,3 @@ int main() {
 
   return 0;
 }
-

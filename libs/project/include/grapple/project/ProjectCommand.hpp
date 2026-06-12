@@ -3,7 +3,7 @@
 #include <grapple/asset/Asset.hpp>
 #include <grapple/foundation/StrongId.hpp>
 #include <grapple/graph/GraphEdge.hpp>
-#include <grapple/project/ProjectDocument.hpp>
+#include <grapple/project/ProjectSnapshot.hpp>
 #include <grapple/timeline/Payloads.hpp>
 
 #include <cstdint>
@@ -97,7 +97,7 @@ struct SetEffectParamsCommand {
 
 struct RestoreSnapshotCommand {
   foundation::SnapshotId snapshotId;
-  ProjectDocument document;
+  ProjectSnapshot snapshot;
 };
 
 using ProjectCommand = std::variant<

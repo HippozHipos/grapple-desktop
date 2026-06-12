@@ -69,7 +69,7 @@ int main() {
   const auto commandResult = controller.apply(project::ProjectCommandEnvelope{
     foundation::CommandId{"cmd_1"},
     foundation::ProjectId{"proj_storage"},
-    initialSnapshot.value().document.revision,
+    initialSnapshot.value().revision,
     project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
     project::CreateCompositionCommand{foundation::NodeId{"node_composition"}, "Main"}
   });
@@ -79,7 +79,7 @@ int main() {
   GRAPPLE_REQUIRE(committedSnapshot);
 
   const auto commit = store.commit(storage::AtomicProjectCommit{
-    committedSnapshot.value().document,
+    committedSnapshot.value(),
     makeCommandRecord(
       foundation::CommandId{"cmd_1"},
       commandResult.value().beforeRevision,
@@ -98,8 +98,8 @@ int main() {
   });
   GRAPPLE_REQUIRE(commit);
 
-  GRAPPLE_REQUIRE(store.state().document.has_value());
-  GRAPPLE_REQUIRE(store.state().document->revision == foundation::RevisionId{"rev_1"});
+  GRAPPLE_REQUIRE(store.state().projectSnapshot.has_value());
+  GRAPPLE_REQUIRE(store.state().projectSnapshot->revision == foundation::RevisionId{"rev_1"});
   GRAPPLE_REQUIRE(store.state().commandLog.records().size() == 1);
   GRAPPLE_REQUIRE(store.state().eventLog.records().size() == 1);
   GRAPPLE_REQUIRE(store.state().snapshots.records().size() == 1);
@@ -109,7 +109,7 @@ int main() {
   GRAPPLE_REQUIRE(store.state().head->lastSnapshotId == foundation::SnapshotId{"snap_1"});
 
   const auto duplicateCommit = store.commit(storage::AtomicProjectCommit{
-    committedSnapshot.value().document,
+    committedSnapshot.value(),
     makeCommandRecord(
       foundation::CommandId{"cmd_1"},
       commandResult.value().afterRevision,
@@ -124,7 +124,7 @@ int main() {
   GRAPPLE_REQUIRE(store.state().eventLog.records().size() == 1);
 
   const auto badCommandRevisionCommit = store.commit(storage::AtomicProjectCommit{
-    committedSnapshot.value().document,
+    committedSnapshot.value(),
     makeCommandRecord(
       foundation::CommandId{"cmd_bad_command_revision"},
       commandResult.value().afterRevision,
@@ -139,7 +139,7 @@ int main() {
   GRAPPLE_REQUIRE(store.state().eventLog.records().size() == 1);
 
   const auto badEventRevisionCommit = store.commit(storage::AtomicProjectCommit{
-    committedSnapshot.value().document,
+    committedSnapshot.value(),
     makeCommandRecord(
       foundation::CommandId{"cmd_bad_event_revision"},
       commandResult.value().afterRevision,
@@ -154,7 +154,7 @@ int main() {
   GRAPPLE_REQUIRE(store.state().eventLog.records().size() == 1);
 
   const auto staleBeforeRevisionCommit = store.commit(storage::AtomicProjectCommit{
-    committedSnapshot.value().document,
+    committedSnapshot.value(),
     makeCommandRecord(
       foundation::CommandId{"cmd_stale_before_revision"},
       foundation::RevisionId{"rev_0"},
@@ -169,7 +169,7 @@ int main() {
   GRAPPLE_REQUIRE(store.state().eventLog.records().size() == 1);
 
   const auto badHashCommit = store.commit(storage::AtomicProjectCommit{
-    committedSnapshot.value().document,
+    committedSnapshot.value(),
     makeCommandRecord(
       foundation::CommandId{"cmd_2"},
       commandResult.value().afterRevision,

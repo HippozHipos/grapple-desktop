@@ -31,7 +31,7 @@ int main() {
   auto enqueueComposition = commandQueue.enqueue(project::ProjectCommandEnvelope{
     foundation::CommandId{"cmd_composition"},
     foundation::ProjectId{"proj_jobs"},
-    initial.value().document.revision,
+    initial.value().revision,
     project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
     project::CreateCompositionCommand{foundation::NodeId{"node_composition"}, "Main"}
   });
@@ -46,7 +46,7 @@ int main() {
 
   const auto afterDrain = project.snapshot();
   GRAPPLE_REQUIRE(afterDrain);
-  GRAPPLE_REQUIRE(afterDrain.value().document.graph.nodes().size() == 1);
+  GRAPPLE_REQUIRE(afterDrain.value().graph.nodes().size() == 1);
 
   jobs::JobQueue jobs;
   bool jobRan = false;
@@ -73,4 +73,3 @@ int main() {
 
   return 0;
 }
-

@@ -5,6 +5,7 @@ add_library(grapple_project
   src/ProjectEventNames.cpp
   src/ProjectEvents.cpp
   src/ProjectSerializer.cpp
+  src/ProjectSnapshot.cpp
 )
 
 add_library(Grapple::Project ALIAS grapple_project)

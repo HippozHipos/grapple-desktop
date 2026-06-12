@@ -2,7 +2,7 @@
 
 #include <grapple/foundation/Result.hpp>
 #include <grapple/graph/GraphDocument.hpp>
-#include <grapple/project/ProjectDocument.hpp>
+#include <grapple/project/ProjectSnapshot.hpp>
 
 #include <variant>
 

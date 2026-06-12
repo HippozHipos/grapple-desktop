@@ -48,7 +48,7 @@ int main(int argc, char* argv[]) {
   const auto composition = controller.apply(project::ProjectCommandEnvelope{
     foundation::CommandId{"cmd_create_composition"},
     foundation::ProjectId{"proj_cli"},
-    initialSnapshot.value().document.revision,
+    initialSnapshot.value().revision,
     project::CommandSource{project::CommandSourceKind::User, std::nullopt, "cli"},
     project::CreateCompositionCommand{foundation::NodeId{"node_composition"}, "Main"}
   });

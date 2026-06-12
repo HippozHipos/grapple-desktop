@@ -1,23 +1,21 @@
 #include <grapple/storage/ProjectPackageStore.hpp>
 
-#include <grapple/project/ProjectSerializer.hpp>
-
 namespace grapple::storage {
 
 ProjectPackageStore::ProjectPackageStore(ProjectPackage package)
   : state_{std::move(package), std::nullopt, {}, {}, {}, std::nullopt} {}
 
 foundation::Result<void> ProjectPackageStore::commit(const AtomicProjectCommit& commit) {
-  if (commit.document.info.id != state_.package.projectId) {
-    return foundation::Error{"storage.project_id_mismatch", "Committed document must match package project id."};
+  if (commit.projectSnapshot.info.id != state_.package.projectId) {
+    return foundation::Error{"storage.project_id_mismatch", "Committed project snapshot must match package project id."};
   }
 
   if (commit.command.projectId != state_.package.projectId) {
     return foundation::Error{"storage.command_project_id_mismatch", "Command record must match package project id."};
   }
 
-  if (commit.command.afterRevision != commit.document.revision) {
-    return foundation::Error{"storage.command_revision_mismatch", "Command record after revision must match committed document revision."};
+  if (commit.command.afterRevision != commit.projectSnapshot.revision) {
+    return foundation::Error{"storage.command_revision_mismatch", "Command record after revision must match committed project snapshot revision."};
   }
 
   if (state_.head.has_value() && commit.command.beforeRevision != state_.head->currentRevision) {
@@ -25,7 +23,7 @@ foundation::Result<void> ProjectPackageStore::commit(const AtomicProjectCommit& 
   }
 
   ProjectPackageState next = state_;
-  next.document = commit.document;
+  next.projectSnapshot = commit.projectSnapshot;
 
   auto commandAppend = next.commandLog.append(commit.command);
   if (!commandAppend) {
@@ -37,8 +35,8 @@ foundation::Result<void> ProjectPackageStore::commit(const AtomicProjectCommit& 
       return foundation::Error{"storage.event_project_id_mismatch", "Event record must match package project id."};
     }
 
-    if (event.revision != commit.document.revision) {
-      return foundation::Error{"storage.event_revision_mismatch", "Event record revision must match committed document revision."};
+    if (event.revision != commit.projectSnapshot.revision) {
+      return foundation::Error{"storage.event_revision_mismatch", "Event record revision must match committed project snapshot revision."};
     }
 
     auto eventAppend = next.eventLog.append(event);
@@ -53,13 +51,13 @@ foundation::Result<void> ProjectPackageStore::commit(const AtomicProjectCommit& 
       return foundation::Error{"storage.snapshot_project_id_mismatch", "Snapshot record must match package project id."};
     }
 
-    if (commit.snapshot->revision != commit.document.revision) {
-      return foundation::Error{"storage.snapshot_revision_mismatch", "Snapshot revision must match committed document revision."};
+    if (commit.snapshot->revision != commit.projectSnapshot.revision) {
+      return foundation::Error{"storage.snapshot_revision_mismatch", "Snapshot revision must match committed project snapshot revision."};
     }
 
-    const foundation::Hash256 expectedHash = project::hashProjectSnapshot(project::ProjectSnapshot{commit.document});
+    const foundation::Hash256 expectedHash = commit.projectSnapshot.canonicalHash;
     if (commit.snapshot->canonicalHash != expectedHash) {
-      return foundation::Error{"storage.snapshot_hash_mismatch", "Snapshot hash must match committed document canonical hash."};
+      return foundation::Error{"storage.snapshot_hash_mismatch", "Snapshot hash must match committed project snapshot canonical hash."};
     }
 
     auto snapshotAppend = next.snapshots.append(*commit.snapshot);
@@ -72,7 +70,7 @@ foundation::Result<void> ProjectPackageStore::commit(const AtomicProjectCommit& 
   }
 
   next.head = history::HistoryHead{
-    commit.document.revision,
+    commit.projectSnapshot.revision,
     commit.command.id,
     lastSnapshotId
   };
