@@ -1,4 +1,5 @@
 #include <grapple/runtime/BuiltinEffectRuntime.hpp>
+#include <grapple/runtime/BuiltinEffects.hpp>
 #include <grapple/runtime/RuntimeDependencyPlanner.hpp>
 #include <grapple/runtime/RuntimeEvaluator.hpp>
 #include <grapple/runtime/MemoryRuntimeCache.hpp>
@@ -172,37 +173,39 @@ grapple::projection::RenderPlan makeBuiltinCameraTransformPlan(bool includePosit
     grapple::timeline::CameraLens{}
   });
   grapple::timeline::ParamSet params{
-    {grapple::timeline::Param{"position_x", 0.25}}
+    {grapple::timeline::Param{grapple::runtime::builtin_effect::PositionXParam, 0.25}}
   };
   if (includePositionY) {
-    params.values.push_back(grapple::timeline::Param{"position_y", -0.5});
+    params.values.push_back(grapple::timeline::Param{grapple::runtime::builtin_effect::PositionYParam, -0.5});
   }
+  const std::string effectSource = "builtin:camera_transform";
+  grapple::timeline::EffectPayload payload{
+    grapple::runtime::builtin_effect::CameraTransformDisplayName,
+    grapple::timeline::EffectImplementation{
+      grapple::timeline::EffectImplementationKind::Builtin,
+      grapple::runtime::builtin_effect::CameraTransformEntrypoint,
+      grapple::timeline::EffectSource{
+        grapple::timeline::EffectSourceKind::InlineSource,
+        "builtin",
+        effectSource,
+        std::nullopt,
+        grapple::foundation::stableHash(effectSource)
+      }
+    },
+    grapple::timeline::EffectPortSet{
+      {grapple::timeline::EffectPort{"frame"}},
+      {grapple::timeline::EffectPort{grapple::runtime::output_name::CameraTransform}}
+    },
+    std::move(params),
+    grapple::foundation::TimeRange{grapple::foundation::TimeSeconds{0.0}, grapple::foundation::TimeSeconds{10.0}}
+  };
   plan.effectGraphs.push_back(grapple::projection::RenderEffectGraph{
     grapple::foundation::GraphId{"effect_graph_node_camera"},
     grapple::foundation::NodeId{"node_camera"},
     {
       grapple::projection::RenderEffectNode{
         grapple::foundation::NodeId{"node_builtin_effect"},
-        grapple::timeline::EffectPayload{
-          "Camera Transform",
-          grapple::timeline::EffectImplementation{
-            grapple::timeline::EffectImplementationKind::Builtin,
-            "camera_transform",
-            grapple::timeline::EffectSource{
-              grapple::timeline::EffectSourceKind::InlineSource,
-              "builtin",
-              "builtin:camera_transform",
-              std::nullopt,
-              grapple::foundation::stableHash("builtin:camera_transform")
-            }
-          },
-          grapple::timeline::EffectPortSet{
-            {grapple::timeline::EffectPort{"frame"}},
-            {grapple::timeline::EffectPort{grapple::runtime::output_name::CameraTransform}}
-          },
-          params,
-          grapple::foundation::TimeRange{grapple::foundation::TimeSeconds{0.0}, grapple::foundation::TimeSeconds{10.0}}
-        }
+        std::move(payload)
       }
     },
     {

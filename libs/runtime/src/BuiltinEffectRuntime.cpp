@@ -1,5 +1,6 @@
 #include <grapple/runtime/BuiltinEffectRuntime.hpp>
 
+#include <grapple/runtime/BuiltinEffects.hpp>
 #include <grapple/runtime/RuntimeOutputNames.hpp>
 
 #include <optional>
@@ -9,10 +10,6 @@
 namespace grapple::runtime {
 
 namespace {
-
-inline constexpr char CameraTransformEntrypoint[] = "camera_transform";
-inline constexpr char PositionXParam[] = "position_x";
-inline constexpr char PositionYParam[] = "position_y";
 
 std::optional<double> numericParam(const projection::RenderEffectNode& node, const std::string& name) {
   for (const auto& param : node.payload.params.values) {
@@ -47,25 +44,25 @@ RuntimeDiagnostic makeParamDiagnostic(
 
 bool BuiltinEffectRuntime::supports(const projection::RenderEffectNode& node) const {
   return node.payload.implementation.kind == timeline::EffectImplementationKind::Builtin &&
-         node.payload.implementation.entrypoint == CameraTransformEntrypoint;
+         node.payload.implementation.entrypoint == builtin_effect::CameraTransformEntrypoint;
 }
 
 foundation::Result<EffectPrepareResult> BuiltinEffectRuntime::prepare(const EffectPrepareRequest& request) {
   std::vector<RuntimeDiagnostic> diagnostics;
-  const std::optional<double> positionX = numericParam(request.node, PositionXParam);
-  const std::optional<double> positionY = numericParam(request.node, PositionYParam);
+  const std::optional<double> positionX = numericParam(request.node, builtin_effect::PositionXParam);
+  const std::optional<double> positionY = numericParam(request.node, builtin_effect::PositionYParam);
 
   if (!positionX.has_value()) {
-    diagnostics.push_back(makeParamDiagnostic(request, PositionXParam));
+    diagnostics.push_back(makeParamDiagnostic(request, builtin_effect::PositionXParam));
   }
   if (!positionY.has_value()) {
-    diagnostics.push_back(makeParamDiagnostic(request, PositionYParam));
+    diagnostics.push_back(makeParamDiagnostic(request, builtin_effect::PositionYParam));
   }
 
   RuntimeValueMap preparedValues;
   if (positionX.has_value() && positionY.has_value()) {
-    preparedValues.push_back(RuntimeNamedValue{PositionXParam, RuntimeValue{*positionX}});
-    preparedValues.push_back(RuntimeNamedValue{PositionYParam, RuntimeValue{*positionY}});
+    preparedValues.push_back(RuntimeNamedValue{builtin_effect::PositionXParam, RuntimeValue{*positionX}});
+    preparedValues.push_back(RuntimeNamedValue{builtin_effect::PositionYParam, RuntimeValue{*positionY}});
   }
 
   return EffectPrepareResult{
@@ -89,9 +86,9 @@ foundation::Result<EffectProcessResult> BuiltinEffectRuntime::process(const Effe
     if (numeric == nullptr) {
       continue;
     }
-    if (value.name == PositionXParam) {
+    if (value.name == builtin_effect::PositionXParam) {
       positionX = *numeric;
-    } else if (value.name == PositionYParam) {
+    } else if (value.name == builtin_effect::PositionYParam) {
       positionY = *numeric;
     }
   }

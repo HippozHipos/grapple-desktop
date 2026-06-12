@@ -11,6 +11,7 @@
 #include <grapple/graph/GraphNode.hpp>
 #include <grapple/media/MediaSource.hpp>
 #include <grapple/render/RenderDiagnostic.hpp>
+#include <grapple/runtime/BuiltinEffects.hpp>
 #include <grapple/runtime/RuntimeDiagnostic.hpp>
 #include <grapple/timeline/Payloads.hpp>
 
@@ -1873,7 +1874,7 @@ int main(int argc, char* argv[]) {
     window.clickFirstTimelineCamera();
     window.setStewardIntent("Shift the camera right with editable controls.");
     window.clickStewardCreateCameraEffect();
-    window.setSelectedTargetNumericEffectParam("position_x", "0.25");
+    window.setSelectedTargetNumericEffectParam(grapple::runtime::builtin_effect::PositionXParam, "0.25");
     const std::string inspector = window.inspectorContents();
     const auto viewModel = workspace.value().project().buildViewModel();
     if (!viewModel) {

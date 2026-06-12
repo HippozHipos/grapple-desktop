@@ -3,6 +3,8 @@
 #include <grapple/foundation/FilePath.hpp>
 #include <grapple/foundation/Hash.hpp>
 #include <grapple/graph/GraphNode.hpp>
+#include <grapple/runtime/BuiltinEffects.hpp>
+#include <grapple/runtime/RuntimeOutputNames.hpp>
 #include <grapple/timeline/EffectPayload.hpp>
 
 #include <optional>
@@ -49,7 +51,7 @@ foundation::Result<void> ensureCameraCanReceiveTransformEffect(
     }
 
     if (effectPayload->implementation.kind == timeline::EffectImplementationKind::Builtin &&
-        effectPayload->implementation.entrypoint == "camera_transform") {
+        effectPayload->implementation.entrypoint == runtime::builtin_effect::CameraTransformEntrypoint) {
       return foundation::Error{"steward.camera_transform_exists", "Selected camera already has a Camera Transform effect."};
     }
   }
@@ -60,10 +62,10 @@ foundation::Result<void> ensureCameraCanReceiveTransformEffect(
 timeline::EffectPayload cameraTransformPayload(foundation::TimeRange activeRange) {
   const std::string effectSource = "builtin:camera_transform";
   return timeline::EffectPayload{
-    "Camera Transform",
+    runtime::builtin_effect::CameraTransformDisplayName,
     timeline::EffectImplementation{
       timeline::EffectImplementationKind::Builtin,
-      "camera_transform",
+      runtime::builtin_effect::CameraTransformEntrypoint,
       timeline::EffectSource{
         timeline::EffectSourceKind::InlineSource,
         "builtin",
@@ -74,23 +76,23 @@ timeline::EffectPayload cameraTransformPayload(foundation::TimeRange activeRange
     },
     timeline::EffectPortSet{
       {timeline::EffectPort{"frame"}},
-      {timeline::EffectPort{"camera_transform"}}
+      {timeline::EffectPort{runtime::output_name::CameraTransform}}
     },
     timeline::ParamSet{
       {
         timeline::Param{
-          "position_x",
+          runtime::builtin_effect::PositionXParam,
           0.0,
           timeline::Param::Control{
-            "Position X",
+            runtime::builtin_effect::PositionXLabel,
             timeline::Param::NumericControl{-1.0, 1.0, 0.01}
           }
         },
         timeline::Param{
-          "position_y",
+          runtime::builtin_effect::PositionYParam,
           0.0,
           timeline::Param::Control{
-            "Position Y",
+            runtime::builtin_effect::PositionYLabel,
             timeline::Param::NumericControl{-1.0, 1.0, 0.01}
           }
         }
@@ -128,7 +130,7 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::c
       cameraNodeId,
       commandWriter_.nextEdgeId("effect targets"),
       cameraTransformPayload(activeRange),
-      graph::PortName{"camera_transform"},
+      graph::PortName{runtime::output_name::CameraTransform},
       graph::PortName{"input"},
       0
     },
