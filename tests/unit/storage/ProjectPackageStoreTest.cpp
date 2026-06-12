@@ -5,10 +5,14 @@
 #include <grapple/storage/ProjectCommitBuilder.hpp>
 #include <grapple/storage/ProjectPackageSession.hpp>
 #include <grapple/storage/ProjectPackageStore.hpp>
+#include <grapple/storage/ProjectPackageWriter.hpp>
 
 #include <TestAssert.hpp>
 
 #include <chrono>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
 
 namespace {
 
@@ -117,6 +121,48 @@ int main() {
   GRAPPLE_REQUIRE(store.state().head->currentRevision == foundation::RevisionId{"rev_1"});
   GRAPPLE_REQUIRE(store.state().head->lastCommandId == foundation::CommandId{"cmd_1"});
   GRAPPLE_REQUIRE(store.state().head->lastSnapshotId == foundation::SnapshotId{"snap_1"});
+
+  const std::filesystem::path packageRoot =
+    std::filesystem::temp_directory_path() /
+    ("grapple_native_storage_" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+  const storage::ProjectPackageWriter packageWriter;
+  const auto writtenSnapshotPath = packageWriter.writeSnapshot(storage::ProjectSnapshotWriteRequest{
+    storage::ProjectPackage{
+      foundation::ProjectId{"proj_storage"},
+      foundation::FilePath{packageRoot.string()},
+      1
+    },
+    committedSnapshot.value(),
+    storage::SnapshotCommitRecord{
+      foundation::SnapshotId{"snap_1"},
+      foundation::FilePath{"snapshots/rev_1.json"},
+      std::optional<std::string>{"first"}
+    }
+  });
+  GRAPPLE_REQUIRE(writtenSnapshotPath);
+  GRAPPLE_REQUIRE(writtenSnapshotPath.value().value == (packageRoot / "snapshots/rev_1.json").lexically_normal().string());
+  std::ifstream snapshotFile{writtenSnapshotPath.value().value, std::ios::binary};
+  GRAPPLE_REQUIRE(snapshotFile.good());
+  std::ostringstream snapshotContents;
+  snapshotContents << snapshotFile.rdbuf();
+  GRAPPLE_REQUIRE(snapshotContents.str() == project::serializeCanonicalProjectSnapshot(committedSnapshot.value()));
+
+  const auto absoluteSnapshotPath = packageWriter.writeSnapshot(storage::ProjectSnapshotWriteRequest{
+    storage::ProjectPackage{
+      foundation::ProjectId{"proj_storage"},
+      foundation::FilePath{packageRoot.string()},
+      1
+    },
+    committedSnapshot.value(),
+    storage::SnapshotCommitRecord{
+      foundation::SnapshotId{"snap_absolute"},
+      foundation::FilePath{(packageRoot / "bad.json").string()},
+      std::nullopt
+    }
+  });
+  GRAPPLE_REQUIRE(!absoluteSnapshotPath);
+  GRAPPLE_REQUIRE(absoluteSnapshotPath.error().code == "storage.snapshot_document_path_absolute");
+  std::filesystem::remove_all(packageRoot);
 
   const auto duplicateCommit = store.commit(storage::AtomicProjectCommit{
     committedSnapshot.value(),

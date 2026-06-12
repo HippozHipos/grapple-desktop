@@ -2,6 +2,7 @@ add_library(grapple_storage
   src/ProjectCommitBuilder.cpp
   src/ProjectPackageSession.cpp
   src/ProjectPackageStore.cpp
+  src/ProjectPackageWriter.cpp
 )
 
 add_library(Grapple::Storage ALIAS grapple_storage)
