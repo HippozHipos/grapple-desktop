@@ -18,6 +18,4 @@ private:
   std::vector<std::pair<RuntimeCacheKey, RuntimeValue>> entries_;
 };
 
-bool operator==(const RuntimeCacheKey& left, const RuntimeCacheKey& right);
-
 } // namespace grapple::runtime

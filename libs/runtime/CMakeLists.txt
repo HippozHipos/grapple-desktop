@@ -1,5 +1,6 @@
 add_library(grapple_runtime
   src/MemoryRuntimeCache.cpp
+  src/RuntimeCache.cpp
   src/RuntimeDependencyPlanner.cpp
   src/RuntimeEvaluator.cpp
 )

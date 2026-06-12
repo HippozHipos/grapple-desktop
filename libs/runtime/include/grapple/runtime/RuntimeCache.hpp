@@ -4,10 +4,11 @@
 #include <grapple/foundation/Result.hpp>
 #include <grapple/foundation/StrongId.hpp>
 #include <grapple/foundation/Time.hpp>
-#include <grapple/model/ModelCapability.hpp>
+#include <grapple/runtime/RuntimeDependencyGraph.hpp>
 #include <grapple/runtime/RuntimeValue.hpp>
 
-#include <optional>
+#include <string>
+#include <string_view>
 #include <vector>
 
 namespace grapple::runtime {
@@ -18,13 +19,21 @@ struct RuntimeCacheKey {
   foundation::Hash256 implementationHash;
   foundation::Hash256 paramsHash;
   foundation::Hash256 inputsHash;
-  std::optional<foundation::AssetId> assetId;
-  foundation::Hash256 assetVersionHash;
-  std::optional<foundation::ModelId> modelId;
-  std::string modelVersion;
+  std::vector<RuntimeAssetDependency> assetDependencies;
   foundation::TimeRange range;
   std::string runtimeVersion;
 };
+
+bool operator==(const RuntimeCacheKey& left, const RuntimeCacheKey& right);
+foundation::Hash256 hashRuntimeCacheInputs(
+  const RuntimeDependencyGraph& graph,
+  const RuntimeDependencyNode& node
+);
+RuntimeCacheKey runtimeCacheKeyForDependency(
+  const RuntimeDependencyGraph& graph,
+  const RuntimeDependencyNode& node,
+  std::string_view runtimeVersion
+);
 
 class IRuntimeCache {
 public:

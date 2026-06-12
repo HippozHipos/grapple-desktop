@@ -381,6 +381,27 @@ int main() {
   GRAPPLE_REQUIRE(containsDependency(effectChain.nodes[2].inputDependencies, runtime::RuntimeDependencyId{"dep_node_effect_a"}));
   GRAPPLE_REQUIRE(effectChain.nodes[3].inputDependencies.size() == 1);
   GRAPPLE_REQUIRE(effectChain.nodes[3].inputDependencies[0] == runtime::RuntimeDependencyId{"dep_node_clip"});
+  const runtime::RuntimeCacheKey clipCacheKey = runtime::runtimeCacheKeyForDependency(
+    effectChain,
+    effectChain.nodes[0],
+    "runtime_v1"
+  );
+  GRAPPLE_REQUIRE(clipCacheKey.planHash == effectChain.planHash);
+  GRAPPLE_REQUIRE(clipCacheKey.nodeId == foundation::NodeId{"node_clip"});
+  GRAPPLE_REQUIRE(clipCacheKey.assetDependencies.size() == 1);
+  GRAPPLE_REQUIRE(clipCacheKey.assetDependencies[0].assetId == foundation::AssetId{"asset_video"});
+  const runtime::RuntimeDependencyGraph changedEffectChain = planner.build(makeEffectChainPlan(0.9));
+  const runtime::RuntimeCacheKey effectBCacheKey = runtime::runtimeCacheKeyForDependency(
+    effectChain,
+    effectChain.nodes[2],
+    "runtime_v1"
+  );
+  const runtime::RuntimeCacheKey changedEffectBCacheKey = runtime::runtimeCacheKeyForDependency(
+    changedEffectChain,
+    changedEffectChain.nodes[2],
+    "runtime_v1"
+  );
+  GRAPPLE_REQUIRE(!(effectBCacheKey.inputsHash == changedEffectBCacheKey.inputsHash));
   const runtime::RuntimeDependencyGraph disabledLinkEffectChain = planner.build(makeEffectChainPlanWithDisabledLink(0.1));
   GRAPPLE_REQUIRE(disabledLinkEffectChain.nodes[2].inputDependencies.size() == 1);
   GRAPPLE_REQUIRE(disabledLinkEffectChain.nodes[2].inputDependencies[0] == runtime::RuntimeDependencyId{"dep_node_clip"});
@@ -507,10 +528,12 @@ int main() {
     foundation::stableHash("implementation"),
     foundation::stableHash("params"),
     foundation::stableHash("inputs"),
-    foundation::AssetId{"asset_video"},
-    foundation::stableHash("asset_v1"),
-    std::nullopt,
-    "",
+    {
+      runtime::RuntimeAssetDependency{
+        foundation::AssetId{"asset_video"},
+        foundation::stableHash("asset_v1")
+      }
+    },
     foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}},
     "runtime_v1"
   };
@@ -520,10 +543,7 @@ int main() {
     foundation::stableHash("implementation"),
     foundation::stableHash("params"),
     foundation::stableHash("inputs"),
-    std::nullopt,
-    foundation::Hash256{},
-    std::nullopt,
-    "",
+    {},
     foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}},
     "runtime_v1"
   };
