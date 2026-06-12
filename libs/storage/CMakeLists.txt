@@ -1,4 +1,5 @@
 add_library(grapple_storage
+  src/ProjectCommitBuilder.cpp
   src/ProjectPackageStore.cpp
 )
 
@@ -15,4 +16,3 @@ target_link_libraries(grapple_storage
     Grapple::Project
     Grapple::History
 )
-
