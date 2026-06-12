@@ -19,9 +19,11 @@ foundation::Result<void> JobQueue::enqueue(Job job) {
   return {};
 }
 
-foundation::Result<std::vector<JobRunRecord>> JobQueue::drain(IProgressSink& progress) {
+foundation::Result<std::vector<JobRunRecord>> JobQueue::drain(
+  CancellationToken& cancellation,
+  IProgressSink& progress
+) {
   std::vector<JobRunRecord> records;
-  CancellationToken cancellation;
 
   while (!jobs_.empty()) {
     Job job = std::move(jobs_.front());
@@ -43,4 +45,3 @@ std::size_t JobQueue::size() const noexcept {
 }
 
 } // namespace grapple::jobs
-

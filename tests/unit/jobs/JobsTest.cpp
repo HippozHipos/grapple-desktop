@@ -100,13 +100,34 @@ int main() {
   GRAPPLE_REQUIRE(enqueueJob);
 
   TestProgressSink progress;
-  const auto jobResults = jobs.drain(progress);
+  jobs::CancellationToken cancellation;
+  const auto jobResults = jobs.drain(cancellation, progress);
   GRAPPLE_REQUIRE(jobResults);
   GRAPPLE_REQUIRE(jobResults.value().size() == 1);
   GRAPPLE_REQUIRE(jobResults.value()[0].jobId == foundation::JobId{"job_1"});
   GRAPPLE_REQUIRE(jobResults.value()[0].succeeded);
   GRAPPLE_REQUIRE(jobRan);
   GRAPPLE_REQUIRE(progress.lastProgress == 1.0);
+
+  jobs::JobQueue cancelledJobs;
+  bool cancellationObserved = false;
+  const auto enqueueCancelledJob = cancelledJobs.enqueue(jobs::Job{
+    foundation::JobId{"job_cancelled"},
+    "Cancelled Job",
+    [&](jobs::CancellationToken& token, jobs::IProgressSink& progressSink) {
+      cancellationObserved = token.cancelled();
+      progressSink.reportProgress(0.25);
+      return foundation::Result<void>{};
+    }
+  });
+  GRAPPLE_REQUIRE(enqueueCancelledJob);
+  jobs::CancellationToken cancelledToken;
+  cancelledToken.cancel();
+  const auto cancelledJobResults = cancelledJobs.drain(cancelledToken, progress);
+  GRAPPLE_REQUIRE(cancelledJobResults);
+  GRAPPLE_REQUIRE(cancelledJobResults.value().size() == 1);
+  GRAPPLE_REQUIRE(cancellationObserved);
+  GRAPPLE_REQUIRE(progress.lastProgress == 0.25);
 
   return 0;
 }
