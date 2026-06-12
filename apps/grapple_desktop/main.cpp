@@ -1,6 +1,7 @@
 #include <DemoProject.hpp>
 
 #include "EffectParamPanel.hpp"
+#include "StewardPanel.hpp"
 
 #include <grapple/app/NativeProjectSession.hpp>
 #include <grapple/app/NativeWorkspaceSession.hpp>
@@ -811,6 +812,8 @@ public:
     log_->setObjectName("log");
     log_->setReadOnly(true);
 
+    steward_ = new grapple::desktop::StewardPanel;
+
     playbackTimer_ = new QTimer{this};
     playbackTimer_->setInterval(33);
     connect(playbackTimer_, &QTimer::timeout, this, [this] { advancePlaybackFrame(); });
@@ -868,6 +871,7 @@ public:
     auto* sideLayout = new QVBoxLayout{sidePanel};
     sideLayout->setContentsMargins(0, 0, 0, 0);
     sideLayout->setSpacing(16);
+    sideLayout->addWidget(steward_, 1);
     sideLayout->addWidget(inspector_, 1);
     sideLayout->addWidget(effectParams_);
     sideLayout->addWidget(log_, 1);
@@ -914,6 +918,9 @@ public:
       QLabel#summary, QListWidget#mediaBin, QTextEdit#timeline, QTextEdit#inspector, QWidget#effectParams, QTextEdit#log, QWidget#actions {
         background: #20242d; border: 1px solid #343b4a; border-radius: 10px; padding: 12px;
       }
+      QWidget#stewardPanel, QTextEdit#stewardText {
+        background: #20242d; border: 1px solid #343b4a; border-radius: 10px; color: #eaf3ff;
+      }
       QListWidget#mediaBin { color: #dce8f6; outline: 0; }
       QListWidget#mediaBin::item { padding: 10px; border-radius: 8px; }
       QListWidget#mediaBin::item:selected { background: #36506f; color: #ffffff; }
@@ -948,6 +955,7 @@ public:
     }
     summary_->setText(summaryText(viewModel.value()));
     rebuildMediaBin(viewModel.value());
+    steward_->setViewModel(viewModel.value());
     timeline_->setViewModel(viewModel.value());
     timeline_->setPlayhead(workspace_.preview().state().playhead);
     timeline_->setSelectedNodeId(selectedNodeId_);
@@ -1053,6 +1061,10 @@ public:
 
   std::string logContents() const {
     return log_->toPlainText().toStdString();
+  }
+
+  std::string stewardContents() const {
+    return steward_->contents();
   }
 
   void startPlayback() {
@@ -1634,6 +1646,7 @@ private:
   TimelinePanel* timeline_ = nullptr;
   QTextEdit* inspector_ = nullptr;
   grapple::desktop::EffectParamPanel* effectParams_ = nullptr;
+  grapple::desktop::StewardPanel* steward_ = nullptr;
   QTextEdit* log_ = nullptr;
   QFrame* previewFrame_ = nullptr;
   QTimer* playbackTimer_ = nullptr;
@@ -1651,6 +1664,7 @@ int main(int argc, char* argv[]) {
   bool timelineSeekSmoke = false;
   bool selectSmoke = false;
   bool selectCameraSmoke = false;
+  bool stewardSmoke = false;
   bool importSmoke = false;
   bool addVideoSmoke = false;
   bool moveClipSmoke = false;
@@ -1675,6 +1689,8 @@ int main(int argc, char* argv[]) {
       selectSmoke = true;
     } else if (argument == "--select-camera-smoke") {
       selectCameraSmoke = true;
+    } else if (argument == "--steward-smoke") {
+      stewardSmoke = true;
     } else if (argument == "--import-smoke") {
       importSmoke = true;
     } else if (argument == "--add-video-smoke") {
@@ -1696,7 +1712,7 @@ int main(int argc, char* argv[]) {
     } else if (argument == "--screenshot" && index + 1 < argc) {
       screenshotPath = argv[++index];
     } else {
-      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --select-camera-smoke, --import-smoke, --add-video-smoke, --move-clip-smoke, --add-effect-smoke, --set-effect-param-smoke, --delete-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, or --screenshot <path>.\n";
+      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --select-camera-smoke, --steward-smoke, --import-smoke, --add-video-smoke, --move-clip-smoke, --add-effect-smoke, --set-effect-param-smoke, --delete-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, or --screenshot <path>.\n";
       return 1;
     }
   }
@@ -1801,6 +1817,16 @@ int main(int argc, char* argv[]) {
     return selectedNodeId.value() == grapple::foundation::NodeId{"node_camera_4"} &&
            inspector.find("Camera Transform") != std::string::npos &&
            inspector.find("Position X (position_x)=0.1") != std::string::npos
+      ? 0
+      : 1;
+  }
+
+  if (stewardSmoke) {
+    const std::string steward = window.stewardContents();
+    std::cout << "steward=" << steward << '\n';
+    return steward.find("Bet: prompt -> editable graph") != std::string::npos &&
+           steward.find("Camera Transform / Camera") != std::string::npos &&
+           steward.find("Position X, Position Y") != std::string::npos
       ? 0
       : 1;
   }

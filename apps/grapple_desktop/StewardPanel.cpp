@@ -1,0 +1,98 @@
+#include "StewardPanel.hpp"
+
+#include <QTextEdit>
+#include <QVBoxLayout>
+
+namespace grapple::desktop {
+
+namespace {
+
+QString qString(const std::string& value) {
+  return QString::fromStdString(value);
+}
+
+QString targetNameFor(const app::AppViewModel& viewModel, const foundation::NodeId& nodeId) {
+  for (const app::AppCameraRow& camera : viewModel.timeline.cameras) {
+    if (camera.sourceNodeId == nodeId) {
+      return qString(camera.name);
+    }
+  }
+  for (const app::AppClipRow& clip : viewModel.timeline.clips) {
+    if (clip.sourceNodeId == nodeId) {
+      return qString(clip.assetId.value());
+    }
+  }
+  for (const app::AppLayerRow& layer : viewModel.timeline.layers) {
+    if (layer.sourceNodeId == nodeId) {
+      return qString(layer.name);
+    }
+  }
+  return qString(nodeId.value());
+}
+
+QStringList exposedControlsFor(const app::AppEffectRow& effect) {
+  QStringList controls;
+  for (const app::AppEffectParamRow& param : effect.params) {
+    controls << (param.label.empty() ? qString(param.name) : qString(param.label));
+  }
+  return controls;
+}
+
+} // namespace
+
+StewardPanel::StewardPanel(QWidget* parent)
+  : QWidget{parent} {
+  setObjectName("stewardPanel");
+
+  auto* layout = new QVBoxLayout{this};
+  layout->setContentsMargins(0, 0, 0, 0);
+
+  text_ = new QTextEdit;
+  text_->setObjectName("stewardText");
+  text_->setReadOnly(true);
+  text_->setMinimumHeight(160);
+  text_->setLineWrapMode(QTextEdit::WidgetWidth);
+  layout->addWidget(text_);
+}
+
+void StewardPanel::setViewModel(const app::AppViewModel& viewModel) {
+  QStringList lines{
+    "Steward",
+    "Bet: prompt -> editable graph",
+    QString{"%1 | %2 clips | %3 cameras | %4 effects"}
+      .arg(qString(viewModel.project.revision.value()))
+      .arg(viewModel.timeline.clips.size())
+      .arg(viewModel.timeline.cameras.size())
+      .arg(viewModel.timeline.effectGraphs.size()),
+    "",
+    "Editable agent outputs"
+  };
+
+  bool hasEditableEffect = false;
+  for (const app::AppEffectGraphRow& graph : viewModel.timeline.effectGraphs) {
+    for (const app::AppEffectRow& effect : graph.effects) {
+      const QStringList controls = exposedControlsFor(effect);
+      if (controls.empty()) {
+        continue;
+      }
+
+      hasEditableEffect = true;
+      lines << QString{"- %1 / %2"}
+        .arg(qString(effect.displayName))
+        .arg(targetNameFor(viewModel, graph.targetNodeId));
+      lines << QString{"  %1"}.arg(controls.join(", "));
+    }
+  }
+
+  if (!hasEditableEffect) {
+    lines << "- none yet";
+  }
+
+  text_->setPlainText(lines.join('\n'));
+}
+
+std::string StewardPanel::contents() const {
+  return text_->toPlainText().toStdString();
+}
+
+} // namespace grapple::desktop

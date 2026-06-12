@@ -3,6 +3,7 @@ find_package(OpenCV REQUIRED COMPONENTS core videoio)
 
 add_executable(grapple_desktop
   EffectParamPanel.cpp
+  StewardPanel.cpp
   main.cpp
 )
 
