@@ -1,0 +1,71 @@
+#include <grapple/history/CommandLogStore.hpp>
+#include <grapple/history/EventLogStore.hpp>
+#include <grapple/history/SnapshotStore.hpp>
+
+#include <TestAssert.hpp>
+
+#include <chrono>
+
+int main() {
+  using namespace grapple;
+  const auto now = std::chrono::system_clock::now();
+
+  history::CommandLogStore commandLog;
+  const auto commandAppend = commandLog.append(history::CommandRecord{
+    foundation::CommandId{"cmd_1"},
+    foundation::ProjectId{"proj_history"},
+    foundation::RevisionId{"rev_0"},
+    foundation::RevisionId{"rev_1"},
+    "project.create_composition",
+    R"({"nodeId":"node_1"})",
+    now
+  });
+  GRAPPLE_REQUIRE(commandAppend);
+  GRAPPLE_REQUIRE(commandLog.records().size() == 1);
+
+  const auto duplicateCommand = commandLog.append(commandLog.records().front());
+  GRAPPLE_REQUIRE(!duplicateCommand);
+  GRAPPLE_REQUIRE(duplicateCommand.error().code == "history.command_id_duplicate");
+
+  history::EventLogStore eventLog;
+  const auto eventAppend = eventLog.append(history::EventRecord{
+    foundation::EventId{"event_1"},
+    foundation::ProjectId{"proj_history"},
+    foundation::RevisionId{"rev_1"},
+    "project.command_applied",
+    R"({"commandId":"cmd_1"})",
+    now
+  });
+  GRAPPLE_REQUIRE(eventAppend);
+  GRAPPLE_REQUIRE(eventLog.records().size() == 1);
+
+  history::SnapshotStore snapshots;
+  const auto snapshotAppend = snapshots.append(history::SnapshotRecord{
+    foundation::SnapshotId{"snap_1"},
+    foundation::ProjectId{"proj_history"},
+    foundation::RevisionId{"rev_1"},
+    foundation::stableHash("snapshot"),
+    foundation::FilePath{"snapshots/rev_1.json"},
+    std::optional<std::string>{"initial"},
+    now
+  });
+  GRAPPLE_REQUIRE(snapshotAppend);
+  GRAPPLE_REQUIRE(snapshots.records().size() == 1);
+  GRAPPLE_REQUIRE(snapshots.findByRevision(foundation::RevisionId{"rev_1"}) != nullptr);
+  GRAPPLE_REQUIRE(snapshots.findByRevision(foundation::RevisionId{"rev_missing"}) == nullptr);
+
+  const auto duplicateSnapshot = snapshots.append(history::SnapshotRecord{
+    foundation::SnapshotId{"snap_2"},
+    foundation::ProjectId{"proj_history"},
+    foundation::RevisionId{"rev_1"},
+    foundation::stableHash("snapshot"),
+    foundation::FilePath{"snapshots/rev_1_again.json"},
+    std::nullopt,
+    now
+  });
+  GRAPPLE_REQUIRE(!duplicateSnapshot);
+  GRAPPLE_REQUIRE(duplicateSnapshot.error().code == "history.snapshot_revision_duplicate");
+
+  return 0;
+}
+

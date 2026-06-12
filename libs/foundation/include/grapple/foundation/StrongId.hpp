@@ -45,6 +45,7 @@ struct NodeIdTag;
 struct EdgeIdTag;
 struct AssetIdTag;
 struct CommandIdTag;
+struct EventIdTag;
 struct SnapshotIdTag;
 struct GraphIdTag;
 struct RunIdTag;
@@ -58,6 +59,7 @@ using NodeId = StrongId<NodeIdTag>;
 using EdgeId = StrongId<EdgeIdTag>;
 using AssetId = StrongId<AssetIdTag>;
 using CommandId = StrongId<CommandIdTag>;
+using EventId = StrongId<EventIdTag>;
 using SnapshotId = StrongId<SnapshotIdTag>;
 using GraphId = StrongId<GraphIdTag>;
 using RunId = StrongId<RunIdTag>;
@@ -66,4 +68,3 @@ using ModelId = StrongId<ModelIdTag>;
 using JobId = StrongId<JobIdTag>;
 
 } // namespace grapple::foundation
-
