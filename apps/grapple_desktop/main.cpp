@@ -761,6 +761,7 @@ public:
     auto* stepForwardButton = new QPushButton{"Step +1s"};
     auto* importVideoButton = new QPushButton{"Import Video"};
     auto* addTrackButton = new QPushButton{"Add Track"};
+    auto* deleteClipButton = new QPushButton{"Delete Clip"};
     auto* exportButton = new QPushButton{"Export Smoke"};
     auto* saveButton = new QPushButton{"Save Package"};
     auto* actionColumn = new QVBoxLayout;
@@ -773,6 +774,7 @@ public:
     actionColumn->addWidget(stepForwardButton);
     actionColumn->addWidget(importVideoButton);
     actionColumn->addWidget(addTrackButton);
+    actionColumn->addWidget(deleteClipButton);
     actionColumn->addWidget(exportButton);
     actionColumn->addWidget(saveButton);
     actionColumn->addStretch(1);
@@ -809,6 +811,7 @@ public:
     connect(stepForwardButton, &QPushButton::clicked, this, [this] { stepPlayhead(1.0); });
     connect(importVideoButton, &QPushButton::clicked, this, [this] { chooseAndImportVideo(); });
     connect(addTrackButton, &QPushButton::clicked, this, [this] { addTrack(); });
+    connect(deleteClipButton, &QPushButton::clicked, this, [this] { deleteSelectedClip(); });
     connect(exportButton, &QPushButton::clicked, this, [this] { runExport(); });
     connect(saveButton, &QPushButton::clicked, this, [this] { savePackage(); });
     timeline_->setSeekHandler([this](grapple::foundation::TimeSeconds time) { seekTo(time); });
@@ -1067,6 +1070,45 @@ public:
     log_->append(QString{"Imported %1"}.arg(qString(videoAsset.name)));
   }
 
+  void deleteSelectedClip() {
+    if (!selectedNodeId_.has_value()) {
+      appendError(grapple::foundation::Error{"desktop.selection_missing", "Delete Clip requires a selected clip."});
+      return;
+    }
+
+    const auto viewModel = session_.buildViewModel();
+    if (!viewModel) {
+      appendError(viewModel.error());
+      return;
+    }
+
+    const auto selectedClip = std::find_if(
+      viewModel.value().timeline.clips.begin(),
+      viewModel.value().timeline.clips.end(),
+      [&](const grapple::app::AppClipRow& clip) {
+        return clip.sourceNodeId == selectedNodeId_.value();
+      }
+    );
+    if (selectedClip == viewModel.value().timeline.clips.end()) {
+      appendError(grapple::foundation::Error{"desktop.selected_node_not_clip", "Delete Clip only applies to selected clips."});
+      return;
+    }
+
+    const auto deleted = commandWriter_.apply(
+      grapple::project::DeleteClipCommand{selectedClip->sourceNodeId},
+      userSource()
+    );
+    if (!deleted) {
+      appendError(deleted.error());
+      return;
+    }
+
+    selectedNodeId_ = std::nullopt;
+    refreshViewModel();
+    refreshPreview();
+    log_->append(QString{"Deleted clip at %1"}.arg(qString(deleted.value().snapshot.revision.value())));
+  }
+
   void runExport() {
     const auto prepare = exportSession_.prepareFromProject();
     if (!prepare) {
@@ -1157,6 +1199,7 @@ int main(int argc, char* argv[]) {
   bool timelineSeekSmoke = false;
   bool selectSmoke = false;
   bool importSmoke = false;
+  bool deleteSmoke = false;
   bool playbackSmoke = false;
   std::optional<std::string> screenshotPath;
   for (int index = 1; index < argc; ++index) {
@@ -1173,12 +1216,14 @@ int main(int argc, char* argv[]) {
       selectSmoke = true;
     } else if (argument == "--import-smoke") {
       importSmoke = true;
+    } else if (argument == "--delete-smoke") {
+      deleteSmoke = true;
     } else if (argument == "--playback-smoke") {
       playbackSmoke = true;
     } else if (argument == "--screenshot" && index + 1 < argc) {
       screenshotPath = argv[++index];
     } else {
-      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --import-smoke, --playback-smoke, or --screenshot <path>.\n";
+      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --import-smoke, --delete-smoke, --playback-smoke, or --screenshot <path>.\n";
       return 1;
     }
   }
@@ -1286,6 +1331,20 @@ int main(int argc, char* argv[]) {
            viewModel.value().timeline.duration.value > 19.9
       ? 0
       : 1;
+  }
+
+  if (deleteSmoke) {
+    window.show();
+    app.processEvents();
+    window.clickFirstTimelineClip();
+    window.deleteSelectedClip();
+    const auto viewModel = session.buildViewModel();
+    if (!viewModel) {
+      printError(viewModel.error());
+      return 1;
+    }
+    std::cout << "clips=" << viewModel.value().timeline.clips.size() << '\n';
+    return viewModel.value().timeline.clips.empty() ? 0 : 1;
   }
 
   if (playbackSmoke) {
