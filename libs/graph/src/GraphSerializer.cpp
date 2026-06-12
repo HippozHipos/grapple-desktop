@@ -1,34 +1,16 @@
 #include <grapple/graph/GraphSerializer.hpp>
 
+#include <grapple/foundation/Json.hpp>
 #include <grapple/timeline/EffectPayload.hpp>
 #include <grapple/timeline/Payloads.hpp>
 
 #include <algorithm>
+#include <cstdlib>
 #include <sstream>
 
 namespace grapple::graph {
 
 namespace {
-
-std::string escapeString(const std::string& value) {
-  std::ostringstream stream;
-  for (const char character : value) {
-    if (character == '\\') {
-      stream << "\\\\";
-    } else if (character == '"') {
-      stream << "\\\"";
-    } else if (character == '\n') {
-      stream << "\\n";
-    } else {
-      stream << character;
-    }
-  }
-  return stream.str();
-}
-
-void writeKeyValue(std::ostringstream& stream, const std::string& key, const std::string& value) {
-  stream << '"' << key << "\":\"" << escapeString(value) << '"';
-}
 
 const char* nodeKindName(NodeKind kind) {
   switch (kind) {
@@ -47,7 +29,7 @@ const char* nodeKindName(NodeKind kind) {
     case NodeKind::Note:
       return "note";
   }
-  return "unknown";
+  std::abort();
 }
 
 const char* edgeKindName(EdgeKind kind) {
@@ -61,7 +43,7 @@ const char* edgeKindName(EdgeKind kind) {
     case EdgeKind::Targets:
       return "targets";
   }
-  return "unknown";
+  std::abort();
 }
 
 std::string serializePayload(const NodePayload& payload) {
@@ -72,41 +54,41 @@ std::string serializePayload(const NodePayload& payload) {
       stream << '{';
 
       if constexpr (std::is_same_v<Payload, timeline::CompositionPayload>) {
-        writeKeyValue(stream, "type", "composition");
+        foundation::writeJsonStringProperty(stream, "type", "composition");
         stream << ',';
-        writeKeyValue(stream, "name", typedPayload.name);
+        foundation::writeJsonStringProperty(stream, "name", typedPayload.name);
       } else if constexpr (std::is_same_v<Payload, timeline::TrackPayload>) {
-        writeKeyValue(stream, "type", "track");
+        foundation::writeJsonStringProperty(stream, "type", "track");
         stream << ',';
-        writeKeyValue(stream, "name", typedPayload.name);
+        foundation::writeJsonStringProperty(stream, "name", typedPayload.name);
       } else if constexpr (std::is_same_v<Payload, timeline::ClipPayload>) {
-        writeKeyValue(stream, "type", "clip");
+        foundation::writeJsonStringProperty(stream, "type", "clip");
         stream << ',';
-        writeKeyValue(stream, "assetId", typedPayload.assetId.value());
+        foundation::writeJsonStringProperty(stream, "assetId", typedPayload.assetId.value());
       } else if constexpr (std::is_same_v<Payload, timeline::CameraPayload>) {
-        writeKeyValue(stream, "type", "camera");
+        foundation::writeJsonStringProperty(stream, "type", "camera");
         stream << ',';
-        writeKeyValue(stream, "name", typedPayload.name);
+        foundation::writeJsonStringProperty(stream, "name", typedPayload.name);
       } else if constexpr (std::is_same_v<Payload, timeline::EffectPayload>) {
-        writeKeyValue(stream, "type", "effect");
+        foundation::writeJsonStringProperty(stream, "type", "effect");
         stream << ',';
-        writeKeyValue(stream, "displayName", typedPayload.displayName);
+        foundation::writeJsonStringProperty(stream, "displayName", typedPayload.displayName);
         stream << ',';
-        writeKeyValue(stream, "implementationKind", std::to_string(static_cast<int>(typedPayload.implementation.kind)));
+        foundation::writeJsonStringProperty(stream, "implementationKind", std::to_string(static_cast<int>(typedPayload.implementation.kind)));
         stream << ',';
-        writeKeyValue(stream, "entrypoint", typedPayload.implementation.entrypoint);
+        foundation::writeJsonStringProperty(stream, "entrypoint", typedPayload.implementation.entrypoint);
         stream << ',';
-        writeKeyValue(stream, "sourceHash", typedPayload.implementation.source.sourceHash.toHex());
+        foundation::writeJsonStringProperty(stream, "sourceHash", typedPayload.implementation.source.sourceHash.toHex());
       } else if constexpr (std::is_same_v<Payload, timeline::AssetPayload>) {
-        writeKeyValue(stream, "type", "asset");
+        foundation::writeJsonStringProperty(stream, "type", "asset");
         stream << ',';
-        writeKeyValue(stream, "assetId", typedPayload.assetId.value());
+        foundation::writeJsonStringProperty(stream, "assetId", typedPayload.assetId.value());
       } else if constexpr (std::is_same_v<Payload, timeline::NotePayload>) {
-        writeKeyValue(stream, "type", "note");
+        foundation::writeJsonStringProperty(stream, "type", "note");
         stream << ',';
-        writeKeyValue(stream, "title", typedPayload.title);
+        foundation::writeJsonStringProperty(stream, "title", typedPayload.title);
         stream << ',';
-        writeKeyValue(stream, "markdown", typedPayload.markdown);
+        foundation::writeJsonStringProperty(stream, "markdown", typedPayload.markdown);
       }
 
       stream << '}';
@@ -137,9 +119,9 @@ std::string serializeCanonicalGraph(const GraphDocument& graph) {
     }
     const GraphNode& node = nodes[index];
     stream << '{';
-    writeKeyValue(stream, "id", node.id.value());
+    foundation::writeJsonStringProperty(stream, "id", node.id.value());
     stream << ',';
-    writeKeyValue(stream, "kind", nodeKindName(node.kind));
+    foundation::writeJsonStringProperty(stream, "kind", nodeKindName(node.kind));
     stream << ",\"enabled\":" << (node.enabled ? "true" : "false");
     stream << ",\"payload\":" << serializePayload(node.payload);
     stream << '}';
@@ -152,13 +134,13 @@ std::string serializeCanonicalGraph(const GraphDocument& graph) {
     }
     const GraphEdge& edge = edges[index];
     stream << '{';
-    writeKeyValue(stream, "id", edge.id.value());
+    foundation::writeJsonStringProperty(stream, "id", edge.id.value());
     stream << ',';
-    writeKeyValue(stream, "kind", edgeKindName(edge.kind));
+    foundation::writeJsonStringProperty(stream, "kind", edgeKindName(edge.kind));
     stream << ',';
-    writeKeyValue(stream, "sourceNodeId", edge.sourceNodeId.value());
+    foundation::writeJsonStringProperty(stream, "sourceNodeId", edge.sourceNodeId.value());
     stream << ',';
-    writeKeyValue(stream, "targetNodeId", edge.targetNodeId.value());
+    foundation::writeJsonStringProperty(stream, "targetNodeId", edge.targetNodeId.value());
     stream << ",\"enabled\":" << (edge.enabled ? "true" : "false");
     stream << '}';
   }
@@ -168,4 +150,3 @@ std::string serializeCanonicalGraph(const GraphDocument& graph) {
 }
 
 } // namespace grapple::graph
-

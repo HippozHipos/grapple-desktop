@@ -1,5 +1,6 @@
 #include <grapple/foundation/Geometry.hpp>
 #include <grapple/foundation/Hash.hpp>
+#include <grapple/foundation/Json.hpp>
 #include <grapple/foundation/Result.hpp>
 #include <grapple/foundation/StrongId.hpp>
 #include <grapple/foundation/Time.hpp>
@@ -31,6 +32,7 @@ int main() {
   GRAPPLE_REQUIRE(first == second);
   GRAPPLE_REQUIRE(!(first == third));
   GRAPPLE_REQUIRE(first.toHex().size() == 64);
+  GRAPPLE_REQUIRE(jsonQuoted("a\"b\\c\n") == "\"a\\\"b\\\\c\\n\"");
 
   const Result<std::string> ok{std::string{"value"}};
   GRAPPLE_REQUIRE(ok);
