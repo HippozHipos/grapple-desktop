@@ -49,6 +49,7 @@
 #include <optional>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -905,7 +906,7 @@ public:
     connect(deleteClipButton, &QPushButton::clicked, this, [this] { deleteSelectedClip(); });
     connect(exportButton, &QPushButton::clicked, this, [this] { runExport(); });
     connect(saveButton, &QPushButton::clicked, this, [this] { savePackage(); });
-    steward_->setCreateCameraEffectHandler([this] { addEffectToSelectedTarget(); });
+    steward_->setCreateCameraEffectHandler([this](std::string intent) { addEffectToSelectedTarget(std::move(intent)); });
     connect(mediaBin_, &QListWidget::currentRowChanged, this, [this](int row) { selectMediaAssetAtRow(row); });
     timeline_->setSeekHandler([this](grapple::foundation::TimeSeconds time) { seekTo(time); });
     timeline_->setSelectionHandler([this](grapple::foundation::NodeId nodeId) { selectNode(std::move(nodeId)); });
@@ -1063,6 +1064,10 @@ public:
 
   std::string stewardContents() const {
     return steward_->contents();
+  }
+
+  void setStewardIntent(std::string intent) {
+    steward_->setIntent(std::move(intent));
   }
 
   void clickStewardCreateCameraEffect() {
@@ -1330,7 +1335,7 @@ public:
     log_->append(QString{"Moved clip at %1"}.arg(qString(moved.value().snapshot.revision.value())));
   }
 
-  void addEffectToSelectedTarget() {
+  void addEffectToSelectedTarget(std::string intent) {
     if (!selectedNodeId_.has_value()) {
       appendError(grapple::foundation::Error{"desktop.selection_missing", "Add Effect requires a selected camera."});
       return;
@@ -1338,6 +1343,7 @@ public:
 
     const auto created = workspace_.steward().createCameraTransformEffect(
       selectedNodeId_.value(),
+      std::move(intent),
       grapple::foundation::TimeRange{grapple::foundation::TimeSeconds{0.0}, timelineDuration_}
     );
     if (!created) {
@@ -1789,6 +1795,7 @@ int main(int argc, char* argv[]) {
     const std::string steward = window.stewardContents();
     std::cout << "steward=" << steward << '\n';
     return steward.find("Bet: prompt -> editable graph") != std::string::npos &&
+           steward.find("Intent: Center the subject with an editable camera transform.") != std::string::npos &&
            steward.find("Action: selected camera -> editable Camera Transform") != std::string::npos &&
            steward.find("- none yet") != std::string::npos
       ? 0
@@ -1863,6 +1870,7 @@ int main(int argc, char* argv[]) {
     window.show();
     app.processEvents();
     window.clickFirstTimelineCamera();
+    window.setStewardIntent("Shift the camera right with editable controls.");
     window.clickStewardCreateCameraEffect();
     window.setSelectedTargetNumericEffectParam("position_x", "0.25");
     const std::string inspector = window.inspectorContents();
@@ -1883,6 +1891,7 @@ int main(int argc, char* argv[]) {
     window.show();
     app.processEvents();
     window.clickFirstTimelineCamera();
+    window.setStewardIntent("Center the walking subject with exposed controls.");
     window.clickStewardCreateCameraEffect();
     window.clickStewardCreateCameraEffect();
     const std::string inspector = window.inspectorContents();
@@ -1896,6 +1905,10 @@ int main(int argc, char* argv[]) {
     std::cout << "effectGraphs=" << viewModel.value().timeline.effectGraphs.size() << '\n';
     std::cout << "inspector=" << inspector << '\n';
     std::cout << "log=" << logText << '\n';
+    const auto& snapshots = workspace.value().project().packageState().snapshots.records();
+    const bool intentRecorded = !snapshots.empty() &&
+                                snapshots.back().label.has_value() &&
+                                snapshots.back().label.value() == "Center the walking subject with exposed controls.";
     const bool cameraHasEffect = std::any_of(
       viewModel.value().timeline.effectGraphs.begin(),
       viewModel.value().timeline.effectGraphs.end(),
@@ -1910,6 +1923,7 @@ int main(int argc, char* argv[]) {
            cameraHasEffect &&
            inspector.find("Camera Transform") != std::string::npos &&
            inspector.find("Position X (position_x)=0") != std::string::npos &&
+           intentRecorded &&
            logText.find("steward.camera_transform_exists") != std::string::npos &&
            logText.find("runtime.effect_runtime_missing") == std::string::npos
       ? 0

@@ -1,5 +1,6 @@
 #include "StewardPanel.hpp"
 
+#include <QLineEdit>
 #include <QPushButton>
 #include <QTextEdit>
 #include <QVBoxLayout>
@@ -50,12 +51,17 @@ StewardPanel::StewardPanel(QWidget* parent)
   auto* layout = new QVBoxLayout{this};
   layout->setContentsMargins(0, 0, 0, 0);
 
+  intent_ = new QLineEdit{"Center the subject with an editable camera transform."};
+  intent_->setObjectName("stewardIntent");
+  intent_->setCursorPosition(0);
+  layout->addWidget(intent_);
+
   createCameraEffectButton_ = new QPushButton{"Steward: Create Camera Transform"};
   createCameraEffectButton_->setObjectName("stewardCreateCameraEffect");
   layout->addWidget(createCameraEffectButton_);
   connect(createCameraEffectButton_, &QPushButton::clicked, this, [this] {
     if (createCameraEffectHandler_) {
-      createCameraEffectHandler_();
+      createCameraEffectHandler_(intent());
     }
   });
 
@@ -75,6 +81,7 @@ void StewardPanel::setViewModel(const app::AppViewModel& viewModel) {
   QStringList lines{
     "Steward",
     "Bet: prompt -> editable graph",
+    QString{"Intent: %1"}.arg(qString(intent())),
     "Action: selected camera -> editable Camera Transform",
     QString{"%1 | %2 clips | %3 cameras | %4 effects"}
       .arg(qString(viewModel.project.revision.value()))
@@ -108,12 +115,21 @@ void StewardPanel::setViewModel(const app::AppViewModel& viewModel) {
   text_->setPlainText(lines.join('\n'));
 }
 
+void StewardPanel::setIntent(std::string intent) {
+  intent_->setText(qString(intent));
+  intent_->setCursorPosition(0);
+}
+
 void StewardPanel::triggerCreateCameraEffect() {
   createCameraEffectButton_->click();
 }
 
 std::string StewardPanel::contents() const {
   return text_->toPlainText().toStdString();
+}
+
+std::string StewardPanel::intent() const {
+  return intent_->text().toStdString();
 }
 
 } // namespace grapple::desktop

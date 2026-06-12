@@ -1,11 +1,13 @@
 #include <grapple/app/NativeStewardSession.hpp>
 
+#include <grapple/foundation/FilePath.hpp>
 #include <grapple/foundation/Hash.hpp>
 #include <grapple/graph/GraphNode.hpp>
 #include <grapple/timeline/EffectPayload.hpp>
 
 #include <optional>
 #include <string>
+#include <utility>
 #include <variant>
 
 namespace grapple::app {
@@ -106,6 +108,7 @@ NativeStewardSession::NativeStewardSession(NativeProjectSession& project, Native
 
 foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::createCameraTransformEffect(
   foundation::NodeId cameraNodeId,
+  std::string intent,
   foundation::TimeRange activeRange
 ) {
   auto snapshot = project_.snapshot();
@@ -118,6 +121,7 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::c
     return targetReady.error();
   }
 
+  const foundation::SnapshotId snapshotId = commandWriter_.nextSnapshotId("steward camera transform");
   return commandWriter_.apply(
     project::CreateEffectCommand{
       commandWriter_.nextNodeId("effect"),
@@ -128,7 +132,12 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::c
       graph::PortName{"input"},
       0
     },
-    stewardSource()
+    stewardSource(),
+    storage::SnapshotCommitRecord{
+      snapshotId,
+      foundation::FilePath{"snapshots/" + snapshotId.value() + ".json"},
+      std::move(intent)
+    }
   );
 }
 

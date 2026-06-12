@@ -293,11 +293,15 @@ int main() {
   GRAPPLE_REQUIRE(runtimeCamera);
   const auto runtimeEffect = runtimeWorkspace.value().steward().createCameraTransformEffect(
     runtimeCameraNodeId,
+    "Center the subject with an editable camera transform.",
     foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}}
   );
   GRAPPLE_REQUIRE(runtimeEffect);
+  GRAPPLE_REQUIRE(runtimeWorkspace.value().project().packageState().snapshots.records().back().label.has_value());
+  GRAPPLE_REQUIRE(runtimeWorkspace.value().project().packageState().snapshots.records().back().label.value() == "Center the subject with an editable camera transform.");
   const auto duplicateRuntimeEffect = runtimeWorkspace.value().steward().createCameraTransformEffect(
     runtimeCameraNodeId,
+    "Center the subject with an editable camera transform.",
     foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}}
   );
   GRAPPLE_REQUIRE(!duplicateRuntimeEffect);

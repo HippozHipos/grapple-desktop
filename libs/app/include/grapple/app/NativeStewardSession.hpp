@@ -6,6 +6,8 @@
 #include <grapple/foundation/Time.hpp>
 #include <grapple/storage/ProjectPackageSession.hpp>
 
+#include <string>
+
 namespace grapple::app {
 
 class NativeStewardSession final {
@@ -14,6 +16,7 @@ public:
 
   foundation::Result<storage::ProjectPackageSessionResult> createCameraTransformEffect(
     foundation::NodeId cameraNodeId,
+    std::string intent,
     foundation::TimeRange activeRange
   );
 
