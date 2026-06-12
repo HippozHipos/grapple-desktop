@@ -15,6 +15,7 @@ class NativeProjectCommandWriter {
 public:
   explicit NativeProjectCommandWriter(NativeProjectSession& session);
 
+  [[nodiscard]] foundation::AssetId nextAssetId(const std::string& stem);
   [[nodiscard]] foundation::NodeId nextNodeId(const std::string& stem);
   [[nodiscard]] foundation::EdgeId nextEdgeId(const std::string& stem);
   [[nodiscard]] foundation::SnapshotId nextSnapshotId(const std::string& stem);
@@ -31,6 +32,7 @@ private:
 
   NativeProjectSession& session_;
   std::int64_t commandSequence_ = 1;
+  std::int64_t assetSequence_ = 1;
   std::int64_t nodeSequence_ = 1;
   std::int64_t edgeSequence_ = 1;
   std::int64_t snapshotSequence_ = 1;

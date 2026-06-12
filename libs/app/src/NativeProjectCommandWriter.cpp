@@ -13,9 +13,14 @@ NativeProjectCommandWriter::NativeProjectCommandWriter(NativeProjectSession& ses
 
   const auto snapshot = session_.snapshot();
   if (snapshot) {
+    assetSequence_ = static_cast<std::int64_t>(snapshot.value().assets.assets().size()) + 1;
     nodeSequence_ = static_cast<std::int64_t>(snapshot.value().graph.nodes().size()) + 1;
     edgeSequence_ = static_cast<std::int64_t>(snapshot.value().graph.edges().size()) + 1;
   }
+}
+
+foundation::AssetId NativeProjectCommandWriter::nextAssetId(const std::string& stem) {
+  return foundation::AssetId{"asset_" + sanitizeStem(stem) + "_" + std::to_string(assetSequence_++)};
 }
 
 foundation::NodeId NativeProjectCommandWriter::nextNodeId(const std::string& stem) {

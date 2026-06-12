@@ -64,6 +64,7 @@ int main() {
   GRAPPLE_REQUIRE(composition.value().snapshot.revision == foundation::RevisionId{"rev_1"});
   GRAPPLE_REQUIRE(composition.value().commandResult.commandId == foundation::CommandId{"cmd_app_1"});
   GRAPPLE_REQUIRE(compositionNodeId == foundation::NodeId{"node_composition_1"});
+  GRAPPLE_REQUIRE(writer.nextAssetId("walking woman") == foundation::AssetId{"asset_walking_woman_1"});
   GRAPPLE_REQUIRE(writer.nextEdgeId("contains track") == foundation::EdgeId{"edge_contains_track_1"});
   GRAPPLE_REQUIRE(writer.nextSnapshotId("rev 1") == foundation::SnapshotId{"snap_rev_1_1"});
   GRAPPLE_REQUIRE(session.packageState().head.has_value());

@@ -12,6 +12,7 @@
 #include <QApplication>
 #include <QColor>
 #include <QFrame>
+#include <QFileDialog>
 #include <QFontMetrics>
 #include <QGridLayout>
 #include <QImage>
@@ -661,15 +662,57 @@ grapple::project::CommandSource userSource() {
   };
 }
 
+grapple::project::CommandSource importerSource() {
+  return grapple::project::CommandSource{
+    grapple::project::CommandSourceKind::Importer,
+    std::nullopt,
+    "desktop"
+  };
+}
+
+grapple::foundation::Result<grapple::asset::Asset> inspectVideoAsset(
+  const grapple::foundation::AssetId& assetId,
+  const grapple::foundation::FilePath& path
+) {
+  cv::VideoCapture capture{path.value};
+  if (!capture.isOpened()) {
+    return grapple::foundation::Error{"desktop.video_open_failed", "Could not inspect video file " + path.value + "."};
+  }
+
+  const int width = static_cast<int>(capture.get(cv::CAP_PROP_FRAME_WIDTH));
+  const int height = static_cast<int>(capture.get(cv::CAP_PROP_FRAME_HEIGHT));
+  const double frameCount = capture.get(cv::CAP_PROP_FRAME_COUNT);
+  const double framesPerSecond = capture.get(cv::CAP_PROP_FPS);
+  if (width <= 0 || height <= 0 || frameCount <= 0.0 || framesPerSecond <= 0.0) {
+    return grapple::foundation::Error{"desktop.video_metadata_invalid", "Video file metadata is incomplete for " + path.value + "."};
+  }
+
+  const std::filesystem::path filesystemPath{path.value};
+  return grapple::asset::Asset{
+    assetId,
+    filesystemPath.stem().string(),
+    grapple::asset::AssetMetadata{
+      grapple::asset::AssetMediaType::Video,
+      path,
+      std::nullopt,
+      grapple::foundation::TimeSeconds{frameCount / framesPerSecond},
+      grapple::foundation::Resolution{width, height},
+      grapple::foundation::FrameRate{static_cast<std::int32_t>(framesPerSecond * 1000.0), 1000}
+    }
+  };
+}
+
 class DesktopWindow final : public QMainWindow {
 public:
   DesktopWindow(
     grapple::app::NativeProjectSession& session,
     grapple::app::NativePreviewSession& preview,
-    grapple::app::NativeExportSession& exportSession
+    grapple::app::NativeExportSession& exportSession,
+    grapple::media::MediaSourceCatalog& mediaSources
   ) : session_{session},
       preview_{preview},
       exportSession_{exportSession},
+      mediaSources_{mediaSources},
       commandWriter_{session} {
     setWindowTitle("Grapple Native");
     resize(1180, 720);
@@ -716,6 +759,7 @@ public:
     auto* seekStartButton = new QPushButton{"Seek Start"};
     auto* stepBackButton = new QPushButton{"Step -1s"};
     auto* stepForwardButton = new QPushButton{"Step +1s"};
+    auto* importVideoButton = new QPushButton{"Import Video"};
     auto* addTrackButton = new QPushButton{"Add Track"};
     auto* exportButton = new QPushButton{"Export Smoke"};
     auto* saveButton = new QPushButton{"Save Package"};
@@ -727,6 +771,7 @@ public:
     actionColumn->addWidget(seekStartButton);
     actionColumn->addWidget(stepBackButton);
     actionColumn->addWidget(stepForwardButton);
+    actionColumn->addWidget(importVideoButton);
     actionColumn->addWidget(addTrackButton);
     actionColumn->addWidget(exportButton);
     actionColumn->addWidget(saveButton);
@@ -762,6 +807,7 @@ public:
     connect(seekStartButton, &QPushButton::clicked, this, [this] { seekTo(grapple::foundation::TimeSeconds{0.0}); });
     connect(stepBackButton, &QPushButton::clicked, this, [this] { stepPlayhead(-1.0); });
     connect(stepForwardButton, &QPushButton::clicked, this, [this] { stepPlayhead(1.0); });
+    connect(importVideoButton, &QPushButton::clicked, this, [this] { chooseAndImportVideo(); });
     connect(addTrackButton, &QPushButton::clicked, this, [this] { addTrack(); });
     connect(exportButton, &QPushButton::clicked, this, [this] { runExport(); });
     connect(saveButton, &QPushButton::clicked, this, [this] { savePackage(); });
@@ -950,6 +996,77 @@ public:
     log_->append(QString{"Added track at %1"}.arg(qString(result.value().snapshot.revision.value())));
   }
 
+  void importVideoFile(const grapple::foundation::FilePath& path) {
+    const auto asset = inspectVideoAsset(commandWriter_.nextAssetId(std::filesystem::path{path.value}.stem().string()), path);
+    if (!asset) {
+      appendError(asset.error());
+      return;
+    }
+    const grapple::asset::Asset& videoAsset = asset.value();
+    const grapple::foundation::TimeSeconds videoDuration = videoAsset.metadata.duration.value();
+
+    const auto viewModel = session_.buildViewModel();
+    if (!viewModel) {
+      appendError(viewModel.error());
+      return;
+    }
+    if (viewModel.value().timeline.layers.empty()) {
+      appendError(grapple::foundation::Error{"desktop.track_missing", "Import Video requires a timeline track."});
+      return;
+    }
+
+    const auto registeredAsset = commandWriter_.apply(
+      grapple::project::RegisterAssetCommand{videoAsset},
+      importerSource()
+    );
+    if (!registeredAsset) {
+      appendError(registeredAsset.error());
+      return;
+    }
+
+    const auto registeredSource = mediaSources_.registerSource(grapple::media::MediaSource{
+      videoAsset.id,
+      grapple::media::MediaSourceKind::Video,
+      path
+    });
+    if (!registeredSource) {
+      appendError(registeredSource.error());
+      return;
+    }
+
+    const auto clip = commandWriter_.apply(
+      grapple::project::CreateClipCommand{
+        commandWriter_.nextNodeId("clip"),
+        viewModel.value().timeline.layers.front().sourceNodeId,
+        commandWriter_.nextEdgeId("contains_clip"),
+        grapple::timeline::ClipPayload{
+          grapple::timeline::ClipKind::Video,
+          grapple::foundation::TimeRange{
+            viewModel.value().timeline.duration,
+            grapple::foundation::TimeSeconds{viewModel.value().timeline.duration.value + videoDuration.value}
+          },
+          grapple::foundation::TimeRange{
+            grapple::foundation::TimeSeconds{0.0},
+            videoDuration
+          },
+          1.0,
+          videoAsset.id,
+          grapple::timeline::Transform{}
+        },
+        static_cast<std::int64_t>(viewModel.value().timeline.clips.size())
+      },
+      userSource()
+    );
+    if (!clip) {
+      appendError(clip.error());
+      return;
+    }
+
+    refreshViewModel();
+    refreshPreview();
+    log_->append(QString{"Imported %1"}.arg(qString(videoAsset.name)));
+  }
+
   void runExport() {
     const auto prepare = exportSession_.prepareFromProject();
     if (!prepare) {
@@ -1005,9 +1122,18 @@ private:
     inspector_->setPlainText(inspectorText(viewModel, selectedNodeId_));
   }
 
+  void chooseAndImportVideo() {
+    const QString path = QFileDialog::getOpenFileName(this, "Import Video", QString{}, "Video Files (*.mov *.mp4 *.avi *.mkv)");
+    if (path.isEmpty()) {
+      return;
+    }
+    importVideoFile(grapple::foundation::FilePath{path.toStdString()});
+  }
+
   grapple::app::NativeProjectSession& session_;
   grapple::app::NativePreviewSession& preview_;
   grapple::app::NativeExportSession& exportSession_;
+  grapple::media::MediaSourceCatalog& mediaSources_;
   grapple::app::NativeProjectCommandWriter commandWriter_;
   QLabel* summary_ = nullptr;
   QLabel* previewTitle_ = nullptr;
@@ -1030,6 +1156,7 @@ int main(int argc, char* argv[]) {
   bool seekSmoke = false;
   bool timelineSeekSmoke = false;
   bool selectSmoke = false;
+  bool importSmoke = false;
   bool playbackSmoke = false;
   std::optional<std::string> screenshotPath;
   for (int index = 1; index < argc; ++index) {
@@ -1044,12 +1171,14 @@ int main(int argc, char* argv[]) {
       timelineSeekSmoke = true;
     } else if (argument == "--select-smoke") {
       selectSmoke = true;
+    } else if (argument == "--import-smoke") {
+      importSmoke = true;
     } else if (argument == "--playback-smoke") {
       playbackSmoke = true;
     } else if (argument == "--screenshot" && index + 1 < argc) {
       screenshotPath = argv[++index];
     } else {
-      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --playback-smoke, or --screenshot <path>.\n";
+      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --import-smoke, --playback-smoke, or --screenshot <path>.\n";
       return 1;
     }
   }
@@ -1086,7 +1215,7 @@ int main(int argc, char* argv[]) {
   MediaFrameSourceAdapter frameSource{mediaReader};
   grapple::app::NativePreviewSession preview{session, frameSource};
   grapple::app::NativeExportSession exportSession{session};
-  DesktopWindow window{session, preview, exportSession};
+  DesktopWindow window{session, preview, exportSession, mediaSources.value()};
 
   if (smoke) {
     const auto viewModel = session.buildViewModel();
@@ -1140,6 +1269,23 @@ int main(int argc, char* argv[]) {
     }
     std::cout << "selected=" << selectedNodeId->value() << '\n';
     return selectedNodeId.value() == grapple::foundation::NodeId{"node_clip_3"} ? 0 : 1;
+  }
+
+  if (importSmoke) {
+    window.importVideoFile(grapple::foundation::FilePath{"/tmp/grapple-native-demo/walking-woman.avi"});
+    const auto viewModel = session.buildViewModel();
+    if (!viewModel) {
+      printError(viewModel.error());
+      return 1;
+    }
+    std::cout << "assets=" << viewModel.value().assets.count << '\n';
+    std::cout << "clips=" << viewModel.value().timeline.clips.size() << '\n';
+    std::cout << "duration=" << viewModel.value().timeline.duration.value << '\n';
+    return viewModel.value().assets.count == 2 &&
+           viewModel.value().timeline.clips.size() == 2 &&
+           viewModel.value().timeline.duration.value > 19.9
+      ? 0
+      : 1;
   }
 
   if (playbackSmoke) {
