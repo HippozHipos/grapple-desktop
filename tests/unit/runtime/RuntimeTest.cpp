@@ -26,7 +26,7 @@ public:
         request.graph.id,
         request.graph.targetNodeId,
         request.node.sourceNodeId,
-        0,
+        nullptr,
         {
           grapple::runtime::RuntimeNamedValue{
             "prepared",

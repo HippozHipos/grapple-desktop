@@ -7,16 +7,17 @@
 #include <grapple/runtime/RuntimeOutput.hpp>
 #include <grapple/runtime/RuntimeQuality.hpp>
 
-#include <cstddef>
 #include <vector>
 
 namespace grapple::runtime {
+
+class IEffectRuntime;
 
 struct PreparedEffectNode {
   foundation::GraphId effectGraphId;
   foundation::NodeId targetNodeId;
   foundation::NodeId sourceNodeId;
-  std::size_t runtimeIndex = 0;
+  IEffectRuntime* runtime = nullptr;
   RuntimeValueMap preparedValues;
 };
 

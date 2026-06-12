@@ -34,12 +34,9 @@ foundation::Result<PrepareRuntimePlanResult> RuntimeEvaluator::prepare(
   for (const projection::RenderEffectGraph& effectGraph : request.plan.effectGraphs) {
     for (const projection::RenderEffectNode& effectNode : effectGraph.nodes) {
       IEffectRuntime* selectedRuntime = nullptr;
-      std::size_t selectedRuntimeIndex = 0;
-      for (std::size_t runtimeIndex = 0; runtimeIndex < effectRuntimes_.size(); ++runtimeIndex) {
-        IEffectRuntime* runtime = effectRuntimes_[runtimeIndex];
+      for (IEffectRuntime* runtime : effectRuntimes_) {
         if (runtime->supports(effectNode)) {
           selectedRuntime = runtime;
-          selectedRuntimeIndex = runtimeIndex;
           break;
         }
       }
@@ -67,7 +64,7 @@ foundation::Result<PrepareRuntimePlanResult> RuntimeEvaluator::prepare(
       }
 
       PreparedEffectNode preparedEffect = std::move(effectPrepare.value().prepared);
-      preparedEffect.runtimeIndex = selectedRuntimeIndex;
+      preparedEffect.runtime = selectedRuntime;
       prepared.preparedEffects.push_back(std::move(preparedEffect));
       prepared.diagnostics.insert(
         prepared.diagnostics.end(),
@@ -112,7 +109,7 @@ foundation::Result<RuntimeSampleResult> RuntimeEvaluator::sample(
   }
 
   for (const PreparedEffectNode& effect : request.prepared.preparedEffects) {
-    if (effect.runtimeIndex >= effectRuntimes_.size()) {
+    if (effect.runtime == nullptr) {
       sample.diagnostics.push_back(RuntimeDiagnostic{
         "runtime.effect_runtime_missing",
         DiagnosticSeverity::Error,
@@ -126,7 +123,7 @@ foundation::Result<RuntimeSampleResult> RuntimeEvaluator::sample(
       continue;
     }
 
-    auto effectProcess = effectRuntimes_[effect.runtimeIndex]->process(EffectProcessRequest{
+    auto effectProcess = effect.runtime->process(EffectProcessRequest{
       effect,
       request.time,
       request.quality
