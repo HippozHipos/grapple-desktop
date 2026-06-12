@@ -4,6 +4,7 @@
 #include <grapple/project/ProjectSerializer.hpp>
 #include <grapple/storage/ProjectCommitBuilder.hpp>
 #include <grapple/storage/ProjectPackageManifest.hpp>
+#include <grapple/storage/ProjectPackageReader.hpp>
 #include <grapple/storage/ProjectPackageSession.hpp>
 #include <grapple/storage/ProjectPackageStore.hpp>
 #include <grapple/storage/ProjectPackageWriter.hpp>
@@ -169,6 +170,9 @@ int main() {
   std::ostringstream manifestContents;
   manifestContents << manifestFile.rdbuf();
   GRAPPLE_REQUIRE(manifestContents.str() == storage::serializeCanonicalProjectPackageManifest(manifest.value()));
+  const auto parsedManifest = storage::deserializeCanonicalProjectPackageManifest(manifestContents.str());
+  GRAPPLE_REQUIRE(parsedManifest);
+  GRAPPLE_REQUIRE(storage::serializeCanonicalProjectPackageManifest(parsedManifest.value()) == manifestContents.str());
 
   const auto writtenSnapshotPath = packageWriter.writeSnapshot(storage::ProjectSnapshotWriteRequest{
     diskPackage,
@@ -186,6 +190,14 @@ int main() {
   std::ostringstream snapshotContents;
   snapshotContents << snapshotFile.rdbuf();
   GRAPPLE_REQUIRE(snapshotContents.str() == project::serializeCanonicalProjectSnapshot(committedSnapshot.value()));
+  const storage::ProjectPackageReader packageReader;
+  const auto readManifest = packageReader.readManifest(diskPackage);
+  GRAPPLE_REQUIRE(readManifest);
+  GRAPPLE_REQUIRE(storage::serializeCanonicalProjectPackageManifest(readManifest.value()) == manifestContents.str());
+  const auto loadedLatestSnapshot = packageReader.readLatestSnapshot(diskPackage);
+  GRAPPLE_REQUIRE(loadedLatestSnapshot);
+  GRAPPLE_REQUIRE(storage::serializeCanonicalProjectPackageManifest(loadedLatestSnapshot.value().manifest) == manifestContents.str());
+  GRAPPLE_REQUIRE(project::serializeCanonicalProjectSnapshot(loadedLatestSnapshot.value().snapshot) == snapshotContents.str());
 
   storage::ProjectPackageManifest wrongProjectManifest = manifest.value();
   wrongProjectManifest.projectId = foundation::ProjectId{"proj_other"};

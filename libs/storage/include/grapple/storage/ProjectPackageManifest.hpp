@@ -33,6 +33,7 @@ struct ProjectPackageManifest {
 };
 
 foundation::Result<ProjectPackageManifest> buildProjectPackageManifest(const ProjectPackageState& state);
+foundation::Result<ProjectPackageManifest> deserializeCanonicalProjectPackageManifest(const std::string& json);
 std::string serializeCanonicalProjectPackageManifest(const ProjectPackageManifest& manifest);
 
 } // namespace grapple::storage

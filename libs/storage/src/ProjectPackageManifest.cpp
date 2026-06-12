@@ -2,6 +2,9 @@
 
 #include <grapple/foundation/Json.hpp>
 
+#include <json/json.h>
+
+#include <memory>
 #include <sstream>
 
 namespace grapple::storage {
@@ -36,6 +39,164 @@ const history::SnapshotRecord* findSnapshotById(
     }
   }
   return nullptr;
+}
+
+foundation::Error parseError(const std::string& path, const std::string& message) {
+  return foundation::Error{"storage.manifest_json_invalid", path + ": " + message};
+}
+
+foundation::Result<Json::Value> parseJson(const std::string& json) {
+  Json::CharReaderBuilder builder;
+  std::string errors;
+  Json::Value root;
+  const std::unique_ptr<Json::CharReader> reader{builder.newCharReader()};
+  if (!reader->parse(json.data(), json.data() + json.size(), &root, &errors)) {
+    return parseError("$", "Invalid JSON. " + errors);
+  }
+  if (!root.isObject()) {
+    return parseError("$", "Package manifest must be a JSON object.");
+  }
+  return root;
+}
+
+foundation::Result<Json::Value> requiredMember(const Json::Value& object, const char* key, const std::string& path) {
+  if (!object.isObject()) {
+    return parseError(path, "Expected object.");
+  }
+  if (!object.isMember(key)) {
+    return parseError(path + "." + key, "Missing required field.");
+  }
+  return object[key];
+}
+
+foundation::Result<std::string> requiredStringMember(const Json::Value& object, const char* key, const std::string& path) {
+  auto value = requiredMember(object, key, path);
+  if (!value) {
+    return value.error();
+  }
+  if (!value.value().isString()) {
+    return parseError(path + "." + key, "Expected string.");
+  }
+  return value.value().asString();
+}
+
+foundation::Result<int> requiredIntMember(const Json::Value& object, const char* key, const std::string& path) {
+  auto value = requiredMember(object, key, path);
+  if (!value) {
+    return value.error();
+  }
+  if (!value.value().isIntegral()) {
+    return parseError(path + "." + key, "Expected integer.");
+  }
+  return value.value().asInt();
+}
+
+foundation::Result<std::optional<foundation::CommandId>> optionalCommandIdMember(
+  const Json::Value& object,
+  const char* key,
+  const std::string& path
+) {
+  auto value = requiredMember(object, key, path);
+  if (!value) {
+    return value.error();
+  }
+  if (value.value().isNull()) {
+    return std::optional<foundation::CommandId>{};
+  }
+  if (!value.value().isString()) {
+    return parseError(path + "." + key, "Expected string or null.");
+  }
+  return std::optional<foundation::CommandId>{foundation::CommandId{value.value().asString()}};
+}
+
+foundation::Result<std::optional<foundation::SnapshotId>> optionalSnapshotIdMember(
+  const Json::Value& object,
+  const char* key,
+  const std::string& path
+) {
+  auto value = requiredMember(object, key, path);
+  if (!value) {
+    return value.error();
+  }
+  if (value.value().isNull()) {
+    return std::optional<foundation::SnapshotId>{};
+  }
+  if (!value.value().isString()) {
+    return parseError(path + "." + key, "Expected string or null.");
+  }
+  return std::optional<foundation::SnapshotId>{foundation::SnapshotId{value.value().asString()}};
+}
+
+foundation::Result<std::optional<std::string>> optionalStringMember(
+  const Json::Value& object,
+  const char* key,
+  const std::string& path
+) {
+  auto value = requiredMember(object, key, path);
+  if (!value) {
+    return value.error();
+  }
+  if (value.value().isNull()) {
+    return std::optional<std::string>{};
+  }
+  if (!value.value().isString()) {
+    return parseError(path + "." + key, "Expected string or null.");
+  }
+  return std::optional<std::string>{value.value().asString()};
+}
+
+foundation::Result<ProjectPackageHeadManifest> parseHeadManifest(const Json::Value& object, const std::string& path) {
+  auto revision = requiredStringMember(object, "revision", path);
+  if (!revision) {
+    return revision.error();
+  }
+  auto lastCommandId = optionalCommandIdMember(object, "lastCommandId", path);
+  if (!lastCommandId) {
+    return lastCommandId.error();
+  }
+  auto lastSnapshotId = optionalSnapshotIdMember(object, "lastSnapshotId", path);
+  if (!lastSnapshotId) {
+    return lastSnapshotId.error();
+  }
+  return ProjectPackageHeadManifest{
+    foundation::RevisionId{revision.value()},
+    lastCommandId.value(),
+    lastSnapshotId.value()
+  };
+}
+
+foundation::Result<ProjectPackageSnapshotManifest> parseSnapshotManifest(const Json::Value& object, const std::string& path) {
+  auto id = requiredStringMember(object, "id", path);
+  if (!id) {
+    return id.error();
+  }
+  auto revision = requiredStringMember(object, "revision", path);
+  if (!revision) {
+    return revision.error();
+  }
+  auto hashHex = requiredStringMember(object, "canonicalHash", path);
+  if (!hashHex) {
+    return hashHex.error();
+  }
+  const std::optional<foundation::Hash256> canonicalHash = foundation::hashFromHex(hashHex.value());
+  if (!canonicalHash.has_value()) {
+    return parseError(path + ".canonicalHash", "Hash must be 64 hex characters.");
+  }
+  auto documentPath = requiredStringMember(object, "documentPath", path);
+  if (!documentPath) {
+    return documentPath.error();
+  }
+  auto label = optionalStringMember(object, "label", path);
+  if (!label) {
+    return label.error();
+  }
+  return ProjectPackageSnapshotManifest{
+    foundation::SnapshotId{id.value()},
+    foundation::RevisionId{revision.value()},
+    canonicalHash.value(),
+    foundation::FilePath{documentPath.value()},
+    label.value()
+  };
 }
 
 } // namespace
@@ -119,6 +280,58 @@ std::string serializeCanonicalProjectPackageManifest(const ProjectPackageManifes
   }
   stream << '}';
   return stream.str();
+}
+
+foundation::Result<ProjectPackageManifest> deserializeCanonicalProjectPackageManifest(const std::string& json) {
+  auto root = parseJson(json);
+  if (!root) {
+    return root.error();
+  }
+
+  auto schemaVersion = requiredIntMember(root.value(), "schemaVersion", "$");
+  if (!schemaVersion) {
+    return schemaVersion.error();
+  }
+  auto projectId = requiredStringMember(root.value(), "projectId", "$");
+  if (!projectId) {
+    return projectId.error();
+  }
+  auto headValue = requiredMember(root.value(), "head", "$");
+  if (!headValue) {
+    return headValue.error();
+  }
+  auto snapshotValue = requiredMember(root.value(), "latestSnapshot", "$");
+  if (!snapshotValue) {
+    return snapshotValue.error();
+  }
+
+  ProjectPackageManifest manifest;
+  manifest.schemaVersion = schemaVersion.value();
+  manifest.projectId = foundation::ProjectId{projectId.value()};
+
+  if (!headValue.value().isNull()) {
+    if (!headValue.value().isObject()) {
+      return parseError("$.head", "Expected object or null.");
+    }
+    auto head = parseHeadManifest(headValue.value(), "$.head");
+    if (!head) {
+      return head.error();
+    }
+    manifest.head = head.value();
+  }
+
+  if (!snapshotValue.value().isNull()) {
+    if (!snapshotValue.value().isObject()) {
+      return parseError("$.latestSnapshot", "Expected object or null.");
+    }
+    auto snapshot = parseSnapshotManifest(snapshotValue.value(), "$.latestSnapshot");
+    if (!snapshot) {
+      return snapshot.error();
+    }
+    manifest.latestSnapshot = snapshot.value();
+  }
+
+  return manifest;
 }
 
 } // namespace grapple::storage
