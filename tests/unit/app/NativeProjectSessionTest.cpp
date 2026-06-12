@@ -1,3 +1,4 @@
+#include <grapple/app/NativePreviewSession.hpp>
 #include <grapple/app/NativeProjectSession.hpp>
 #include <grapple/storage/ProjectPackageManifest.hpp>
 
@@ -81,6 +82,31 @@ int main() {
   GRAPPLE_REQUIRE(manifest.value().head.has_value());
   GRAPPLE_REQUIRE(manifest.value().head->lastCommandId == foundation::CommandId{"cmd_composition"});
   GRAPPLE_REQUIRE(!manifest.value().latestSnapshot.has_value());
+
+  app::NativePreviewSession preview{session};
+  const auto frameBeforeRefresh = preview.renderFrame(render::RenderFrameRequest{
+    foundation::TimeSeconds{0.0},
+    render::RenderQuality::Draft
+  });
+  GRAPPLE_REQUIRE(!frameBeforeRefresh);
+  GRAPPLE_REQUIRE(frameBeforeRefresh.error().code == "render.plan_missing");
+
+  const auto refresh = preview.refreshFromProject();
+  GRAPPLE_REQUIRE(refresh);
+  GRAPPLE_REQUIRE(refresh.value().revision == foundation::RevisionId{"rev_1"});
+  GRAPPLE_REQUIRE(preview.state().core.hasPlan);
+  GRAPPLE_REQUIRE(preview.state().core.preparedPlanHash == refresh.value().preparedPlanHash);
+
+  const auto seek = preview.seek(foundation::TimeSeconds{0.0});
+  GRAPPLE_REQUIRE(seek);
+  const auto frame = preview.renderFrame(render::RenderFrameRequest{
+    foundation::TimeSeconds{0.0},
+    render::RenderQuality::Draft
+  });
+  GRAPPLE_REQUIRE(frame);
+  GRAPPLE_REQUIRE(frame.value().frame.description == "layers=0 clips=0 cameras=0 effects=0");
+  GRAPPLE_REQUIRE(frame.value().runtimeDiagnostics.empty());
+  GRAPPLE_REQUIRE(frame.value().renderDiagnostics.empty());
 
   const auto duplicate = session.applyAndCommit(
     project::ProjectCommandEnvelope{

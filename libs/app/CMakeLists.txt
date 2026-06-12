@@ -1,4 +1,5 @@
 add_library(grapple_app
+  src/NativePreviewSession.cpp
   src/NativeProjectSession.cpp
 )
 
@@ -14,5 +15,7 @@ target_link_libraries(grapple_app
     Grapple::Foundation
     Grapple::Project
     Grapple::Projection
+    Grapple::Render
+    Grapple::Runtime
     Grapple::Storage
 )

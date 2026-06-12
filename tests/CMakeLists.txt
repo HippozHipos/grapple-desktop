@@ -21,3 +21,4 @@ add_test(
 
 add_test(NAME grapple_cli_smoke COMMAND grapple_cli)
 add_test(NAME grapple_cli_render_plan_json COMMAND grapple_cli --render-plan-json)
+add_test(NAME grapple_cli_preview_frame COMMAND grapple_cli --preview-frame)

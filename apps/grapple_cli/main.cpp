@@ -1,4 +1,5 @@
 #include <grapple/app/NativeProjectSession.hpp>
+#include <grapple/app/NativePreviewSession.hpp>
 #include <grapple/asset/Asset.hpp>
 #include <grapple/foundation/Hash.hpp>
 #include <grapple/projection/RenderPlanSerializer.hpp>
@@ -30,15 +31,19 @@ int main(int argc, char* argv[]) {
   using namespace grapple;
 
   bool printRenderPlanJson = false;
+  bool printPreviewFrame = false;
   if (argc == 2) {
     const std::string argument{argv[1]};
-    if (argument != "--render-plan-json") {
+    if (argument == "--render-plan-json") {
+      printRenderPlanJson = true;
+    } else if (argument == "--preview-frame") {
+      printPreviewFrame = true;
+    } else {
       std::cerr << "Unknown argument: " << argument << '\n';
       return 1;
     }
-    printRenderPlanJson = true;
   } else if (argc > 2) {
-    std::cerr << "Expected zero arguments or --render-plan-json.\n";
+    std::cerr << "Expected zero arguments, --render-plan-json, or --preview-frame.\n";
     return 1;
   }
 
@@ -225,6 +230,28 @@ int main(int argc, char* argv[]) {
 
   if (printRenderPlanJson) {
     std::cout << projection::serializeCanonicalRenderPlan(renderPlan.value().plan) << '\n';
+    return 0;
+  }
+
+  if (printPreviewFrame) {
+    app::NativePreviewSession preview{session};
+    const auto refresh = preview.refreshFromProject();
+    if (!refresh) {
+      printError(refresh.error());
+      return 1;
+    }
+
+    const auto frame = preview.renderFrame(render::RenderFrameRequest{
+      foundation::TimeSeconds{0.0},
+      render::RenderQuality::Draft
+    });
+    if (!frame) {
+      printError(frame.error());
+      return 1;
+    }
+
+    std::cout << "revision=" << refresh.value().revision.value() << '\n';
+    std::cout << "frame=" << frame.value().frame.description << '\n';
     return 0;
   }
 
