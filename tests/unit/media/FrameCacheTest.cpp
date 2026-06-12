@@ -5,7 +5,8 @@
 int main() {
   using namespace grapple;
 
-  media::FrameCache cache;
+  media::FrameCache cache{2};
+  GRAPPLE_REQUIRE(cache.capacity() == 2);
   const media::FrameCacheKey key{
     foundation::AssetId{"asset_video"},
     foundation::TimeSeconds{1.25},
@@ -47,6 +48,61 @@ int main() {
   });
   GRAPPLE_REQUIRE(!missing.has_value());
 
+  const media::FrameCacheKey secondKey{
+    foundation::AssetId{"asset_video"},
+    foundation::TimeSeconds{2.0},
+    media::MediaQuality::Proxy
+  };
+  const auto putSecond = cache.put(secondKey, media::MediaFrame{
+    foundation::AssetId{"asset_video"},
+    foundation::TimeSeconds{2.0},
+    foundation::Resolution{640, 360},
+    media::MediaQuality::Proxy,
+    "frame_2"
+  });
+  GRAPPLE_REQUIRE(putSecond);
+  GRAPPLE_REQUIRE(cache.size() == 2);
+
+  const media::FrameCacheKey thirdKey{
+    foundation::AssetId{"asset_video"},
+    foundation::TimeSeconds{3.0},
+    media::MediaQuality::Proxy
+  };
+  const auto putThird = cache.put(thirdKey, media::MediaFrame{
+    foundation::AssetId{"asset_video"},
+    foundation::TimeSeconds{3.0},
+    foundation::Resolution{640, 360},
+    media::MediaQuality::Proxy,
+    "frame_3"
+  });
+  GRAPPLE_REQUIRE(putThird);
+  GRAPPLE_REQUIRE(cache.size() == 2);
+  GRAPPLE_REQUIRE(!cache.get(key).has_value());
+  GRAPPLE_REQUIRE(cache.get(secondKey).has_value());
+  GRAPPLE_REQUIRE(cache.get(thirdKey).has_value());
+
+  const auto replaceSecond = cache.put(secondKey, media::MediaFrame{
+    foundation::AssetId{"asset_video"},
+    foundation::TimeSeconds{2.0},
+    foundation::Resolution{640, 360},
+    media::MediaQuality::Proxy,
+    "frame_2_replaced"
+  });
+  GRAPPLE_REQUIRE(replaceSecond);
+  const auto replacedSecond = cache.get(secondKey);
+  GRAPPLE_REQUIRE(replacedSecond.has_value());
+  GRAPPLE_REQUIRE(replacedSecond->frameRef == "frame_2_replaced");
+
+  media::FrameCache zeroCapacityCache{0};
+  const auto zeroCapacityPut = zeroCapacityCache.put(key, media::MediaFrame{
+    foundation::AssetId{"asset_video"},
+    foundation::TimeSeconds{1.25},
+    foundation::Resolution{640, 360},
+    media::MediaQuality::Proxy,
+    "frame_1"
+  });
+  GRAPPLE_REQUIRE(!zeroCapacityPut);
+  GRAPPLE_REQUIRE(zeroCapacityPut.error().code == "media.cache_capacity_empty");
+
   return 0;
 }
-
