@@ -23,6 +23,11 @@ struct AppAssetSummary {
   std::size_t count = 0;
 };
 
+struct AppCompositionRow {
+  foundation::NodeId sourceNodeId;
+  std::string name;
+};
+
 struct AppLayerRow {
   foundation::NodeId sourceNodeId;
   std::string name;
@@ -50,6 +55,7 @@ struct AppEffectGraphRow {
 
 struct AppTimelineView {
   foundation::TimeSeconds duration;
+  std::vector<AppCompositionRow> compositions;
   std::vector<AppLayerRow> layers;
   std::vector<AppClipRow> clips;
   std::vector<AppCameraRow> cameras;

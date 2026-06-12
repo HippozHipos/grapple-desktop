@@ -89,6 +89,18 @@ foundation::Result<AppViewModel> NativeProjectSession::buildViewModel() const {
   viewModel.assets = AppAssetSummary{snapshot.assets.assets().size()};
   viewModel.timeline.duration = plan.duration;
 
+  for (const graph::GraphNode& node : snapshot.graph.nodes()) {
+    if (node.kind == graph::NodeKind::Composition) {
+      const auto* payload = std::get_if<timeline::CompositionPayload>(&node.payload);
+      if (payload != nullptr) {
+        viewModel.timeline.compositions.push_back(AppCompositionRow{
+          node.id,
+          payload->name
+        });
+      }
+    }
+  }
+
   for (const projection::RenderLayer& layer : plan.layers) {
     viewModel.timeline.layers.push_back(AppLayerRow{
       layer.sourceNodeId,

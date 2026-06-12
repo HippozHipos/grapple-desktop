@@ -7,7 +7,16 @@
 namespace grapple::app {
 
 NativeProjectCommandWriter::NativeProjectCommandWriter(NativeProjectSession& session)
-  : session_{session} {}
+  : session_{session} {
+  commandSequence_ = static_cast<std::int64_t>(session_.packageState().commandLog.records().size()) + 1;
+  snapshotSequence_ = static_cast<std::int64_t>(session_.packageState().snapshots.records().size()) + 1;
+
+  const auto snapshot = session_.snapshot();
+  if (snapshot) {
+    nodeSequence_ = static_cast<std::int64_t>(snapshot.value().graph.nodes().size()) + 1;
+    edgeSequence_ = static_cast<std::int64_t>(snapshot.value().graph.edges().size()) + 1;
+  }
+}
 
 foundation::NodeId NativeProjectCommandWriter::nextNodeId(const std::string& stem) {
   return foundation::NodeId{"node_" + sanitizeStem(stem) + "_" + std::to_string(nodeSequence_++)};

@@ -100,6 +100,9 @@ int main() {
   GRAPPLE_REQUIRE(viewModel.value().project.revisionNumber == 1);
   GRAPPLE_REQUIRE(viewModel.value().assets.count == 0);
   GRAPPLE_REQUIRE(viewModel.value().timeline.duration == foundation::TimeSeconds{0.0});
+  GRAPPLE_REQUIRE(viewModel.value().timeline.compositions.size() == 1);
+  GRAPPLE_REQUIRE(viewModel.value().timeline.compositions[0].sourceNodeId == foundation::NodeId{"node_composition_1"});
+  GRAPPLE_REQUIRE(viewModel.value().timeline.compositions[0].name == "Main");
   GRAPPLE_REQUIRE(viewModel.value().timeline.layers.empty());
   GRAPPLE_REQUIRE(viewModel.value().timeline.clips.empty());
   GRAPPLE_REQUIRE(viewModel.value().timeline.cameras.empty());

@@ -2,6 +2,7 @@
 
 #include <grapple/app/NativeExportSession.hpp>
 #include <grapple/app/NativePreviewSession.hpp>
+#include <grapple/app/NativeProjectCommandWriter.hpp>
 #include <grapple/app/NativeProjectSession.hpp>
 
 #include <QApplication>
@@ -31,12 +32,13 @@ QString qString(const std::string& value) {
 
 QString summaryText(const grapple::app::AppViewModel& viewModel) {
   return QString{
-    "Project: %1\nRevision: %2\nDuration: %3s\nAssets: %4\nLayers: %5\nClips: %6\nCameras: %7\nEffect graphs: %8"
+    "Project: %1\nRevision: %2\nDuration: %3s\nAssets: %4\nCompositions: %5\nLayers: %6\nClips: %7\nCameras: %8\nEffect graphs: %9"
   }
     .arg(qString(viewModel.project.projectId.value()))
     .arg(qString(viewModel.project.revision.value()))
     .arg(viewModel.timeline.duration.value)
     .arg(viewModel.assets.count)
+    .arg(viewModel.timeline.compositions.size())
     .arg(viewModel.timeline.layers.size())
     .arg(viewModel.timeline.clips.size())
     .arg(viewModel.timeline.cameras.size())
@@ -45,6 +47,11 @@ QString summaryText(const grapple::app::AppViewModel& viewModel) {
 
 QString timelineText(const grapple::app::AppViewModel& viewModel) {
   QString text;
+  for (const grapple::app::AppCompositionRow& composition : viewModel.timeline.compositions) {
+    text += QString{"Composition %1  %2\n"}
+      .arg(qString(composition.sourceNodeId.value()))
+      .arg(qString(composition.name));
+  }
   for (const grapple::app::AppLayerRow& layer : viewModel.timeline.layers) {
     text += QString{"Layer %1  clips=%2\n"}
       .arg(qString(layer.name))
@@ -78,6 +85,14 @@ grapple::foundation::Result<void> populateDemo(grapple::app::NativeProjectSessio
   );
 }
 
+grapple::project::CommandSource userSource() {
+  return grapple::project::CommandSource{
+    grapple::project::CommandSourceKind::User,
+    std::nullopt,
+    "desktop"
+  };
+}
+
 class DesktopWindow final : public QMainWindow {
 public:
   DesktopWindow(
@@ -86,7 +101,8 @@ public:
     grapple::app::NativeExportSession& exportSession
   ) : session_{session},
       preview_{preview},
-      exportSession_{exportSession} {
+      exportSession_{exportSession},
+      commandWriter_{session} {
     setWindowTitle("Grapple Native");
     resize(1180, 720);
 
@@ -121,10 +137,12 @@ public:
     log_->setReadOnly(true);
 
     auto* refreshButton = new QPushButton{"Refresh Preview"};
+    auto* addTrackButton = new QPushButton{"Add Track"};
     auto* exportButton = new QPushButton{"Export Smoke"};
     auto* saveButton = new QPushButton{"Save Package"};
     auto* actionColumn = new QVBoxLayout;
     actionColumn->addWidget(refreshButton);
+    actionColumn->addWidget(addTrackButton);
     actionColumn->addWidget(exportButton);
     actionColumn->addWidget(saveButton);
     actionColumn->addStretch(1);
@@ -144,6 +162,7 @@ public:
     setCentralWidget(root);
 
     connect(refreshButton, &QPushButton::clicked, this, [this] { refreshPreview(); });
+    connect(addTrackButton, &QPushButton::clicked, this, [this] { addTrack(); });
     connect(exportButton, &QPushButton::clicked, this, [this] { runExport(); });
     connect(saveButton, &QPushButton::clicked, this, [this] { savePackage(); });
 
@@ -197,6 +216,37 @@ public:
     log_->append(QString{"Preview refreshed at %1"}.arg(qString(refresh.value().revision.value())));
   }
 
+  void addTrack() {
+    const auto viewModel = session_.buildViewModel();
+    if (!viewModel) {
+      appendError(viewModel.error());
+      return;
+    }
+    if (viewModel.value().timeline.compositions.empty()) {
+      appendError(grapple::foundation::Error{"desktop.composition_missing", "Add Track requires a composition."});
+      return;
+    }
+
+    const std::size_t trackNumber = viewModel.value().timeline.layers.size() + 1;
+    const auto result = commandWriter_.apply(
+      grapple::project::CreateTrackCommand{
+        commandWriter_.nextNodeId("track"),
+        viewModel.value().timeline.compositions[0].sourceNodeId,
+        commandWriter_.nextEdgeId("contains_track"),
+        "Video " + std::to_string(trackNumber)
+      },
+      userSource()
+    );
+    if (!result) {
+      appendError(result.error());
+      return;
+    }
+
+    refreshViewModel();
+    refreshPreview();
+    log_->append(QString{"Added track at %1"}.arg(qString(result.value().snapshot.revision.value())));
+  }
+
   void runExport() {
     const auto prepare = exportSession_.prepareFromProject();
     if (!prepare) {
@@ -239,6 +289,7 @@ private:
   grapple::app::NativeProjectSession& session_;
   grapple::app::NativePreviewSession& preview_;
   grapple::app::NativeExportSession& exportSession_;
+  grapple::app::NativeProjectCommandWriter commandWriter_;
   QLabel* summary_ = nullptr;
   QLabel* previewTitle_ = nullptr;
   QLabel* previewOutput_ = nullptr;
@@ -251,15 +302,18 @@ private:
 
 int main(int argc, char* argv[]) {
   bool smoke = false;
+  bool mutateSmoke = false;
   std::optional<std::string> screenshotPath;
   for (int index = 1; index < argc; ++index) {
     const std::string argument{argv[index]};
     if (argument == "--smoke") {
       smoke = true;
+    } else if (argument == "--mutate-smoke") {
+      mutateSmoke = true;
     } else if (argument == "--screenshot" && index + 1 < argc) {
       screenshotPath = argv[++index];
     } else {
-      std::cerr << "Expected --smoke or --screenshot <path>.\n";
+      std::cerr << "Expected --smoke, --mutate-smoke, or --screenshot <path>.\n";
       return 1;
     }
   }
@@ -295,6 +349,18 @@ int main(int argc, char* argv[]) {
     std::cout << "layers=" << viewModel.value().timeline.layers.size() << '\n';
     std::cout << "clips=" << viewModel.value().timeline.clips.size() << '\n';
     return 0;
+  }
+
+  if (mutateSmoke) {
+    window.addTrack();
+    const auto viewModel = session.buildViewModel();
+    if (!viewModel) {
+      printError(viewModel.error());
+      return 1;
+    }
+    std::cout << "revision=" << viewModel.value().project.revision.value() << '\n';
+    std::cout << "layers=" << viewModel.value().timeline.layers.size() << '\n';
+    return viewModel.value().timeline.layers.size() == 2 ? 0 : 1;
   }
 
   if (screenshotPath.has_value()) {
