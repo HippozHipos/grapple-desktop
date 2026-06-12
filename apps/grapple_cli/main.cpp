@@ -43,7 +43,6 @@ int main(int argc, char* argv[]) {
 
   const auto composition = controller.apply(project::ProjectCommandEnvelope{
     foundation::CommandId{"cmd_create_composition"},
-    project::CommandKind::CreateComposition,
     foundation::ProjectId{"proj_cli"},
     initialSnapshot.value().document.revision,
     project::CommandSource{project::CommandSourceKind::User, std::nullopt, "cli"},
@@ -56,7 +55,6 @@ int main(int argc, char* argv[]) {
 
   const auto track = controller.apply(project::ProjectCommandEnvelope{
     foundation::CommandId{"cmd_create_track"},
-    project::CommandKind::CreateTrack,
     foundation::ProjectId{"proj_cli"},
     composition.value().afterRevision,
     project::CommandSource{project::CommandSourceKind::User, std::nullopt, "cli"},

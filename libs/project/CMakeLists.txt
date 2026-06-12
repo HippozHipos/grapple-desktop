@@ -1,4 +1,5 @@
 add_library(grapple_project
+  src/ProjectCommand.cpp
   src/ProjectCommandNames.cpp
   src/ProjectController.cpp
   src/ProjectEventNames.cpp

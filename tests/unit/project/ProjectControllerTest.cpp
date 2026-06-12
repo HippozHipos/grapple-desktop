@@ -12,7 +12,6 @@ grapple::project::ProjectCommandEnvelope makeCreateComposition(
 ) {
   return grapple::project::ProjectCommandEnvelope{
     grapple::foundation::CommandId{"cmd_create_composition"},
-    grapple::project::CommandKind::CreateComposition,
     grapple::foundation::ProjectId{"proj_test"},
     std::move(expectedRevision),
     grapple::project::CommandSource{grapple::project::CommandSourceKind::User, std::nullopt, "test"},
@@ -71,7 +70,6 @@ int main() {
 
   const project::ProjectCommandEnvelope createTrack{
     foundation::CommandId{"cmd_create_track"},
-    project::CommandKind::CreateTrack,
     foundation::ProjectId{"proj_test"},
     afterStale.value().document.revision,
     project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
@@ -82,6 +80,7 @@ int main() {
       "Video"
     }
   };
+  GRAPPLE_REQUIRE(project::commandKind(createTrack.payload) == project::CommandKind::CreateTrack);
 
   const auto trackResult = controller.apply(createTrack);
   GRAPPLE_REQUIRE(trackResult);
@@ -94,7 +93,6 @@ int main() {
 
   const project::ProjectCommandEnvelope restoreCompositionSnapshot{
     foundation::CommandId{"cmd_restore_snapshot"},
-    project::CommandKind::RestoreSnapshot,
     foundation::ProjectId{"proj_test"},
     finalSnapshot.value().document.revision,
     project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},

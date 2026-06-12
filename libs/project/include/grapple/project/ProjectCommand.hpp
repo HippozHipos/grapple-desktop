@@ -81,11 +81,12 @@ using ProjectCommand = std::variant<
 
 struct ProjectCommandEnvelope {
   foundation::CommandId id;
-  CommandKind kind = CommandKind::CreateComposition;
   foundation::ProjectId projectId;
   foundation::RevisionId expectedRevision;
   CommandSource source;
   ProjectCommand payload;
 };
+
+[[nodiscard]] CommandKind commandKind(const ProjectCommand& command);
 
 } // namespace grapple::project

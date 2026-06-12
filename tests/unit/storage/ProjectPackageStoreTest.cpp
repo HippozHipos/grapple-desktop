@@ -60,7 +60,6 @@ int main() {
 
   const auto commandResult = controller.apply(project::ProjectCommandEnvelope{
     foundation::CommandId{"cmd_1"},
-    project::CommandKind::CreateComposition,
     foundation::ProjectId{"proj_storage"},
     initialSnapshot.value().document.revision,
     project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},

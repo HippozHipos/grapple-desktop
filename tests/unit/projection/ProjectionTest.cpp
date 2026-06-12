@@ -22,7 +22,6 @@ int main() {
 
   const auto createComposition = controller.apply(project::ProjectCommandEnvelope{
     foundation::CommandId{"cmd_composition"},
-    project::CommandKind::CreateComposition,
     foundation::ProjectId{"proj_projection"},
     initialSnapshot.value().document.revision,
     project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
@@ -32,7 +31,6 @@ int main() {
 
   const auto createTrack = controller.apply(project::ProjectCommandEnvelope{
     foundation::CommandId{"cmd_track"},
-    project::CommandKind::CreateTrack,
     foundation::ProjectId{"proj_projection"},
     createComposition.value().afterRevision,
     project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
@@ -55,7 +53,6 @@ int main() {
   };
   const auto createClip = controller.apply(project::ProjectCommandEnvelope{
     foundation::CommandId{"cmd_clip"},
-    project::CommandKind::CreateClip,
     foundation::ProjectId{"proj_projection"},
     createTrack.value().afterRevision,
     project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
@@ -75,7 +72,6 @@ int main() {
   };
   const auto createCamera = controller.apply(project::ProjectCommandEnvelope{
     foundation::CommandId{"cmd_camera"},
-    project::CommandKind::CreateCamera,
     foundation::ProjectId{"proj_projection"},
     createClip.value().afterRevision,
     project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
@@ -112,7 +108,6 @@ int main() {
   };
   const auto createEffect = controller.apply(project::ProjectCommandEnvelope{
     foundation::CommandId{"cmd_effect"},
-    project::CommandKind::CreateEffect,
     foundation::ProjectId{"proj_projection"},
     createCamera.value().afterRevision,
     project::CommandSource{project::CommandSourceKind::Agent, foundation::RunId{"run_1"}, "agent"},

@@ -30,7 +30,6 @@ int main() {
   jobs::ProjectCommandQueue commandQueue{project};
   auto enqueueComposition = commandQueue.enqueue(project::ProjectCommandEnvelope{
     foundation::CommandId{"cmd_composition"},
-    project::CommandKind::CreateComposition,
     foundation::ProjectId{"proj_jobs"},
     initial.value().document.revision,
     project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},

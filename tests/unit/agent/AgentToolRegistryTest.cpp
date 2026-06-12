@@ -53,7 +53,6 @@ int main() {
 
   const auto command = project.apply(project::ProjectCommandEnvelope{
     foundation::CommandId{"cmd_composition"},
-    project::CommandKind::CreateComposition,
     foundation::ProjectId{"proj_agent"},
     initial.value().document.revision,
     project::CommandSource{project::CommandSourceKind::Agent, foundation::RunId{"run_1"}, "agent"},
