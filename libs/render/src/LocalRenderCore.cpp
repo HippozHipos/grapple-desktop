@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <cmath>
 #include <sstream>
 #include <utility>
 
@@ -149,6 +150,48 @@ foundation::Result<std::optional<RenderedImage>> buildRenderedImage(
   }};
 }
 
+std::optional<RenderedImage> applyCameraTransformToImage(
+  std::optional<RenderedImage> image,
+  const std::vector<RenderedCamera>& cameras
+) {
+  if (!image.has_value() || cameras.empty()) {
+    return image;
+  }
+
+  const RenderedCamera& camera = cameras.front();
+  const int width = image->resolution.width;
+  const int height = image->resolution.height;
+  if (width <= 0 || height <= 0 || image->rgbaPixels.size() != static_cast<std::size_t>(width * height * 4)) {
+    return image;
+  }
+
+  const int offsetX = static_cast<int>(std::lround(camera.transform.position.x * static_cast<double>(width)));
+  const int offsetY = static_cast<int>(std::lround(camera.transform.position.y * static_cast<double>(height)));
+  if (offsetX == 0 && offsetY == 0) {
+    return image;
+  }
+
+  std::vector<std::uint8_t> transformed(image->rgbaPixels.size(), 0);
+  for (int y = 0; y < height; ++y) {
+    for (int x = 0; x < width; ++x) {
+      const int sourceX = x + offsetX;
+      const int sourceY = y + offsetY;
+      if (sourceX < 0 || sourceX >= width || sourceY < 0 || sourceY >= height) {
+        continue;
+      }
+      const std::size_t destinationIndex = static_cast<std::size_t>((y * width + x) * 4);
+      const std::size_t sourceIndex = static_cast<std::size_t>((sourceY * width + sourceX) * 4);
+      transformed[destinationIndex] = image->rgbaPixels[sourceIndex];
+      transformed[destinationIndex + 1] = image->rgbaPixels[sourceIndex + 1];
+      transformed[destinationIndex + 2] = image->rgbaPixels[sourceIndex + 2];
+      transformed[destinationIndex + 3] = image->rgbaPixels[sourceIndex + 3];
+    }
+  }
+
+  image->rgbaPixels = std::move(transformed);
+  return image;
+}
+
 } // namespace
 
 LocalRenderCore::LocalRenderCore(runtime::RuntimeEvaluator& runtime)
@@ -200,6 +243,7 @@ foundation::Result<RenderFrameResult> LocalRenderCore::renderFrame(const RenderF
   if (!image) {
     return image.error();
   }
+  std::optional<RenderedImage> transformedImage = applyCameraTransformToImage(std::move(image.value()), cameras);
 
   return RenderFrameResult{
     RenderFrame{
@@ -207,7 +251,7 @@ foundation::Result<RenderFrameResult> LocalRenderCore::renderFrame(const RenderF
       describeSample(sample),
       mediaFrames,
       cameras,
-      std::move(image.value())
+      std::move(transformedImage)
     },
     sample.diagnostics,
     {}

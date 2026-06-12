@@ -92,6 +92,54 @@ public:
   std::optional<grapple::render::SourceFrameRequest> lastRequest;
 };
 
+class ImageShiftCameraRuntime final : public grapple::runtime::IEffectRuntime {
+public:
+  bool supports(const grapple::projection::RenderEffectNode& node) const override {
+    return node.payload.implementation.kind == grapple::timeline::EffectImplementationKind::Python;
+  }
+
+  grapple::foundation::Result<grapple::runtime::EffectPrepareResult> prepare(
+    const grapple::runtime::EffectPrepareRequest& request
+  ) override {
+    return grapple::runtime::EffectPrepareResult{
+      grapple::runtime::PreparedEffectNode{
+        request.graph.id,
+        request.graph.targetNodeId,
+        request.node.sourceNodeId,
+        nullptr,
+        {}
+      },
+      {}
+    };
+  }
+
+  grapple::foundation::Result<grapple::runtime::EffectProcessResult> process(
+    const grapple::runtime::EffectProcessRequest& request
+  ) override {
+    return grapple::runtime::EffectProcessResult{
+      grapple::runtime::RuntimeEffectOutput{
+        request.prepared.effectGraphId,
+        request.prepared.targetNodeId,
+        request.prepared.sourceNodeId,
+        {
+          grapple::runtime::RuntimeNamedValue{
+            grapple::runtime::output_name::CameraTransform,
+            grapple::runtime::RuntimeValue{
+              grapple::timeline::Transform{
+                grapple::foundation::Vec2{0.5, 0.0},
+                grapple::foundation::Vec2{1.0, 1.0},
+                0.0,
+                1.0
+              }
+            }
+          }
+        }
+      },
+      {}
+    };
+  }
+};
+
 grapple::projection::RenderPlan makeRenderPlan() {
   return grapple::projection::RenderPlan{
     grapple::foundation::ProjectId{"proj_render"},
@@ -333,6 +381,23 @@ int main() {
   GRAPPLE_REQUIRE(frameSource.lastRequest->assetId == foundation::AssetId{"asset_video"});
   GRAPPLE_REQUIRE(frameSource.lastRequest->sourceTime == foundation::TimeSeconds{4.0});
   GRAPPLE_REQUIRE(frameSource.lastRequest->quality == render::RenderQuality::Draft);
+
+  ImageShiftCameraRuntime imageShiftRuntime;
+  runtime::RuntimeEvaluator imageShiftEvaluator{{&imageShiftRuntime}};
+  TestFrameSource shiftedFrameSource;
+  render::LocalRenderCore shiftedImageCore{imageShiftEvaluator, shiftedFrameSource};
+  render::PreviewRenderShell shiftedImagePreview{shiftedImageCore};
+  const auto shiftedImageLoad = shiftedImageCore.loadPlan(makeCameraEffectRenderPlan());
+  GRAPPLE_REQUIRE(shiftedImageLoad);
+  const auto shiftedImageFrame = shiftedImagePreview.renderFrame(render::RenderFrameRequest{
+    foundation::TimeSeconds{0.0},
+    render::RenderQuality::Draft
+  });
+  GRAPPLE_REQUIRE(shiftedImageFrame);
+  GRAPPLE_REQUIRE(shiftedImageFrame.value().frame.image.has_value());
+  GRAPPLE_REQUIRE((shiftedImageFrame.value().frame.image->resolution == foundation::Resolution{2, 1}));
+  GRAPPLE_REQUIRE((shiftedImageFrame.value().frame.image->rgbaPixels == std::vector<std::uint8_t>{40, 50, 60, 255, 0, 0, 0, 0}));
+  GRAPPLE_REQUIRE(shiftedImageFrame.value().runtimeDiagnostics.empty());
 
   CameraTransformRuntime cameraRuntime;
   runtime::RuntimeEvaluator cameraEvaluator{{&cameraRuntime}};

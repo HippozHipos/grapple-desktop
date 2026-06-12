@@ -13,8 +13,6 @@ namespace {
 inline constexpr char CameraTransformEntrypoint[] = "camera_transform";
 inline constexpr char PositionXParam[] = "position_x";
 inline constexpr char PositionYParam[] = "position_y";
-inline constexpr char RotationDegreesParam[] = "rotation_degrees";
-inline constexpr char OpacityParam[] = "opacity";
 
 std::optional<double> numericParam(const projection::RenderEffectNode& node, const std::string& name) {
   for (const auto& param : node.payload.params.values) {
@@ -68,14 +66,6 @@ foundation::Result<EffectPrepareResult> BuiltinEffectRuntime::prepare(const Effe
   if (positionX.has_value() && positionY.has_value()) {
     preparedValues.push_back(RuntimeNamedValue{PositionXParam, RuntimeValue{*positionX}});
     preparedValues.push_back(RuntimeNamedValue{PositionYParam, RuntimeValue{*positionY}});
-    preparedValues.push_back(RuntimeNamedValue{
-      RotationDegreesParam,
-      RuntimeValue{numericParam(request.node, RotationDegreesParam).value_or(0.0)}
-    });
-    preparedValues.push_back(RuntimeNamedValue{
-      OpacityParam,
-      RuntimeValue{numericParam(request.node, OpacityParam).value_or(1.0)}
-    });
   }
 
   return EffectPrepareResult{
@@ -93,8 +83,6 @@ foundation::Result<EffectPrepareResult> BuiltinEffectRuntime::prepare(const Effe
 foundation::Result<EffectProcessResult> BuiltinEffectRuntime::process(const EffectProcessRequest& request) {
   std::optional<double> positionX;
   std::optional<double> positionY;
-  double rotationDegrees = 0.0;
-  double opacity = 1.0;
 
   for (const RuntimeNamedValue& value : request.prepared.preparedValues) {
     const auto* numeric = std::get_if<double>(&value.value);
@@ -105,10 +93,6 @@ foundation::Result<EffectProcessResult> BuiltinEffectRuntime::process(const Effe
       positionX = *numeric;
     } else if (value.name == PositionYParam) {
       positionY = *numeric;
-    } else if (value.name == RotationDegreesParam) {
-      rotationDegrees = *numeric;
-    } else if (value.name == OpacityParam) {
-      opacity = *numeric;
     }
   }
 
@@ -120,8 +104,8 @@ foundation::Result<EffectProcessResult> BuiltinEffectRuntime::process(const Effe
         foundation::Transform2D{
           foundation::Vec2{*positionX, *positionY},
           foundation::Vec2{1.0, 1.0},
-          rotationDegrees,
-          opacity
+          0.0,
+          1.0
         }
       }
     });
