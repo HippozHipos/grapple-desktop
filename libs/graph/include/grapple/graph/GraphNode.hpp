@@ -1,8 +1,8 @@
 #pragma once
 
 #include <grapple/foundation/StrongId.hpp>
+#include <grapple/timeline/Payloads.hpp>
 
-#include <string>
 #include <variant>
 
 namespace grapple::graph {
@@ -17,50 +17,21 @@ enum class NodeKind {
   Note
 };
 
-struct CompositionPayload {
-  std::string name;
-};
-
-struct TrackPayload {
-  std::string name;
-};
-
-struct ClipPayload {
-  foundation::AssetId assetId;
-};
-
-struct CameraPayload {
-  std::string name;
-};
-
-struct EffectPayload {
-  std::string implementationId;
-};
-
-struct AssetPayload {
-  foundation::AssetId assetId;
-};
-
-struct NotePayload {
-  std::string text;
-};
-
 using NodePayload = std::variant<
-  CompositionPayload,
-  TrackPayload,
-  ClipPayload,
-  CameraPayload,
-  EffectPayload,
-  AssetPayload,
-  NotePayload
+  timeline::CompositionPayload,
+  timeline::TrackPayload,
+  timeline::ClipPayload,
+  timeline::CameraPayload,
+  timeline::EffectPayload,
+  timeline::AssetPayload,
+  timeline::NotePayload
 >;
 
 struct GraphNode {
   foundation::NodeId id;
   NodeKind kind = NodeKind::Composition;
-  NodePayload payload = CompositionPayload{};
+  NodePayload payload = timeline::CompositionPayload{};
   bool enabled = true;
 };
 
 } // namespace grapple::graph
-

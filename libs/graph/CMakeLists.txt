@@ -12,5 +12,5 @@ target_include_directories(grapple_graph
 target_link_libraries(grapple_graph
   PUBLIC
     Grapple::Foundation
+    Grapple::Timeline
 )
-

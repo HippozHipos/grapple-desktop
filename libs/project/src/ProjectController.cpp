@@ -2,6 +2,7 @@
 
 #include <grapple/graph/GraphEdge.hpp>
 #include <grapple/graph/GraphNode.hpp>
+#include <grapple/timeline/Payloads.hpp>
 
 #include <string>
 
@@ -98,7 +99,7 @@ foundation::Result<void> ProjectController::handleCreateComposition(const Create
   graph::GraphNode node{
     command.nodeId,
     graph::NodeKind::Composition,
-    graph::CompositionPayload{command.name},
+    timeline::CompositionPayload{command.name},
     true
   };
 
@@ -114,7 +115,7 @@ foundation::Result<void> ProjectController::handleCreateTrack(const CreateTrackC
   auto nodeResult = document_.graph.addNode(graph::GraphNode{
     command.nodeId,
     graph::NodeKind::Track,
-    graph::TrackPayload{command.name},
+    timeline::TrackPayload{command.name},
     true
   });
   if (!nodeResult) {

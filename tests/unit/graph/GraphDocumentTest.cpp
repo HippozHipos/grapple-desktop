@@ -1,4 +1,5 @@
 #include <grapple/graph/GraphDocument.hpp>
+#include <grapple/timeline/Payloads.hpp>
 
 #include <TestAssert.hpp>
 
@@ -10,7 +11,7 @@ int main() {
   auto addComposition = graph.addNode(graph::GraphNode{
     foundation::NodeId{"node_composition"},
     graph::NodeKind::Composition,
-    graph::CompositionPayload{"Main"},
+    timeline::CompositionPayload{"Main"},
     true
   });
   GRAPPLE_REQUIRE(addComposition);
@@ -19,7 +20,7 @@ int main() {
   auto duplicateNode = graph.addNode(graph::GraphNode{
     foundation::NodeId{"node_composition"},
     graph::NodeKind::Composition,
-    graph::CompositionPayload{"Duplicate"},
+    timeline::CompositionPayload{"Duplicate"},
     true
   });
   GRAPPLE_REQUIRE(!duplicateNode);
@@ -37,4 +38,3 @@ int main() {
 
   return 0;
 }
-

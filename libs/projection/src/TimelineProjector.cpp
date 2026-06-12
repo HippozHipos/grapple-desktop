@@ -1,6 +1,7 @@
 #include <grapple/projection/TimelineProjector.hpp>
 
 #include <grapple/graph/GraphNode.hpp>
+#include <grapple/timeline/Payloads.hpp>
 
 namespace grapple::projection {
 
@@ -21,14 +22,14 @@ foundation::Result<BuildTimelineIRResult> TimelineProjector::buildTimelineIR(
 
   for (const graph::GraphNode& node : document.graph.nodes()) {
     if (node.kind == graph::NodeKind::Track) {
-      const auto* payload = std::get_if<graph::TrackPayload>(&node.payload);
+      const auto* payload = std::get_if<timeline::TrackPayload>(&node.payload);
       if (payload != nullptr) {
         timeline.layers.push_back(TimelineLayer{node.id, payload->name, node.enabled});
       }
     }
 
     if (node.kind == graph::NodeKind::Camera) {
-      const auto* payload = std::get_if<graph::CameraPayload>(&node.payload);
+      const auto* payload = std::get_if<timeline::CameraPayload>(&node.payload);
       if (payload != nullptr) {
         timeline.cameras.push_back(TimelineCamera{node.id, payload->name, node.enabled});
       }
@@ -39,4 +40,3 @@ foundation::Result<BuildTimelineIRResult> TimelineProjector::buildTimelineIR(
 }
 
 } // namespace grapple::projection
-
