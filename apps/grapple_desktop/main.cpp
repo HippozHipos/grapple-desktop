@@ -73,6 +73,44 @@ QString summaryText(const grapple::app::AppViewModel& viewModel) {
     .arg(viewModel.timeline.effectGraphs.size());
 }
 
+QString inspectorText(
+  const grapple::app::AppViewModel& viewModel,
+  const std::optional<grapple::foundation::NodeId>& selectedNodeId
+) {
+  if (!selectedNodeId.has_value()) {
+    return "Inspector\nNo selection";
+  }
+
+  for (const grapple::app::AppClipRow& clip : viewModel.timeline.clips) {
+    if (clip.sourceNodeId == selectedNodeId.value()) {
+      return QString{"Inspector\nClip %1\nAsset: %2\nTrack: %3\nRange: %4s - %5s"}
+        .arg(qString(clip.sourceNodeId.value()))
+        .arg(qString(clip.assetId.value()))
+        .arg(qString(clip.trackNodeId.value()))
+        .arg(clip.timelineRange.start.value)
+        .arg(clip.timelineRange.end.value);
+    }
+  }
+
+  for (const grapple::app::AppCameraRow& camera : viewModel.timeline.cameras) {
+    if (camera.sourceNodeId == selectedNodeId.value()) {
+      return QString{"Inspector\nCamera %1\nName: %2"}
+        .arg(qString(camera.sourceNodeId.value()))
+        .arg(qString(camera.name));
+    }
+  }
+
+  for (const grapple::app::AppLayerRow& layer : viewModel.timeline.layers) {
+    if (layer.sourceNodeId == selectedNodeId.value()) {
+      return QString{"Inspector\nLayer %1\nClips: %2"}
+        .arg(qString(layer.name))
+        .arg(layer.clipCount);
+    }
+  }
+
+  return QString{"Inspector\nUnknown node %1"}.arg(qString(selectedNodeId->value()));
+}
+
 grapple::media::MediaQuality mediaQualityFor(grapple::render::RenderQuality quality) {
   return quality == grapple::render::RenderQuality::Final
     ? grapple::media::MediaQuality::Full
@@ -361,8 +399,17 @@ public:
     update();
   }
 
+  void setSelectedNodeId(std::optional<grapple::foundation::NodeId> selectedNodeId) {
+    selectedNodeId_ = std::move(selectedNodeId);
+    update();
+  }
+
   void setSeekHandler(std::function<void(grapple::foundation::TimeSeconds)> seekHandler) {
     seekHandler_ = std::move(seekHandler);
+  }
+
+  void setSelectionHandler(std::function<void(grapple::foundation::NodeId)> selectionHandler) {
+    selectionHandler_ = std::move(selectionHandler);
   }
 
 protected:
@@ -406,27 +453,42 @@ protected:
 
     int y = rulerHeight;
     for (const grapple::app::AppLayerRow& layer : viewModel.timeline.layers) {
-      drawLayerRow(painter, viewModel, layer, QRect{0, y, width(), rowHeight}, left, trackWidth, duration);
+      drawLayerRow(painter, viewModel, layer, QRect{0, y, width(), rowHeight}, left);
       y += rowHeight;
     }
 
     if (!viewModel.timeline.cameras.empty()) {
-      drawCameraRow(painter, viewModel, QRect{0, y, width(), rowHeight}, left, trackWidth);
+      drawCameraRow(painter, viewModel, QRect{0, y, width(), rowHeight}, left);
     }
 
     drawPlayhead(painter, left, trackWidth, duration);
   }
 
   void mousePressEvent(QMouseEvent* event) override {
-    if (event->button() != Qt::LeftButton || !viewModel_.has_value() || !seekHandler_) {
+    if (event->button() != Qt::LeftButton || !viewModel_.has_value()) {
       QWidget::mousePressEvent(event);
       return;
     }
 
-    seekHandler_(timeAtX(event->pos().x()));
+    if (const auto selected = nodeAt(event->pos()); selected.has_value() && selectionHandler_) {
+      selectionHandler_(selected.value());
+      return;
+    }
+
+    if (seekHandler_) {
+      seekHandler_(timeAtX(event->pos().x()));
+    }
   }
 
 private:
+  [[nodiscard]] int rulerHeight() const noexcept {
+    return 34;
+  }
+
+  [[nodiscard]] int rowHeight() const noexcept {
+    return 44;
+  }
+
   [[nodiscard]] double duration() const noexcept {
     return viewModel_.has_value()
       ? std::max(0.001, viewModel_->timeline.duration.value)
@@ -452,6 +514,54 @@ private:
     return grapple::foundation::TimeSeconds{normalized * duration()};
   }
 
+  [[nodiscard]] std::optional<grapple::foundation::NodeId> nodeAt(const QPoint& point) const {
+    if (!viewModel_.has_value()) {
+      return std::nullopt;
+    }
+
+    const int row = (point.y() - rulerHeight()) / rowHeight();
+    if (row < 0) {
+      return std::nullopt;
+    }
+
+    if (row < static_cast<int>(viewModel_->timeline.layers.size())) {
+      const grapple::app::AppLayerRow& layer = viewModel_->timeline.layers[static_cast<std::size_t>(row)];
+      for (const grapple::app::AppClipRow& clip : viewModel_->timeline.clips) {
+        if (clip.trackNodeId != layer.sourceNodeId) {
+          continue;
+        }
+        if (clipRectFor(row, clip).contains(point)) {
+          return clip.sourceNodeId;
+        }
+      }
+      return std::nullopt;
+    }
+
+    if (row == static_cast<int>(viewModel_->timeline.layers.size()) && !viewModel_->timeline.cameras.empty()) {
+      if (cameraRectFor(row).contains(point)) {
+        return viewModel_->timeline.cameras.front().sourceNodeId;
+      }
+    }
+
+    return std::nullopt;
+  }
+
+  [[nodiscard]] QRect clipRectFor(int row, const grapple::app::AppClipRow& clip) const {
+    const int left = timelineLeft();
+    const int width = std::max(1, timelineRight() - left);
+    const int top = rulerHeight() + (row * rowHeight());
+    const int x = clipX(clip.timelineRange.start, left, width, duration());
+    const int endX = clipX(clip.timelineRange.end, left, width, duration());
+    return QRect{x + 2, top + 8, std::max(18, endX - x - 4), rowHeight() - 16};
+  }
+
+  [[nodiscard]] QRect cameraRectFor(int row) const {
+    const int left = timelineLeft();
+    const int width = std::max(1, timelineRight() - left);
+    const int top = rulerHeight() + (row * rowHeight());
+    return QRect{left + 2, top + 10, std::max(18, width - 4), rowHeight() - 20};
+  }
+
   static int clipX(const grapple::foundation::TimeSeconds time, int left, int trackWidth, double duration) {
     return left + static_cast<int>((time.value / duration) * static_cast<double>(trackWidth));
   }
@@ -465,9 +575,7 @@ private:
     const grapple::app::AppViewModel& viewModel,
     const grapple::app::AppLayerRow& layer,
     const QRect& row,
-    int left,
-    int trackWidth,
-    double duration
+    int left
   ) const {
     painter.fillRect(row, QColor{"#242936"});
     painter.setPen(QColor{"#3b4556"});
@@ -479,10 +587,9 @@ private:
       if (clip.trackNodeId != layer.sourceNodeId) {
         continue;
       }
-      const int x = clipX(clip.timelineRange.start, left, trackWidth, duration);
-      const int endX = clipX(clip.timelineRange.end, left, trackWidth, duration);
-      const QRect clipRect{x + 2, row.top() + 8, std::max(18, endX - x - 4), row.height() - 16};
-      painter.setPen(QColor{"#b9c7f0"});
+      const QRect clipRect = clipRectFor((row.top() - rulerHeight()) / rowHeight(), clip);
+      const bool selected = selectedNodeId_.has_value() && clip.sourceNodeId == selectedNodeId_.value();
+      painter.setPen(selected ? QPen{QColor{"#ffffff"}, 3} : QPen{QColor{"#b9c7f0"}, 1});
       painter.setBrush(QColor{"#36466e"});
       painter.drawRoundedRect(clipRect, 6, 6);
       painter.setPen(QColor{"#eef4ff"});
@@ -494,8 +601,7 @@ private:
     QPainter& painter,
     const grapple::app::AppViewModel& viewModel,
     const QRect& row,
-    int left,
-    int trackWidth
+    int left
   ) const {
     painter.fillRect(row, QColor{"#1f2c33"});
     painter.setPen(QColor{"#3b5964"});
@@ -503,8 +609,11 @@ private:
     painter.setPen(QColor{"#d7f8ff"});
     painter.drawText(QRect{16, row.top(), left - 28, row.height()}, Qt::AlignVCenter | Qt::AlignLeft, "Cameras");
 
-    const QRect cameraStrip{left + 2, row.top() + 10, std::max(18, trackWidth - 4), row.height() - 20};
-    painter.setPen(QColor{"#86e8f2"});
+    const QRect cameraStrip = cameraRectFor((row.top() - rulerHeight()) / rowHeight());
+    const bool selected = selectedNodeId_.has_value() &&
+                          !viewModel.timeline.cameras.empty() &&
+                          viewModel.timeline.cameras.front().sourceNodeId == selectedNodeId_.value();
+    painter.setPen(selected ? QPen{QColor{"#ffffff"}, 3} : QPen{QColor{"#86e8f2"}, 1});
     painter.setBrush(QColor{"#23535e"});
     painter.drawRoundedRect(cameraStrip, 6, 6);
     painter.setPen(QColor{"#e5fdff"});
@@ -526,7 +635,9 @@ private:
 
   std::optional<grapple::app::AppViewModel> viewModel_;
   grapple::foundation::TimeSeconds playhead_;
+  std::optional<grapple::foundation::NodeId> selectedNodeId_;
   std::function<void(grapple::foundation::TimeSeconds)> seekHandler_;
+  std::function<void(grapple::foundation::NodeId)> selectionHandler_;
 };
 
 grapple::foundation::Result<void> populateDemo(grapple::app::NativeProjectSession& session, bool savePackage) {
@@ -585,6 +696,10 @@ public:
 
     timeline_ = new TimelinePanel;
 
+    inspector_ = new QTextEdit;
+    inspector_->setObjectName("inspector");
+    inspector_->setReadOnly(true);
+
     log_ = new QTextEdit;
     log_->setObjectName("log");
     log_->setReadOnly(true);
@@ -623,8 +738,15 @@ public:
 
     layout->addWidget(summary_, 0, 0, 1, 1);
     layout->addWidget(previewFrame_, 0, 1, 2, 1);
+    auto* sidePanel = new QWidget;
+    auto* sideLayout = new QVBoxLayout{sidePanel};
+    sideLayout->setContentsMargins(0, 0, 0, 0);
+    sideLayout->setSpacing(16);
+    sideLayout->addWidget(inspector_, 1);
+    sideLayout->addWidget(log_, 1);
+
     layout->addWidget(actions, 0, 2, 1, 1);
-    layout->addWidget(log_, 1, 2, 1, 1);
+    layout->addWidget(sidePanel, 1, 2, 1, 1);
     layout->addWidget(timeline_, 2, 0, 1, 3);
     layout->setColumnStretch(0, 2);
     layout->setColumnStretch(1, 4);
@@ -644,13 +766,16 @@ public:
     connect(exportButton, &QPushButton::clicked, this, [this] { runExport(); });
     connect(saveButton, &QPushButton::clicked, this, [this] { savePackage(); });
     timeline_->setSeekHandler([this](grapple::foundation::TimeSeconds time) { seekTo(time); });
+    timeline_->setSelectionHandler([this](grapple::foundation::NodeId nodeId) { selectNode(std::move(nodeId)); });
 
     setStyleSheet(R"(
       QMainWindow { background: #15171c; color: #e9edf5; }
       QWidget { background: #15171c; color: #e9edf5; font-family: "DejaVu Sans"; font-size: 14px; }
-      QLabel#summary, QTextEdit#timeline, QTextEdit#log, QWidget#actions {
+      QLabel#summary, QTextEdit#timeline, QTextEdit#inspector, QTextEdit#log, QWidget#actions {
         background: #20242d; border: 1px solid #343b4a; border-radius: 10px; padding: 12px;
       }
+      QTextEdit#inspector { color: #eaf3ff; }
+      QTextEdit#log { color: #b8c7dc; }
       QFrame#previewFrame {
         background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #0b0e14, stop:1 #17202e);
         border: 1px solid #3c526f; border-radius: 12px;
@@ -676,6 +801,8 @@ public:
     summary_->setText(summaryText(viewModel.value()));
     timeline_->setViewModel(viewModel.value());
     timeline_->setPlayhead(preview_.state().playhead);
+    timeline_->setSelectedNodeId(selectedNodeId_);
+    updateInspector(viewModel.value());
     timelineDuration_ = viewModel.value().timeline.duration;
   }
 
@@ -736,6 +863,21 @@ public:
       Qt::NoModifier
     };
     QApplication::sendEvent(timeline_, &event);
+  }
+
+  void clickFirstTimelineClip() {
+    QMouseEvent event{
+      QEvent::MouseButtonPress,
+      QPointF{180.0, 56.0},
+      Qt::LeftButton,
+      Qt::LeftButton,
+      Qt::NoModifier
+    };
+    QApplication::sendEvent(timeline_, &event);
+  }
+
+  std::optional<grapple::foundation::NodeId> selectedNodeId() const {
+    return selectedNodeId_;
   }
 
   void startPlayback() {
@@ -847,6 +989,22 @@ private:
     log_->append(QString{"%1: %2"}.arg(qString(error.code)).arg(qString(error.message)));
   }
 
+  void selectNode(grapple::foundation::NodeId nodeId) {
+    selectedNodeId_ = std::move(nodeId);
+    timeline_->setSelectedNodeId(selectedNodeId_);
+
+    const auto viewModel = session_.buildViewModel();
+    if (!viewModel) {
+      appendError(viewModel.error());
+      return;
+    }
+    updateInspector(viewModel.value());
+  }
+
+  void updateInspector(const grapple::app::AppViewModel& viewModel) {
+    inspector_->setPlainText(inspectorText(viewModel, selectedNodeId_));
+  }
+
   grapple::app::NativeProjectSession& session_;
   grapple::app::NativePreviewSession& preview_;
   grapple::app::NativeExportSession& exportSession_;
@@ -856,10 +1014,12 @@ private:
   QLabel* playheadLabel_ = nullptr;
   PreviewSurface* previewSurface_ = nullptr;
   TimelinePanel* timeline_ = nullptr;
+  QTextEdit* inspector_ = nullptr;
   QTextEdit* log_ = nullptr;
   QFrame* previewFrame_ = nullptr;
   QTimer* playbackTimer_ = nullptr;
   grapple::foundation::TimeSeconds timelineDuration_;
+  std::optional<grapple::foundation::NodeId> selectedNodeId_;
 };
 
 } // namespace
@@ -869,6 +1029,7 @@ int main(int argc, char* argv[]) {
   bool mutateSmoke = false;
   bool seekSmoke = false;
   bool timelineSeekSmoke = false;
+  bool selectSmoke = false;
   bool playbackSmoke = false;
   std::optional<std::string> screenshotPath;
   for (int index = 1; index < argc; ++index) {
@@ -881,12 +1042,14 @@ int main(int argc, char* argv[]) {
       seekSmoke = true;
     } else if (argument == "--timeline-seek-smoke") {
       timelineSeekSmoke = true;
+    } else if (argument == "--select-smoke") {
+      selectSmoke = true;
     } else if (argument == "--playback-smoke") {
       playbackSmoke = true;
     } else if (argument == "--screenshot" && index + 1 < argc) {
       screenshotPath = argv[++index];
     } else {
-      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --playback-smoke, or --screenshot <path>.\n";
+      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --playback-smoke, or --screenshot <path>.\n";
       return 1;
     }
   }
@@ -964,6 +1127,19 @@ int main(int argc, char* argv[]) {
     const grapple::render::PreviewRenderShellState previewState = preview.state();
     std::cout << "playhead=" << previewState.playhead.value << '\n';
     return previewState.playhead.value > 4.9 && previewState.playhead.value < 5.1 ? 0 : 1;
+  }
+
+  if (selectSmoke) {
+    window.show();
+    app.processEvents();
+    window.clickFirstTimelineClip();
+    const auto selectedNodeId = window.selectedNodeId();
+    if (!selectedNodeId.has_value()) {
+      std::cerr << "No selected timeline node.\n";
+      return 1;
+    }
+    std::cout << "selected=" << selectedNodeId->value() << '\n';
+    return selectedNodeId.value() == grapple::foundation::NodeId{"node_clip_3"} ? 0 : 1;
   }
 
   if (playbackSmoke) {
