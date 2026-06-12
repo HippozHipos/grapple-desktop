@@ -57,6 +57,9 @@ int main() {
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::DisconnectNodes) == "project.disconnect_nodes");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::SetEffectParams) == "project.set_effect_params");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::RestoreSnapshot) == "project.restore_snapshot");
+  GRAPPLE_REQUIRE(project::serializedCommandSourceKind(project::CommandSourceKind::User) == "user");
+  GRAPPLE_REQUIRE(project::serializedCommandSourceKind(project::CommandSourceKind::Agent) == "agent");
+  GRAPPLE_REQUIRE(project::serializedCommandSourceKind(project::CommandSourceKind::Importer) == "importer");
   GRAPPLE_REQUIRE(project::serializedEventName(project::EventKind::ProjectCommandApplied) == "project.command_applied");
   GRAPPLE_REQUIRE(project::serializedEventName(project::EventKind::ProjectChanged) == "project.changed");
   GRAPPLE_REQUIRE(createComposition.value().beforeRevision == foundation::RevisionId{"rev_0"});

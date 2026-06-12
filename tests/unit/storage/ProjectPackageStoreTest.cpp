@@ -27,6 +27,9 @@ grapple::history::CommandRecord makeCommandRecord(
       grapple::foundation::NodeId{"node_composition"},
       "Main"
     }),
+    "user",
+    std::nullopt,
+    "test",
     std::chrono::system_clock::now()
   };
 }
@@ -101,6 +104,9 @@ int main() {
   GRAPPLE_REQUIRE(store.state().commandLog.records().size() == 1);
   GRAPPLE_REQUIRE(store.state().commandLog.records()[0].serializedName == "project.create_composition");
   GRAPPLE_REQUIRE(store.state().commandLog.records()[0].serializedPayload == "{\"nodeId\":\"node_composition\",\"name\":\"Main\"}");
+  GRAPPLE_REQUIRE(store.state().commandLog.records()[0].sourceKind == "user");
+  GRAPPLE_REQUIRE(!store.state().commandLog.records()[0].sourceRunId.has_value());
+  GRAPPLE_REQUIRE(store.state().commandLog.records()[0].sourceActorName == "test");
   GRAPPLE_REQUIRE(store.state().eventLog.records().size() == 2);
   GRAPPLE_REQUIRE(store.state().eventLog.records()[0].id == foundation::EventId{"event_cmd_1_0"});
   GRAPPLE_REQUIRE(store.state().eventLog.records()[0].serializedName == "project.command_applied");

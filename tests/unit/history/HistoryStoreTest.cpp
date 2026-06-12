@@ -18,10 +18,16 @@ int main() {
     foundation::RevisionId{"rev_1"},
     "project.create_composition",
     R"({"nodeId":"node_1"})",
+    "agent",
+    foundation::RunId{"run_1"},
+    "test-agent",
     now
   });
   GRAPPLE_REQUIRE(commandAppend);
   GRAPPLE_REQUIRE(commandLog.records().size() == 1);
+  GRAPPLE_REQUIRE(commandLog.records()[0].sourceKind == "agent");
+  GRAPPLE_REQUIRE(commandLog.records()[0].sourceRunId == foundation::RunId{"run_1"});
+  GRAPPLE_REQUIRE(commandLog.records()[0].sourceActorName == "test-agent");
 
   const auto duplicateCommand = commandLog.append(commandLog.records().front());
   GRAPPLE_REQUIRE(!duplicateCommand);
@@ -68,4 +74,3 @@ int main() {
 
   return 0;
 }
-

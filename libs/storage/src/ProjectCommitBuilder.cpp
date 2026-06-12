@@ -62,6 +62,9 @@ AtomicProjectCommit makeAtomicProjectCommit(
       result.afterRevision,
       std::string{project::serializedCommandName(project::commandKind(command.payload))},
       project::serializeCanonicalCommandPayload(command.payload),
+      std::string{project::serializedCommandSourceKind(command.source.kind)},
+      command.source.runId,
+      command.source.actorName,
       options.createdAt
     },
     std::move(events),

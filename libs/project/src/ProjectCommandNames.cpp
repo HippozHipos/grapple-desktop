@@ -37,4 +37,19 @@ std::string_view serializedCommandName(CommandKind kind) {
   std::abort();
 }
 
+std::string_view serializedCommandSourceKind(CommandSourceKind kind) {
+  switch (kind) {
+    case CommandSourceKind::User:
+      return "user";
+    case CommandSourceKind::Agent:
+      return "agent";
+    case CommandSourceKind::Importer:
+      return "importer";
+    case CommandSourceKind::Migration:
+      return "migration";
+  }
+
+  std::abort();
+}
+
 } // namespace grapple::project
