@@ -73,18 +73,40 @@ foundation::Result<void> validateLatestSnapshot(
 
 } // namespace
 
-foundation::Result<ProjectPackageManifest> ProjectPackageReader::readManifest(const ProjectPackage& package) const {
-  if (package.rootPath.value.empty()) {
+foundation::Result<ProjectPackageManifest> ProjectPackageReader::readManifestAtRoot(const foundation::FilePath& rootPath) const {
+  if (rootPath.value.empty()) {
     return foundation::Error{"storage.package_root_empty", "Project package root path must not be empty."};
   }
 
-  const std::filesystem::path manifestPath = std::filesystem::path{package.rootPath.value} / "manifest.json";
+  const std::filesystem::path manifestPath = std::filesystem::path{rootPath.value} / "manifest.json";
   auto contents = readTextFile(manifestPath, "storage.manifest_open_failed");
   if (!contents) {
     return contents.error();
   }
 
   auto manifest = deserializeCanonicalProjectPackageManifest(contents.value());
+  if (!manifest) {
+    return manifest.error();
+  }
+
+  return manifest.value();
+}
+
+foundation::Result<ProjectPackage> ProjectPackageReader::readPackage(foundation::FilePath rootPath) const {
+  auto manifest = readManifestAtRoot(rootPath);
+  if (!manifest) {
+    return manifest.error();
+  }
+
+  return ProjectPackage{
+    manifest.value().projectId,
+    std::move(rootPath),
+    manifest.value().schemaVersion
+  };
+}
+
+foundation::Result<ProjectPackageManifest> ProjectPackageReader::readManifest(const ProjectPackage& package) const {
+  auto manifest = readManifestAtRoot(package.rootPath);
   if (!manifest) {
     return manifest.error();
   }

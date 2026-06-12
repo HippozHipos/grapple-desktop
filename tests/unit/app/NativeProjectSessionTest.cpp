@@ -2,6 +2,7 @@
 #include <grapple/app/NativePreviewSession.hpp>
 #include <grapple/app/NativeProjectCommandWriter.hpp>
 #include <grapple/app/NativeProjectSession.hpp>
+#include <grapple/app/NativeWorkspaceSession.hpp>
 #include <grapple/history/HistorySerializer.hpp>
 #include <grapple/project/ProjectSerializer.hpp>
 #include <grapple/storage/ProjectPackageManifest.hpp>
@@ -252,6 +253,29 @@ int main() {
   );
   GRAPPLE_REQUIRE(openedTrack);
   GRAPPLE_REQUIRE(openedTrack.value().snapshot.revision == foundation::RevisionId{"rev_2"});
+
+  auto openedWorkspace = app::NativeWorkspaceSession::openPackageRoot(foundation::FilePath{packageRoot.string()});
+  GRAPPLE_REQUIRE(openedWorkspace);
+  const auto workspaceViewModel = openedWorkspace.value().project().buildViewModel();
+  GRAPPLE_REQUIRE(workspaceViewModel);
+  GRAPPLE_REQUIRE(workspaceViewModel.value().project.projectId == foundation::ProjectId{"proj_app_saved"});
+  GRAPPLE_REQUIRE(workspaceViewModel.value().project.revision == foundation::RevisionId{"rev_1"});
+  GRAPPLE_REQUIRE(openedWorkspace.value().project().packageState().commandLog.records().size() == 1);
+  GRAPPLE_REQUIRE(openedWorkspace.value().mediaSources().sources().empty());
+  const auto workspaceRefresh = openedWorkspace.value().preview().refreshFromProject();
+  GRAPPLE_REQUIRE(workspaceRefresh);
+  GRAPPLE_REQUIRE(openedWorkspace.value().preview().state().core.hasPlan);
+  const auto workspaceTrack = openedWorkspace.value().commandWriter().apply(
+    project::CreateTrackCommand{
+      openedWorkspace.value().commandWriter().nextNodeId("workspace track"),
+      workspaceViewModel.value().timeline.compositions[0].sourceNodeId,
+      openedWorkspace.value().commandWriter().nextEdgeId("contains workspace track"),
+      "Workspace Track"
+    },
+    userSource()
+  );
+  GRAPPLE_REQUIRE(workspaceTrack);
+  GRAPPLE_REQUIRE(workspaceTrack.value().snapshot.revision == foundation::RevisionId{"rev_2"});
   std::filesystem::remove_all(packageRoot);
 
   const auto firstCommandId = session.packageState().commandLog.records()[0].id;

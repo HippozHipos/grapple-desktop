@@ -216,6 +216,14 @@ int main() {
   eventLogContents << eventLogFile.rdbuf();
   GRAPPLE_REQUIRE(eventLogContents.str() == history::serializeCanonicalEventLog(store.state().eventLog));
   const storage::ProjectPackageReader packageReader;
+  const auto readPackage = packageReader.readPackage(foundation::FilePath{packageRoot.string()});
+  GRAPPLE_REQUIRE(readPackage);
+  GRAPPLE_REQUIRE(readPackage.value().projectId == foundation::ProjectId{"proj_storage"});
+  GRAPPLE_REQUIRE(readPackage.value().rootPath == foundation::FilePath{packageRoot.string()});
+  GRAPPLE_REQUIRE(readPackage.value().schemaVersion == 1);
+  const auto readManifestAtRoot = packageReader.readManifestAtRoot(foundation::FilePath{packageRoot.string()});
+  GRAPPLE_REQUIRE(readManifestAtRoot);
+  GRAPPLE_REQUIRE(storage::serializeCanonicalProjectPackageManifest(readManifestAtRoot.value()) == manifestContents.str());
   const auto readManifest = packageReader.readManifest(diskPackage);
   GRAPPLE_REQUIRE(readManifest);
   GRAPPLE_REQUIRE(storage::serializeCanonicalProjectPackageManifest(readManifest.value()) == manifestContents.str());

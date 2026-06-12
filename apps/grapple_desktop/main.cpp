@@ -1,13 +1,9 @@
 #include <DemoProject.hpp>
 
-#include <grapple/app/NativeExportSession.hpp>
-#include <grapple/app/NativePreviewSession.hpp>
-#include <grapple/app/NativeProjectCommandWriter.hpp>
 #include <grapple/app/NativeProjectSession.hpp>
+#include <grapple/app/NativeWorkspaceSession.hpp>
 #include <grapple/asset/Asset.hpp>
-#include <grapple/media/MediaReader.hpp>
 #include <grapple/media/MediaSource.hpp>
-#include <grapple/media/OpenCVMediaReader.hpp>
 
 #include <QApplication>
 #include <QColor>
@@ -112,12 +108,6 @@ QString inspectorText(
   return QString{"Inspector\nUnknown node %1"}.arg(qString(selectedNodeId->value()));
 }
 
-grapple::media::MediaQuality mediaQualityFor(grapple::render::RenderQuality quality) {
-  return quality == grapple::render::RenderQuality::Final
-    ? grapple::media::MediaQuality::Full
-    : grapple::media::MediaQuality::Proxy;
-}
-
 QString mediaKindText(grapple::render::RenderedMediaKind kind) {
   switch (kind) {
     case grapple::render::RenderedMediaKind::Video:
@@ -128,35 +118,6 @@ QString mediaKindText(grapple::render::RenderedMediaKind kind) {
 
   return "Unknown";
 }
-
-class MediaFrameSourceAdapter final : public grapple::render::IRenderFrameSource {
-public:
-  explicit MediaFrameSourceAdapter(grapple::media::IMediaReader& reader)
-    : reader_{reader} {}
-
-  grapple::foundation::Result<grapple::render::SourceFrame> frameAt(
-    const grapple::render::SourceFrameRequest& request
-  ) override {
-    auto frame = reader_.frameAt(
-      request.assetId,
-      request.sourceTime,
-      mediaQualityFor(request.quality)
-    );
-    if (!frame) {
-      return frame.error();
-    }
-
-    return grapple::render::SourceFrame{
-      frame.value().assetId,
-      frame.value().time,
-      frame.value().resolution,
-      std::move(frame.value().rgbaPixels)
-    };
-  }
-
-private:
-  grapple::media::IMediaReader& reader_;
-};
 
 grapple::foundation::Result<void> ensureDemoVideoFile(const grapple::foundation::FilePath& path) {
   constexpr int width = 320;
@@ -190,35 +151,6 @@ grapple::foundation::Result<void> ensureDemoVideoFile(const grapple::foundation:
   }
 
   return {};
-}
-
-grapple::media::MediaSourceKind sourceKindFor(grapple::asset::AssetMediaType mediaType) {
-  return mediaType == grapple::asset::AssetMediaType::Image
-    ? grapple::media::MediaSourceKind::Image
-    : grapple::media::MediaSourceKind::Video;
-}
-
-grapple::foundation::Result<grapple::media::MediaSourceCatalog> buildMediaSources(
-  const grapple::app::NativeProjectSession& session
-) {
-  const auto snapshot = session.snapshot();
-  if (!snapshot) {
-    return snapshot.error();
-  }
-
-  grapple::media::MediaSourceCatalog sources;
-  for (const grapple::asset::Asset& asset : snapshot.value().assets.assets()) {
-    const auto registered = sources.registerSource(grapple::media::MediaSource{
-      asset.id,
-      sourceKindFor(asset.metadata.mediaType),
-      asset.metadata.sourcePath
-    });
-    if (!registered) {
-      return registered.error();
-    }
-  }
-
-  return sources;
 }
 
 class PreviewSurface final : public QWidget {
@@ -704,16 +636,8 @@ grapple::foundation::Result<grapple::asset::Asset> inspectVideoAsset(
 
 class DesktopWindow final : public QMainWindow {
 public:
-  DesktopWindow(
-    grapple::app::NativeProjectSession& session,
-    grapple::app::NativePreviewSession& preview,
-    grapple::app::NativeExportSession& exportSession,
-    grapple::media::MediaSourceCatalog& mediaSources
-  ) : session_{session},
-      preview_{preview},
-      exportSession_{exportSession},
-      mediaSources_{mediaSources},
-      commandWriter_{session} {
+  explicit DesktopWindow(grapple::app::NativeWorkspaceSession& workspace)
+    : workspace_{workspace} {
     setWindowTitle("Grapple Native");
     resize(1180, 720);
 
@@ -760,6 +684,7 @@ public:
     auto* stepBackButton = new QPushButton{"Step -1s"};
     auto* stepForwardButton = new QPushButton{"Step +1s"};
     auto* importVideoButton = new QPushButton{"Import Video"};
+    auto* openPackageButton = new QPushButton{"Open Package"};
     auto* addTrackButton = new QPushButton{"Add Track"};
     auto* deleteClipButton = new QPushButton{"Delete Clip"};
     auto* exportButton = new QPushButton{"Export Smoke"};
@@ -773,6 +698,7 @@ public:
     actionColumn->addWidget(stepBackButton);
     actionColumn->addWidget(stepForwardButton);
     actionColumn->addWidget(importVideoButton);
+    actionColumn->addWidget(openPackageButton);
     actionColumn->addWidget(addTrackButton);
     actionColumn->addWidget(deleteClipButton);
     actionColumn->addWidget(exportButton);
@@ -810,6 +736,7 @@ public:
     connect(stepBackButton, &QPushButton::clicked, this, [this] { stepPlayhead(-1.0); });
     connect(stepForwardButton, &QPushButton::clicked, this, [this] { stepPlayhead(1.0); });
     connect(importVideoButton, &QPushButton::clicked, this, [this] { chooseAndImportVideo(); });
+    connect(openPackageButton, &QPushButton::clicked, this, [this] { chooseAndOpenPackage(); });
     connect(addTrackButton, &QPushButton::clicked, this, [this] { addTrack(); });
     connect(deleteClipButton, &QPushButton::clicked, this, [this] { deleteSelectedClip(); });
     connect(exportButton, &QPushButton::clicked, this, [this] { runExport(); });
@@ -842,21 +769,21 @@ public:
   }
 
   void refreshViewModel() {
-    const auto viewModel = session_.buildViewModel();
+    const auto viewModel = workspace_.project().buildViewModel();
     if (!viewModel) {
       appendError(viewModel.error());
       return;
     }
     summary_->setText(summaryText(viewModel.value()));
     timeline_->setViewModel(viewModel.value());
-    timeline_->setPlayhead(preview_.state().playhead);
+    timeline_->setPlayhead(workspace_.preview().state().playhead);
     timeline_->setSelectedNodeId(selectedNodeId_);
     updateInspector(viewModel.value());
     timelineDuration_ = viewModel.value().timeline.duration;
   }
 
   void refreshPreview() {
-    const auto refresh = preview_.refreshFromProject();
+    const auto refresh = workspace_.preview().refreshFromProject();
     if (!refresh) {
       appendError(refresh.error());
       return;
@@ -866,8 +793,8 @@ public:
   }
 
   void renderCurrentFrame() {
-    const grapple::render::PreviewRenderShellState previewState = preview_.state();
-    const auto frame = preview_.renderFrame(grapple::render::RenderFrameRequest{
+    const grapple::render::PreviewRenderShellState previewState = workspace_.preview().state();
+    const auto frame = workspace_.preview().renderFrame(grapple::render::RenderFrameRequest{
       previewState.playhead,
       grapple::render::RenderQuality::Draft
     });
@@ -881,7 +808,7 @@ public:
   }
 
   void seekTo(grapple::foundation::TimeSeconds time) {
-    const auto seek = preview_.seek(time);
+    const auto seek = workspace_.preview().seek(time);
     if (!seek) {
       appendError(seek.error());
       return;
@@ -890,13 +817,13 @@ public:
   }
 
   void stepPlayhead(double deltaSeconds) {
-    const auto viewModel = session_.buildViewModel();
+    const auto viewModel = workspace_.project().buildViewModel();
     if (!viewModel) {
       appendError(viewModel.error());
       return;
     }
     const double duration = std::max(0.0, viewModel.value().timeline.duration.value);
-    const double current = preview_.state().playhead.value;
+    const double current = workspace_.preview().state().playhead.value;
     seekTo(grapple::foundation::TimeSeconds{std::clamp(current + deltaSeconds, 0.0, duration)});
   }
 
@@ -930,7 +857,7 @@ public:
   }
 
   void startPlayback() {
-    const auto play = preview_.play();
+    const auto play = workspace_.preview().play();
     if (!play) {
       appendError(play.error());
       return;
@@ -942,7 +869,7 @@ public:
 
   void pausePlayback() {
     playbackTimer_->stop();
-    const auto pause = preview_.pause();
+    const auto pause = workspace_.preview().pause();
     if (!pause) {
       appendError(pause.error());
       return;
@@ -952,13 +879,13 @@ public:
   }
 
   void advancePlaybackFrame() {
-    if (preview_.state().playback != grapple::render::PreviewPlaybackState::Playing) {
+    if (workspace_.preview().state().playback != grapple::render::PreviewPlaybackState::Playing) {
       playbackTimer_->stop();
       return;
     }
 
     const double duration = std::max(0.0, timelineDuration_.value);
-    const double next = preview_.state().playhead.value + (1.0 / 30.0);
+    const double next = workspace_.preview().state().playhead.value + (1.0 / 30.0);
     if (duration <= 0.0 || next >= duration) {
       seekTo(grapple::foundation::TimeSeconds{duration});
       pausePlayback();
@@ -969,7 +896,7 @@ public:
   }
 
   void addTrack() {
-    const auto viewModel = session_.buildViewModel();
+    const auto viewModel = workspace_.project().buildViewModel();
     if (!viewModel) {
       appendError(viewModel.error());
       return;
@@ -980,11 +907,11 @@ public:
     }
 
     const std::size_t trackNumber = viewModel.value().timeline.layers.size() + 1;
-    const auto result = commandWriter_.apply(
+    const auto result = workspace_.commandWriter().apply(
       grapple::project::CreateTrackCommand{
-        commandWriter_.nextNodeId("track"),
+        workspace_.commandWriter().nextNodeId("track"),
         viewModel.value().timeline.compositions[0].sourceNodeId,
-        commandWriter_.nextEdgeId("contains_track"),
+        workspace_.commandWriter().nextEdgeId("contains_track"),
         "Video " + std::to_string(trackNumber)
       },
       userSource()
@@ -1000,7 +927,7 @@ public:
   }
 
   void importVideoFile(const grapple::foundation::FilePath& path) {
-    const auto asset = inspectVideoAsset(commandWriter_.nextAssetId(std::filesystem::path{path.value}.stem().string()), path);
+    const auto asset = inspectVideoAsset(workspace_.commandWriter().nextAssetId(std::filesystem::path{path.value}.stem().string()), path);
     if (!asset) {
       appendError(asset.error());
       return;
@@ -1008,7 +935,7 @@ public:
     const grapple::asset::Asset& videoAsset = asset.value();
     const grapple::foundation::TimeSeconds videoDuration = videoAsset.metadata.duration.value();
 
-    const auto viewModel = session_.buildViewModel();
+    const auto viewModel = workspace_.project().buildViewModel();
     if (!viewModel) {
       appendError(viewModel.error());
       return;
@@ -1018,7 +945,7 @@ public:
       return;
     }
 
-    const auto registeredAsset = commandWriter_.apply(
+    const auto registeredAsset = workspace_.commandWriter().apply(
       grapple::project::RegisterAssetCommand{videoAsset},
       importerSource()
     );
@@ -1027,7 +954,7 @@ public:
       return;
     }
 
-    const auto registeredSource = mediaSources_.registerSource(grapple::media::MediaSource{
+    const auto registeredSource = workspace_.mediaSources().registerSource(grapple::media::MediaSource{
       videoAsset.id,
       grapple::media::MediaSourceKind::Video,
       path
@@ -1037,11 +964,11 @@ public:
       return;
     }
 
-    const auto clip = commandWriter_.apply(
+    const auto clip = workspace_.commandWriter().apply(
       grapple::project::CreateClipCommand{
-        commandWriter_.nextNodeId("clip"),
+        workspace_.commandWriter().nextNodeId("clip"),
         viewModel.value().timeline.layers.front().sourceNodeId,
-        commandWriter_.nextEdgeId("contains_clip"),
+        workspace_.commandWriter().nextEdgeId("contains_clip"),
         grapple::timeline::ClipPayload{
           grapple::timeline::ClipKind::Video,
           grapple::foundation::TimeRange{
@@ -1076,7 +1003,7 @@ public:
       return;
     }
 
-    const auto viewModel = session_.buildViewModel();
+    const auto viewModel = workspace_.project().buildViewModel();
     if (!viewModel) {
       appendError(viewModel.error());
       return;
@@ -1094,7 +1021,7 @@ public:
       return;
     }
 
-    const auto deleted = commandWriter_.apply(
+    const auto deleted = workspace_.commandWriter().apply(
       grapple::project::DeleteClipCommand{selectedClip->sourceNodeId},
       userSource()
     );
@@ -1110,12 +1037,12 @@ public:
   }
 
   void runExport() {
-    const auto prepare = exportSession_.prepareFromProject();
+    const auto prepare = workspace_.exportSession().prepareFromProject();
     if (!prepare) {
       appendError(prepare.error());
       return;
     }
-    const auto result = exportSession_.render(grapple::render::ExportSettings{
+    const auto result = workspace_.exportSession().render(grapple::render::ExportSettings{
       grapple::foundation::TimeRange{grapple::foundation::TimeSeconds{0.0}, grapple::foundation::TimeSeconds{1.0}},
       grapple::foundation::FrameRate{2, 1},
       grapple::foundation::Resolution{1920, 1080},
@@ -1133,7 +1060,7 @@ public:
   }
 
   void savePackage() {
-    const auto write = session_.writePackage();
+    const auto write = workspace_.project().writePackage();
     if (!write) {
       appendError(write.error());
       return;
@@ -1145,6 +1072,20 @@ public:
       .arg(qString(write.value().eventLogPath.value)));
   }
 
+  void openPackageRoot(const grapple::foundation::FilePath& rootPath) {
+    pausePlayback();
+    const auto opened = workspace_.openPackageRootInPlace(rootPath);
+    if (!opened) {
+      appendError(opened.error());
+      return;
+    }
+
+    selectedNodeId_ = std::nullopt;
+    refreshViewModel();
+    refreshPreview();
+    log_->append(QString{"Opened package %1"}.arg(qString(rootPath.value)));
+  }
+
 private:
   void appendError(const grapple::foundation::Error& error) {
     log_->append(QString{"%1: %2"}.arg(qString(error.code)).arg(qString(error.message)));
@@ -1154,7 +1095,7 @@ private:
     selectedNodeId_ = std::move(nodeId);
     timeline_->setSelectedNodeId(selectedNodeId_);
 
-    const auto viewModel = session_.buildViewModel();
+    const auto viewModel = workspace_.project().buildViewModel();
     if (!viewModel) {
       appendError(viewModel.error());
       return;
@@ -1174,11 +1115,15 @@ private:
     importVideoFile(grapple::foundation::FilePath{path.toStdString()});
   }
 
-  grapple::app::NativeProjectSession& session_;
-  grapple::app::NativePreviewSession& preview_;
-  grapple::app::NativeExportSession& exportSession_;
-  grapple::media::MediaSourceCatalog& mediaSources_;
-  grapple::app::NativeProjectCommandWriter commandWriter_;
+  void chooseAndOpenPackage() {
+    const QString path = QFileDialog::getExistingDirectory(this, "Open Package");
+    if (path.isEmpty()) {
+      return;
+    }
+    openPackageRoot(grapple::foundation::FilePath{path.toStdString()});
+  }
+
+  grapple::app::NativeWorkspaceSession& workspace_;
   QLabel* summary_ = nullptr;
   QLabel* previewTitle_ = nullptr;
   QLabel* playheadLabel_ = nullptr;
@@ -1203,6 +1148,7 @@ int main(int argc, char* argv[]) {
   bool importSmoke = false;
   bool deleteSmoke = false;
   bool playbackSmoke = false;
+  bool openPackageSmoke = false;
   std::optional<std::string> screenshotPath;
   for (int index = 1; index < argc; ++index) {
     const std::string argument{argv[index]};
@@ -1222,10 +1168,12 @@ int main(int argc, char* argv[]) {
       deleteSmoke = true;
     } else if (argument == "--playback-smoke") {
       playbackSmoke = true;
+    } else if (argument == "--open-package-smoke") {
+      openPackageSmoke = true;
     } else if (argument == "--screenshot" && index + 1 < argc) {
       screenshotPath = argv[++index];
     } else {
-      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --import-smoke, --delete-smoke, --playback-smoke, or --screenshot <path>.\n";
+      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --import-smoke, --delete-smoke, --playback-smoke, --open-package-smoke, or --screenshot <path>.\n";
       return 1;
     }
   }
@@ -1252,20 +1200,16 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
-  auto mediaSources = buildMediaSources(session);
-  if (!mediaSources) {
-    printError(mediaSources.error());
+  auto workspace = grapple::app::NativeWorkspaceSession::fromProject(std::move(session));
+  if (!workspace) {
+    printError(workspace.error());
     return 1;
   }
 
-  grapple::media::OpenCVMediaReader mediaReader{mediaSources.value()};
-  MediaFrameSourceAdapter frameSource{mediaReader};
-  grapple::app::NativePreviewSession preview{session, frameSource};
-  grapple::app::NativeExportSession exportSession{session};
-  DesktopWindow window{session, preview, exportSession, mediaSources.value()};
+  DesktopWindow window{workspace.value()};
 
   if (smoke) {
-    const auto viewModel = session.buildViewModel();
+    const auto viewModel = workspace.value().project().buildViewModel();
     if (!viewModel) {
       printError(viewModel.error());
       return 1;
@@ -1279,7 +1223,7 @@ int main(int argc, char* argv[]) {
 
   if (mutateSmoke) {
     window.addTrack();
-    const auto viewModel = session.buildViewModel();
+    const auto viewModel = workspace.value().project().buildViewModel();
     if (!viewModel) {
       printError(viewModel.error());
       return 1;
@@ -1291,7 +1235,7 @@ int main(int argc, char* argv[]) {
 
   if (seekSmoke) {
     window.seekTo(grapple::foundation::TimeSeconds{5.0});
-    const grapple::render::PreviewRenderShellState previewState = preview.state();
+    const grapple::render::PreviewRenderShellState previewState = workspace.value().preview().state();
     std::cout << "playhead=" << previewState.playhead.value << '\n';
     return previewState.playhead == grapple::foundation::TimeSeconds{5.0} ? 0 : 1;
   }
@@ -1300,7 +1244,7 @@ int main(int argc, char* argv[]) {
     window.show();
     app.processEvents();
     window.clickTimelineAtRatio(0.5);
-    const grapple::render::PreviewRenderShellState previewState = preview.state();
+    const grapple::render::PreviewRenderShellState previewState = workspace.value().preview().state();
     std::cout << "playhead=" << previewState.playhead.value << '\n';
     return previewState.playhead.value > 4.9 && previewState.playhead.value < 5.1 ? 0 : 1;
   }
@@ -1320,7 +1264,7 @@ int main(int argc, char* argv[]) {
 
   if (importSmoke) {
     window.importVideoFile(grapple::foundation::FilePath{"/tmp/grapple-native-demo/walking-woman.avi"});
-    const auto viewModel = session.buildViewModel();
+    const auto viewModel = workspace.value().project().buildViewModel();
     if (!viewModel) {
       printError(viewModel.error());
       return 1;
@@ -1340,7 +1284,7 @@ int main(int argc, char* argv[]) {
     app.processEvents();
     window.clickFirstTimelineClip();
     window.deleteSelectedClip();
-    const auto viewModel = session.buildViewModel();
+    const auto viewModel = workspace.value().project().buildViewModel();
     if (!viewModel) {
       printError(viewModel.error());
       return 1;
@@ -1353,9 +1297,31 @@ int main(int argc, char* argv[]) {
     window.startPlayback();
     window.advancePlaybackFrame();
     window.pausePlayback();
-    const grapple::render::PreviewRenderShellState previewState = preview.state();
+    const grapple::render::PreviewRenderShellState previewState = workspace.value().preview().state();
     std::cout << "playhead=" << previewState.playhead.value << '\n';
     return previewState.playhead.value > 0.0 ? 0 : 1;
+  }
+
+  if (openPackageSmoke) {
+    const auto write = workspace.value().project().writePackage();
+    if (!write) {
+      printError(write.error());
+      return 1;
+    }
+    window.openPackageRoot(grapple::foundation::FilePath{"/tmp/grapple-desktop-package"});
+    const auto viewModel = workspace.value().project().buildViewModel();
+    if (!viewModel) {
+      printError(viewModel.error());
+      return 1;
+    }
+    std::cout << "project=" << viewModel.value().project.projectId.value() << '\n';
+    std::cout << "revision=" << viewModel.value().project.revision.value() << '\n';
+    std::cout << "commands=" << workspace.value().project().packageState().commandLog.records().size() << '\n';
+    return viewModel.value().project.projectId == grapple::foundation::ProjectId{"proj_desktop"} &&
+           viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_6"} &&
+           workspace.value().project().packageState().commandLog.records().size() == 6
+      ? 0
+      : 1;
   }
 
   if (screenshotPath.has_value()) {
