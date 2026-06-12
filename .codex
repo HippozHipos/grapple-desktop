@@ -25,7 +25,7 @@ Core rules:
 - That render/runtime system consumes backend/core-produced RenderPlan.
 - RenderPlan construction must stay pure: no script, shader, tracking, depth, or runtime execution.
 - Render architecture is mode-agnostic: Grapple graph state -> TimelineIR projection -> RenderPlan -> local runtime/render modes.
-- Do not design separate preview-renderer and final-renderer product contracts unless explicitly requested.
+- Do not design separate preview and export render systems unless explicitly requested.
 - Do not put consumer-specific render language in agent-facing graph, script, shader, node, or tool contracts.
 - Agent-authored effect code should target canonical graph/runtime APIs, not a specific render implementation.
 - If a clean fix requires deleting old bloat in the touched path, delete it instead of supporting it.
