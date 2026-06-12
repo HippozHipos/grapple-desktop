@@ -233,15 +233,26 @@ RuntimeInvalidationResult RuntimeDependencyPlanner::diff(const RuntimeInvalidati
       nextNode.id
     );
 
-    bool invalidated = previousNode == nullptr || dependencyNodeChanged(*previousNode, nextNode);
-    for (const RuntimeDependencyId& inputDependency : nextNode.inputDependencies) {
-      if (containsDependency(invalidatedDependencies, inputDependency)) {
-        invalidated = true;
-      }
-    }
-
-    if (invalidated) {
+    if (previousNode == nullptr || dependencyNodeChanged(*previousNode, nextNode)) {
       invalidatedDependencies.push_back(nextNode.id);
+    }
+  }
+
+  bool changed = true;
+  while (changed) {
+    changed = false;
+    for (const RuntimeDependencyNode& nextNode : nextGraph.nodes) {
+      if (containsDependency(invalidatedDependencies, nextNode.id)) {
+        continue;
+      }
+
+      for (const RuntimeDependencyId& inputDependency : nextNode.inputDependencies) {
+        if (containsDependency(invalidatedDependencies, inputDependency)) {
+          invalidatedDependencies.push_back(nextNode.id);
+          changed = true;
+          break;
+        }
+      }
     }
   }
 

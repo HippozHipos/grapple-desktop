@@ -254,6 +254,56 @@ grapple::projection::RenderPlan makeEffectChainPlanWithAssetVersion(std::string 
   return plan;
 }
 
+grapple::projection::RenderPlan makeOutOfOrderEffectChainPlan(double effectAParam) {
+  grapple::projection::RenderPlan plan = makeClipPlan(1.0);
+  plan.effectGraphs.push_back(grapple::projection::RenderEffectGraph{
+    grapple::foundation::GraphId{"effect_graph_node_clip"},
+    grapple::foundation::NodeId{"node_clip"},
+    {
+      grapple::projection::RenderEffectNode{
+        grapple::foundation::NodeId{"node_effect_b"},
+        makeEffectPayload("Effect B", 0.2),
+        true
+      },
+      grapple::projection::RenderEffectNode{
+        grapple::foundation::NodeId{"node_effect_a"},
+        makeEffectPayload("Effect A", effectAParam),
+        true
+      }
+    },
+    {
+      grapple::projection::RenderEffectEdge{
+        grapple::foundation::EdgeId{"edge_effect_b_targets_clip"},
+        grapple::foundation::NodeId{"node_effect_b"},
+        grapple::graph::PortName{"frame"},
+        grapple::foundation::NodeId{"node_clip"},
+        grapple::graph::PortName{"input"},
+        0,
+        true
+      },
+      grapple::projection::RenderEffectEdge{
+        grapple::foundation::EdgeId{"edge_effect_a_targets_clip"},
+        grapple::foundation::NodeId{"node_effect_a"},
+        grapple::graph::PortName{"frame"},
+        grapple::foundation::NodeId{"node_clip"},
+        grapple::graph::PortName{"input"},
+        1,
+        true
+      },
+      grapple::projection::RenderEffectEdge{
+        grapple::foundation::EdgeId{"edge_effect_a_to_b"},
+        grapple::foundation::NodeId{"node_effect_a"},
+        grapple::graph::PortName{"output"},
+        grapple::foundation::NodeId{"node_effect_b"},
+        grapple::graph::PortName{"input"},
+        2,
+        true
+      }
+    }
+  });
+  return plan;
+}
+
 bool containsDependency(
   const std::vector<grapple::runtime::RuntimeDependencyId>& dependencies,
   grapple::runtime::RuntimeDependencyId dependencyId
@@ -332,6 +382,14 @@ int main() {
   GRAPPLE_REQUIRE(effectAParamInvalidation.invalidatedDependencies.size() == 2);
   GRAPPLE_REQUIRE(effectAParamInvalidation.invalidatedDependencies[0] == runtime::RuntimeDependencyId{"dep_node_effect_a"});
   GRAPPLE_REQUIRE(effectAParamInvalidation.invalidatedDependencies[1] == runtime::RuntimeDependencyId{"dep_node_effect_b"});
+  const runtime::RuntimeDependencyGraph outOfOrderEffectChain = planner.build(makeOutOfOrderEffectChainPlan(0.1));
+  const runtime::RuntimeInvalidationResult outOfOrderEffectInvalidation = planner.diff(runtime::RuntimeInvalidationRequest{
+    outOfOrderEffectChain,
+    makeOutOfOrderEffectChainPlan(0.9)
+  });
+  GRAPPLE_REQUIRE(outOfOrderEffectInvalidation.invalidatedDependencies.size() == 2);
+  GRAPPLE_REQUIRE(outOfOrderEffectInvalidation.invalidatedDependencies[0] == runtime::RuntimeDependencyId{"dep_node_effect_a"});
+  GRAPPLE_REQUIRE(outOfOrderEffectInvalidation.invalidatedDependencies[1] == runtime::RuntimeDependencyId{"dep_node_effect_b"});
   const runtime::RuntimeInvalidationResult clipParamInvalidation = planner.diff(runtime::RuntimeInvalidationRequest{
     effectChain,
     makeEffectChainPlan(0.1, 2.0)
