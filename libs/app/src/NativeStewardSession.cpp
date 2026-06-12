@@ -60,7 +60,6 @@ foundation::Result<void> ensureCameraCanReceiveTransformEffect(
 }
 
 timeline::EffectPayload cameraTransformPayload(foundation::TimeRange activeRange) {
-  const std::string effectSource = "builtin:camera_transform";
   return timeline::EffectPayload{
     runtime::builtin_effect::CameraTransformDisplayName,
     timeline::EffectImplementation{
@@ -69,9 +68,9 @@ timeline::EffectPayload cameraTransformPayload(foundation::TimeRange activeRange
       timeline::EffectSource{
         timeline::EffectSourceKind::InlineSource,
         "builtin",
-        effectSource,
+        runtime::builtin_effect::CameraTransformSource,
         std::nullopt,
-        foundation::stableHash(effectSource)
+        foundation::stableHash(runtime::builtin_effect::CameraTransformSource)
       }
     },
     timeline::EffectPortSet{

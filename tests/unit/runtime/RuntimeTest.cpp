@@ -178,7 +178,6 @@ grapple::projection::RenderPlan makeBuiltinCameraTransformPlan(bool includePosit
   if (includePositionY) {
     params.values.push_back(grapple::timeline::Param{grapple::runtime::builtin_effect::PositionYParam, -0.5});
   }
-  const std::string effectSource = "builtin:camera_transform";
   grapple::timeline::EffectPayload payload{
     grapple::runtime::builtin_effect::CameraTransformDisplayName,
     grapple::timeline::EffectImplementation{
@@ -187,9 +186,9 @@ grapple::projection::RenderPlan makeBuiltinCameraTransformPlan(bool includePosit
       grapple::timeline::EffectSource{
         grapple::timeline::EffectSourceKind::InlineSource,
         "builtin",
-        effectSource,
+        grapple::runtime::builtin_effect::CameraTransformSource,
         std::nullopt,
-        grapple::foundation::stableHash(effectSource)
+        grapple::foundation::stableHash(grapple::runtime::builtin_effect::CameraTransformSource)
       }
     },
     grapple::timeline::EffectPortSet{
