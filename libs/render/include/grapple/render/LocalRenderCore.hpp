@@ -35,6 +35,12 @@ struct RenderedImage {
   std::vector<std::uint8_t> rgbaPixels;
 };
 
+struct RenderedCamera {
+  foundation::NodeId cameraNodeId;
+  timeline::Transform transform;
+  timeline::CameraLens lens;
+};
+
 struct SourceFrameRequest {
   foundation::AssetId assetId;
   foundation::TimeSeconds sourceTime;
@@ -58,6 +64,7 @@ struct RenderFrame {
   foundation::TimeSeconds time;
   std::string description;
   std::vector<RenderedMediaFrame> mediaFrames;
+  std::vector<RenderedCamera> cameras;
   std::optional<RenderedImage> image;
 };
 

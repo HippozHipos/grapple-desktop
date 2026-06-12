@@ -1,5 +1,7 @@
 #include <grapple/render/FinalRenderShell.hpp>
 #include <grapple/render/PreviewRenderShell.hpp>
+#include <grapple/runtime/EffectRuntime.hpp>
+#include <grapple/runtime/RuntimeOutputNames.hpp>
 
 #include <TestAssert.hpp>
 
@@ -8,6 +10,68 @@
 #include <vector>
 
 namespace {
+
+class CameraTransformRuntime final : public grapple::runtime::IEffectRuntime {
+public:
+  explicit CameraTransformRuntime(bool emitInvalidTransform = false)
+    : emitInvalidTransform_{emitInvalidTransform} {}
+
+  bool supports(const grapple::projection::RenderEffectNode& node) const override {
+    return node.payload.implementation.kind == grapple::timeline::EffectImplementationKind::Python;
+  }
+
+  grapple::foundation::Result<grapple::runtime::EffectPrepareResult> prepare(
+    const grapple::runtime::EffectPrepareRequest& request
+  ) override {
+    ++prepareCount;
+    return grapple::runtime::EffectPrepareResult{
+      grapple::runtime::PreparedEffectNode{
+        request.graph.id,
+        request.graph.targetNodeId,
+        request.node.sourceNodeId,
+        nullptr,
+        {}
+      },
+      {}
+    };
+  }
+
+  grapple::foundation::Result<grapple::runtime::EffectProcessResult> process(
+    const grapple::runtime::EffectProcessRequest& request
+  ) override {
+    ++processCount;
+    grapple::runtime::RuntimeValue transformValue = grapple::timeline::Transform{
+      grapple::foundation::Vec2{request.time.value, request.time.value * 2.0},
+      grapple::foundation::Vec2{1.0, 1.0},
+      request.time.value * 10.0,
+      1.0
+    };
+    if (emitInvalidTransform_) {
+      transformValue = request.time.value;
+    }
+
+    return grapple::runtime::EffectProcessResult{
+      grapple::runtime::RuntimeEffectOutput{
+        request.prepared.effectGraphId,
+        request.prepared.targetNodeId,
+        request.prepared.sourceNodeId,
+        {
+          grapple::runtime::RuntimeNamedValue{
+            grapple::runtime::output_name::CameraTransform,
+            std::move(transformValue)
+          }
+        }
+      },
+      {}
+    };
+  }
+
+  int prepareCount = 0;
+  int processCount = 0;
+
+private:
+  bool emitInvalidTransform_ = false;
+};
 
 class TestFrameSource final : public grapple::render::IRenderFrameSource {
 public:
@@ -85,6 +149,59 @@ grapple::projection::RenderPlan makeRenderPlan() {
   };
 }
 
+grapple::projection::RenderPlan makeCameraEffectRenderPlan() {
+  grapple::projection::RenderPlan plan = makeRenderPlan();
+  plan.cameras.push_back(grapple::projection::RenderCamera{
+    grapple::foundation::NodeId{"node_camera"},
+    "Camera",
+    grapple::timeline::Transform{},
+    grapple::timeline::CameraLens{35.0}
+  });
+  const std::string source = "def prepare(ctx): return {'camera_transform': ctx.camera.transform}\n";
+  plan.effectGraphs.push_back(grapple::projection::RenderEffectGraph{
+    grapple::foundation::GraphId{"effect_graph_node_camera"},
+    grapple::foundation::NodeId{"node_camera"},
+    {
+      grapple::projection::RenderEffectNode{
+        grapple::foundation::NodeId{"node_camera_effect"},
+        grapple::timeline::EffectPayload{
+          "Camera Transform",
+          grapple::timeline::EffectImplementation{
+            grapple::timeline::EffectImplementationKind::Python,
+            "prepare",
+            grapple::timeline::EffectSource{
+              grapple::timeline::EffectSourceKind::InlineSource,
+              "python",
+              source,
+              std::nullopt,
+              grapple::foundation::stableHash(source)
+            }
+          },
+          grapple::timeline::EffectPortSet{
+            {grapple::timeline::EffectPort{"camera"}}
+          },
+          grapple::timeline::ParamSet{},
+          grapple::foundation::TimeRange{
+            grapple::foundation::TimeSeconds{0.0},
+            grapple::foundation::TimeSeconds{12.0}
+          }
+        }
+      }
+    },
+    {
+      grapple::projection::RenderEffectEdge{
+        grapple::foundation::EdgeId{"edge_camera_effect_targets_camera"},
+        grapple::foundation::NodeId{"node_camera_effect"},
+        grapple::graph::PortName{grapple::runtime::output_name::CameraTransform},
+        grapple::foundation::NodeId{"node_camera"},
+        grapple::graph::PortName{"input"},
+        0
+      }
+    }
+  });
+  return plan;
+}
+
 grapple::render::ExportSettings makeExportSettings(grapple::foundation::Resolution resolution) {
   return grapple::render::ExportSettings{
     grapple::foundation::TimeRange{
@@ -151,6 +268,7 @@ int main() {
   GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.time == foundation::TimeSeconds{4.0});
   GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.description == "layers=1 clips=2 cameras=0 effects=0");
   GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.mediaFrames.size() == 1);
+  GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.cameras.empty());
   GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.mediaFrames[0].clipNodeId == foundation::NodeId{"node_clip"});
   GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.mediaFrames[0].trackNodeId == foundation::NodeId{"node_track"});
   GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.mediaFrames[0].assetId == foundation::AssetId{"asset_video"});
@@ -166,6 +284,7 @@ int main() {
   GRAPPLE_REQUIRE(renderedInactiveFrame);
   GRAPPLE_REQUIRE(renderedInactiveFrame.value().frame.description == "layers=1 clips=0 cameras=0 effects=0");
   GRAPPLE_REQUIRE(renderedInactiveFrame.value().frame.mediaFrames.empty());
+  GRAPPLE_REQUIRE(renderedInactiveFrame.value().frame.cameras.empty());
 
   const auto pause = preview.pause();
   GRAPPLE_REQUIRE(pause);
@@ -214,6 +333,50 @@ int main() {
   GRAPPLE_REQUIRE(frameSource.lastRequest->assetId == foundation::AssetId{"asset_video"});
   GRAPPLE_REQUIRE(frameSource.lastRequest->sourceTime == foundation::TimeSeconds{4.0});
   GRAPPLE_REQUIRE(frameSource.lastRequest->quality == render::RenderQuality::Draft);
+
+  CameraTransformRuntime cameraRuntime;
+  runtime::RuntimeEvaluator cameraEvaluator{{&cameraRuntime}};
+  render::LocalRenderCore cameraCore{cameraEvaluator};
+  render::PreviewRenderShell cameraPreview{cameraCore};
+  render::FinalRenderShell cameraFinal{cameraCore};
+  const auto cameraLoad = cameraCore.loadPlan(makeCameraEffectRenderPlan());
+  GRAPPLE_REQUIRE(cameraLoad);
+  GRAPPLE_REQUIRE(cameraRuntime.prepareCount == 1);
+  const auto cameraFrame = cameraPreview.renderFrame(render::RenderFrameRequest{
+    foundation::TimeSeconds{2.5},
+    render::RenderQuality::Draft
+  });
+  GRAPPLE_REQUIRE(cameraFrame);
+  GRAPPLE_REQUIRE(cameraFrame.value().frame.description == "layers=1 clips=2 cameras=1 effects=1");
+  GRAPPLE_REQUIRE(cameraFrame.value().frame.cameras.size() == 1);
+  GRAPPLE_REQUIRE(cameraFrame.value().frame.cameras[0].cameraNodeId == foundation::NodeId{"node_camera"});
+  GRAPPLE_REQUIRE(cameraFrame.value().frame.cameras[0].transform.position.x == 2.5);
+  GRAPPLE_REQUIRE(cameraFrame.value().frame.cameras[0].transform.position.y == 5.0);
+  GRAPPLE_REQUIRE(cameraFrame.value().frame.cameras[0].transform.rotationDegrees == 25.0);
+  GRAPPLE_REQUIRE(cameraFrame.value().runtimeDiagnostics.empty());
+  GRAPPLE_REQUIRE(cameraRuntime.processCount == 1);
+  const auto cameraFinalResult = cameraFinal.render(render::FinalRenderRequest{
+    makeExportSettings(foundation::Resolution{1920, 1080})
+  });
+  GRAPPLE_REQUIRE(cameraFinalResult);
+  GRAPPLE_REQUIRE(cameraFinalResult.value().framesEvaluated == 2);
+  GRAPPLE_REQUIRE(cameraFinalResult.value().runtimeDiagnostics.empty());
+  GRAPPLE_REQUIRE(cameraRuntime.processCount == 3);
+
+  CameraTransformRuntime invalidCameraRuntime{true};
+  runtime::RuntimeEvaluator invalidCameraEvaluator{{&invalidCameraRuntime}};
+  render::LocalRenderCore invalidCameraCore{invalidCameraEvaluator};
+  render::FinalRenderShell invalidCameraFinal{invalidCameraCore};
+  const auto invalidCameraLoad = invalidCameraCore.loadPlan(makeCameraEffectRenderPlan());
+  GRAPPLE_REQUIRE(invalidCameraLoad);
+  const auto invalidCameraFinalResult = invalidCameraFinal.render(render::FinalRenderRequest{
+    makeExportSettings(foundation::Resolution{1920, 1080})
+  });
+  GRAPPLE_REQUIRE(invalidCameraFinalResult);
+  GRAPPLE_REQUIRE(invalidCameraFinalResult.value().framesEvaluated == 2);
+  GRAPPLE_REQUIRE(invalidCameraFinalResult.value().runtimeDiagnostics.size() == 2);
+  GRAPPLE_REQUIRE(invalidCameraFinalResult.value().runtimeDiagnostics[0].code == "runtime.camera_transform_output_invalid");
+  GRAPPLE_REQUIRE(invalidCameraFinalResult.value().runtimeDiagnostics[0].location.nodeId == foundation::NodeId{"node_camera_effect"});
 
   return 0;
 }

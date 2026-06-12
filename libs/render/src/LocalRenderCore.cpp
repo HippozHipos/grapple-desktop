@@ -1,5 +1,9 @@
 #include <grapple/render/LocalRenderCore.hpp>
 
+#include <grapple/runtime/RuntimeOutputNames.hpp>
+
+#include <algorithm>
+#include <cstddef>
 #include <sstream>
 #include <utility>
 
@@ -56,6 +60,70 @@ std::vector<RenderedMediaFrame> buildMediaFrames(const runtime::RuntimeSample& s
   return frames;
 }
 
+void applyCameraTransformOutputs(
+  runtime::RuntimeSample& sample,
+  const foundation::ProjectId& projectId,
+  const foundation::RevisionId& revision
+) {
+  for (const runtime::RuntimeEffectOutput& output : sample.effectOutputs) {
+    for (const runtime::RuntimeNamedValue& value : output.values) {
+      if (value.name != runtime::output_name::CameraTransform) {
+        continue;
+      }
+
+      const auto* transform = std::get_if<timeline::Transform>(&value.value);
+      if (transform == nullptr) {
+        sample.diagnostics.push_back(runtime::RuntimeDiagnostic{
+          "runtime.camera_transform_output_invalid",
+          runtime::DiagnosticSeverity::Error,
+          runtime::DiagnosticLocation{
+            projectId,
+            revision,
+            output.sourceNodeId
+          },
+          "Runtime output camera_transform must be a Transform value."
+        });
+        continue;
+      }
+
+      bool matchedCamera = false;
+      for (runtime::ResolvedCamera& camera : sample.cameras) {
+        if (camera.sourceNodeId == output.targetNodeId) {
+          camera.transform = *transform;
+          matchedCamera = true;
+        }
+      }
+      if (!matchedCamera) {
+        sample.diagnostics.push_back(runtime::RuntimeDiagnostic{
+          "runtime.camera_transform_target_missing",
+          runtime::DiagnosticSeverity::Error,
+          runtime::DiagnosticLocation{
+            projectId,
+            revision,
+            output.sourceNodeId
+          },
+          "Runtime output camera_transform must target a camera node."
+        });
+      }
+    }
+  }
+}
+
+std::vector<RenderedCamera> buildRenderedCameras(const runtime::RuntimeSample& sample) {
+  std::vector<RenderedCamera> cameras;
+  cameras.reserve(sample.cameras.size());
+
+  for (const runtime::ResolvedCamera& camera : sample.cameras) {
+    cameras.push_back(RenderedCamera{
+      camera.sourceNodeId,
+      camera.transform,
+      camera.lens
+    });
+  }
+
+  return cameras;
+}
+
 foundation::Result<std::optional<RenderedImage>> buildRenderedImage(
   const std::vector<RenderedMediaFrame>& mediaFrames,
   RenderQuality quality,
@@ -110,16 +178,24 @@ foundation::Result<RenderFrameResult> LocalRenderCore::renderFrame(const RenderF
     return foundation::Error{"render.plan_missing", "LocalRenderCore requires a loaded RenderPlan before rendering a frame."};
   }
 
-  auto sample = runtime_.sample(runtime::RuntimeSampleRequest{
+  auto sampleResult = runtime_.sample(runtime::RuntimeSampleRequest{
     prepared_.value(),
     request.time,
     runtimeQualityFor(request.quality)
   });
-  if (!sample) {
-    return sample.error();
+  if (!sampleResult) {
+    return sampleResult.error();
   }
 
-  const std::vector<RenderedMediaFrame> mediaFrames = buildMediaFrames(sample.value().sample);
+  runtime::RuntimeSample sample = std::move(sampleResult.value().sample);
+  applyCameraTransformOutputs(
+    sample,
+    prepared_.value().dependencyGraph.projectId,
+    prepared_.value().sourceRevision
+  );
+
+  const std::vector<RenderedMediaFrame> mediaFrames = buildMediaFrames(sample);
+  const std::vector<RenderedCamera> cameras = buildRenderedCameras(sample);
   auto image = buildRenderedImage(mediaFrames, request.quality, frameSource_);
   if (!image) {
     return image.error();
@@ -128,11 +204,12 @@ foundation::Result<RenderFrameResult> LocalRenderCore::renderFrame(const RenderF
   return RenderFrameResult{
     RenderFrame{
       request.time,
-      describeSample(sample.value().sample),
+      describeSample(sample),
       mediaFrames,
+      cameras,
       std::move(image.value())
     },
-    sample.value().diagnostics,
+    sample.diagnostics,
     {}
   };
 }
@@ -142,19 +219,42 @@ foundation::Result<RenderRangeResult> LocalRenderCore::renderRange(const RenderR
     return foundation::Error{"render.plan_missing", "LocalRenderCore requires a loaded RenderPlan before rendering a range."};
   }
 
-  auto range = runtime_.evaluateRange(runtime::RuntimeRangeRequest{
-    prepared_.value(),
-    request.range,
-    request.frameRate,
-    runtimeQualityFor(request.quality)
-  });
-  if (!range) {
-    return range.error();
+  std::vector<runtime::RuntimeDiagnostic> diagnostics = prepared_.value().diagnostics;
+  const std::size_t preparedDiagnosticCount = prepared_.value().diagnostics.size();
+  const double framesPerSecond = request.frameRate.framesPerSecond();
+  const double duration = request.range.duration();
+  const auto frameCount = static_cast<std::size_t>(duration * framesPerSecond);
+
+  for (std::size_t frameIndex = 0; frameIndex < frameCount; ++frameIndex) {
+    const foundation::TimeSeconds time{
+      request.range.start.value + static_cast<double>(frameIndex) / framesPerSecond
+    };
+    auto sampleResult = runtime_.sample(runtime::RuntimeSampleRequest{
+      prepared_.value(),
+      time,
+      runtimeQualityFor(request.quality)
+    });
+    if (!sampleResult) {
+      return sampleResult.error();
+    }
+
+    runtime::RuntimeSample sample = std::move(sampleResult.value().sample);
+    applyCameraTransformOutputs(
+      sample,
+      prepared_.value().dependencyGraph.projectId,
+      prepared_.value().sourceRevision
+    );
+    const std::size_t firstFrameDiagnostic = std::min(preparedDiagnosticCount, sample.diagnostics.size());
+    diagnostics.insert(
+      diagnostics.end(),
+      sample.diagnostics.begin() + static_cast<std::ptrdiff_t>(firstFrameDiagnostic),
+      sample.diagnostics.end()
+    );
   }
 
   return RenderRangeResult{
-    range.value().frames.size(),
-    range.value().diagnostics,
+    frameCount,
+    diagnostics,
     {}
   };
 }
