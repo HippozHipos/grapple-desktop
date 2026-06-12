@@ -314,6 +314,7 @@ foundation::Result<void> ProjectController::handleRestoreSnapshot(const RestoreS
   }
 
   document_.info = command.snapshot.info;
+  document_.settings = command.snapshot.settings;
   document_.assets = command.snapshot.assets;
   document_.graph = command.snapshot.graph;
   return {};
@@ -324,6 +325,7 @@ ProjectDocument createEmptyProject(foundation::ProjectId projectId, std::string 
     ProjectInfo{std::move(projectId), std::move(name)},
     makeRevisionId(0),
     0,
+    ProjectSettings{},
     asset::AssetCatalog{},
     graph::GraphDocument{}
   };

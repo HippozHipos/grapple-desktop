@@ -16,6 +16,16 @@ void writeIdProperty(std::ostringstream& stream, const char* key, const std::str
   foundation::writeJsonStringProperty(stream, key, value);
 }
 
+void writeProjectSettings(std::ostringstream& stream, const ProjectSettings& settings) {
+  stream << "{\"defaultDuration\":";
+  if (settings.defaultDuration.has_value()) {
+    stream << settings.defaultDuration->value;
+  } else {
+    stream << "null";
+  }
+  stream << '}';
+}
+
 } // namespace
 
 std::string serializeCanonicalProjectDocument(const ProjectDocument& document) {
@@ -27,6 +37,8 @@ std::string serializeCanonicalProjectDocument(const ProjectDocument& document) {
   stream << ',';
   foundation::writeJsonStringProperty(stream, "revision", document.revision.value());
   stream << ",\"revisionNumber\":" << document.revisionNumber;
+  stream << ",\"settings\":";
+  writeProjectSettings(stream, document.settings);
   stream << ",\"assets\":" << asset::serializeCanonicalAssetCatalog(document.assets);
   stream << ",\"graph\":" << graph::serializeCanonicalGraph(document.graph);
   stream << '}';
@@ -42,6 +54,8 @@ std::string serializeCanonicalProjectSnapshot(const ProjectSnapshot& snapshot) {
   stream << ',';
   foundation::writeJsonStringProperty(stream, "revision", snapshot.revision.value());
   stream << ",\"revisionNumber\":" << snapshot.revisionNumber;
+  stream << ",\"settings\":";
+  writeProjectSettings(stream, snapshot.settings);
   stream << ",\"assets\":" << asset::serializeCanonicalAssetCatalog(snapshot.assets);
   stream << ",\"graph\":" << graph::serializeCanonicalGraph(snapshot.graph);
   stream << '}';

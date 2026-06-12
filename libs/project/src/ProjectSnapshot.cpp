@@ -9,6 +9,7 @@ ProjectSnapshot makeProjectSnapshot(const ProjectDocument& document) {
     document.info,
     document.revision,
     document.revisionNumber,
+    document.settings,
     document.assets,
     document.graph,
     foundation::Hash256{}

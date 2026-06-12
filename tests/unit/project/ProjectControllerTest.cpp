@@ -36,6 +36,7 @@ int main() {
   const auto initialSnapshot = controller.snapshot();
   GRAPPLE_REQUIRE(initialSnapshot);
   GRAPPLE_REQUIRE(initialSnapshot.value().revision == foundation::RevisionId{"rev_0"});
+  GRAPPLE_REQUIRE(!initialSnapshot.value().settings.defaultDuration.has_value());
   GRAPPLE_REQUIRE(initialSnapshot.value().canonicalHash == project::hashProjectSnapshot(initialSnapshot.value()));
   GRAPPLE_REQUIRE(initialSnapshot.value().graph.nodes().empty());
 
@@ -136,8 +137,13 @@ int main() {
   const std::string serialized = project::serializeCanonicalProjectSnapshot(afterRestore.value());
   GRAPPLE_REQUIRE(serialized.find("\"projectId\":\"proj_test\"") != std::string::npos);
   GRAPPLE_REQUIRE(serialized.find("\"revision\":\"rev_3\"") != std::string::npos);
+  GRAPPLE_REQUIRE(serialized.find("\"settings\":{\"defaultDuration\":null}") != std::string::npos);
   GRAPPLE_REQUIRE(serialized.find("\"nodes\"") != std::string::npos);
   GRAPPLE_REQUIRE(project::hashProjectSnapshot(afterRestore.value()) == project::hashProjectSnapshot(afterRestore.value()));
+  project::ProjectSnapshot durationSnapshot = afterRestore.value();
+  durationSnapshot.settings.defaultDuration = foundation::TimeSeconds{12.5};
+  GRAPPLE_REQUIRE(project::serializeCanonicalProjectSnapshot(durationSnapshot).find("\"settings\":{\"defaultDuration\":12.5}") != std::string::npos);
+  GRAPPLE_REQUIRE(!(project::hashProjectSnapshot(durationSnapshot) == project::hashProjectSnapshot(afterRestore.value())));
 
   project::ProjectController assetProject{
     project::createEmptyProject(foundation::ProjectId{"proj_assets"}, "Asset Project")
