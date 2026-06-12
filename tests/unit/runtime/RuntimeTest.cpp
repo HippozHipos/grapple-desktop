@@ -4,6 +4,11 @@
 
 #include <TestAssert.hpp>
 
+#include <optional>
+#include <string>
+#include <utility>
+#include <vector>
+
 namespace {
 
 grapple::projection::RenderPlan makePlan(std::string layerName) {
@@ -136,6 +141,109 @@ grapple::projection::RenderPlan makeClipEffectPlan() {
   return plan;
 }
 
+grapple::timeline::EffectPayload makeEffectPayload(std::string name, double targetX) {
+  const std::string source = "def prepare(): pass";
+  return grapple::timeline::EffectPayload{
+    std::move(name),
+    grapple::timeline::EffectImplementation{
+      grapple::timeline::EffectImplementationKind::Python,
+      "prepare",
+      grapple::timeline::EffectSource{
+        grapple::timeline::EffectSourceKind::InlineSource,
+        "python",
+        source,
+        std::nullopt,
+        grapple::foundation::stableHash(source)
+      }
+    },
+    grapple::timeline::EffectPortSet{},
+    grapple::timeline::ParamSet{
+      {grapple::timeline::Param{"target_x", targetX}}
+    },
+    grapple::foundation::TimeRange{
+      grapple::foundation::TimeSeconds{0.0},
+      grapple::foundation::TimeSeconds{10.0}
+    }
+  };
+}
+
+grapple::projection::RenderPlan makeEffectChainPlan(double effectAParam, double playbackRate = 1.0) {
+  grapple::projection::RenderPlan plan = makeClipPlan(playbackRate);
+  plan.effectGraphs.push_back(grapple::projection::RenderEffectGraph{
+    grapple::foundation::GraphId{"effect_graph_node_clip"},
+    grapple::foundation::NodeId{"node_clip"},
+    {
+      grapple::projection::RenderEffectNode{
+        grapple::foundation::NodeId{"node_effect_a"},
+        makeEffectPayload("Effect A", effectAParam),
+        true
+      },
+      grapple::projection::RenderEffectNode{
+        grapple::foundation::NodeId{"node_effect_b"},
+        makeEffectPayload("Effect B", 0.2),
+        true
+      },
+      grapple::projection::RenderEffectNode{
+        grapple::foundation::NodeId{"node_effect_c"},
+        makeEffectPayload("Effect C", 0.3),
+        true
+      }
+    },
+    {
+      grapple::projection::RenderEffectEdge{
+        grapple::foundation::EdgeId{"edge_effect_a_targets_clip"},
+        grapple::foundation::NodeId{"node_effect_a"},
+        grapple::graph::PortName{"frame"},
+        grapple::foundation::NodeId{"node_clip"},
+        grapple::graph::PortName{"input"},
+        0,
+        true
+      },
+      grapple::projection::RenderEffectEdge{
+        grapple::foundation::EdgeId{"edge_effect_b_targets_clip"},
+        grapple::foundation::NodeId{"node_effect_b"},
+        grapple::graph::PortName{"frame"},
+        grapple::foundation::NodeId{"node_clip"},
+        grapple::graph::PortName{"input"},
+        1,
+        true
+      },
+      grapple::projection::RenderEffectEdge{
+        grapple::foundation::EdgeId{"edge_effect_c_targets_clip"},
+        grapple::foundation::NodeId{"node_effect_c"},
+        grapple::graph::PortName{"frame"},
+        grapple::foundation::NodeId{"node_clip"},
+        grapple::graph::PortName{"input"},
+        2,
+        true
+      },
+      grapple::projection::RenderEffectEdge{
+        grapple::foundation::EdgeId{"edge_effect_a_to_b"},
+        grapple::foundation::NodeId{"node_effect_a"},
+        grapple::graph::PortName{"output"},
+        grapple::foundation::NodeId{"node_effect_b"},
+        grapple::graph::PortName{"input"},
+        3,
+        true
+      }
+    }
+  });
+  return plan;
+}
+
+bool containsDependency(
+  const std::vector<grapple::runtime::RuntimeDependencyId>& dependencies,
+  grapple::runtime::RuntimeDependencyId dependencyId
+) {
+  for (const grapple::runtime::RuntimeDependencyId& dependency : dependencies) {
+    if (dependency == dependencyId) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 } // namespace
 
 int main() {
@@ -150,6 +258,7 @@ int main() {
   const runtime::RuntimeDependencyGraph firstEffect = planner.build(makeEffectPlan("def prepare(): pass"));
   const runtime::RuntimeDependencyGraph changedEffect = planner.build(makeEffectPlan("def prepare(): return 1"));
   const runtime::RuntimeDependencyGraph clipEffect = planner.build(makeClipEffectPlan());
+  const runtime::RuntimeDependencyGraph effectChain = planner.build(makeEffectChainPlan(0.1));
 
   GRAPPLE_REQUIRE(first.planHash == second.planHash);
   GRAPPLE_REQUIRE(!(first.planHash == changed.planHash));
@@ -171,6 +280,30 @@ int main() {
   GRAPPLE_REQUIRE(clipEffect.nodes.size() == 2);
   GRAPPLE_REQUIRE(clipEffect.nodes[1].inputDependencies.size() == 1);
   GRAPPLE_REQUIRE(clipEffect.nodes[1].inputDependencies[0] == runtime::RuntimeDependencyId{"dep_node_clip"});
+  GRAPPLE_REQUIRE(effectChain.nodes.size() == 4);
+  GRAPPLE_REQUIRE(effectChain.nodes[1].inputDependencies.size() == 1);
+  GRAPPLE_REQUIRE(effectChain.nodes[1].inputDependencies[0] == runtime::RuntimeDependencyId{"dep_node_clip"});
+  GRAPPLE_REQUIRE(effectChain.nodes[2].inputDependencies.size() == 2);
+  GRAPPLE_REQUIRE(containsDependency(effectChain.nodes[2].inputDependencies, runtime::RuntimeDependencyId{"dep_node_clip"}));
+  GRAPPLE_REQUIRE(containsDependency(effectChain.nodes[2].inputDependencies, runtime::RuntimeDependencyId{"dep_node_effect_a"}));
+  GRAPPLE_REQUIRE(effectChain.nodes[3].inputDependencies.size() == 1);
+  GRAPPLE_REQUIRE(effectChain.nodes[3].inputDependencies[0] == runtime::RuntimeDependencyId{"dep_node_clip"});
+  const runtime::RuntimeInvalidationResult effectAParamInvalidation = planner.diff(runtime::RuntimeInvalidationRequest{
+    effectChain,
+    makeEffectChainPlan(0.9)
+  });
+  GRAPPLE_REQUIRE(effectAParamInvalidation.invalidatedDependencies.size() == 2);
+  GRAPPLE_REQUIRE(effectAParamInvalidation.invalidatedDependencies[0] == runtime::RuntimeDependencyId{"dep_node_effect_a"});
+  GRAPPLE_REQUIRE(effectAParamInvalidation.invalidatedDependencies[1] == runtime::RuntimeDependencyId{"dep_node_effect_b"});
+  const runtime::RuntimeInvalidationResult clipParamInvalidation = planner.diff(runtime::RuntimeInvalidationRequest{
+    effectChain,
+    makeEffectChainPlan(0.1, 2.0)
+  });
+  GRAPPLE_REQUIRE(clipParamInvalidation.invalidatedDependencies.size() == 4);
+  GRAPPLE_REQUIRE(clipParamInvalidation.invalidatedDependencies[0] == runtime::RuntimeDependencyId{"dep_node_clip"});
+  GRAPPLE_REQUIRE(clipParamInvalidation.invalidatedDependencies[1] == runtime::RuntimeDependencyId{"dep_node_effect_a"});
+  GRAPPLE_REQUIRE(clipParamInvalidation.invalidatedDependencies[2] == runtime::RuntimeDependencyId{"dep_node_effect_b"});
+  GRAPPLE_REQUIRE(clipParamInvalidation.invalidatedDependencies[3] == runtime::RuntimeDependencyId{"dep_node_effect_c"});
   GRAPPLE_REQUIRE(first.nodes.empty());
 
   const runtime::RuntimeEvaluator evaluator;

@@ -32,6 +32,65 @@ std::optional<RuntimeDependencyId> findDependencyForNode(
   return std::nullopt;
 }
 
+RuntimeDependencyNode* findDependencyNode(
+  std::vector<RuntimeDependencyNode>& nodes,
+  RuntimeDependencyId dependencyId
+) {
+  for (RuntimeDependencyNode& node : nodes) {
+    if (node.id == dependencyId) {
+      return &node;
+    }
+  }
+
+  return nullptr;
+}
+
+const RuntimeDependencyNode* findDependencyNode(
+  const std::vector<RuntimeDependencyNode>& nodes,
+  RuntimeDependencyId dependencyId
+) {
+  for (const RuntimeDependencyNode& node : nodes) {
+    if (node.id == dependencyId) {
+      return &node;
+    }
+  }
+
+  return nullptr;
+}
+
+bool containsDependency(
+  const std::vector<RuntimeDependencyId>& dependencies,
+  RuntimeDependencyId dependencyId
+) {
+  for (const RuntimeDependencyId& dependency : dependencies) {
+    if (dependency == dependencyId) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+void addInputDependency(
+  RuntimeDependencyNode& node,
+  RuntimeDependencyId dependencyId
+) {
+  if (!containsDependency(node.inputDependencies, dependencyId)) {
+    node.inputDependencies.push_back(dependencyId);
+  }
+}
+
+bool dependencyNodeChanged(
+  const RuntimeDependencyNode& previous,
+  const RuntimeDependencyNode& next
+) {
+  return previous.renderNodeId != next.renderNodeId ||
+         !(previous.implementationHash == next.implementationHash) ||
+         !(previous.paramsHash == next.paramsHash) ||
+         previous.inputDependencies != next.inputDependencies ||
+         previous.activeRange != next.activeRange;
+}
+
 } // namespace
 
 RuntimeDependencyGraph RuntimeDependencyPlanner::build(const projection::RenderPlan& plan) const {
@@ -57,29 +116,74 @@ RuntimeDependencyGraph RuntimeDependencyPlanner::build(const projection::RenderP
 
   for (const projection::RenderEffectGraph& effectGraph : plan.effectGraphs) {
     for (const projection::RenderEffectNode& effectNode : effectGraph.nodes) {
-      std::vector<RuntimeDependencyId> inputDependencies;
-      const std::optional<RuntimeDependencyId> targetDependency = findDependencyForNode(
-        dependencies,
-        effectGraph.targetNodeId
-      );
-      if (targetDependency.has_value()) {
-        inputDependencies.push_back(targetDependency.value());
-      }
-
       const RuntimeDependencyId dependencyId = dependencyIdFor(effectNode.sourceNodeId);
       graph.nodes.push_back(RuntimeDependencyNode{
         dependencyId,
         effectNode.sourceNodeId,
         projection::hashRenderEffectImplementation(effectNode),
         projection::hashRenderEffectParams(effectNode),
-        std::move(inputDependencies),
+        {},
         effectNode.payload.activeRange
       });
       dependencies.push_back(RenderNodeDependency{effectNode.sourceNodeId, dependencyId});
     }
+
+    for (const projection::RenderEffectNode& effectNode : effectGraph.nodes) {
+      RuntimeDependencyNode& dependencyNode = *findDependencyNode(
+        graph.nodes,
+        dependencyIdFor(effectNode.sourceNodeId)
+      );
+
+      const std::optional<RuntimeDependencyId> targetDependency = findDependencyForNode(
+        dependencies,
+        effectGraph.targetNodeId
+      );
+      if (targetDependency.has_value()) {
+        addInputDependency(dependencyNode, targetDependency.value());
+      }
+
+      for (const projection::RenderEffectEdge& edge : effectGraph.edges) {
+        if (edge.targetNodeId != effectNode.sourceNodeId) {
+          continue;
+        }
+
+        const std::optional<RuntimeDependencyId> sourceDependency = findDependencyForNode(
+          dependencies,
+          edge.sourceNodeId
+        );
+        if (sourceDependency.has_value()) {
+          addInputDependency(dependencyNode, sourceDependency.value());
+        }
+      }
+    }
   }
 
   return graph;
+}
+
+RuntimeInvalidationResult RuntimeDependencyPlanner::diff(const RuntimeInvalidationRequest& request) const {
+  RuntimeDependencyGraph nextGraph = build(request.nextPlan);
+  std::vector<RuntimeDependencyId> invalidatedDependencies;
+
+  for (const RuntimeDependencyNode& nextNode : nextGraph.nodes) {
+    const RuntimeDependencyNode* previousNode = findDependencyNode(
+      request.previousGraph.nodes,
+      nextNode.id
+    );
+
+    bool invalidated = previousNode == nullptr || dependencyNodeChanged(*previousNode, nextNode);
+    for (const RuntimeDependencyId& inputDependency : nextNode.inputDependencies) {
+      if (containsDependency(invalidatedDependencies, inputDependency)) {
+        invalidated = true;
+      }
+    }
+
+    if (invalidated) {
+      invalidatedDependencies.push_back(nextNode.id);
+    }
+  }
+
+  return RuntimeInvalidationResult{std::move(nextGraph), std::move(invalidatedDependencies)};
 }
 
 } // namespace grapple::runtime
