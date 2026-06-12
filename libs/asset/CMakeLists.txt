@@ -1,5 +1,6 @@
 add_library(grapple_asset
   src/AssetCatalog.cpp
+  src/AssetSerializer.cpp
 )
 
 add_library(Grapple::Asset ALIAS grapple_asset)
@@ -13,4 +14,3 @@ target_link_libraries(grapple_asset
   PUBLIC
     Grapple::Foundation
 )
-

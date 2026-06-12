@@ -21,6 +21,7 @@ private:
   [[nodiscard]] foundation::RevisionId nextRevisionId() const;
   foundation::Result<void> applyPayload(const ProjectCommand& payload);
   foundation::Result<ProjectQueryResult> readQuery(const ProjectQuery& query) const;
+  foundation::Result<void> handleRegisterAsset(const RegisterAssetCommand& command);
   foundation::Result<void> handleCreateComposition(const CreateCompositionCommand& command);
   foundation::Result<void> handleCreateTrack(const CreateTrackCommand& command);
   foundation::Result<void> handleCreateClip(const CreateClipCommand& command);

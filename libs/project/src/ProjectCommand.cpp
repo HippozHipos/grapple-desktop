@@ -8,7 +8,9 @@ CommandKind commandKind(const ProjectCommand& command) {
   return std::visit(
     [](const auto& typedCommand) -> CommandKind {
       using Command = std::decay_t<decltype(typedCommand)>;
-      if constexpr (std::is_same_v<Command, CreateCompositionCommand>) {
+      if constexpr (std::is_same_v<Command, RegisterAssetCommand>) {
+        return CommandKind::RegisterAsset;
+      } else if constexpr (std::is_same_v<Command, CreateCompositionCommand>) {
         return CommandKind::CreateComposition;
       } else if constexpr (std::is_same_v<Command, CreateTrackCommand>) {
         return CommandKind::CreateTrack;

@@ -1,5 +1,6 @@
 #include <grapple/project/ProjectSerializer.hpp>
 
+#include <grapple/asset/AssetSerializer.hpp>
 #include <grapple/foundation/Json.hpp>
 #include <grapple/graph/GraphSerializer.hpp>
 #include <grapple/timeline/TimelineSerializer.hpp>
@@ -26,6 +27,7 @@ std::string serializeCanonicalProjectDocument(const ProjectDocument& document) {
   stream << ',';
   foundation::writeJsonStringProperty(stream, "revision", document.revision.value());
   stream << ",\"revisionNumber\":" << document.revisionNumber;
+  stream << ",\"assets\":" << asset::serializeCanonicalAssetCatalog(document.assets);
   stream << ",\"graph\":" << graph::serializeCanonicalGraph(document.graph);
   stream << '}';
   return stream.str();
@@ -38,7 +40,9 @@ std::string serializeCanonicalCommandPayload(const ProjectCommand& command) {
       std::ostringstream stream;
       stream << '{';
 
-      if constexpr (std::is_same_v<Command, CreateCompositionCommand>) {
+      if constexpr (std::is_same_v<Command, RegisterAssetCommand>) {
+        stream << "\"asset\":" << asset::serializeCanonicalAsset(typedCommand.asset);
+      } else if constexpr (std::is_same_v<Command, CreateCompositionCommand>) {
         writeIdProperty(stream, "nodeId", typedCommand.nodeId.value());
         stream << ',';
         foundation::writeJsonStringProperty(stream, "name", typedCommand.name);

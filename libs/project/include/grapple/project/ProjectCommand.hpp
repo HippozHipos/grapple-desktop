@@ -1,5 +1,6 @@
 #pragma once
 
+#include <grapple/asset/Asset.hpp>
 #include <grapple/foundation/StrongId.hpp>
 #include <grapple/project/ProjectDocument.hpp>
 #include <grapple/timeline/Payloads.hpp>
@@ -11,6 +12,7 @@
 namespace grapple::project {
 
 enum class CommandKind {
+  RegisterAsset,
   CreateComposition,
   CreateTrack,
   CreateClip,
@@ -31,6 +33,10 @@ struct CommandSource {
   CommandSourceKind kind = CommandSourceKind::User;
   std::optional<foundation::RunId> runId;
   std::string actorName;
+};
+
+struct RegisterAssetCommand {
+  asset::Asset asset;
 };
 
 struct CreateCompositionCommand {
@@ -77,6 +83,7 @@ struct RestoreSnapshotCommand {
 };
 
 using ProjectCommand = std::variant<
+  RegisterAssetCommand,
   CreateCompositionCommand,
   CreateTrackCommand,
   CreateClipCommand,

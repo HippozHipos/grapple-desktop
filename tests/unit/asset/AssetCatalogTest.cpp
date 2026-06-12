@@ -1,4 +1,5 @@
 #include <grapple/asset/AssetCatalog.hpp>
+#include <grapple/asset/AssetSerializer.hpp>
 
 #include <TestAssert.hpp>
 
@@ -30,6 +31,8 @@ int main() {
   GRAPPLE_REQUIRE(asset->metadata.duration->value == 10.0);
   GRAPPLE_REQUIRE((asset->metadata.dimensions == foundation::Resolution{1080, 1920}));
   GRAPPLE_REQUIRE(asset->metadata.frameRate->framesPerSecond() == 30.0);
+  GRAPPLE_REQUIRE(asset::serializeCanonicalAsset(*asset).find("\"sourcePath\":\"/media/walking-woman.mp4\"") != std::string::npos);
+  GRAPPLE_REQUIRE(asset::serializeCanonicalAssetCatalog(catalog).find("\"id\":\"asset_video\"") != std::string::npos);
 
   const auto duplicate = catalog.registerAsset(asset::Asset{
     foundation::AssetId{"asset_video"},

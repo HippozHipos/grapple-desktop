@@ -72,7 +72,9 @@ foundation::Result<void> ProjectController::applyPayload(const ProjectCommand& p
   return std::visit(
     [&](const auto& typedCommand) -> foundation::Result<void> {
       using Command = std::decay_t<decltype(typedCommand)>;
-      if constexpr (std::is_same_v<Command, CreateCompositionCommand>) {
+      if constexpr (std::is_same_v<Command, RegisterAssetCommand>) {
+        return handleRegisterAsset(typedCommand);
+      } else if constexpr (std::is_same_v<Command, CreateCompositionCommand>) {
         return handleCreateComposition(typedCommand);
       } else if constexpr (std::is_same_v<Command, CreateTrackCommand>) {
         return handleCreateTrack(typedCommand);
@@ -104,6 +106,10 @@ foundation::Result<ProjectQueryResult> ProjectController::readQuery(const Projec
     },
     query
   );
+}
+
+foundation::Result<void> ProjectController::handleRegisterAsset(const RegisterAssetCommand& command) {
+  return document_.assets.registerAsset(command.asset);
 }
 
 foundation::Result<void> ProjectController::handleCreateComposition(const CreateCompositionCommand& command) {
@@ -250,6 +256,7 @@ ProjectDocument createEmptyProject(foundation::ProjectId projectId, std::string 
     ProjectInfo{std::move(projectId), std::move(name)},
     makeRevisionId(0),
     0,
+    asset::AssetCatalog{},
     graph::GraphDocument{}
   };
 }

@@ -41,6 +41,7 @@ int main() {
   );
   GRAPPLE_REQUIRE(createComposition);
   GRAPPLE_REQUIRE(project::serializeCanonicalCommandPayload(makeCreateComposition(initialSnapshot.value().document.revision).payload) == "{\"nodeId\":\"node_composition\",\"name\":\"Main\"}");
+  GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::RegisterAsset) == "project.register_asset");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::CreateComposition) == "project.create_composition");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::CreateTrack) == "project.create_track");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::CreateClip) == "project.create_clip");
@@ -126,6 +127,60 @@ int main() {
   GRAPPLE_REQUIRE(serialized.find("\"revision\":\"rev_3\"") != std::string::npos);
   GRAPPLE_REQUIRE(serialized.find("\"nodes\"") != std::string::npos);
   GRAPPLE_REQUIRE(project::hashProjectSnapshot(afterRestore.value()) == project::hashProjectSnapshot(afterRestore.value()));
+
+  project::ProjectController assetProject{
+    project::createEmptyProject(foundation::ProjectId{"proj_assets"}, "Asset Project")
+  };
+  const auto assetInitialSnapshot = assetProject.snapshot();
+  GRAPPLE_REQUIRE(assetInitialSnapshot);
+  GRAPPLE_REQUIRE(assetInitialSnapshot.value().document.assets.assets().empty());
+
+  const asset::Asset registeredAsset{
+    foundation::AssetId{"asset_walking_woman"},
+    "Walking Woman",
+    asset::AssetMetadata{
+      asset::AssetMediaType::Video,
+      foundation::FilePath{"/media/walking-woman.mp4"},
+      foundation::FilePath{"/media/walking-woman.jpg"},
+      foundation::TimeSeconds{10.0},
+      foundation::Resolution{1080, 1920},
+      foundation::FrameRate{30, 1}
+    }
+  };
+  const project::ProjectCommandEnvelope registerAsset{
+    foundation::CommandId{"cmd_register_asset"},
+    foundation::ProjectId{"proj_assets"},
+    assetInitialSnapshot.value().document.revision,
+    project::CommandSource{project::CommandSourceKind::Importer, std::nullopt, "import"},
+    project::RegisterAssetCommand{registeredAsset}
+  };
+  GRAPPLE_REQUIRE(project::commandKind(registerAsset.payload) == project::CommandKind::RegisterAsset);
+  GRAPPLE_REQUIRE(project::serializeCanonicalCommandPayload(registerAsset.payload).find("\"asset\":{\"id\":\"asset_walking_woman\"") != std::string::npos);
+
+  const auto registerAssetResult = assetProject.apply(registerAsset);
+  GRAPPLE_REQUIRE(registerAssetResult);
+  GRAPPLE_REQUIRE(registerAssetResult.value().afterRevision == foundation::RevisionId{"rev_1"});
+
+  const auto assetSnapshot = assetProject.snapshot();
+  GRAPPLE_REQUIRE(assetSnapshot);
+  GRAPPLE_REQUIRE(assetSnapshot.value().document.assets.assets().size() == 1);
+  GRAPPLE_REQUIRE(assetSnapshot.value().document.assets.find(foundation::AssetId{"asset_walking_woman"}) != nullptr);
+  const std::string serializedAssetProject = project::serializeCanonicalProjectDocument(assetSnapshot.value().document);
+  GRAPPLE_REQUIRE(serializedAssetProject.find("\"assets\":[{\"id\":\"asset_walking_woman\"") != std::string::npos);
+
+  const auto duplicateAsset = assetProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_register_asset_duplicate"},
+    foundation::ProjectId{"proj_assets"},
+    assetSnapshot.value().document.revision,
+    project::CommandSource{project::CommandSourceKind::Importer, std::nullopt, "import"},
+    project::RegisterAssetCommand{registeredAsset}
+  });
+  GRAPPLE_REQUIRE(!duplicateAsset);
+  GRAPPLE_REQUIRE(duplicateAsset.error().code == "asset.id_duplicate");
+  const auto afterDuplicateAsset = assetProject.snapshot();
+  GRAPPLE_REQUIRE(afterDuplicateAsset);
+  GRAPPLE_REQUIRE(afterDuplicateAsset.value().document.revision == foundation::RevisionId{"rev_1"});
+  GRAPPLE_REQUIRE(afterDuplicateAsset.value().document.assets.assets().size() == 1);
 
   const auto graphQuery = controller.query(project::GetGraphQuery{});
   GRAPPLE_REQUIRE(graphQuery);

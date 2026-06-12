@@ -1,5 +1,6 @@
 #pragma once
 
+#include <grapple/asset/AssetCatalog.hpp>
 #include <grapple/foundation/StrongId.hpp>
 #include <grapple/graph/GraphDocument.hpp>
 
@@ -17,6 +18,7 @@ struct ProjectDocument {
   ProjectInfo info;
   foundation::RevisionId revision;
   std::int64_t revisionNumber = 0;
+  asset::AssetCatalog assets;
   graph::GraphDocument graph;
 };
 
@@ -25,4 +27,3 @@ struct ProjectSnapshot {
 };
 
 } // namespace grapple::project
-

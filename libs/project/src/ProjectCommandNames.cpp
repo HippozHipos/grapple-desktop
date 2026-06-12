@@ -6,6 +6,8 @@ namespace grapple::project {
 
 std::string_view serializedCommandName(CommandKind kind) {
   switch (kind) {
+    case CommandKind::RegisterAsset:
+      return "project.register_asset";
     case CommandKind::CreateComposition:
       return "project.create_composition";
     case CommandKind::CreateTrack:
