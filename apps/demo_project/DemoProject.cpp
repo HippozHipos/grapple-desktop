@@ -124,20 +124,20 @@ foundation::Result<void> populateWalkingWomanDemo(
     return camera.error();
   }
 
-  const std::string effectSource = "def prepare(ctx):\n  return {'camera': ctx.time}\n";
+  const std::string effectSource = "builtin:camera_transform";
   const auto effect = writer.apply(
     project::CreateEffectCommand{
       writer.nextNodeId("effect"),
       cameraNodeId,
       writer.nextEdgeId("effect_targets_camera"),
       timeline::EffectPayload{
-        "Camera Follow",
+        "Camera Transform",
         timeline::EffectImplementation{
-          timeline::EffectImplementationKind::Python,
-          "prepare",
+          timeline::EffectImplementationKind::Builtin,
+          "camera_transform",
           timeline::EffectSource{
             timeline::EffectSourceKind::InlineSource,
-            "python",
+            "builtin",
             effectSource,
             std::nullopt,
             foundation::stableHash(effectSource)
@@ -145,14 +145,29 @@ foundation::Result<void> populateWalkingWomanDemo(
         },
         timeline::EffectPortSet{
           {timeline::EffectPort{"frame"}},
-          {timeline::EffectPort{"camera"}}
+          {timeline::EffectPort{"camera_transform"}}
         },
-        timeline::ParamSet{
-          {timeline::Param{"target_x", 0.5}}
-        },
+        timeline::ParamSet{{
+          {timeline::Param{
+            "position_x",
+            0.1,
+            timeline::Param::Control{
+              "Position X",
+              timeline::Param::NumericControl{-1.0, 1.0, 0.01}
+            }
+          }},
+          {timeline::Param{
+            "position_y",
+            0.0,
+            timeline::Param::Control{
+              "Position Y",
+              timeline::Param::NumericControl{-1.0, 1.0, 0.01}
+            }
+          }}
+        }},
         foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{10.0}}
       },
-      graph::PortName{"camera"},
+      graph::PortName{"camera_transform"},
       graph::PortName{"input"},
       0
     },

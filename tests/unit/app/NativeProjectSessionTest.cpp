@@ -263,6 +263,95 @@ int main() {
   GRAPPLE_REQUIRE(effectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].numericMax == 1.0);
   GRAPPLE_REQUIRE(effectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].numericStep == 0.01);
 
+  app::NativeProjectSession runtimeProject{
+    foundation::ProjectId{"proj_app_runtime"},
+    "Runtime App Project",
+    storage::ProjectPackage{
+      foundation::ProjectId{"proj_app_runtime"},
+      foundation::FilePath{"runtime-app.grapple"},
+      1
+    }
+  };
+  auto runtimeWorkspace = app::NativeWorkspaceSession::fromProject(std::move(runtimeProject));
+  GRAPPLE_REQUIRE(runtimeWorkspace);
+  const foundation::NodeId runtimeCompositionNodeId = runtimeWorkspace.value().commandWriter().nextNodeId("composition");
+  const auto runtimeComposition = runtimeWorkspace.value().commandWriter().apply(
+    project::CreateCompositionCommand{runtimeCompositionNodeId, "Runtime Main"},
+    userSource()
+  );
+  GRAPPLE_REQUIRE(runtimeComposition);
+  const foundation::NodeId runtimeCameraNodeId = runtimeWorkspace.value().commandWriter().nextNodeId("camera");
+  const auto runtimeCamera = runtimeWorkspace.value().commandWriter().apply(
+    project::CreateCameraCommand{
+      runtimeCameraNodeId,
+      runtimeCompositionNodeId,
+      runtimeWorkspace.value().commandWriter().nextEdgeId("contains camera"),
+      timeline::CameraPayload{"Camera", timeline::Transform{}, timeline::CameraLens{35.0}}
+    },
+    userSource()
+  );
+  GRAPPLE_REQUIRE(runtimeCamera);
+  const auto runtimeEffect = runtimeWorkspace.value().commandWriter().apply(
+    project::CreateEffectCommand{
+      runtimeWorkspace.value().commandWriter().nextNodeId("effect"),
+      runtimeCameraNodeId,
+      runtimeWorkspace.value().commandWriter().nextEdgeId("effect targets camera"),
+      timeline::EffectPayload{
+        "Camera Transform",
+        timeline::EffectImplementation{
+          timeline::EffectImplementationKind::Builtin,
+          "camera_transform",
+          timeline::EffectSource{
+            timeline::EffectSourceKind::InlineSource,
+            "builtin",
+            "builtin:camera_transform",
+            std::nullopt,
+            foundation::stableHash("builtin:camera_transform")
+          }
+        },
+        timeline::EffectPortSet{
+          {timeline::EffectPort{"frame"}},
+          {timeline::EffectPort{"camera_transform"}}
+        },
+        timeline::ParamSet{{
+          {timeline::Param{"position_x", 0.4}},
+          {timeline::Param{"position_y", -0.25}}
+        }},
+        foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}}
+      },
+      graph::PortName{"camera_transform"},
+      graph::PortName{"input"},
+      0
+    },
+    userSource()
+  );
+  GRAPPLE_REQUIRE(runtimeEffect);
+  const auto runtimeRefresh = runtimeWorkspace.value().preview().refreshFromProject();
+  GRAPPLE_REQUIRE(runtimeRefresh);
+  const auto runtimeFrame = runtimeWorkspace.value().preview().renderFrame(render::RenderFrameRequest{
+    foundation::TimeSeconds{0.0},
+    render::RenderQuality::Draft
+  });
+  GRAPPLE_REQUIRE(runtimeFrame);
+  GRAPPLE_REQUIRE(runtimeFrame.value().runtimeDiagnostics.empty());
+  GRAPPLE_REQUIRE(runtimeFrame.value().frame.cameras.size() == 1);
+  GRAPPLE_REQUIRE(runtimeFrame.value().frame.cameras[0].cameraNodeId == runtimeCameraNodeId);
+  GRAPPLE_REQUIRE(runtimeFrame.value().frame.cameras[0].transform.position.x == 0.4);
+  GRAPPLE_REQUIRE(runtimeFrame.value().frame.cameras[0].transform.position.y == -0.25);
+  const auto runtimeExportPrepare = runtimeWorkspace.value().exportSession().prepareFromProject();
+  GRAPPLE_REQUIRE(runtimeExportPrepare);
+  const auto runtimeExport = runtimeWorkspace.value().exportSession().render(render::ExportSettings{
+    foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}},
+    foundation::FrameRate{2, 1},
+    foundation::Resolution{1920, 1080},
+    render::Codec{"test"},
+    render::RenderQuality::Final,
+    foundation::FilePath{"/tmp/app-runtime-export.mov"}
+  });
+  GRAPPLE_REQUIRE(runtimeExport);
+  GRAPPLE_REQUIRE(runtimeExport.value().runtimeDiagnostics.empty());
+  GRAPPLE_REQUIRE(runtimeExport.value().framesEvaluated == 2);
+
   app::NativePreviewSession preview{session};
   const auto frameBeforeRefresh = preview.renderFrame(render::RenderFrameRequest{
     foundation::TimeSeconds{0.0},

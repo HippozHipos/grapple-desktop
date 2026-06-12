@@ -1,6 +1,8 @@
+#include <grapple/runtime/BuiltinEffectRuntime.hpp>
 #include <grapple/runtime/RuntimeDependencyPlanner.hpp>
 #include <grapple/runtime/RuntimeEvaluator.hpp>
 #include <grapple/runtime/MemoryRuntimeCache.hpp>
+#include <grapple/runtime/RuntimeOutputNames.hpp>
 
 #include <TestAssert.hpp>
 
@@ -152,6 +154,62 @@ grapple::projection::RenderPlan makeEffectPlan(std::string source) {
         grapple::foundation::EdgeId{"edge_effect_targets_camera"},
         grapple::foundation::NodeId{"node_effect"},
         grapple::graph::PortName{"camera_transform"},
+        grapple::foundation::NodeId{"node_camera"},
+        grapple::graph::PortName{"input"},
+        0
+      }
+    }
+  });
+  return plan;
+}
+
+grapple::projection::RenderPlan makeBuiltinCameraTransformPlan(bool includePositionY = true) {
+  grapple::projection::RenderPlan plan = makePlan("Video");
+  plan.cameras.push_back(grapple::projection::RenderCamera{
+    grapple::foundation::NodeId{"node_camera"},
+    "Camera",
+    grapple::timeline::Transform{},
+    grapple::timeline::CameraLens{}
+  });
+  grapple::timeline::ParamSet params{
+    {grapple::timeline::Param{"position_x", 0.25}}
+  };
+  if (includePositionY) {
+    params.values.push_back(grapple::timeline::Param{"position_y", -0.5});
+  }
+  plan.effectGraphs.push_back(grapple::projection::RenderEffectGraph{
+    grapple::foundation::GraphId{"effect_graph_node_camera"},
+    grapple::foundation::NodeId{"node_camera"},
+    {
+      grapple::projection::RenderEffectNode{
+        grapple::foundation::NodeId{"node_builtin_effect"},
+        grapple::timeline::EffectPayload{
+          "Camera Transform",
+          grapple::timeline::EffectImplementation{
+            grapple::timeline::EffectImplementationKind::Builtin,
+            "camera_transform",
+            grapple::timeline::EffectSource{
+              grapple::timeline::EffectSourceKind::InlineSource,
+              "builtin",
+              "builtin:camera_transform",
+              std::nullopt,
+              grapple::foundation::stableHash("builtin:camera_transform")
+            }
+          },
+          grapple::timeline::EffectPortSet{
+            {grapple::timeline::EffectPort{"frame"}},
+            {grapple::timeline::EffectPort{grapple::runtime::output_name::CameraTransform}}
+          },
+          params,
+          grapple::foundation::TimeRange{grapple::foundation::TimeSeconds{0.0}, grapple::foundation::TimeSeconds{10.0}}
+        }
+      }
+    },
+    {
+      grapple::projection::RenderEffectEdge{
+        grapple::foundation::EdgeId{"edge_builtin_effect_targets_camera"},
+        grapple::foundation::NodeId{"node_builtin_effect"},
+        grapple::graph::PortName{grapple::runtime::output_name::CameraTransform},
         grapple::foundation::NodeId{"node_camera"},
         grapple::graph::PortName{"input"},
         0
@@ -585,6 +643,49 @@ int main() {
   GRAPPLE_REQUIRE(supportedEffectSample.value().sample.effectOutputs[0].values.size() == 1);
   GRAPPLE_REQUIRE(std::get<double>(supportedEffectSample.value().sample.effectOutputs[0].values[0].value) == 3.5);
   GRAPPLE_REQUIRE(effectRuntime.processCount == 1);
+
+  runtime::BuiltinEffectRuntime builtinRuntime;
+  const runtime::RuntimeEvaluator evaluatorWithBuiltinRuntime{{&builtinRuntime}};
+  const auto preparedBuiltinEffectPlan = evaluatorWithBuiltinRuntime.prepare(runtime::PrepareRuntimePlanRequest{
+    makeBuiltinCameraTransformPlan()
+  });
+  GRAPPLE_REQUIRE(preparedBuiltinEffectPlan);
+  GRAPPLE_REQUIRE(preparedBuiltinEffectPlan.value().diagnostics.empty());
+  GRAPPLE_REQUIRE(preparedBuiltinEffectPlan.value().prepared.preparedEffects.size() == 1);
+  const auto builtinEffectSample = evaluatorWithBuiltinRuntime.sample(runtime::RuntimeSampleRequest{
+    preparedBuiltinEffectPlan.value().prepared,
+    foundation::TimeSeconds{1.0},
+    runtime::RuntimeQuality::Interactive
+  });
+  GRAPPLE_REQUIRE(builtinEffectSample);
+  GRAPPLE_REQUIRE(builtinEffectSample.value().diagnostics.empty());
+  GRAPPLE_REQUIRE(builtinEffectSample.value().sample.effectOutputs.size() == 1);
+  GRAPPLE_REQUIRE(builtinEffectSample.value().sample.effectOutputs[0].targetNodeId == foundation::NodeId{"node_camera"});
+  GRAPPLE_REQUIRE(builtinEffectSample.value().sample.effectOutputs[0].values.size() == 1);
+  GRAPPLE_REQUIRE(builtinEffectSample.value().sample.effectOutputs[0].values[0].name == runtime::output_name::CameraTransform);
+  const auto* transform = std::get_if<foundation::Transform2D>(&builtinEffectSample.value().sample.effectOutputs[0].values[0].value);
+  GRAPPLE_REQUIRE(transform != nullptr);
+  GRAPPLE_REQUIRE(transform->position.x == 0.25);
+  GRAPPLE_REQUIRE(transform->position.y == -0.5);
+
+  const auto preparedInvalidBuiltinEffectPlan = evaluatorWithBuiltinRuntime.prepare(runtime::PrepareRuntimePlanRequest{
+    makeBuiltinCameraTransformPlan(false)
+  });
+  GRAPPLE_REQUIRE(preparedInvalidBuiltinEffectPlan);
+  GRAPPLE_REQUIRE(preparedInvalidBuiltinEffectPlan.value().diagnostics.size() == 1);
+  GRAPPLE_REQUIRE(preparedInvalidBuiltinEffectPlan.value().diagnostics[0].code == "runtime.builtin_camera_transform_param_invalid");
+  GRAPPLE_REQUIRE(preparedInvalidBuiltinEffectPlan.value().diagnostics[0].location.projectId == foundation::ProjectId{"proj_runtime"});
+  GRAPPLE_REQUIRE(preparedInvalidBuiltinEffectPlan.value().diagnostics[0].location.revision == foundation::RevisionId{"rev_4"});
+  GRAPPLE_REQUIRE(preparedInvalidBuiltinEffectPlan.value().diagnostics[0].location.nodeId == foundation::NodeId{"node_builtin_effect"});
+  GRAPPLE_REQUIRE(preparedInvalidBuiltinEffectPlan.value().prepared.preparedEffects.size() == 1);
+  const auto invalidBuiltinSample = evaluatorWithBuiltinRuntime.sample(runtime::RuntimeSampleRequest{
+    preparedInvalidBuiltinEffectPlan.value().prepared,
+    foundation::TimeSeconds{1.0},
+    runtime::RuntimeQuality::Interactive
+  });
+  GRAPPLE_REQUIRE(invalidBuiltinSample);
+  GRAPPLE_REQUIRE(invalidBuiltinSample.value().sample.effectOutputs.size() == 1);
+  GRAPPLE_REQUIRE(invalidBuiltinSample.value().sample.effectOutputs[0].values.empty());
   const auto sampledRange = evaluator.evaluateRange(runtime::RuntimeRangeRequest{
     preparedClipPlan.value().prepared,
     foundation::TimeRange{

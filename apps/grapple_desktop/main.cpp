@@ -819,7 +819,7 @@ public:
     auto* addTrackButton = new QPushButton{"Add Track"};
     auto* moveClipButton = new QPushButton{"Move Clip +1s"};
     auto* addEffectButton = new QPushButton{"Add Effect"};
-    effectParamName_ = new QLineEdit{"target_x"};
+    effectParamName_ = new QLineEdit{"position_x"};
     effectParamName_->setObjectName("effectParamName");
     effectParamValue_ = new QLineEdit{"0.75"};
     effectParamValue_->setObjectName("effectParamValue");
@@ -1772,8 +1772,8 @@ int main(int argc, char* argv[]) {
     std::cout << "selected=" << selectedNodeId->value() << '\n';
     std::cout << "inspector=" << inspector << '\n';
     return selectedNodeId.value() == grapple::foundation::NodeId{"node_camera_4"} &&
-           inspector.find("Camera Follow") != std::string::npos &&
-           inspector.find("target_x=0.5") != std::string::npos
+           inspector.find("Camera Transform") != std::string::npos &&
+           inspector.find("Position X (position_x)=0.1") != std::string::npos
       ? 0
       : 1;
   }
@@ -1846,7 +1846,7 @@ int main(int argc, char* argv[]) {
     window.show();
     app.processEvents();
     window.clickFirstTimelineCamera();
-    window.setSelectedTargetNumericEffectParam("target_x", "0.9");
+    window.setSelectedTargetNumericEffectParam("position_x", "0.25");
     const std::string inspector = window.inspectorContents();
     const auto viewModel = workspace.value().project().buildViewModel();
     if (!viewModel) {
@@ -1856,7 +1856,7 @@ int main(int argc, char* argv[]) {
     std::cout << "revision=" << viewModel.value().project.revision.value() << '\n';
     std::cout << "inspector=" << inspector << '\n';
     return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_7"} &&
-           inspector.find("target_x=0.9") != std::string::npos
+           inspector.find("Position X (position_x)=0.25") != std::string::npos
       ? 0
       : 1;
   }

@@ -56,6 +56,8 @@ foundation::Result<PrepareRuntimePlanResult> RuntimeEvaluator::prepare(
       }
 
       auto effectPrepare = selectedRuntime->prepare(EffectPrepareRequest{
+        request.plan.projectId,
+        request.plan.revision,
         effectGraph,
         effectNode
       });

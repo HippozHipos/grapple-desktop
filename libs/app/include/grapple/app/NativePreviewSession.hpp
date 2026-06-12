@@ -21,6 +21,11 @@ class NativePreviewSession {
 public:
   explicit NativePreviewSession(NativeProjectSession& project);
   NativePreviewSession(NativeProjectSession& project, render::IRenderFrameSource& frameSource);
+  NativePreviewSession(
+    NativeProjectSession& project,
+    render::IRenderFrameSource& frameSource,
+    std::vector<runtime::IEffectRuntime*> effectRuntimes
+  );
   NativePreviewSession(NativeProjectSession& project, std::vector<runtime::IEffectRuntime*> effectRuntimes);
 
   foundation::Result<NativePreviewRefreshResult> refreshFromProject();

@@ -1,6 +1,7 @@
 #include <grapple/app/NativeWorkspaceSession.hpp>
 
 #include <grapple/asset/Asset.hpp>
+#include <grapple/runtime/BuiltinEffectRuntime.hpp>
 #include <grapple/storage/ProjectPackageReader.hpp>
 
 #include <utility>
@@ -45,14 +46,15 @@ struct NativeWorkspaceSession::State {
       mediaSources{std::move(mediaSourceCatalog)},
       mediaReader{mediaSources},
       frameSource{mediaReader},
-      preview{project, frameSource},
-      exportSession{project} {}
+      preview{project, frameSource, {&builtinEffectRuntime}},
+      exportSession{project, {&builtinEffectRuntime}} {}
 
   NativeProjectSession project;
   NativeProjectCommandWriter commandWriter;
   media::MediaSourceCatalog mediaSources;
   media::OpenCVMediaReader mediaReader;
   NativeMediaFrameSource frameSource;
+  runtime::BuiltinEffectRuntime builtinEffectRuntime;
   NativePreviewSession preview;
   NativeExportSession exportSession;
 };

@@ -22,6 +22,8 @@ struct PreparedEffectNode {
 };
 
 struct EffectPrepareRequest {
+  foundation::ProjectId projectId;
+  foundation::RevisionId revision;
   const projection::RenderEffectGraph& graph;
   const projection::RenderEffectNode& node;
 };

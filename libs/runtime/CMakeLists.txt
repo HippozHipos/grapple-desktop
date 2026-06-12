@@ -1,4 +1,5 @@
 add_library(grapple_runtime
+  src/BuiltinEffectRuntime.cpp
   src/MemoryRuntimeCache.cpp
   src/RuntimeCache.cpp
   src/RuntimeDependencyPlanner.cpp
