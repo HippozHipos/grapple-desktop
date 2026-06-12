@@ -5,6 +5,7 @@ add_executable(grapple_project_tests
 target_link_libraries(grapple_project_tests
   PRIVATE
     Grapple::Project
+    Grapple::Projection
 )
 
 target_include_directories(grapple_project_tests
@@ -13,4 +14,3 @@ target_include_directories(grapple_project_tests
 )
 
 add_test(NAME grapple_project_tests COMMAND grapple_project_tests)
-
