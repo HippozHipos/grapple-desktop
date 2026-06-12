@@ -315,6 +315,9 @@ int main() {
   GRAPPLE_REQUIRE(runtimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].params.size() == 2);
   GRAPPLE_REQUIRE(runtimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].label == "Position X");
   GRAPPLE_REQUIRE(runtimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[1].label == "Position Y");
+  GRAPPLE_REQUIRE(runtimeEffectViewModel.value().steward.edits.size() == 1);
+  GRAPPLE_REQUIRE(runtimeEffectViewModel.value().steward.edits[0].revision == foundation::RevisionId{"rev_3"});
+  GRAPPLE_REQUIRE(runtimeEffectViewModel.value().steward.edits[0].intent == "Center the subject with an editable camera transform.");
   const auto runtimeRefresh = runtimeWorkspace.value().preview().refreshFromProject();
   GRAPPLE_REQUIRE(runtimeRefresh);
   const auto runtimeFrame = runtimeWorkspace.value().preview().renderFrame(render::RenderFrameRequest{

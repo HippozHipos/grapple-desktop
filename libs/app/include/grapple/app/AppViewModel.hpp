@@ -22,6 +22,16 @@ struct AppProjectSummary {
   foundation::Hash256 canonicalHash;
 };
 
+struct AppStewardEditRow {
+  foundation::CommandId commandId;
+  foundation::RevisionId revision;
+  std::string intent;
+};
+
+struct AppStewardView {
+  std::vector<AppStewardEditRow> edits;
+};
+
 struct AppCompositionRow {
   foundation::NodeId sourceNodeId;
   std::string name;
@@ -98,6 +108,7 @@ struct AppTimelineView {
 
 struct AppViewModel {
   AppProjectSummary project;
+  AppStewardView steward;
   AppAssetSummary assets;
   AppTimelineView timeline;
 };

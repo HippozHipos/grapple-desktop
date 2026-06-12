@@ -1,14 +1,18 @@
 #include <grapple/app/NativeProjectSession.hpp>
 
 #include <grapple/asset/Asset.hpp>
+#include <grapple/history/CommandRecord.hpp>
+#include <grapple/history/SnapshotRecord.hpp>
 #include <grapple/storage/ProjectPackageManifest.hpp>
 #include <grapple/storage/ProjectPackageWriter.hpp>
 
 #include <algorithm>
 #include <cstdlib>
+#include <optional>
 #include <sstream>
 #include <utility>
 #include <variant>
+#include <vector>
 
 namespace grapple::app {
 
@@ -71,6 +75,19 @@ std::string paramValueText(const timeline::ParamValue& value) {
     },
     value
   );
+}
+
+std::optional<std::string> snapshotLabelForRevision(
+  const std::vector<history::SnapshotRecord>& snapshots,
+  const foundation::RevisionId& revision
+) {
+  const auto snapshot = std::find_if(snapshots.begin(), snapshots.end(), [&](const history::SnapshotRecord& record) {
+    return record.revision == revision;
+  });
+  if (snapshot == snapshots.end()) {
+    return std::nullopt;
+  }
+  return snapshot->label;
 }
 
 } // namespace
@@ -150,6 +167,24 @@ foundation::Result<AppViewModel> NativeProjectSession::buildViewModel() const {
     snapshot.revisionNumber,
     snapshot.canonicalHash
   };
+  const storage::ProjectPackageState& packageState = session_.packageState();
+  for (const history::CommandRecord& command : packageState.commandLog.records()) {
+    if (command.sourceKind != "agent" || command.sourceActorName != "steward") {
+      continue;
+    }
+    const std::optional<std::string> intent = snapshotLabelForRevision(
+      packageState.snapshots.records(),
+      command.afterRevision
+    );
+    if (!intent.has_value()) {
+      continue;
+    }
+    viewModel.steward.edits.push_back(AppStewardEditRow{
+      command.id,
+      command.afterRevision,
+      intent.value()
+    });
+  }
   viewModel.assets.count = snapshot.assets.assets().size();
   viewModel.timeline.duration = plan.duration;
 

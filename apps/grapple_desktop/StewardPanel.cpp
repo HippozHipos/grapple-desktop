@@ -112,6 +112,18 @@ void StewardPanel::setViewModel(const app::AppViewModel& viewModel) {
     lines << "- none yet";
   }
 
+  lines << "";
+  lines << "Steward edits";
+  if (viewModel.steward.edits.empty()) {
+    lines << "- none yet";
+  } else {
+    for (auto edit = viewModel.steward.edits.rbegin(); edit != viewModel.steward.edits.rend(); ++edit) {
+      lines << QString{"- %1 @ %2"}
+        .arg(qString(edit->intent))
+        .arg(qString(edit->revision.value()));
+    }
+  }
+
   text_->setPlainText(lines.join('\n'));
 }
 

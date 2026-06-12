@@ -1797,6 +1797,7 @@ int main(int argc, char* argv[]) {
     return steward.find("Bet: prompt -> editable graph") != std::string::npos &&
            steward.find("Intent: Center the subject with an editable camera transform.") != std::string::npos &&
            steward.find("Action: selected camera -> editable Camera Transform") != std::string::npos &&
+           steward.find("Steward edits") != std::string::npos &&
            steward.find("- none yet") != std::string::npos
       ? 0
       : 1;
@@ -1896,6 +1897,7 @@ int main(int argc, char* argv[]) {
     window.clickStewardCreateCameraEffect();
     const std::string inspector = window.inspectorContents();
     const std::string logText = window.logContents();
+    const std::string steward = window.stewardContents();
     const auto viewModel = workspace.value().project().buildViewModel();
     if (!viewModel) {
       printError(viewModel.error());
@@ -1905,6 +1907,7 @@ int main(int argc, char* argv[]) {
     std::cout << "effectGraphs=" << viewModel.value().timeline.effectGraphs.size() << '\n';
     std::cout << "inspector=" << inspector << '\n';
     std::cout << "log=" << logText << '\n';
+    std::cout << "steward=" << steward << '\n';
     const auto& snapshots = workspace.value().project().packageState().snapshots.records();
     const bool intentRecorded = !snapshots.empty() &&
                                 snapshots.back().label.has_value() &&
@@ -1924,6 +1927,7 @@ int main(int argc, char* argv[]) {
            inspector.find("Camera Transform") != std::string::npos &&
            inspector.find("Position X (position_x)=0") != std::string::npos &&
            intentRecorded &&
+           steward.find("Center the walking subject with exposed controls. @ rev_6") != std::string::npos &&
            logText.find("steward.camera_transform_exists") != std::string::npos &&
            logText.find("runtime.effect_runtime_missing") == std::string::npos
       ? 0
