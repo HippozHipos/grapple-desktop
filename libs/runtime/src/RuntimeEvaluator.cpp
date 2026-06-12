@@ -34,9 +34,12 @@ foundation::Result<PrepareRuntimePlanResult> RuntimeEvaluator::prepare(
   for (const projection::RenderEffectGraph& effectGraph : request.plan.effectGraphs) {
     for (const projection::RenderEffectNode& effectNode : effectGraph.nodes) {
       IEffectRuntime* selectedRuntime = nullptr;
-      for (IEffectRuntime* runtime : effectRuntimes_) {
+      std::size_t selectedRuntimeIndex = 0;
+      for (std::size_t runtimeIndex = 0; runtimeIndex < effectRuntimes_.size(); ++runtimeIndex) {
+        IEffectRuntime* runtime = effectRuntimes_[runtimeIndex];
         if (runtime->supports(effectNode)) {
           selectedRuntime = runtime;
+          selectedRuntimeIndex = runtimeIndex;
           break;
         }
       }
@@ -63,7 +66,9 @@ foundation::Result<PrepareRuntimePlanResult> RuntimeEvaluator::prepare(
         return effectPrepare.error();
       }
 
-      prepared.preparedEffects.push_back(std::move(effectPrepare.value().prepared));
+      PreparedEffectNode preparedEffect = std::move(effectPrepare.value().prepared);
+      preparedEffect.runtimeIndex = selectedRuntimeIndex;
+      prepared.preparedEffects.push_back(std::move(preparedEffect));
       prepared.diagnostics.insert(
         prepared.diagnostics.end(),
         effectPrepare.value().diagnostics.begin(),
@@ -80,6 +85,7 @@ foundation::Result<RuntimeSampleResult> RuntimeEvaluator::sample(
 ) const {
   RuntimeSample sample{
     request.time,
+    {},
     {},
     {},
     {},
@@ -103,6 +109,38 @@ foundation::Result<RuntimeSampleResult> RuntimeEvaluator::sample(
       camera.transform,
       camera.lens
     });
+  }
+
+  for (const PreparedEffectNode& effect : request.prepared.preparedEffects) {
+    if (effect.runtimeIndex >= effectRuntimes_.size()) {
+      sample.diagnostics.push_back(RuntimeDiagnostic{
+        "runtime.effect_runtime_missing",
+        DiagnosticSeverity::Error,
+        DiagnosticLocation{
+          request.prepared.dependencyGraph.projectId,
+          request.prepared.sourceRevision,
+          effect.sourceNodeId
+        },
+        "Prepared effect node " + effect.sourceNodeId.value() + " has no runtime."
+      });
+      continue;
+    }
+
+    auto effectProcess = effectRuntimes_[effect.runtimeIndex]->process(EffectProcessRequest{
+      effect,
+      request.time,
+      request.quality
+    });
+    if (!effectProcess) {
+      return effectProcess.error();
+    }
+
+    sample.effectOutputs.push_back(std::move(effectProcess.value().output));
+    sample.diagnostics.insert(
+      sample.diagnostics.end(),
+      effectProcess.value().diagnostics.begin(),
+      effectProcess.value().diagnostics.end()
+    );
   }
 
   return RuntimeSampleResult{sample, sample.diagnostics};

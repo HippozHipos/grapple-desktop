@@ -4,17 +4,14 @@
 #include <grapple/foundation/Time.hpp>
 #include <grapple/projection/RenderPlan.hpp>
 #include <grapple/runtime/RuntimeDiagnostic.hpp>
+#include <grapple/runtime/RuntimeOutput.hpp>
+#include <grapple/runtime/RuntimeQuality.hpp>
 
 #include <vector>
 
 namespace grapple::runtime {
 
 struct PreparedRuntimePlan;
-
-enum class RuntimeQuality {
-  Interactive,
-  Final
-};
 
 using ResolvedLayer = projection::RenderLayer;
 using ResolvedClip = projection::RenderClip;
@@ -25,6 +22,7 @@ struct RuntimeSample {
   std::vector<ResolvedLayer> layers;
   std::vector<ResolvedClip> clips;
   std::vector<ResolvedCamera> cameras;
+  std::vector<RuntimeEffectOutput> effectOutputs;
   std::vector<RuntimeDiagnostic> diagnostics;
 };
 

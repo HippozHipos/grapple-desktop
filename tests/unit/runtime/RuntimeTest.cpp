@@ -26,6 +26,7 @@ public:
         request.graph.id,
         request.graph.targetNodeId,
         request.node.sourceNodeId,
+        0,
         {
           grapple::runtime::RuntimeNamedValue{
             "prepared",
@@ -37,7 +38,28 @@ public:
     };
   }
 
+  grapple::foundation::Result<grapple::runtime::EffectProcessResult> process(
+    const grapple::runtime::EffectProcessRequest& request
+  ) override {
+    ++processCount;
+    return grapple::runtime::EffectProcessResult{
+      grapple::runtime::RuntimeEffectOutput{
+        request.prepared.effectGraphId,
+        request.prepared.targetNodeId,
+        request.prepared.sourceNodeId,
+        {
+          grapple::runtime::RuntimeNamedValue{
+            "time",
+            grapple::runtime::RuntimeValue{request.time.value}
+          }
+        }
+      },
+      {}
+    };
+  }
+
   int prepareCount = 0;
+  int processCount = 0;
 };
 
 grapple::projection::RenderPlan makePlan(std::string layerName) {
@@ -549,6 +571,20 @@ int main() {
   GRAPPLE_REQUIRE(preparedSupportedEffectPlan.value().prepared.preparedEffects[0].preparedValues.size() == 1);
   GRAPPLE_REQUIRE(std::get<bool>(preparedSupportedEffectPlan.value().prepared.preparedEffects[0].preparedValues[0].value));
   GRAPPLE_REQUIRE(effectRuntime.prepareCount == 1);
+  const auto supportedEffectSample = evaluatorWithEffectRuntime.sample(runtime::RuntimeSampleRequest{
+    preparedSupportedEffectPlan.value().prepared,
+    foundation::TimeSeconds{3.5},
+    runtime::RuntimeQuality::Interactive
+  });
+  GRAPPLE_REQUIRE(supportedEffectSample);
+  GRAPPLE_REQUIRE(supportedEffectSample.value().diagnostics.empty());
+  GRAPPLE_REQUIRE(supportedEffectSample.value().sample.effectOutputs.size() == 1);
+  GRAPPLE_REQUIRE(supportedEffectSample.value().sample.effectOutputs[0].effectGraphId == foundation::GraphId{"effect_graph_node_camera"});
+  GRAPPLE_REQUIRE(supportedEffectSample.value().sample.effectOutputs[0].targetNodeId == foundation::NodeId{"node_camera"});
+  GRAPPLE_REQUIRE(supportedEffectSample.value().sample.effectOutputs[0].sourceNodeId == foundation::NodeId{"node_effect"});
+  GRAPPLE_REQUIRE(supportedEffectSample.value().sample.effectOutputs[0].values.size() == 1);
+  GRAPPLE_REQUIRE(std::get<double>(supportedEffectSample.value().sample.effectOutputs[0].values[0].value) == 3.5);
+  GRAPPLE_REQUIRE(effectRuntime.processCount == 1);
   const auto sampledRange = evaluator.evaluateRange(runtime::RuntimeRangeRequest{
     preparedClipPlan.value().prepared,
     foundation::TimeRange{
