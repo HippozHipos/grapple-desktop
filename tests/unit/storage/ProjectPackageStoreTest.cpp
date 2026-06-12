@@ -112,7 +112,7 @@ int main() {
     committedSnapshot.value().document,
     makeCommandRecord(
       foundation::CommandId{"cmd_1"},
-      commandResult.value().beforeRevision,
+      commandResult.value().afterRevision,
       commandResult.value().afterRevision
     ),
     {makeEventRecord(foundation::EventId{"event_2"}, commandResult.value().afterRevision)},
@@ -127,7 +127,7 @@ int main() {
     committedSnapshot.value().document,
     makeCommandRecord(
       foundation::CommandId{"cmd_bad_command_revision"},
-      commandResult.value().beforeRevision,
+      commandResult.value().afterRevision,
       foundation::RevisionId{"rev_wrong"}
     ),
     {makeEventRecord(foundation::EventId{"event_bad_command_revision"}, commandResult.value().afterRevision)},
@@ -142,7 +142,7 @@ int main() {
     committedSnapshot.value().document,
     makeCommandRecord(
       foundation::CommandId{"cmd_bad_event_revision"},
-      commandResult.value().beforeRevision,
+      commandResult.value().afterRevision,
       commandResult.value().afterRevision
     ),
     {makeEventRecord(foundation::EventId{"event_bad_revision"}, foundation::RevisionId{"rev_wrong"})},
@@ -153,11 +153,26 @@ int main() {
   GRAPPLE_REQUIRE(store.state().commandLog.records().size() == 1);
   GRAPPLE_REQUIRE(store.state().eventLog.records().size() == 1);
 
+  const auto staleBeforeRevisionCommit = store.commit(storage::AtomicProjectCommit{
+    committedSnapshot.value().document,
+    makeCommandRecord(
+      foundation::CommandId{"cmd_stale_before_revision"},
+      foundation::RevisionId{"rev_0"},
+      commandResult.value().afterRevision
+    ),
+    {makeEventRecord(foundation::EventId{"event_stale_before_revision"}, commandResult.value().afterRevision)},
+    std::nullopt
+  });
+  GRAPPLE_REQUIRE(!staleBeforeRevisionCommit);
+  GRAPPLE_REQUIRE(staleBeforeRevisionCommit.error().code == "storage.command_before_revision_mismatch");
+  GRAPPLE_REQUIRE(store.state().commandLog.records().size() == 1);
+  GRAPPLE_REQUIRE(store.state().eventLog.records().size() == 1);
+
   const auto badHashCommit = store.commit(storage::AtomicProjectCommit{
     committedSnapshot.value().document,
     makeCommandRecord(
       foundation::CommandId{"cmd_2"},
-      commandResult.value().beforeRevision,
+      commandResult.value().afterRevision,
       commandResult.value().afterRevision
     ),
     {makeEventRecord(foundation::EventId{"event_3"}, commandResult.value().afterRevision)},

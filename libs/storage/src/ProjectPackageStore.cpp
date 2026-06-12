@@ -20,6 +20,10 @@ foundation::Result<void> ProjectPackageStore::commit(const AtomicProjectCommit& 
     return foundation::Error{"storage.command_revision_mismatch", "Command record after revision must match committed document revision."};
   }
 
+  if (state_.head.has_value() && commit.command.beforeRevision != state_.head->currentRevision) {
+    return foundation::Error{"storage.command_before_revision_mismatch", "Command record before revision must match current package head."};
+  }
+
   ProjectPackageState next = state_;
   next.document = commit.document;
 
