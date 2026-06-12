@@ -3,7 +3,7 @@
 The core architecture is:
 
 ```text
-ProjectDocument -> ProjectSnapshot -> TimelineIR -> RenderPlan -> Local Runtime/Render System
+ProjectDocument -> ProjectSnapshot -> TimelineIR -> RenderPlan -> Shared Local Runtime/Render Core -> Preview/Final Render Shells
 ```
 
 Rules:
@@ -15,7 +15,9 @@ Rules:
 - `runtime` will be the only layer that executes scripts, shaders, tracking,
   segmentation, depth, motion, model-assisted runtime operations, or runtime
   caches.
-- `render` will expose interactive playback and export modes over the same
-  local runtime/render system; those modes consume `RenderPlan` and will not
-  reinterpret the project graph.
+- `render` will expose preview and final render shells over the same local
+  runtime/render core; those shells consume `RenderPlan` through the shared
+  core and will not reinterpret the project graph.
+- Preview and final render may differ in latency/quality policy, frame stepping,
+  surfaces, encoding, and progress reporting only.
 - `agent` tools will call typed project commands and queries only.

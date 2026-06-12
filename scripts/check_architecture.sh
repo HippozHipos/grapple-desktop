@@ -27,8 +27,8 @@ if grep -RInE 'browser|downloaded|renderer-specific' "$root/libs" "$root/tests" 
   exit 1
 fi
 
-if grep -RInE '(Preview|Export)(Session|Renderer)|I(Preview|Export)Renderer|grapple_render_export_tests' "$root/libs" "$root/tests" 2>/dev/null; then
-  echo "Architecture guard failed: separate playback/export render systems are forbidden." >&2
+if grep -RInE '(Preview|Final)(GraphInterpreter|PlanInterpreter|RuntimeEvaluator|RuntimeCore|RenderCore|EffectRuntime|DependencyPlanner|CachePolicy|MediaPolicy)' "$root/libs" "$root/tests" 2>/dev/null; then
+  echo "Architecture guard failed: preview/final shells must not duplicate shared render/runtime core semantics." >&2
   exit 1
 fi
 

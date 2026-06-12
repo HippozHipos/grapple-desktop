@@ -21,11 +21,13 @@ Core rules:
 - Keep providers dumb: exact inputs in, exact provider calls out.
 - Resolve product/system concepts at one clear boundary.
 - Project Core owns canonical graph state, TimelineIR, and RenderPlan construction requests.
-- The local native app has one render/runtime system; interactive playback and export are modes of that system.
-- That render/runtime system consumes backend/core-produced RenderPlan.
+- The local native app may have separate preview and final render shells.
+- Preview and final render shells must be thin adapters over one shared render/runtime core.
+- That shared render/runtime core consumes backend/core-produced RenderPlan.
 - RenderPlan construction must stay pure: no script, shader, tracking, depth, or runtime execution.
-- Render architecture is mode-agnostic: Grapple graph state -> TimelineIR projection -> RenderPlan -> local runtime/render modes.
-- Do not design separate preview and export render systems unless explicitly requested.
+- Render architecture is mode-agnostic: Grapple graph state -> TimelineIR projection -> RenderPlan -> shared local runtime/render core -> preview/final render shells.
+- Do not duplicate graph traversal, render-plan interpretation, effect execution, dependency invalidation, media/cache policy, or runtime semantics between preview and final render.
+- Preview and final render may differ in shell policy only: latency/quality, frame stepping, surfaces, encoding, and progress reporting.
 - Do not put consumer-specific render language in agent-facing graph, script, shader, node, or tool contracts.
 - Agent-authored effect code should target canonical graph/runtime APIs, not a specific render implementation.
 - If a clean fix requires deleting old bloat in the touched path, delete it instead of supporting it.
