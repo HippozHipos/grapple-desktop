@@ -90,11 +90,37 @@ int main() {
   });
   GRAPPLE_REQUIRE(addEdge);
 
+  auto missingConnectPorts = next.addEdge(graph::GraphEdge{
+    foundation::EdgeId{"edge_connect_missing_ports"},
+    graph::EdgeKind::Connects,
+    foundation::NodeId{"node_composition"},
+    graph::PortName{},
+    foundation::NodeId{"node_track"},
+    graph::PortName{"input"},
+    0,
+    true
+  });
+  GRAPPLE_REQUIRE(!missingConnectPorts);
+  GRAPPLE_REQUIRE(missingConnectPorts.error().code == "graph.edge_port_missing");
+
+  auto connectEdge = next.addEdge(graph::GraphEdge{
+    foundation::EdgeId{"edge_connect_ports"},
+    graph::EdgeKind::Connects,
+    foundation::NodeId{"node_composition"},
+    graph::PortName{"output"},
+    foundation::NodeId{"node_track"},
+    graph::PortName{"input"},
+    4,
+    true
+  });
+  GRAPPLE_REQUIRE(connectEdge);
+
   const graph::GraphDiff diff = graph::diffGraphs(graph, next);
   GRAPPLE_REQUIRE(diff.addedNodes.size() == 1);
   GRAPPLE_REQUIRE(diff.addedNodes[0] == foundation::NodeId{"node_track"});
-  GRAPPLE_REQUIRE(diff.addedEdges.size() == 1);
-  GRAPPLE_REQUIRE(diff.addedEdges[0] == foundation::EdgeId{"edge_contains_track"});
+  GRAPPLE_REQUIRE(diff.addedEdges.size() == 2);
+  GRAPPLE_REQUIRE(diff.addedEdges[0] == foundation::EdgeId{"edge_connect_ports"});
+  GRAPPLE_REQUIRE(diff.addedEdges[1] == foundation::EdgeId{"edge_contains_track"});
   GRAPPLE_REQUIRE(diff.removedNodes.empty());
   GRAPPLE_REQUIRE(diff.changedNodes.empty());
 
@@ -131,6 +157,16 @@ int main() {
     true
   }));
   GRAPPLE_REQUIRE(sameRecordsDifferentOrder.addEdge(graph::GraphEdge{
+    foundation::EdgeId{"edge_connect_ports"},
+    graph::EdgeKind::Connects,
+    foundation::NodeId{"node_composition"},
+    graph::PortName{"output"},
+    foundation::NodeId{"node_track"},
+    graph::PortName{"input"},
+    4,
+    true
+  }));
+  GRAPPLE_REQUIRE(sameRecordsDifferentOrder.addEdge(graph::GraphEdge{
     foundation::EdgeId{"edge_contains_track"},
     graph::EdgeKind::Contains,
     foundation::NodeId{"node_composition"},
@@ -143,6 +179,7 @@ int main() {
 
   GRAPPLE_REQUIRE(graph::serializeCanonicalGraph(next) == graph::serializeCanonicalGraph(sameRecordsDifferentOrder));
   GRAPPLE_REQUIRE(graph::serializeCanonicalGraph(next).find("\"order\":3") != std::string::npos);
+  GRAPPLE_REQUIRE(graph::serializeCanonicalGraph(next).find("\"sourcePort\":\"output\"") != std::string::npos);
 
   return 0;
 }

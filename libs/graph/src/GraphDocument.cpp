@@ -106,6 +106,10 @@ foundation::Result<void> GraphDocument::addEdge(GraphEdge edge) {
     return foundation::Error{"graph.edge_node_missing", "Graph edge endpoints must exist."};
   }
 
+  if (edge.kind == EdgeKind::Connects && (edge.sourcePort.empty() || edge.targetPort.empty())) {
+    return foundation::Error{"graph.edge_port_missing", "Connect edges require source and target ports."};
+  }
+
   edges_.push_back(std::move(edge));
   return {};
 }

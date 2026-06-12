@@ -17,6 +17,10 @@ enum class EdgeKind {
 struct PortName {
   std::string value;
 
+  [[nodiscard]] bool empty() const noexcept {
+    return value.empty();
+  }
+
   friend bool operator==(const PortName&, const PortName&) = default;
 };
 
