@@ -1,3 +1,4 @@
+#include <grapple/app/NativeExportSession.hpp>
 #include <grapple/app/NativeProjectSession.hpp>
 #include <grapple/app/NativePreviewSession.hpp>
 #include <grapple/asset/Asset.hpp>
@@ -32,18 +33,21 @@ int main(int argc, char* argv[]) {
 
   bool printRenderPlanJson = false;
   bool printPreviewFrame = false;
+  bool runExportSmoke = false;
   if (argc == 2) {
     const std::string argument{argv[1]};
     if (argument == "--render-plan-json") {
       printRenderPlanJson = true;
     } else if (argument == "--preview-frame") {
       printPreviewFrame = true;
+    } else if (argument == "--export-smoke") {
+      runExportSmoke = true;
     } else {
       std::cerr << "Unknown argument: " << argument << '\n';
       return 1;
     }
   } else if (argc > 2) {
-    std::cerr << "Expected zero arguments, --render-plan-json, or --preview-frame.\n";
+    std::cerr << "Expected zero arguments, --render-plan-json, --preview-frame, or --export-smoke.\n";
     return 1;
   }
 
@@ -252,6 +256,33 @@ int main(int argc, char* argv[]) {
 
     std::cout << "revision=" << refresh.value().revision.value() << '\n';
     std::cout << "frame=" << frame.value().frame.description << '\n';
+    return 0;
+  }
+
+  if (runExportSmoke) {
+    app::NativeExportSession exportSession{session};
+    const auto prepare = exportSession.prepareFromProject();
+    if (!prepare) {
+      printError(prepare.error());
+      return 1;
+    }
+
+    const auto result = exportSession.render(render::ExportSettings{
+      foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}},
+      foundation::FrameRate{2, 1},
+      foundation::Resolution{1920, 1080},
+      render::Codec{"test"},
+      render::RenderQuality::Final,
+      foundation::FilePath{"/tmp/grapple-cli-export.mov"}
+    });
+    if (!result) {
+      printError(result.error());
+      return 1;
+    }
+
+    std::cout << "revision=" << prepare.value().revision.value() << '\n';
+    std::cout << "output=" << result.value().outputPath.value << '\n';
+    std::cout << "frames=" << result.value().framesEvaluated << '\n';
     return 0;
   }
 

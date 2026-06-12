@@ -1,3 +1,4 @@
+#include <grapple/app/NativeExportSession.hpp>
 #include <grapple/app/NativePreviewSession.hpp>
 #include <grapple/app/NativeProjectSession.hpp>
 #include <grapple/storage/ProjectPackageManifest.hpp>
@@ -107,6 +108,39 @@ int main() {
   GRAPPLE_REQUIRE(frame.value().frame.description == "layers=0 clips=0 cameras=0 effects=0");
   GRAPPLE_REQUIRE(frame.value().runtimeDiagnostics.empty());
   GRAPPLE_REQUIRE(frame.value().renderDiagnostics.empty());
+
+  app::NativeExportSession exportSession{session};
+  const auto exportBeforePrepare = exportSession.render(render::ExportSettings{
+    foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}},
+    foundation::FrameRate{2, 1},
+    foundation::Resolution{1920, 1080},
+    render::Codec{"test"},
+    render::RenderQuality::Final,
+    foundation::FilePath{"/tmp/app-export.mov"}
+  });
+  GRAPPLE_REQUIRE(!exportBeforePrepare);
+  GRAPPLE_REQUIRE(exportBeforePrepare.error().code == "render.plan_missing");
+
+  const auto exportPrepare = exportSession.prepareFromProject();
+  GRAPPLE_REQUIRE(exportPrepare);
+  GRAPPLE_REQUIRE(exportPrepare.value().revision == foundation::RevisionId{"rev_1"});
+  GRAPPLE_REQUIRE(exportSession.state().core.hasPlan);
+  GRAPPLE_REQUIRE(exportSession.state().core.preparedPlanHash == exportPrepare.value().preparedPlanHash);
+
+  const auto exportResult = exportSession.render(render::ExportSettings{
+    foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}},
+    foundation::FrameRate{2, 1},
+    foundation::Resolution{1920, 1080},
+    render::Codec{"test"},
+    render::RenderQuality::Final,
+    foundation::FilePath{"/tmp/app-export.mov"}
+  });
+  GRAPPLE_REQUIRE(exportResult);
+  GRAPPLE_REQUIRE(exportResult.value().outputPath.value == "/tmp/app-export.mov");
+  GRAPPLE_REQUIRE(exportResult.value().framesEvaluated == 2);
+  GRAPPLE_REQUIRE(exportResult.value().runtimeDiagnostics.empty());
+  GRAPPLE_REQUIRE(exportResult.value().renderDiagnostics.empty());
+  GRAPPLE_REQUIRE(exportSession.state().lastOutputPath->value == "/tmp/app-export.mov");
 
   const auto duplicate = session.applyAndCommit(
     project::ProjectCommandEnvelope{

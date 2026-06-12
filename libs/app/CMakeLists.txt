@@ -1,4 +1,5 @@
 add_library(grapple_app
+  src/NativeExportSession.cpp
   src/NativePreviewSession.cpp
   src/NativeProjectSession.cpp
 )
