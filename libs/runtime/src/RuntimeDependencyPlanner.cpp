@@ -32,6 +32,51 @@ std::optional<RuntimeDependencyId> findDependencyForNode(
   return std::nullopt;
 }
 
+std::optional<RuntimeAssetDependency> findAssetDependency(
+  const projection::RenderPlan& plan,
+  foundation::AssetId assetId
+) {
+  for (const projection::RenderAsset& asset : plan.assets) {
+    if (asset.assetId == assetId) {
+      return RuntimeAssetDependency{asset.assetId, asset.versionHash};
+    }
+  }
+
+  return std::nullopt;
+}
+
+std::vector<RuntimeAssetDependency> assetDependenciesForClip(
+  const projection::RenderPlan& plan,
+  const projection::RenderClip& clip
+) {
+  std::vector<RuntimeAssetDependency> dependencies;
+  const std::optional<RuntimeAssetDependency> assetDependency = findAssetDependency(
+    plan,
+    clip.payload.assetId
+  );
+  if (assetDependency.has_value()) {
+    dependencies.push_back(assetDependency.value());
+  }
+  return dependencies;
+}
+
+std::vector<RuntimeAssetDependency> assetDependenciesForEffect(
+  const projection::RenderPlan& plan,
+  const projection::RenderEffectNode& effectNode
+) {
+  std::vector<RuntimeAssetDependency> dependencies;
+  if (effectNode.payload.implementation.source.sourceAssetId.has_value()) {
+    const std::optional<RuntimeAssetDependency> assetDependency = findAssetDependency(
+      plan,
+      effectNode.payload.implementation.source.sourceAssetId.value()
+    );
+    if (assetDependency.has_value()) {
+      dependencies.push_back(assetDependency.value());
+    }
+  }
+  return dependencies;
+}
+
 RuntimeDependencyNode* findDependencyNode(
   std::vector<RuntimeDependencyNode>& nodes,
   RuntimeDependencyId dependencyId
@@ -87,6 +132,7 @@ bool dependencyNodeChanged(
   return previous.renderNodeId != next.renderNodeId ||
          !(previous.implementationHash == next.implementationHash) ||
          !(previous.paramsHash == next.paramsHash) ||
+         previous.assetDependencies != next.assetDependencies ||
          previous.inputDependencies != next.inputDependencies ||
          previous.activeRange != next.activeRange;
 }
@@ -108,6 +154,7 @@ RuntimeDependencyGraph RuntimeDependencyPlanner::build(const projection::RenderP
       clip.sourceNodeId,
       projection::hashRenderClipImplementation(),
       projection::hashRenderClipParams(clip),
+      assetDependenciesForClip(plan, clip),
       {},
       clip.payload.timelineRange
     });
@@ -122,6 +169,7 @@ RuntimeDependencyGraph RuntimeDependencyPlanner::build(const projection::RenderP
         effectNode.sourceNodeId,
         projection::hashRenderEffectImplementation(effectNode),
         projection::hashRenderEffectParams(effectNode),
+        assetDependenciesForEffect(plan, effectNode),
         {},
         effectNode.payload.activeRange
       });

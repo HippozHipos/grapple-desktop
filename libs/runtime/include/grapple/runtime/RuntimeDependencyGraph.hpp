@@ -11,11 +11,19 @@ namespace grapple::runtime {
 
 using RuntimeDependencyId = foundation::StrongId<struct RuntimeDependencyIdTag>;
 
+struct RuntimeAssetDependency {
+  foundation::AssetId assetId;
+  foundation::Hash256 versionHash;
+
+  friend bool operator==(const RuntimeAssetDependency&, const RuntimeAssetDependency&) = default;
+};
+
 struct RuntimeDependencyNode {
   RuntimeDependencyId id;
   foundation::NodeId renderNodeId;
   foundation::Hash256 implementationHash;
   foundation::Hash256 paramsHash;
+  std::vector<RuntimeAssetDependency> assetDependencies;
   std::vector<RuntimeDependencyId> inputDependencies;
   foundation::TimeRange activeRange;
 };
@@ -26,4 +34,3 @@ struct RuntimeDependencyGraph {
 };
 
 } // namespace grapple::runtime
-

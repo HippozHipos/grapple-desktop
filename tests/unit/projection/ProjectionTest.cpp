@@ -1,3 +1,4 @@
+#include <grapple/asset/AssetSerializer.hpp>
 #include <grapple/graph/GraphNode.hpp>
 #include <grapple/project/ProjectController.hpp>
 #include <grapple/project/ProjectSerializer.hpp>
@@ -231,6 +232,48 @@ int main() {
   GRAPPLE_REQUIRE(serializedPlan.find("\"sourcePort\":\"camera_transform\"") != std::string::npos);
   GRAPPLE_REQUIRE(serializedPlan.find("\"targetPort\":\"input\"") != std::string::npos);
   GRAPPLE_REQUIRE(serializedPlan.find("\"inputs\":[{\"name\":\"input_frame\"}]") != std::string::npos);
+
+  project::ProjectController assetProjectionController{
+    project::createEmptyProject(foundation::ProjectId{"proj_projection_assets"}, "Projection Asset Test")
+  };
+  const auto assetProjectionInitial = assetProjectionController.snapshot();
+  GRAPPLE_REQUIRE(assetProjectionInitial);
+  const asset::Asset projectionAsset{
+    foundation::AssetId{"asset_projection_video"},
+    "Projection Video",
+    asset::AssetMetadata{
+      asset::AssetMediaType::Video,
+      foundation::FilePath{"/media/projection-video.mp4"},
+      std::nullopt,
+      foundation::TimeSeconds{5.0},
+      foundation::Resolution{1920, 1080},
+      foundation::FrameRate{24, 1}
+    }
+  };
+  const auto projectionAssetResult = assetProjectionController.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_projection_asset"},
+    foundation::ProjectId{"proj_projection_assets"},
+    assetProjectionInitial.value().revision,
+    project::CommandSource{project::CommandSourceKind::Importer, std::nullopt, "test"},
+    project::RegisterAssetCommand{projectionAsset}
+  });
+  GRAPPLE_REQUIRE(projectionAssetResult);
+  const auto assetProjectionSnapshot = assetProjectionController.snapshot();
+  GRAPPLE_REQUIRE(assetProjectionSnapshot);
+  const auto assetTimeline = projector.buildTimelineIR(projection::BuildTimelineIRRequest{
+    assetProjectionSnapshot.value()
+  });
+  GRAPPLE_REQUIRE(assetTimeline);
+  GRAPPLE_REQUIRE(assetTimeline.value().timeline.assets.size() == 1);
+  GRAPPLE_REQUIRE(assetTimeline.value().timeline.assets[0].assetId == foundation::AssetId{"asset_projection_video"});
+  GRAPPLE_REQUIRE(assetTimeline.value().timeline.assets[0].versionHash == foundation::stableHash(asset::serializeCanonicalAsset(projectionAsset)));
+  const auto assetPlan = builder.buildRenderPlan(projection::BuildRenderPlanRequest{
+    assetTimeline.value().timeline
+  });
+  GRAPPLE_REQUIRE(assetPlan);
+  GRAPPLE_REQUIRE(assetPlan.value().plan.assets.size() == 1);
+  GRAPPLE_REQUIRE(assetPlan.value().plan.assets[0].versionHash == foundation::stableHash(asset::serializeCanonicalAsset(projectionAsset)));
+  GRAPPLE_REQUIRE(projection::serializeCanonicalRenderPlan(assetPlan.value().plan).find("\"assetId\":\"asset_projection_video\"") != std::string::npos);
 
   projection::RenderPlan orderedPlan = planResult.value().plan;
   orderedPlan.layers.push_back(projection::RenderLayer{

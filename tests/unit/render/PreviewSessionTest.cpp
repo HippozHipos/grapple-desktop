@@ -10,6 +10,7 @@ grapple::projection::RenderPlan makeRenderPlan() {
     grapple::foundation::RevisionId{"rev_3"},
     grapple::projection::RenderStage{"Render Test"},
     grapple::foundation::TimeSeconds{12.0},
+    {},
     {
       grapple::projection::RenderLayer{
         grapple::foundation::NodeId{"node_track"},
@@ -65,4 +66,3 @@ int main() {
 
   return 0;
 }
-

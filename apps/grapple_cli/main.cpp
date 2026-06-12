@@ -1,3 +1,4 @@
+#include <grapple/asset/Asset.hpp>
 #include <grapple/foundation/Hash.hpp>
 #include <grapple/graph/GraphEdge.hpp>
 #include <grapple/project/ProjectController.hpp>
@@ -45,10 +46,35 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
+  const auto registeredAsset = controller.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_register_asset"},
+    foundation::ProjectId{"proj_cli"},
+    initialSnapshot.value().revision,
+    project::CommandSource{project::CommandSourceKind::Importer, std::nullopt, "cli"},
+    project::RegisterAssetCommand{
+      asset::Asset{
+        foundation::AssetId{"asset_video"},
+        "Walking Woman",
+        asset::AssetMetadata{
+          asset::AssetMediaType::Video,
+          foundation::FilePath{"/media/walking-woman.mp4"},
+          std::nullopt,
+          foundation::TimeSeconds{10.0},
+          foundation::Resolution{1080, 1920},
+          foundation::FrameRate{30, 1}
+        }
+      }
+    }
+  });
+  if (!registeredAsset) {
+    printError(registeredAsset.error());
+    return 1;
+  }
+
   const auto composition = controller.apply(project::ProjectCommandEnvelope{
     foundation::CommandId{"cmd_create_composition"},
     foundation::ProjectId{"proj_cli"},
-    initialSnapshot.value().revision,
+    registeredAsset.value().afterRevision,
     project::CommandSource{project::CommandSourceKind::User, std::nullopt, "cli"},
     project::CreateCompositionCommand{foundation::NodeId{"node_composition"}, "Main"}
   });

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <grapple/foundation/Hash.hpp>
 #include <grapple/foundation/StrongId.hpp>
 #include <grapple/foundation/Time.hpp>
 #include <grapple/graph/GraphEdge.hpp>
@@ -14,6 +15,11 @@ namespace grapple::projection {
 
 struct TimelineStage {
   std::string name;
+};
+
+struct TimelineAsset {
+  foundation::AssetId assetId;
+  foundation::Hash256 versionHash;
 };
 
 struct TimelineLayer {
@@ -65,6 +71,7 @@ struct TimelineIR {
   foundation::RevisionId revision;
   TimelineStage stage;
   foundation::TimeSeconds duration;
+  std::vector<TimelineAsset> assets;
   std::vector<TimelineLayer> layers;
   std::vector<TimelineClip> clips;
   std::vector<TimelineCamera> cameras;

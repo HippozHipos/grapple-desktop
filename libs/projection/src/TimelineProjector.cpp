@@ -1,5 +1,6 @@
 #include <grapple/projection/TimelineProjector.hpp>
 
+#include <grapple/asset/AssetSerializer.hpp>
 #include <grapple/graph/GraphNode.hpp>
 #include <grapple/timeline/Payloads.hpp>
 
@@ -77,8 +78,16 @@ foundation::Result<BuildTimelineIRResult> TimelineProjector::buildTimelineIR(
     {},
     {},
     {},
+    {},
     {}
   };
+
+  for (const asset::Asset& asset : request.snapshot.assets.assets()) {
+    timeline.assets.push_back(TimelineAsset{
+      asset.id,
+      foundation::stableHash(asset::serializeCanonicalAsset(asset))
+    });
+  }
 
   for (const graph::GraphNode& node : request.snapshot.graph.nodes()) {
     if (node.kind == graph::NodeKind::Track) {

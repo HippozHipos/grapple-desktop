@@ -16,8 +16,13 @@ foundation::Result<BuildRenderPlanResult> RenderPlanBuilder::buildRenderPlan(
     {},
     {},
     {},
+    {},
     request.timeline.diagnostics
   };
+
+  for (const TimelineAsset& asset : request.timeline.assets) {
+    plan.assets.push_back(RenderAsset{asset.assetId, asset.versionHash});
+  }
 
   for (const TimelineLayer& layer : request.timeline.layers) {
     plan.layers.push_back(RenderLayer{layer.sourceNodeId, layer.name, layer.enabled});

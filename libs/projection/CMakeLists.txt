@@ -16,6 +16,7 @@ target_include_directories(grapple_projection
 target_link_libraries(grapple_projection
   PUBLIC
     Grapple::Foundation
+    Grapple::Asset
     Grapple::Graph
     Grapple::Project
     Grapple::Timeline

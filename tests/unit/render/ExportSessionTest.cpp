@@ -10,6 +10,7 @@ grapple::projection::RenderPlan makeRenderPlan() {
     grapple::foundation::RevisionId{"rev_7"},
     grapple::projection::RenderStage{"Export Test"},
     grapple::foundation::TimeSeconds{20.0},
+    {},
     {
       grapple::projection::RenderLayer{
         grapple::foundation::NodeId{"node_track"},

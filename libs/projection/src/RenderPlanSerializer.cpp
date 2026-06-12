@@ -58,6 +58,11 @@ std::string serializeCanonicalRenderPlan(const RenderPlan& plan) {
     return left.sourceNodeId < right.sourceNodeId;
   });
 
+  std::vector<RenderAsset> assets = plan.assets;
+  std::sort(assets.begin(), assets.end(), [](const RenderAsset& left, const RenderAsset& right) {
+    return left.assetId < right.assetId;
+  });
+
   std::vector<RenderCamera> cameras = plan.cameras;
   std::sort(cameras.begin(), cameras.end(), [](const RenderCamera& left, const RenderCamera& right) {
     return left.sourceNodeId < right.sourceNodeId;
@@ -104,7 +109,19 @@ std::string serializeCanonicalRenderPlan(const RenderPlan& plan) {
   foundation::writeJsonStringProperty(stream, "name", plan.stage.name);
   stream << "},\"duration\":";
   writeNumber(stream, plan.duration.value);
-  stream << ",\"layers\":[";
+  stream << ",\"assets\":[";
+  for (std::size_t index = 0; index < assets.size(); ++index) {
+    if (index != 0) {
+      stream << ',';
+    }
+    const RenderAsset& asset = assets[index];
+    stream << '{';
+    foundation::writeJsonStringProperty(stream, "assetId", asset.assetId.value());
+    stream << ',';
+    foundation::writeJsonStringProperty(stream, "versionHash", asset.versionHash.toHex());
+    stream << '}';
+  }
+  stream << "],\"layers\":[";
   for (std::size_t index = 0; index < layers.size(); ++index) {
     if (index != 0) {
       stream << ',';
