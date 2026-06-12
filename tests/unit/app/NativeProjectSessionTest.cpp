@@ -51,6 +51,9 @@ int main() {
   const std::filesystem::path packageRoot =
     std::filesystem::temp_directory_path() /
     ("grapple_native_app_" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+  const std::filesystem::path stewardPackageRoot =
+    std::filesystem::temp_directory_path() /
+    ("grapple_native_app_steward_" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
   app::NativeProjectSession savedSession{
     foundation::ProjectId{"proj_app_saved"},
     "Saved App Project",
@@ -499,6 +502,56 @@ int main() {
   GRAPPLE_REQUIRE(workspaceTrack);
   GRAPPLE_REQUIRE(workspaceTrack.value().snapshot.revision == foundation::RevisionId{"rev_2"});
   std::filesystem::remove_all(packageRoot);
+
+  app::NativeProjectSession stewardProject{
+    foundation::ProjectId{"proj_app_steward"},
+    "Steward App Project",
+    storage::ProjectPackage{
+      foundation::ProjectId{"proj_app_steward"},
+      foundation::FilePath{stewardPackageRoot.string()},
+      1
+    }
+  };
+  auto stewardWorkspace = app::NativeWorkspaceSession::fromProject(std::move(stewardProject));
+  GRAPPLE_REQUIRE(stewardWorkspace);
+  const foundation::NodeId stewardCompositionNodeId = stewardWorkspace.value().commandWriter().nextNodeId("composition");
+  const auto stewardComposition = stewardWorkspace.value().commandWriter().apply(
+    project::CreateCompositionCommand{stewardCompositionNodeId, "Steward Main"},
+    userSource()
+  );
+  GRAPPLE_REQUIRE(stewardComposition);
+  const foundation::NodeId stewardCameraNodeId = stewardWorkspace.value().commandWriter().nextNodeId("camera");
+  const auto stewardCamera = stewardWorkspace.value().commandWriter().apply(
+    project::CreateCameraCommand{
+      stewardCameraNodeId,
+      stewardCompositionNodeId,
+      stewardWorkspace.value().commandWriter().nextEdgeId("contains camera"),
+      timeline::CameraPayload{"Camera", timeline::Transform{}, timeline::CameraLens{35.0}}
+    },
+    userSource()
+  );
+  GRAPPLE_REQUIRE(stewardCamera);
+  const std::string durableIntent = "Keep the subject centered with editable controls.";
+  const auto stewardEffect = stewardWorkspace.value().steward().createCameraTransformEffect(
+    stewardCameraNodeId,
+    durableIntent,
+    foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{4.0}}
+  );
+  GRAPPLE_REQUIRE(stewardEffect);
+  const auto stewardWrite = stewardWorkspace.value().project().writePackage();
+  GRAPPLE_REQUIRE(stewardWrite);
+  auto reopenedStewardWorkspace = app::NativeWorkspaceSession::openPackageRoot(foundation::FilePath{stewardPackageRoot.string()});
+  GRAPPLE_REQUIRE(reopenedStewardWorkspace);
+  const auto reopenedStewardViewModel = reopenedStewardWorkspace.value().project().buildViewModel();
+  GRAPPLE_REQUIRE(reopenedStewardViewModel);
+  GRAPPLE_REQUIRE(reopenedStewardViewModel.value().project.revision == foundation::RevisionId{"rev_3"});
+  GRAPPLE_REQUIRE(reopenedStewardViewModel.value().timeline.effectGraphs.size() == 1);
+  GRAPPLE_REQUIRE(reopenedStewardViewModel.value().timeline.effectGraphs[0].effects.size() == 1);
+  GRAPPLE_REQUIRE(reopenedStewardViewModel.value().timeline.effectGraphs[0].effects[0].displayName == "Camera Transform");
+  GRAPPLE_REQUIRE(reopenedStewardViewModel.value().steward.edits.size() == 1);
+  GRAPPLE_REQUIRE(reopenedStewardViewModel.value().steward.edits[0].revision == foundation::RevisionId{"rev_3"});
+  GRAPPLE_REQUIRE(reopenedStewardViewModel.value().steward.edits[0].intent == durableIntent);
+  std::filesystem::remove_all(stewardPackageRoot);
 
   const auto firstCommandId = session.packageState().commandLog.records()[0].id;
   const auto duplicate = session.applyAndCommit(
