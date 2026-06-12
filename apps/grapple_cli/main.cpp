@@ -228,13 +228,19 @@ int main(int argc, char* argv[]) {
     return 0;
   }
 
-  std::cout << "project=" << renderPlan.value().plan.projectId.value() << '\n';
-  std::cout << "revision=" << renderPlan.value().plan.revision.value() << '\n';
-  std::cout << "duration=" << renderPlan.value().plan.duration.value << '\n';
-  std::cout << "layers=" << renderPlan.value().plan.layers.size() << '\n';
-  std::cout << "clips=" << renderPlan.value().plan.clips.size() << '\n';
-  std::cout << "cameras=" << renderPlan.value().plan.cameras.size() << '\n';
-  std::cout << "effectGraphs=" << renderPlan.value().plan.effectGraphs.size() << '\n';
+  const auto viewModel = session.buildViewModel();
+  if (!viewModel) {
+    printError(viewModel.error());
+    return 1;
+  }
+
+  std::cout << "project=" << viewModel.value().project.projectId.value() << '\n';
+  std::cout << "revision=" << viewModel.value().project.revision.value() << '\n';
+  std::cout << "duration=" << viewModel.value().timeline.duration.value << '\n';
+  std::cout << "layers=" << viewModel.value().timeline.layers.size() << '\n';
+  std::cout << "clips=" << viewModel.value().timeline.clips.size() << '\n';
+  std::cout << "cameras=" << viewModel.value().timeline.cameras.size() << '\n';
+  std::cout << "effectGraphs=" << viewModel.value().timeline.effectGraphs.size() << '\n';
   std::cout << "diagnostics=" << renderPlan.value().diagnostics.size() << '\n';
 
   return 0;

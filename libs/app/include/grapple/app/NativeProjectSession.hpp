@@ -1,5 +1,6 @@
 #pragma once
 
+#include <grapple/app/AppViewModel.hpp>
 #include <grapple/foundation/Result.hpp>
 #include <grapple/project/ProjectDocument.hpp>
 #include <grapple/project/ProjectQuery.hpp>
@@ -22,6 +23,7 @@ public:
 
   [[nodiscard]] foundation::Result<project::ProjectSnapshot> snapshot() const;
   [[nodiscard]] foundation::Result<project::ProjectQueryResult> query(const project::ProjectQuery& query) const override;
+  [[nodiscard]] foundation::Result<AppViewModel> buildViewModel() const;
   [[nodiscard]] foundation::Result<projection::BuildTimelineIRResult> buildTimelineIR() const;
   [[nodiscard]] foundation::Result<projection::BuildRenderPlanResult> buildRenderPlan() const;
   [[nodiscard]] const storage::ProjectPackageState& packageState() const noexcept;

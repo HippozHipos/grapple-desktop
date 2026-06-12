@@ -1,0 +1,65 @@
+#pragma once
+
+#include <grapple/foundation/Hash.hpp>
+#include <grapple/foundation/StrongId.hpp>
+#include <grapple/foundation/Time.hpp>
+
+#include <cstddef>
+#include <cstdint>
+#include <string>
+#include <vector>
+
+namespace grapple::app {
+
+struct AppProjectSummary {
+  foundation::ProjectId projectId;
+  std::string name;
+  foundation::RevisionId revision;
+  std::int64_t revisionNumber = 0;
+  foundation::Hash256 canonicalHash;
+};
+
+struct AppAssetSummary {
+  std::size_t count = 0;
+};
+
+struct AppLayerRow {
+  foundation::NodeId sourceNodeId;
+  std::string name;
+  std::size_t clipCount = 0;
+};
+
+struct AppClipRow {
+  foundation::NodeId sourceNodeId;
+  foundation::NodeId trackNodeId;
+  foundation::AssetId assetId;
+  foundation::TimeRange timelineRange;
+};
+
+struct AppCameraRow {
+  foundation::NodeId sourceNodeId;
+  std::string name;
+};
+
+struct AppEffectGraphRow {
+  foundation::GraphId graphId;
+  foundation::NodeId targetNodeId;
+  std::size_t nodeCount = 0;
+  std::size_t edgeCount = 0;
+};
+
+struct AppTimelineView {
+  foundation::TimeSeconds duration;
+  std::vector<AppLayerRow> layers;
+  std::vector<AppClipRow> clips;
+  std::vector<AppCameraRow> cameras;
+  std::vector<AppEffectGraphRow> effectGraphs;
+};
+
+struct AppViewModel {
+  AppProjectSummary project;
+  AppAssetSummary assets;
+  AppTimelineView timeline;
+};
+
+} // namespace grapple::app

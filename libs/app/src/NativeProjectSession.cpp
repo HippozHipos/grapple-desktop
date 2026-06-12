@@ -1,9 +1,23 @@
 #include <grapple/app/NativeProjectSession.hpp>
 
+#include <algorithm>
 #include <utility>
 #include <variant>
 
 namespace grapple::app {
+
+namespace {
+
+std::size_t countClipsForLayer(
+  const std::vector<projection::RenderClip>& clips,
+  const foundation::NodeId& layerNodeId
+) {
+  return static_cast<std::size_t>(std::count_if(clips.begin(), clips.end(), [&](const projection::RenderClip& clip) {
+    return clip.trackNodeId == layerNodeId;
+  }));
+}
+
+} // namespace
 
 NativeProjectSession::NativeProjectSession(
   foundation::ProjectId projectId,
@@ -45,6 +59,67 @@ foundation::Result<project::ProjectQueryResult> NativeProjectSession::query(cons
     },
     query
   );
+}
+
+foundation::Result<AppViewModel> NativeProjectSession::buildViewModel() const {
+  auto snapshotResult = session_.snapshot();
+  if (!snapshotResult) {
+    return snapshotResult.error();
+  }
+
+  auto planResult = buildRenderPlan();
+  if (!planResult) {
+    return planResult.error();
+  }
+
+  const project::ProjectSnapshot& snapshot = snapshotResult.value();
+  const projection::RenderPlan& plan = planResult.value().plan;
+
+  AppViewModel viewModel;
+  viewModel.project = AppProjectSummary{
+    snapshot.info.id,
+    snapshot.info.name,
+    snapshot.revision,
+    snapshot.revisionNumber,
+    snapshot.canonicalHash
+  };
+  viewModel.assets = AppAssetSummary{snapshot.assets.assets().size()};
+  viewModel.timeline.duration = plan.duration;
+
+  for (const projection::RenderLayer& layer : plan.layers) {
+    viewModel.timeline.layers.push_back(AppLayerRow{
+      layer.sourceNodeId,
+      layer.name,
+      countClipsForLayer(plan.clips, layer.sourceNodeId)
+    });
+  }
+
+  for (const projection::RenderClip& clip : plan.clips) {
+    viewModel.timeline.clips.push_back(AppClipRow{
+      clip.sourceNodeId,
+      clip.trackNodeId,
+      clip.payload.assetId,
+      clip.payload.timelineRange
+    });
+  }
+
+  for (const projection::RenderCamera& camera : plan.cameras) {
+    viewModel.timeline.cameras.push_back(AppCameraRow{
+      camera.sourceNodeId,
+      camera.name
+    });
+  }
+
+  for (const projection::RenderEffectGraph& effectGraph : plan.effectGraphs) {
+    viewModel.timeline.effectGraphs.push_back(AppEffectGraphRow{
+      effectGraph.id,
+      effectGraph.targetNodeId,
+      effectGraph.nodes.size(),
+      effectGraph.edges.size()
+    });
+  }
+
+  return viewModel;
 }
 
 foundation::Result<projection::BuildTimelineIRResult> NativeProjectSession::buildTimelineIR() const {

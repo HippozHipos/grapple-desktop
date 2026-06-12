@@ -63,6 +63,19 @@ int main() {
   GRAPPLE_REQUIRE(renderPlan.value().plan.revision == foundation::RevisionId{"rev_1"});
   GRAPPLE_REQUIRE(renderPlan.value().plan.effectGraphs.empty());
 
+  const auto viewModel = session.buildViewModel();
+  GRAPPLE_REQUIRE(viewModel);
+  GRAPPLE_REQUIRE(viewModel.value().project.projectId == foundation::ProjectId{"proj_app"});
+  GRAPPLE_REQUIRE(viewModel.value().project.name == "App Project");
+  GRAPPLE_REQUIRE(viewModel.value().project.revision == foundation::RevisionId{"rev_1"});
+  GRAPPLE_REQUIRE(viewModel.value().project.revisionNumber == 1);
+  GRAPPLE_REQUIRE(viewModel.value().assets.count == 0);
+  GRAPPLE_REQUIRE(viewModel.value().timeline.duration == foundation::TimeSeconds{0.0});
+  GRAPPLE_REQUIRE(viewModel.value().timeline.layers.empty());
+  GRAPPLE_REQUIRE(viewModel.value().timeline.clips.empty());
+  GRAPPLE_REQUIRE(viewModel.value().timeline.cameras.empty());
+  GRAPPLE_REQUIRE(viewModel.value().timeline.effectGraphs.empty());
+
   const auto manifest = storage::buildProjectPackageManifest(session.packageState());
   GRAPPLE_REQUIRE(manifest);
   GRAPPLE_REQUIRE(manifest.value().head.has_value());
