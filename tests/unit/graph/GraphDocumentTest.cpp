@@ -74,6 +74,25 @@ int main() {
   GRAPPLE_REQUIRE(diff.removedNodes.empty());
   GRAPPLE_REQUIRE(diff.changedNodes.empty());
 
+  graph::GraphDocument unorderedNext = graph;
+  GRAPPLE_REQUIRE(unorderedNext.addNode(graph::GraphNode{
+    foundation::NodeId{"node_z"},
+    graph::NodeKind::Track,
+    timeline::TrackPayload{"Z"},
+    true
+  }));
+  GRAPPLE_REQUIRE(unorderedNext.addNode(graph::GraphNode{
+    foundation::NodeId{"node_a"},
+    graph::NodeKind::Track,
+    timeline::TrackPayload{"A"},
+    true
+  }));
+
+  const graph::GraphDiff orderedDiff = graph::diffGraphs(graph, unorderedNext);
+  GRAPPLE_REQUIRE(orderedDiff.addedNodes.size() == 2);
+  GRAPPLE_REQUIRE(orderedDiff.addedNodes[0] == foundation::NodeId{"node_a"});
+  GRAPPLE_REQUIRE(orderedDiff.addedNodes[1] == foundation::NodeId{"node_z"});
+
   graph::GraphDocument sameRecordsDifferentOrder;
   GRAPPLE_REQUIRE(sameRecordsDifferentOrder.addNode(graph::GraphNode{
     foundation::NodeId{"node_track"},

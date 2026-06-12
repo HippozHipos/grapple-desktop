@@ -31,6 +31,11 @@ bool edgeRecordChanged(const GraphEdge& before, const GraphEdge& after) {
          before.enabled != after.enabled;
 }
 
+template <typename Id>
+void sortIds(std::vector<Id>& ids) {
+  std::sort(ids.begin(), ids.end());
+}
+
 } // namespace
 
 GraphDiff diffGraphs(const GraphDocument& before, const GraphDocument& after) {
@@ -66,8 +71,14 @@ GraphDiff diffGraphs(const GraphDocument& before, const GraphDocument& after) {
     }
   }
 
+  sortIds(diff.addedNodes);
+  sortIds(diff.removedNodes);
+  sortIds(diff.changedNodes);
+  sortIds(diff.addedEdges);
+  sortIds(diff.removedEdges);
+  sortIds(diff.changedEdges);
+
   return diff;
 }
 
 } // namespace grapple::graph
-
