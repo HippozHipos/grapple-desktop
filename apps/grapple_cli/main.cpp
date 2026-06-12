@@ -159,6 +159,8 @@ int main(int argc, char* argv[]) {
 
     std::cout << "snapshot=" << write.value().snapshotPath.value << '\n';
     std::cout << "manifest=" << write.value().manifestPath.value << '\n';
+    std::cout << "commands=" << write.value().commandLogPath.value << '\n';
+    std::cout << "events=" << write.value().eventLogPath.value << '\n';
     return 0;
   }
 

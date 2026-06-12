@@ -28,6 +28,8 @@ struct ProjectPackageHeadManifest {
 struct ProjectPackageManifest {
   foundation::ProjectId projectId;
   int schemaVersion = 1;
+  foundation::FilePath commandLogPath;
+  foundation::FilePath eventLogPath;
   std::optional<ProjectPackageHeadManifest> head;
   std::optional<ProjectPackageSnapshotManifest> latestSnapshot;
 };

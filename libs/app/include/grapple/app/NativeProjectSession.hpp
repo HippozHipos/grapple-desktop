@@ -14,6 +14,8 @@ namespace grapple::app {
 struct NativePackageWriteResult {
   foundation::FilePath snapshotPath;
   foundation::FilePath manifestPath;
+  foundation::FilePath commandLogPath;
+  foundation::FilePath eventLogPath;
 };
 
 class NativeProjectSession final : public project::IProjectQueryService {

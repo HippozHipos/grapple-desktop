@@ -182,6 +182,24 @@ foundation::Result<NativePackageWriteResult> NativeProjectSession::writePackage(
     return snapshotPath.error();
   }
 
+  auto commandLogPath = writer.writeCommandLog(storage::ProjectCommandLogWriteRequest{
+    state.package,
+    manifestResult.value().commandLogPath,
+    state.commandLog
+  });
+  if (!commandLogPath) {
+    return commandLogPath.error();
+  }
+
+  auto eventLogPath = writer.writeEventLog(storage::ProjectEventLogWriteRequest{
+    state.package,
+    manifestResult.value().eventLogPath,
+    state.eventLog
+  });
+  if (!eventLogPath) {
+    return eventLogPath.error();
+  }
+
   auto manifestPath = writer.writeManifest(manifestResult.value(), state.package);
   if (!manifestPath) {
     return manifestPath.error();
@@ -189,7 +207,9 @@ foundation::Result<NativePackageWriteResult> NativeProjectSession::writePackage(
 
   return NativePackageWriteResult{
     snapshotPath.value(),
-    manifestPath.value()
+    manifestPath.value(),
+    commandLogPath.value(),
+    eventLogPath.value()
   };
 }
 

@@ -1,5 +1,6 @@
 #include <grapple/history/CommandLogStore.hpp>
 #include <grapple/history/EventLogStore.hpp>
+#include <grapple/history/HistorySerializer.hpp>
 #include <grapple/history/SnapshotStore.hpp>
 
 #include <TestAssert.hpp>
@@ -28,6 +29,12 @@ int main() {
   GRAPPLE_REQUIRE(commandLog.records()[0].sourceKind == "agent");
   GRAPPLE_REQUIRE(commandLog.records()[0].sourceRunId == foundation::RunId{"run_1"});
   GRAPPLE_REQUIRE(commandLog.records()[0].sourceActorName == "test-agent");
+  const std::string serializedCommandLog = history::serializeCanonicalCommandLog(commandLog);
+  GRAPPLE_REQUIRE(serializedCommandLog.find("\"sourceRunId\":\"run_1\"") != std::string::npos);
+  GRAPPLE_REQUIRE(serializedCommandLog.find("\"createdAtMs\":") != std::string::npos);
+  const auto parsedCommandLog = history::deserializeCanonicalCommandLog(serializedCommandLog);
+  GRAPPLE_REQUIRE(parsedCommandLog);
+  GRAPPLE_REQUIRE(history::serializeCanonicalCommandLog(parsedCommandLog.value()) == serializedCommandLog);
 
   const auto duplicateCommand = commandLog.append(commandLog.records().front());
   GRAPPLE_REQUIRE(!duplicateCommand);
@@ -44,6 +51,11 @@ int main() {
   });
   GRAPPLE_REQUIRE(eventAppend);
   GRAPPLE_REQUIRE(eventLog.records().size() == 1);
+  const std::string serializedEventLog = history::serializeCanonicalEventLog(eventLog);
+  GRAPPLE_REQUIRE(serializedEventLog.find("\"serializedName\":\"project.command_applied\"") != std::string::npos);
+  const auto parsedEventLog = history::deserializeCanonicalEventLog(serializedEventLog);
+  GRAPPLE_REQUIRE(parsedEventLog);
+  GRAPPLE_REQUIRE(history::serializeCanonicalEventLog(parsedEventLog.value()) == serializedEventLog);
 
   history::SnapshotStore snapshots;
   const auto snapshotAppend = snapshots.append(history::SnapshotRecord{

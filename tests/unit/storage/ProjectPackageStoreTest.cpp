@@ -2,6 +2,7 @@
 #include <grapple/project/ProjectCommandNames.hpp>
 #include <grapple/project/ProjectEventNames.hpp>
 #include <grapple/project/ProjectSerializer.hpp>
+#include <grapple/history/HistorySerializer.hpp>
 #include <grapple/storage/ProjectCommitBuilder.hpp>
 #include <grapple/storage/ProjectPackageManifest.hpp>
 #include <grapple/storage/ProjectPackageReader.hpp>
@@ -139,7 +140,7 @@ int main() {
   GRAPPLE_REQUIRE(manifest.value().latestSnapshot->documentPath == foundation::FilePath{"snapshots/rev_1.json"});
   GRAPPLE_REQUIRE(manifest.value().latestSnapshot->label == std::optional<std::string>{"first"});
   GRAPPLE_REQUIRE(storage::serializeCanonicalProjectPackageManifest(manifest.value()) ==
-    "{\"schemaVersion\":1,\"projectId\":\"proj_storage\",\"head\":{\"revision\":\"rev_1\",\"lastCommandId\":\"cmd_1\",\"lastSnapshotId\":\"snap_1\"},\"latestSnapshot\":{\"id\":\"snap_1\",\"revision\":\"rev_1\",\"canonicalHash\":\"" +
+    "{\"schemaVersion\":1,\"projectId\":\"proj_storage\",\"commandLogPath\":\"history/commands.json\",\"eventLogPath\":\"history/events.json\",\"head\":{\"revision\":\"rev_1\",\"lastCommandId\":\"cmd_1\",\"lastSnapshotId\":\"snap_1\"},\"latestSnapshot\":{\"id\":\"snap_1\",\"revision\":\"rev_1\",\"canonicalHash\":\"" +
     committedSnapshot.value().canonicalHash.toHex() +
     "\",\"documentPath\":\"snapshots/rev_1.json\",\"label\":\"first\"}}");
 
@@ -151,7 +152,7 @@ int main() {
   const auto emptyManifest = storage::buildProjectPackageManifest(emptyStore.state());
   GRAPPLE_REQUIRE(emptyManifest);
   GRAPPLE_REQUIRE(storage::serializeCanonicalProjectPackageManifest(emptyManifest.value()) ==
-    "{\"schemaVersion\":1,\"projectId\":\"proj_storage\",\"head\":null,\"latestSnapshot\":null}");
+    "{\"schemaVersion\":1,\"projectId\":\"proj_storage\",\"commandLogPath\":\"history/commands.json\",\"eventLogPath\":\"history/events.json\",\"head\":null,\"latestSnapshot\":null}");
 
   const std::filesystem::path packageRoot =
     std::filesystem::temp_directory_path() /
@@ -190,6 +191,30 @@ int main() {
   std::ostringstream snapshotContents;
   snapshotContents << snapshotFile.rdbuf();
   GRAPPLE_REQUIRE(snapshotContents.str() == project::serializeCanonicalProjectSnapshot(committedSnapshot.value()));
+  const auto writtenCommandLogPath = packageWriter.writeCommandLog(storage::ProjectCommandLogWriteRequest{
+    diskPackage,
+    manifest.value().commandLogPath,
+    store.state().commandLog
+  });
+  GRAPPLE_REQUIRE(writtenCommandLogPath);
+  GRAPPLE_REQUIRE(writtenCommandLogPath.value().value == (packageRoot / "history/commands.json").lexically_normal().string());
+  std::ifstream commandLogFile{writtenCommandLogPath.value().value, std::ios::binary};
+  GRAPPLE_REQUIRE(commandLogFile.good());
+  std::ostringstream commandLogContents;
+  commandLogContents << commandLogFile.rdbuf();
+  GRAPPLE_REQUIRE(commandLogContents.str() == history::serializeCanonicalCommandLog(store.state().commandLog));
+  const auto writtenEventLogPath = packageWriter.writeEventLog(storage::ProjectEventLogWriteRequest{
+    diskPackage,
+    manifest.value().eventLogPath,
+    store.state().eventLog
+  });
+  GRAPPLE_REQUIRE(writtenEventLogPath);
+  GRAPPLE_REQUIRE(writtenEventLogPath.value().value == (packageRoot / "history/events.json").lexically_normal().string());
+  std::ifstream eventLogFile{writtenEventLogPath.value().value, std::ios::binary};
+  GRAPPLE_REQUIRE(eventLogFile.good());
+  std::ostringstream eventLogContents;
+  eventLogContents << eventLogFile.rdbuf();
+  GRAPPLE_REQUIRE(eventLogContents.str() == history::serializeCanonicalEventLog(store.state().eventLog));
   const storage::ProjectPackageReader packageReader;
   const auto readManifest = packageReader.readManifest(diskPackage);
   GRAPPLE_REQUIRE(readManifest);
@@ -198,6 +223,10 @@ int main() {
   GRAPPLE_REQUIRE(loadedLatestSnapshot);
   GRAPPLE_REQUIRE(storage::serializeCanonicalProjectPackageManifest(loadedLatestSnapshot.value().manifest) == manifestContents.str());
   GRAPPLE_REQUIRE(project::serializeCanonicalProjectSnapshot(loadedLatestSnapshot.value().snapshot) == snapshotContents.str());
+  const auto loadedHistoryLogs = packageReader.readHistoryLogs(diskPackage);
+  GRAPPLE_REQUIRE(loadedHistoryLogs);
+  GRAPPLE_REQUIRE(history::serializeCanonicalCommandLog(loadedHistoryLogs.value().commandLog) == commandLogContents.str());
+  GRAPPLE_REQUIRE(history::serializeCanonicalEventLog(loadedHistoryLogs.value().eventLog) == eventLogContents.str());
 
   storage::ProjectPackageManifest wrongProjectManifest = manifest.value();
   wrongProjectManifest.projectId = foundation::ProjectId{"proj_other"};

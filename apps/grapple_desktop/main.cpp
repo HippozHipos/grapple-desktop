@@ -1138,9 +1138,11 @@ public:
       appendError(write.error());
       return;
     }
-    log_->append(QString{"Package saved\n%1\n%2"}
+    log_->append(QString{"Package saved\n%1\n%2\n%3\n%4"}
       .arg(qString(write.value().snapshotPath.value))
-      .arg(qString(write.value().manifestPath.value)));
+      .arg(qString(write.value().manifestPath.value))
+      .arg(qString(write.value().commandLogPath.value))
+      .arg(qString(write.value().eventLogPath.value)));
   }
 
 private:

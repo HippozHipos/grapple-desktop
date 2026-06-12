@@ -1,5 +1,6 @@
 #include <grapple/storage/ProjectPackageReader.hpp>
 
+#include <grapple/history/HistorySerializer.hpp>
 #include <grapple/project/ProjectSerializer.hpp>
 
 #include <filesystem>
@@ -22,6 +23,22 @@ foundation::Result<std::string> readTextFile(const std::filesystem::path& path, 
     return foundation::Error{errorCode, "Could not read " + path.lexically_normal().string() + "."};
   }
   return contents.str();
+}
+
+foundation::Result<std::filesystem::path> packageRelativePath(
+  const ProjectPackage& package,
+  const foundation::FilePath& relativePath,
+  const char* emptyPathCode,
+  const char* absolutePathCode
+) {
+  if (relativePath.value.empty()) {
+    return foundation::Error{emptyPathCode, "Package file path must not be empty."};
+  }
+  const std::filesystem::path packageRelativePath{relativePath.value};
+  if (packageRelativePath.is_absolute()) {
+    return foundation::Error{absolutePathCode, "Package file path must be package-relative."};
+  }
+  return std::filesystem::path{package.rootPath.value} / packageRelativePath;
 }
 
 foundation::Result<void> validateManifestForPackage(
@@ -91,16 +108,17 @@ foundation::Result<ProjectPackageLatestSnapshot> ProjectPackageReader::readLates
   }
 
   const ProjectPackageSnapshotManifest& latestSnapshot = *manifest.value().latestSnapshot;
-  const std::filesystem::path relativeDocumentPath{latestSnapshot.documentPath.value};
-  if (relativeDocumentPath.empty()) {
-    return foundation::Error{"storage.snapshot_document_path_empty", "Latest snapshot document path must not be empty."};
-  }
-  if (relativeDocumentPath.is_absolute()) {
-    return foundation::Error{"storage.snapshot_document_path_absolute", "Latest snapshot document path must be package-relative."};
+  auto snapshotPath = packageRelativePath(
+    package,
+    latestSnapshot.documentPath,
+    "storage.snapshot_document_path_empty",
+    "storage.snapshot_document_path_absolute"
+  );
+  if (!snapshotPath) {
+    return snapshotPath.error();
   }
 
-  const std::filesystem::path snapshotPath = std::filesystem::path{package.rootPath.value} / relativeDocumentPath;
-  auto contents = readTextFile(snapshotPath, "storage.snapshot_open_failed");
+  auto contents = readTextFile(snapshotPath.value(), "storage.snapshot_open_failed");
   if (!contents) {
     return contents.error();
   }
@@ -117,6 +135,58 @@ foundation::Result<ProjectPackageLatestSnapshot> ProjectPackageReader::readLates
   return ProjectPackageLatestSnapshot{
     manifest.value(),
     snapshot.value()
+  };
+}
+
+foundation::Result<ProjectPackageHistoryLogs> ProjectPackageReader::readHistoryLogs(
+  const ProjectPackage& package
+) const {
+  auto manifest = readManifest(package);
+  if (!manifest) {
+    return manifest.error();
+  }
+
+  auto commandLogPath = packageRelativePath(
+    package,
+    manifest.value().commandLogPath,
+    "storage.command_log_path_empty",
+    "storage.command_log_path_absolute"
+  );
+  if (!commandLogPath) {
+    return commandLogPath.error();
+  }
+  auto eventLogPath = packageRelativePath(
+    package,
+    manifest.value().eventLogPath,
+    "storage.event_log_path_empty",
+    "storage.event_log_path_absolute"
+  );
+  if (!eventLogPath) {
+    return eventLogPath.error();
+  }
+
+  auto commandLogContents = readTextFile(commandLogPath.value(), "storage.command_log_open_failed");
+  if (!commandLogContents) {
+    return commandLogContents.error();
+  }
+  auto eventLogContents = readTextFile(eventLogPath.value(), "storage.event_log_open_failed");
+  if (!eventLogContents) {
+    return eventLogContents.error();
+  }
+
+  auto commandLog = history::deserializeCanonicalCommandLog(commandLogContents.value());
+  if (!commandLog) {
+    return commandLog.error();
+  }
+  auto eventLog = history::deserializeCanonicalEventLog(eventLogContents.value());
+  if (!eventLog) {
+    return eventLog.error();
+  }
+
+  return ProjectPackageHistoryLogs{
+    manifest.value(),
+    commandLog.value(),
+    eventLog.value()
   };
 }
 

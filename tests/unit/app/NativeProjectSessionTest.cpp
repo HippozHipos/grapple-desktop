@@ -2,8 +2,10 @@
 #include <grapple/app/NativePreviewSession.hpp>
 #include <grapple/app/NativeProjectCommandWriter.hpp>
 #include <grapple/app/NativeProjectSession.hpp>
+#include <grapple/history/HistorySerializer.hpp>
 #include <grapple/project/ProjectSerializer.hpp>
 #include <grapple/storage/ProjectPackageManifest.hpp>
+#include <grapple/storage/ProjectPackageReader.hpp>
 
 #include <TestAssert.hpp>
 
@@ -196,6 +198,8 @@ int main() {
   GRAPPLE_REQUIRE(savedWrite);
   GRAPPLE_REQUIRE(savedWrite.value().snapshotPath.value == (packageRoot / "snapshots/rev_1.json").lexically_normal().string());
   GRAPPLE_REQUIRE(savedWrite.value().manifestPath.value == (packageRoot / "manifest.json").lexically_normal().string());
+  GRAPPLE_REQUIRE(savedWrite.value().commandLogPath.value == (packageRoot / "history/commands.json").lexically_normal().string());
+  GRAPPLE_REQUIRE(savedWrite.value().eventLogPath.value == (packageRoot / "history/events.json").lexically_normal().string());
 
   std::ifstream savedSnapshotFile{savedWrite.value().snapshotPath.value, std::ios::binary};
   GRAPPLE_REQUIRE(savedSnapshotFile.good());
@@ -205,6 +209,16 @@ int main() {
   const auto parsedSavedSnapshot = project::deserializeCanonicalProjectSnapshot(savedSnapshotContents.str());
   GRAPPLE_REQUIRE(parsedSavedSnapshot);
   GRAPPLE_REQUIRE(project::serializeCanonicalProjectSnapshot(parsedSavedSnapshot.value()) == savedSnapshotContents.str());
+  std::ifstream savedCommandLogFile{savedWrite.value().commandLogPath.value, std::ios::binary};
+  GRAPPLE_REQUIRE(savedCommandLogFile.good());
+  std::ostringstream savedCommandLogContents;
+  savedCommandLogContents << savedCommandLogFile.rdbuf();
+  GRAPPLE_REQUIRE(savedCommandLogContents.str() == history::serializeCanonicalCommandLog(savedSession.packageState().commandLog));
+  std::ifstream savedEventLogFile{savedWrite.value().eventLogPath.value, std::ios::binary};
+  GRAPPLE_REQUIRE(savedEventLogFile.good());
+  std::ostringstream savedEventLogContents;
+  savedEventLogContents << savedEventLogFile.rdbuf();
+  GRAPPLE_REQUIRE(savedEventLogContents.str() == history::serializeCanonicalEventLog(savedSession.packageState().eventLog));
 
   const auto savedManifest = storage::buildProjectPackageManifest(savedSession.packageState());
   GRAPPLE_REQUIRE(savedManifest);
@@ -213,6 +227,11 @@ int main() {
   std::ostringstream savedManifestContents;
   savedManifestContents << savedManifestFile.rdbuf();
   GRAPPLE_REQUIRE(savedManifestContents.str() == storage::serializeCanonicalProjectPackageManifest(savedManifest.value()));
+  const storage::ProjectPackageReader reader;
+  const auto readLogs = reader.readHistoryLogs(savedSession.packageState().package);
+  GRAPPLE_REQUIRE(readLogs);
+  GRAPPLE_REQUIRE(history::serializeCanonicalCommandLog(readLogs.value().commandLog) == savedCommandLogContents.str());
+  GRAPPLE_REQUIRE(history::serializeCanonicalEventLog(readLogs.value().eventLog) == savedEventLogContents.str());
   std::filesystem::remove_all(packageRoot);
 
   const auto firstCommandId = session.packageState().commandLog.records()[0].id;

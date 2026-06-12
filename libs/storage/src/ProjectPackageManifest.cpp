@@ -209,6 +209,8 @@ foundation::Result<ProjectPackageManifest> buildProjectPackageManifest(const Pro
   ProjectPackageManifest manifest;
   manifest.projectId = state.package.projectId;
   manifest.schemaVersion = state.package.schemaVersion;
+  manifest.commandLogPath = foundation::FilePath{"history/commands.json"};
+  manifest.eventLogPath = foundation::FilePath{"history/events.json"};
 
   if (!state.head.has_value()) {
     return manifest;
@@ -245,6 +247,10 @@ std::string serializeCanonicalProjectPackageManifest(const ProjectPackageManifes
   stream << "\"schemaVersion\":" << manifest.schemaVersion;
   stream << ',';
   foundation::writeJsonStringProperty(stream, "projectId", manifest.projectId.value());
+  stream << ',';
+  foundation::writeJsonStringProperty(stream, "commandLogPath", manifest.commandLogPath.value);
+  stream << ',';
+  foundation::writeJsonStringProperty(stream, "eventLogPath", manifest.eventLogPath.value);
   stream << ",\"head\":";
   if (manifest.head.has_value()) {
     stream << '{';
@@ -308,6 +314,16 @@ foundation::Result<ProjectPackageManifest> deserializeCanonicalProjectPackageMan
   ProjectPackageManifest manifest;
   manifest.schemaVersion = schemaVersion.value();
   manifest.projectId = foundation::ProjectId{projectId.value()};
+  auto commandLogPath = requiredStringMember(root.value(), "commandLogPath", "$");
+  if (!commandLogPath) {
+    return commandLogPath.error();
+  }
+  auto eventLogPath = requiredStringMember(root.value(), "eventLogPath", "$");
+  if (!eventLogPath) {
+    return eventLogPath.error();
+  }
+  manifest.commandLogPath = foundation::FilePath{commandLogPath.value()};
+  manifest.eventLogPath = foundation::FilePath{eventLogPath.value()};
 
   if (!headValue.value().isNull()) {
     if (!headValue.value().isObject()) {
