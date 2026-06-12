@@ -24,8 +24,15 @@ Core rules:
 - Preview/export are consumers of backend/core-produced RenderPlan.
 - RenderPlan construction must stay pure: no script, shader, tracking, depth, or runtime execution.
 - Render architecture is render-agnostic: Grapple graph state -> TimelineIR projection -> RenderPlan -> consumer runtime.
+- Browser preview, local/downloaded renderers, and export runtimes must consume the same RenderPlan contract.
 - Do not put consumer-specific render language in agent-facing graph, script, shader, node, or tool contracts.
 - Agent-authored effect code should target canonical graph/runtime APIs, not a specific render implementation.
 - If a clean fix requires deleting old bloat in the touched path, delete it instead of supporting it.
 - Do not build full future features early. Build the minimal correct foundation that keeps the later feature possible without putting that feature into the core path now.
 
+Chat/conversation UI is fragile:
+- Trace backend event emission -> persisted run events -> canonical conversation_state projection -> SSE payload -> frontend applyConversationState -> render.
+- Do not fix backend event bugs in the UI.
+- Do not fix UI projection bugs by suppressing statuses or hiding content.
+- If delegated agent UI is wrong, verify delegated_run events existed in conversation_state before touching the renderer.
+- Prefer deleting duplicate event emission and duplicate interpretation paths over adding more conditionals.
