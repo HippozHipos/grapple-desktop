@@ -3,6 +3,7 @@ add_subdirectory(unit/graph)
 add_subdirectory(unit/project)
 add_subdirectory(unit/projection)
 add_subdirectory(unit/history)
+add_subdirectory(unit/storage)
 add_subdirectory(unit/runtime)
 
 add_test(
