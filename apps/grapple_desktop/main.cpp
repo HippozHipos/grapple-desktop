@@ -4,7 +4,10 @@
 #include <grapple/app/NativePreviewSession.hpp>
 #include <grapple/app/NativeProjectCommandWriter.hpp>
 #include <grapple/app/NativeProjectSession.hpp>
+#include <grapple/asset/Asset.hpp>
 #include <grapple/media/MediaReader.hpp>
+#include <grapple/media/MediaSource.hpp>
+#include <grapple/media/OpenCVMediaReader.hpp>
 
 #include <QApplication>
 #include <QColor>
@@ -23,8 +26,12 @@
 #include <QVBoxLayout>
 #include <QWidget>
 
+#include <opencv2/core.hpp>
+#include <opencv2/videoio.hpp>
+
 #include <algorithm>
 #include <cstdint>
+#include <filesystem>
 #include <iomanip>
 #include <iostream>
 #include <optional>
@@ -80,54 +87,6 @@ QString mediaKindText(grapple::render::RenderedMediaKind kind) {
   return "Unknown";
 }
 
-class DemoMediaReader final : public grapple::media::IMediaReader {
-public:
-  grapple::foundation::Result<grapple::media::MediaFrame> frameAt(
-    grapple::foundation::AssetId assetId,
-    grapple::foundation::TimeSeconds time,
-    grapple::media::MediaQuality quality
-  ) override {
-    constexpr int width = 320;
-    constexpr int height = 180;
-    std::vector<std::uint8_t> pixels;
-    pixels.resize(static_cast<std::size_t>(width * height * 4));
-
-    const int timeBand = static_cast<int>(time.value * 24.0) % 255;
-    for (int y = 0; y < height; ++y) {
-      for (int x = 0; x < width; ++x) {
-        const std::size_t offset = static_cast<std::size_t>((y * width + x) * 4);
-        pixels[offset + 0] = static_cast<std::uint8_t>((x + timeBand) % 255);
-        pixels[offset + 1] = static_cast<std::uint8_t>((y * 2 + 80) % 255);
-        pixels[offset + 2] = static_cast<std::uint8_t>((180 + timeBand) % 255);
-        pixels[offset + 3] = 255;
-      }
-    }
-
-    return grapple::media::MediaFrame{
-      assetId,
-      time,
-      grapple::foundation::Resolution{width, height},
-      quality,
-      "demo_rgba",
-      std::move(pixels)
-    };
-  }
-
-  grapple::foundation::Result<grapple::media::AudioBuffer> audioRange(
-    grapple::foundation::AssetId assetId,
-    grapple::foundation::TimeRange range,
-    grapple::media::MediaQuality quality
-  ) override {
-    return grapple::media::AudioBuffer{
-      assetId,
-      range,
-      quality,
-      48000,
-      {}
-    };
-  }
-};
-
 class MediaFrameSourceAdapter final : public grapple::render::IRenderFrameSource {
 public:
   explicit MediaFrameSourceAdapter(grapple::media::IMediaReader& reader)
@@ -156,6 +115,69 @@ public:
 private:
   grapple::media::IMediaReader& reader_;
 };
+
+grapple::foundation::Result<void> ensureDemoVideoFile(const grapple::foundation::FilePath& path) {
+  constexpr int width = 320;
+  constexpr int height = 180;
+  constexpr int frameCount = 90;
+  const std::filesystem::path videoPath{path.value};
+  std::filesystem::create_directories(videoPath.parent_path());
+
+  cv::VideoWriter writer{
+    path.value,
+    cv::VideoWriter::fourcc('M', 'J', 'P', 'G'),
+    30.0,
+    cv::Size{width, height}
+  };
+  if (!writer.isOpened()) {
+    return grapple::foundation::Error{"desktop.demo_video_open_failed", "Could not create demo video " + path.value + "."};
+  }
+
+  for (int frame = 0; frame < frameCount; ++frame) {
+    cv::Mat image(height, width, CV_8UC3);
+    for (int y = 0; y < height; ++y) {
+      for (int x = 0; x < width; ++x) {
+        image.at<cv::Vec3b>(y, x) = cv::Vec3b{
+          static_cast<unsigned char>((180 + frame * 2) % 255),
+          static_cast<unsigned char>((y * 2 + 80) % 255),
+          static_cast<unsigned char>((x + frame * 4) % 255)
+        };
+      }
+    }
+    writer.write(image);
+  }
+
+  return {};
+}
+
+grapple::media::MediaSourceKind sourceKindFor(grapple::asset::AssetMediaType mediaType) {
+  return mediaType == grapple::asset::AssetMediaType::Image
+    ? grapple::media::MediaSourceKind::Image
+    : grapple::media::MediaSourceKind::Video;
+}
+
+grapple::foundation::Result<grapple::media::MediaSourceCatalog> buildMediaSources(
+  const grapple::app::NativeProjectSession& session
+) {
+  const auto snapshot = session.snapshot();
+  if (!snapshot) {
+    return snapshot.error();
+  }
+
+  grapple::media::MediaSourceCatalog sources;
+  for (const grapple::asset::Asset& asset : snapshot.value().assets.assets()) {
+    const auto registered = sources.registerSource(grapple::media::MediaSource{
+      asset.id,
+      sourceKindFor(asset.metadata.mediaType),
+      asset.metadata.sourcePath
+    });
+    if (!registered) {
+      return registered.error();
+    }
+  }
+
+  return sources;
+}
 
 class PreviewSurface final : public QWidget {
 public:
@@ -764,13 +786,25 @@ int main(int argc, char* argv[]) {
       1
     }
   };
+  const auto demoVideo = ensureDemoVideoFile(grapple::foundation::FilePath{"/tmp/grapple-native-demo/walking-woman.avi"});
+  if (!demoVideo) {
+    printError(demoVideo.error());
+    return 1;
+  }
+
   const auto populated = populateDemo(session, true);
   if (!populated) {
     printError(populated.error());
     return 1;
   }
 
-  DemoMediaReader mediaReader;
+  auto mediaSources = buildMediaSources(session);
+  if (!mediaSources) {
+    printError(mediaSources.error());
+    return 1;
+  }
+
+  grapple::media::OpenCVMediaReader mediaReader{mediaSources.value()};
   MediaFrameSourceAdapter frameSource{mediaReader};
   grapple::app::NativePreviewSession preview{session, frameSource};
   grapple::app::NativeExportSession exportSession{session};

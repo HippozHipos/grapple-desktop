@@ -49,7 +49,7 @@ foundation::Result<void> populateWalkingWomanDemo(
         "Walking Woman",
         asset::AssetMetadata{
           asset::AssetMediaType::Video,
-          foundation::FilePath{"/media/walking-woman.mp4"},
+          foundation::FilePath{"/tmp/grapple-native-demo/walking-woman.avi"},
           std::nullopt,
           foundation::TimeSeconds{10.0},
           foundation::Resolution{1080, 1920},
