@@ -5,6 +5,6 @@
 namespace grapple::agent {
 
 AgentTool makeProjectInspectTool();
+AgentTool makeProjectCreateEffectTool();
 
 } // namespace grapple::agent
-
