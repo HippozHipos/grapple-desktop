@@ -14,7 +14,8 @@ project::ProjectDocument
   -> projection::TimelineIR
   -> projection::RenderPlan
   -> runtime::RuntimeEvaluator
-  -> local render system playback/export modes
+  -> render::LocalRenderCore
+  -> preview/final render shells
 ```
 
 ## Build
