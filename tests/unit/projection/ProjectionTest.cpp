@@ -439,6 +439,88 @@ int main() {
   GRAPPLE_REQUIRE(connectedPlan.value().plan.effectGraphs[0].edges[2].sourcePort == graph::PortName{"camera_transform"});
   GRAPPLE_REQUIRE(connectedPlan.value().plan.effectGraphs[0].edges[2].targetPort == graph::PortName{"input_frame"});
 
+  project::ProjectDocument disabledProjectionDocument = project::createEmptyProject(
+    foundation::ProjectId{"proj_disabled_projection"},
+    "Disabled Projection Test"
+  );
+  GRAPPLE_REQUIRE(disabledProjectionDocument.graph.addNode(graph::GraphNode{
+    foundation::NodeId{"node_disabled_track"},
+    graph::NodeKind::Track,
+    timeline::TrackPayload{"Video"},
+    true
+  }));
+  GRAPPLE_REQUIRE(disabledProjectionDocument.graph.addNode(graph::GraphNode{
+    foundation::NodeId{"node_disabled_clip"},
+    graph::NodeKind::Clip,
+    clipPayload,
+    false
+  }));
+  GRAPPLE_REQUIRE(disabledProjectionDocument.graph.addNode(graph::GraphNode{
+    foundation::NodeId{"node_disabled_camera"},
+    graph::NodeKind::Camera,
+    cameraPayload,
+    false
+  }));
+  GRAPPLE_REQUIRE(disabledProjectionDocument.graph.addNode(graph::GraphNode{
+    foundation::NodeId{"node_disabled_effect"},
+    graph::NodeKind::Effect,
+    effectPayload,
+    false
+  }));
+  GRAPPLE_REQUIRE(disabledProjectionDocument.graph.addEdge(graph::GraphEdge{
+    foundation::EdgeId{"edge_disabled_contains_clip"},
+    graph::EdgeKind::Contains,
+    foundation::NodeId{"node_disabled_track"},
+    graph::PortName{},
+    foundation::NodeId{"node_disabled_clip"},
+    graph::PortName{},
+    0,
+    true
+  }));
+  GRAPPLE_REQUIRE(disabledProjectionDocument.graph.addEdge(graph::GraphEdge{
+    foundation::EdgeId{"edge_disabled_effect_targets_track"},
+    graph::EdgeKind::Targets,
+    foundation::NodeId{"node_disabled_effect"},
+    graph::PortName{"output"},
+    foundation::NodeId{"node_disabled_track"},
+    graph::PortName{"input"},
+    0,
+    true
+  }));
+  const auto disabledTimeline = projector.buildTimelineIR(projection::BuildTimelineIRRequest{
+    project::makeProjectSnapshot(disabledProjectionDocument)
+  });
+  GRAPPLE_REQUIRE(disabledTimeline);
+  GRAPPLE_REQUIRE(disabledTimeline.value().timeline.layers.size() == 1);
+  GRAPPLE_REQUIRE(disabledTimeline.value().timeline.clips.empty());
+  GRAPPLE_REQUIRE(disabledTimeline.value().timeline.cameras.empty());
+  GRAPPLE_REQUIRE(disabledTimeline.value().timeline.effectGraphs.empty());
+  GRAPPLE_REQUIRE(disabledTimeline.value().timeline.duration == foundation::TimeSeconds{0.0});
+
+  project::ProjectDocument disabledConnectionDocument = connectedEffectsDocument;
+  GRAPPLE_REQUIRE(disabledConnectionDocument.graph.removeEdge(foundation::EdgeId{"edge_connected_effects"}));
+  GRAPPLE_REQUIRE(disabledConnectionDocument.graph.addEdge(graph::GraphEdge{
+    foundation::EdgeId{"edge_connected_effects"},
+    graph::EdgeKind::Connects,
+    foundation::NodeId{"node_connected_effect_a"},
+    graph::PortName{"camera_transform"},
+    foundation::NodeId{"node_connected_effect_b"},
+    graph::PortName{"input_frame"},
+    2,
+    false
+  }));
+  const auto disabledConnectionTimeline = projector.buildTimelineIR(projection::BuildTimelineIRRequest{
+    project::makeProjectSnapshot(disabledConnectionDocument)
+  });
+  GRAPPLE_REQUIRE(disabledConnectionTimeline);
+  const auto disabledConnectionPlan = builder.buildRenderPlan(projection::BuildRenderPlanRequest{
+    disabledConnectionTimeline.value().timeline
+  });
+  GRAPPLE_REQUIRE(disabledConnectionPlan);
+  GRAPPLE_REQUIRE(disabledConnectionPlan.value().plan.effectGraphs.size() == 1);
+  GRAPPLE_REQUIRE(disabledConnectionPlan.value().plan.effectGraphs[0].nodes.size() == 2);
+  GRAPPLE_REQUIRE(disabledConnectionPlan.value().plan.effectGraphs[0].edges.size() == 2);
+
   project::ProjectDocument malformedDocument = project::createEmptyProject(
     foundation::ProjectId{"proj_malformed"},
     "Malformed Projection Test"

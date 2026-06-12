@@ -96,6 +96,10 @@ foundation::Result<BuildTimelineIRResult> TimelineProjector::buildTimelineIR(
   }
 
   for (const graph::GraphNode& node : request.snapshot.graph.nodes()) {
+    if (!node.enabled) {
+      continue;
+    }
+
     if (node.kind == graph::NodeKind::Track) {
       const auto* payload = std::get_if<timeline::TrackPayload>(&node.payload);
       if (payload == nullptr) {
@@ -113,13 +117,17 @@ foundation::Result<BuildTimelineIRResult> TimelineProjector::buildTimelineIR(
 
       bool foundTrack = false;
       for (const graph::GraphEdge& edge : request.snapshot.graph.edges()) {
+        if (!edge.enabled) {
+          continue;
+        }
+
         if (edge.kind == graph::EdgeKind::Contains && edge.targetNodeId == node.id) {
           const graph::GraphNode* track = request.snapshot.graph.findNode(edge.sourceNodeId);
           if (track == nullptr || track->kind != graph::NodeKind::Track) {
             return foundation::Error{"projection.clip_track_invalid", "Clip containment source must be a track."};
           }
 
-          timeline.clips.push_back(TimelineClip{node.id, edge.sourceNodeId, *payload, node.enabled && edge.enabled});
+          timeline.clips.push_back(TimelineClip{node.id, edge.sourceNodeId, *payload, true});
           extendDuration(timeline.duration, payload->timelineRange.end);
           foundTrack = true;
           break;
@@ -153,10 +161,16 @@ foundation::Result<BuildTimelineIRResult> TimelineProjector::buildTimelineIR(
     if (edge.kind != graph::EdgeKind::Targets) {
       continue;
     }
+    if (!edge.enabled) {
+      continue;
+    }
 
     const graph::GraphNode* effect = request.snapshot.graph.findNode(edge.sourceNodeId);
     if (effect == nullptr || effect->kind != graph::NodeKind::Effect) {
       return foundation::Error{"projection.effect_source_invalid", "Effect target edge source must be an effect."};
+    }
+    if (!effect->enabled) {
+      continue;
     }
 
     if (!request.snapshot.graph.hasNode(edge.targetNodeId)) {
@@ -169,7 +183,7 @@ foundation::Result<BuildTimelineIRResult> TimelineProjector::buildTimelineIR(
     }
 
     TimelineEffectGraph& effectGraph = getOrCreateEffectGraph(timeline.effectGraphs, edge.targetNodeId);
-    effectGraph.nodes.push_back(TimelineEffectNode{effect->id, *payload, effect->enabled});
+    effectGraph.nodes.push_back(TimelineEffectNode{effect->id, *payload, true});
     extendDuration(timeline.duration, payload->activeRange.end);
     effectGraph.edges.push_back(TimelineEffectEdge{
       edge.id,
@@ -187,11 +201,17 @@ foundation::Result<BuildTimelineIRResult> TimelineProjector::buildTimelineIR(
     if (edge.kind != graph::EdgeKind::Connects) {
       continue;
     }
+    if (!edge.enabled) {
+      continue;
+    }
 
     const graph::GraphNode* source = request.snapshot.graph.findNode(edge.sourceNodeId);
     const graph::GraphNode* target = request.snapshot.graph.findNode(edge.targetNodeId);
     if (source == nullptr || source->kind != graph::NodeKind::Effect || target == nullptr || target->kind != graph::NodeKind::Effect) {
       return foundation::Error{"projection.effect_connection_endpoint_invalid", "Effect connection edges must connect effect nodes."};
+    }
+    if (!source->enabled || !target->enabled) {
+      continue;
     }
 
     TimelineEffectGraph* effectGraph = findEffectGraphForConnection(
@@ -215,6 +235,10 @@ foundation::Result<BuildTimelineIRResult> TimelineProjector::buildTimelineIR(
   }
 
   for (const graph::GraphNode& node : request.snapshot.graph.nodes()) {
+    if (!node.enabled) {
+      continue;
+    }
+
     if (node.kind == graph::NodeKind::Effect && !containsNodeId(targetedEffectNodeIds, node.id)) {
       return foundation::Error{"projection.effect_target_missing", "Effect node must have a target edge."};
     }
