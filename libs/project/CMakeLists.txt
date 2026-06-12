@@ -3,6 +3,7 @@ add_library(grapple_project
   src/ProjectCommandNames.cpp
   src/ProjectController.cpp
   src/ProjectEventNames.cpp
+  src/ProjectEvents.cpp
   src/ProjectSerializer.cpp
 )
 

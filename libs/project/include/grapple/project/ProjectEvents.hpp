@@ -28,5 +28,6 @@ using ProjectEvent = std::variant<
   ProjectChangedEvent
 >;
 
-} // namespace grapple::project
+[[nodiscard]] EventKind eventKind(const ProjectEvent& event);
 
+} // namespace grapple::project

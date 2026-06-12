@@ -51,6 +51,8 @@ int main() {
   GRAPPLE_REQUIRE(createComposition.value().beforeRevision == foundation::RevisionId{"rev_0"});
   GRAPPLE_REQUIRE(createComposition.value().afterRevision == foundation::RevisionId{"rev_1"});
   GRAPPLE_REQUIRE(createComposition.value().events.size() == 2);
+  GRAPPLE_REQUIRE(project::eventKind(createComposition.value().events[0]) == project::EventKind::ProjectCommandApplied);
+  GRAPPLE_REQUIRE(project::eventKind(createComposition.value().events[1]) == project::EventKind::ProjectChanged);
 
   const auto afterComposition = controller.snapshot();
   GRAPPLE_REQUIRE(afterComposition);
