@@ -5,6 +5,7 @@
 #include <grapple/project/ProjectSnapshot.hpp>
 #include <grapple/storage/ProjectCommitBuilder.hpp>
 #include <grapple/storage/ProjectPackage.hpp>
+#include <grapple/storage/ProjectPackageManifest.hpp>
 
 namespace grapple::storage {
 
@@ -16,6 +17,7 @@ struct ProjectSnapshotWriteRequest {
 
 class ProjectPackageWriter {
 public:
+  foundation::Result<foundation::FilePath> writeManifest(const ProjectPackageManifest& manifest, const ProjectPackage& package) const;
   foundation::Result<foundation::FilePath> writeSnapshot(const ProjectSnapshotWriteRequest& request) const;
 };
 

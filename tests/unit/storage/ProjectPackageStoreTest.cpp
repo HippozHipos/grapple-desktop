@@ -3,6 +3,7 @@
 #include <grapple/project/ProjectEventNames.hpp>
 #include <grapple/project/ProjectSerializer.hpp>
 #include <grapple/storage/ProjectCommitBuilder.hpp>
+#include <grapple/storage/ProjectPackageManifest.hpp>
 #include <grapple/storage/ProjectPackageSession.hpp>
 #include <grapple/storage/ProjectPackageStore.hpp>
 #include <grapple/storage/ProjectPackageWriter.hpp>
@@ -122,16 +123,55 @@ int main() {
   GRAPPLE_REQUIRE(store.state().head->lastCommandId == foundation::CommandId{"cmd_1"});
   GRAPPLE_REQUIRE(store.state().head->lastSnapshotId == foundation::SnapshotId{"snap_1"});
 
+  const auto manifest = storage::buildProjectPackageManifest(store.state());
+  GRAPPLE_REQUIRE(manifest);
+  GRAPPLE_REQUIRE(manifest.value().projectId == foundation::ProjectId{"proj_storage"});
+  GRAPPLE_REQUIRE(manifest.value().schemaVersion == 1);
+  GRAPPLE_REQUIRE(manifest.value().head.has_value());
+  GRAPPLE_REQUIRE(manifest.value().head->revision == foundation::RevisionId{"rev_1"});
+  GRAPPLE_REQUIRE(manifest.value().head->lastCommandId == foundation::CommandId{"cmd_1"});
+  GRAPPLE_REQUIRE(manifest.value().head->lastSnapshotId == foundation::SnapshotId{"snap_1"});
+  GRAPPLE_REQUIRE(manifest.value().latestSnapshot.has_value());
+  GRAPPLE_REQUIRE(manifest.value().latestSnapshot->id == foundation::SnapshotId{"snap_1"});
+  GRAPPLE_REQUIRE(manifest.value().latestSnapshot->revision == foundation::RevisionId{"rev_1"});
+  GRAPPLE_REQUIRE(manifest.value().latestSnapshot->canonicalHash == committedSnapshot.value().canonicalHash);
+  GRAPPLE_REQUIRE(manifest.value().latestSnapshot->documentPath == foundation::FilePath{"snapshots/rev_1.json"});
+  GRAPPLE_REQUIRE(manifest.value().latestSnapshot->label == std::optional<std::string>{"first"});
+  GRAPPLE_REQUIRE(storage::serializeCanonicalProjectPackageManifest(manifest.value()) ==
+    "{\"schemaVersion\":1,\"projectId\":\"proj_storage\",\"head\":{\"revision\":\"rev_1\",\"lastCommandId\":\"cmd_1\",\"lastSnapshotId\":\"snap_1\"},\"latestSnapshot\":{\"id\":\"snap_1\",\"revision\":\"rev_1\",\"canonicalHash\":\"" +
+    committedSnapshot.value().canonicalHash.toHex() +
+    "\",\"documentPath\":\"snapshots/rev_1.json\",\"label\":\"first\"}}");
+
+  storage::ProjectPackageStore emptyStore{storage::ProjectPackage{
+    foundation::ProjectId{"proj_storage"},
+    foundation::FilePath{"project.grapple"},
+    1
+  }};
+  const auto emptyManifest = storage::buildProjectPackageManifest(emptyStore.state());
+  GRAPPLE_REQUIRE(emptyManifest);
+  GRAPPLE_REQUIRE(storage::serializeCanonicalProjectPackageManifest(emptyManifest.value()) ==
+    "{\"schemaVersion\":1,\"projectId\":\"proj_storage\",\"head\":null,\"latestSnapshot\":null}");
+
   const std::filesystem::path packageRoot =
     std::filesystem::temp_directory_path() /
     ("grapple_native_storage_" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
   const storage::ProjectPackageWriter packageWriter;
+  const storage::ProjectPackage diskPackage{
+    foundation::ProjectId{"proj_storage"},
+    foundation::FilePath{packageRoot.string()},
+    1
+  };
+  const auto writtenManifestPath = packageWriter.writeManifest(manifest.value(), diskPackage);
+  GRAPPLE_REQUIRE(writtenManifestPath);
+  GRAPPLE_REQUIRE(writtenManifestPath.value().value == (packageRoot / "manifest.json").lexically_normal().string());
+  std::ifstream manifestFile{writtenManifestPath.value().value, std::ios::binary};
+  GRAPPLE_REQUIRE(manifestFile.good());
+  std::ostringstream manifestContents;
+  manifestContents << manifestFile.rdbuf();
+  GRAPPLE_REQUIRE(manifestContents.str() == storage::serializeCanonicalProjectPackageManifest(manifest.value()));
+
   const auto writtenSnapshotPath = packageWriter.writeSnapshot(storage::ProjectSnapshotWriteRequest{
-    storage::ProjectPackage{
-      foundation::ProjectId{"proj_storage"},
-      foundation::FilePath{packageRoot.string()},
-      1
-    },
+    diskPackage,
     committedSnapshot.value(),
     storage::SnapshotCommitRecord{
       foundation::SnapshotId{"snap_1"},
@@ -146,6 +186,18 @@ int main() {
   std::ostringstream snapshotContents;
   snapshotContents << snapshotFile.rdbuf();
   GRAPPLE_REQUIRE(snapshotContents.str() == project::serializeCanonicalProjectSnapshot(committedSnapshot.value()));
+
+  storage::ProjectPackageManifest wrongProjectManifest = manifest.value();
+  wrongProjectManifest.projectId = foundation::ProjectId{"proj_other"};
+  const auto wrongProjectManifestPath = packageWriter.writeManifest(wrongProjectManifest, diskPackage);
+  GRAPPLE_REQUIRE(!wrongProjectManifestPath);
+  GRAPPLE_REQUIRE(wrongProjectManifestPath.error().code == "storage.manifest_project_id_mismatch");
+
+  storage::ProjectPackageManifest wrongSchemaManifest = manifest.value();
+  wrongSchemaManifest.schemaVersion = 2;
+  const auto wrongSchemaManifestPath = packageWriter.writeManifest(wrongSchemaManifest, diskPackage);
+  GRAPPLE_REQUIRE(!wrongSchemaManifestPath);
+  GRAPPLE_REQUIRE(wrongSchemaManifestPath.error().code == "storage.manifest_schema_mismatch");
 
   const auto absoluteSnapshotPath = packageWriter.writeSnapshot(storage::ProjectSnapshotWriteRequest{
     storage::ProjectPackage{
@@ -262,6 +314,12 @@ int main() {
   GRAPPLE_REQUIRE(store.state().commandLog.records().size() == 1);
   GRAPPLE_REQUIRE(store.state().eventLog.records().size() == 2);
   GRAPPLE_REQUIRE(store.state().snapshots.records().size() == 1);
+
+  storage::ProjectPackageState missingHeadSnapshotState = store.state();
+  missingHeadSnapshotState.head->lastSnapshotId = foundation::SnapshotId{"snap_missing"};
+  const auto missingHeadSnapshotManifest = storage::buildProjectPackageManifest(missingHeadSnapshotState);
+  GRAPPLE_REQUIRE(!missingHeadSnapshotManifest);
+  GRAPPLE_REQUIRE(missingHeadSnapshotManifest.error().code == "storage.package_head_snapshot_missing");
 
   storage::ProjectPackageSession session{
     project::createEmptyProject(foundation::ProjectId{"proj_session"}, "Session Project"),

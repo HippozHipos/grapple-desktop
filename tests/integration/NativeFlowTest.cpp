@@ -8,6 +8,7 @@
 #include <grapple/runtime/EffectRuntime.hpp>
 #include <grapple/runtime/RuntimeEvaluator.hpp>
 #include <grapple/storage/ProjectCommitBuilder.hpp>
+#include <grapple/storage/ProjectPackageManifest.hpp>
 #include <grapple/storage/ProjectPackageStore.hpp>
 #include <grapple/storage/ProjectPackageWriter.hpp>
 
@@ -295,6 +296,23 @@ int main() {
     std::filesystem::temp_directory_path() /
     ("grapple_native_flow_" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
   const storage::ProjectPackageWriter packageWriter;
+  const auto packageManifest = storage::buildProjectPackageManifest(store.state());
+  GRAPPLE_REQUIRE(packageManifest);
+  const auto writtenManifestPath = packageWriter.writeManifest(
+    packageManifest.value(),
+    storage::ProjectPackage{
+      foundation::ProjectId{"proj_native_flow"},
+      foundation::FilePath{packageRoot.string()},
+      1
+    }
+  );
+  GRAPPLE_REQUIRE(writtenManifestPath);
+  std::ifstream manifestFile{writtenManifestPath.value().value, std::ios::binary};
+  GRAPPLE_REQUIRE(manifestFile.good());
+  std::ostringstream manifestContents;
+  manifestContents << manifestFile.rdbuf();
+  GRAPPLE_REQUIRE(manifestContents.str() == storage::serializeCanonicalProjectPackageManifest(packageManifest.value()));
+
   const auto writtenSnapshotPath = packageWriter.writeSnapshot(storage::ProjectSnapshotWriteRequest{
     storage::ProjectPackage{
       foundation::ProjectId{"proj_native_flow"},
