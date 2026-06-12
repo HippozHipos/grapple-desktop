@@ -17,6 +17,7 @@
 #include <QImage>
 #include <QLabel>
 #include <QMainWindow>
+#include <QMouseEvent>
 #include <QPainter>
 #include <QPaintEvent>
 #include <QPixmap>
@@ -33,6 +34,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <filesystem>
+#include <functional>
 #include <iomanip>
 #include <iostream>
 #include <optional>
@@ -359,6 +361,10 @@ public:
     update();
   }
 
+  void setSeekHandler(std::function<void(grapple::foundation::TimeSeconds)> seekHandler) {
+    seekHandler_ = std::move(seekHandler);
+  }
+
 protected:
   void paintEvent(QPaintEvent* event) override {
     QWidget::paintEvent(event);
@@ -411,7 +417,41 @@ protected:
     drawPlayhead(painter, left, trackWidth, duration);
   }
 
+  void mousePressEvent(QMouseEvent* event) override {
+    if (event->button() != Qt::LeftButton || !viewModel_.has_value() || !seekHandler_) {
+      QWidget::mousePressEvent(event);
+      return;
+    }
+
+    seekHandler_(timeAtX(event->pos().x()));
+  }
+
 private:
+  [[nodiscard]] double duration() const noexcept {
+    return viewModel_.has_value()
+      ? std::max(0.001, viewModel_->timeline.duration.value)
+      : 0.001;
+  }
+
+  [[nodiscard]] int timelineLeft() const noexcept {
+    return 150;
+  }
+
+  [[nodiscard]] int timelineRight() const noexcept {
+    return width() - 16;
+  }
+
+  [[nodiscard]] grapple::foundation::TimeSeconds timeAtX(int x) const noexcept {
+    const int left = timelineLeft();
+    const int right = timelineRight();
+    const double normalized = std::clamp(
+      static_cast<double>(x - left) / static_cast<double>(std::max(1, right - left)),
+      0.0,
+      1.0
+    );
+    return grapple::foundation::TimeSeconds{normalized * duration()};
+  }
+
   static int clipX(const grapple::foundation::TimeSeconds time, int left, int trackWidth, double duration) {
     return left + static_cast<int>((time.value / duration) * static_cast<double>(trackWidth));
   }
@@ -486,6 +526,7 @@ private:
 
   std::optional<grapple::app::AppViewModel> viewModel_;
   grapple::foundation::TimeSeconds playhead_;
+  std::function<void(grapple::foundation::TimeSeconds)> seekHandler_;
 };
 
 grapple::foundation::Result<void> populateDemo(grapple::app::NativeProjectSession& session, bool savePackage) {
@@ -602,6 +643,7 @@ public:
     connect(addTrackButton, &QPushButton::clicked, this, [this] { addTrack(); });
     connect(exportButton, &QPushButton::clicked, this, [this] { runExport(); });
     connect(saveButton, &QPushButton::clicked, this, [this] { savePackage(); });
+    timeline_->setSeekHandler([this](grapple::foundation::TimeSeconds time) { seekTo(time); });
 
     setStyleSheet(R"(
       QMainWindow { background: #15171c; color: #e9edf5; }
@@ -680,6 +722,20 @@ public:
     const double duration = std::max(0.0, viewModel.value().timeline.duration.value);
     const double current = preview_.state().playhead.value;
     seekTo(grapple::foundation::TimeSeconds{std::clamp(current + deltaSeconds, 0.0, duration)});
+  }
+
+  void clickTimelineAtRatio(double ratio) {
+    const int left = 150;
+    const int right = std::max(left + 1, timeline_->width() - 16);
+    const int x = left + static_cast<int>(std::clamp(ratio, 0.0, 1.0) * static_cast<double>(right - left));
+    QMouseEvent event{
+      QEvent::MouseButtonPress,
+      QPointF{static_cast<double>(x), 20.0},
+      Qt::LeftButton,
+      Qt::LeftButton,
+      Qt::NoModifier
+    };
+    QApplication::sendEvent(timeline_, &event);
   }
 
   void startPlayback() {
@@ -812,6 +868,7 @@ int main(int argc, char* argv[]) {
   bool smoke = false;
   bool mutateSmoke = false;
   bool seekSmoke = false;
+  bool timelineSeekSmoke = false;
   bool playbackSmoke = false;
   std::optional<std::string> screenshotPath;
   for (int index = 1; index < argc; ++index) {
@@ -822,12 +879,14 @@ int main(int argc, char* argv[]) {
       mutateSmoke = true;
     } else if (argument == "--seek-smoke") {
       seekSmoke = true;
+    } else if (argument == "--timeline-seek-smoke") {
+      timelineSeekSmoke = true;
     } else if (argument == "--playback-smoke") {
       playbackSmoke = true;
     } else if (argument == "--screenshot" && index + 1 < argc) {
       screenshotPath = argv[++index];
     } else {
-      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --playback-smoke, or --screenshot <path>.\n";
+      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --playback-smoke, or --screenshot <path>.\n";
       return 1;
     }
   }
@@ -896,6 +955,15 @@ int main(int argc, char* argv[]) {
     const grapple::render::PreviewRenderShellState previewState = preview.state();
     std::cout << "playhead=" << previewState.playhead.value << '\n';
     return previewState.playhead == grapple::foundation::TimeSeconds{5.0} ? 0 : 1;
+  }
+
+  if (timelineSeekSmoke) {
+    window.show();
+    app.processEvents();
+    window.clickTimelineAtRatio(0.5);
+    const grapple::render::PreviewRenderShellState previewState = preview.state();
+    std::cout << "playhead=" << previewState.playhead.value << '\n';
+    return previewState.playhead.value > 4.9 && previewState.playhead.value < 5.1 ? 0 : 1;
   }
 
   if (playbackSmoke) {
