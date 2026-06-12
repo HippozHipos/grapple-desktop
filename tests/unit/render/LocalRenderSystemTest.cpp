@@ -54,7 +54,7 @@ grapple::render::ExportSettings makeExportSettings(grapple::foundation::Resoluti
     grapple::foundation::FrameRate{2, 1},
     resolution,
     grapple::render::Codec{"prores"},
-    grapple::render::ExportQuality::Final,
+    grapple::render::RenderQuality::Final,
     grapple::foundation::FilePath{"/exports/test.mov"}
   };
 }

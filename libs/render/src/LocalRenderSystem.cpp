@@ -13,12 +13,6 @@ runtime::RuntimeQuality runtimeQualityFor(RenderQuality quality) {
     : runtime::RuntimeQuality::Interactive;
 }
 
-RenderQuality renderQualityFor(ExportQuality quality) {
-  return quality == ExportQuality::Final
-    ? RenderQuality::Final
-    : RenderQuality::Draft;
-}
-
 std::string describeSample(const runtime::RuntimeSample& sample) {
   std::ostringstream description;
   description << "layers=" << sample.layers.size()
@@ -108,7 +102,7 @@ foundation::Result<ExportResult> LocalRenderSystem::exportRange(const ExportRequ
     prepared_.value(),
     request.settings.range,
     request.settings.frameRate,
-    runtimeQualityFor(renderQualityFor(request.settings.quality))
+    runtimeQualityFor(request.settings.quality)
   });
   if (!range) {
     return range.error();

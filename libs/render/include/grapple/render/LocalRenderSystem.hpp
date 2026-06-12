@@ -6,6 +6,7 @@
 #include <grapple/projection/RenderPlan.hpp>
 #include <grapple/render/ExportSettings.hpp>
 #include <grapple/render/RenderDiagnostic.hpp>
+#include <grapple/render/RenderQuality.hpp>
 #include <grapple/runtime/RuntimeEvaluator.hpp>
 
 #include <optional>
@@ -13,11 +14,6 @@
 #include <vector>
 
 namespace grapple::render {
-
-enum class RenderQuality {
-  Draft,
-  Final
-};
 
 enum class PlaybackState {
   Paused,
