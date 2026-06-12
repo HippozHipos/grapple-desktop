@@ -1,4 +1,5 @@
 add_library(grapple_runtime
+  src/MemoryRuntimeCache.cpp
   src/RuntimeDependencyPlanner.cpp
   src/RuntimeEvaluator.cpp
 )
@@ -14,5 +15,6 @@ target_link_libraries(grapple_runtime
   PUBLIC
     Grapple::Foundation
     Grapple::Projection
+    Grapple::Media
+    Grapple::Model
 )
-
