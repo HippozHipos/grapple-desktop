@@ -81,6 +81,18 @@ int main() {
   GRAPPLE_REQUIRE(finalSnapshot.value().document.graph.nodes().size() == 2);
   GRAPPLE_REQUIRE(finalSnapshot.value().document.graph.edges().size() == 1);
 
+  const auto graphQuery = controller.query(project::GetGraphQuery{});
+  GRAPPLE_REQUIRE(graphQuery);
+  const auto* graphResult = std::get_if<project::GraphResult>(&graphQuery.value());
+  GRAPPLE_REQUIRE(graphResult != nullptr);
+  GRAPPLE_REQUIRE(graphResult->graph.nodes().size() == 2);
+  GRAPPLE_REQUIRE(graphResult->graph.edges().size() == 1);
+
+  const auto snapshotQuery = controller.query(project::GetProjectSnapshotQuery{});
+  GRAPPLE_REQUIRE(snapshotQuery);
+  const auto* snapshotResult = std::get_if<project::ProjectSnapshotResult>(&snapshotQuery.value());
+  GRAPPLE_REQUIRE(snapshotResult != nullptr);
+  GRAPPLE_REQUIRE(snapshotResult->snapshot.document.revision == foundation::RevisionId{"rev_2"});
+
   return 0;
 }
-

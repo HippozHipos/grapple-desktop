@@ -58,6 +58,10 @@ foundation::Result<ProjectSnapshot> ProjectController::snapshot() const {
   return ProjectSnapshot{document_};
 }
 
+foundation::Result<ProjectQueryResult> ProjectController::query(const ProjectQuery& query) const {
+  return readQuery(query);
+}
+
 foundation::RevisionId ProjectController::nextRevisionId() const {
   return makeRevisionId(document_.revisionNumber);
 }
@@ -73,6 +77,20 @@ foundation::Result<void> ProjectController::applyPayload(const ProjectCommand& p
       }
     },
     payload
+  );
+}
+
+foundation::Result<ProjectQueryResult> ProjectController::readQuery(const ProjectQuery& query) const {
+  return std::visit(
+    [&](const auto& typedQuery) -> foundation::Result<ProjectQueryResult> {
+      using Query = std::decay_t<decltype(typedQuery)>;
+      if constexpr (std::is_same_v<Query, GetProjectSnapshotQuery>) {
+        return ProjectQueryResult{ProjectSnapshotResult{ProjectSnapshot{document_}}};
+      } else if constexpr (std::is_same_v<Query, GetGraphQuery>) {
+        return ProjectQueryResult{GraphResult{document_.graph}};
+      }
+    },
+    query
   );
 }
 
@@ -122,4 +140,3 @@ ProjectDocument createEmptyProject(foundation::ProjectId projectId, std::string 
 }
 
 } // namespace grapple::project
-
