@@ -14,8 +14,7 @@ grapple::projection::RenderPlan makeRenderPlan() {
     {
       grapple::projection::RenderLayer{
         grapple::foundation::NodeId{"node_track"},
-        "Video",
-        true
+        "Video"
       }
     },
     {
@@ -35,8 +34,7 @@ grapple::projection::RenderPlan makeRenderPlan() {
           1.0,
           grapple::foundation::AssetId{"asset_video"},
           grapple::timeline::Transform{}
-        },
-        true
+        }
       }
     },
     {},

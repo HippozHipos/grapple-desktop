@@ -281,21 +281,18 @@ int main() {
   projection::RenderPlan orderedPlan = planResult.value().plan;
   orderedPlan.layers.push_back(projection::RenderLayer{
     foundation::NodeId{"node_alpha_track"},
-    "Alpha",
-    true
+    "Alpha"
   });
   orderedPlan.clips.push_back(projection::RenderClip{
     foundation::NodeId{"node_alpha_clip"},
     foundation::NodeId{"node_alpha_track"},
-    clipPayload,
-    true
+    clipPayload
   });
   orderedPlan.cameras.push_back(projection::RenderCamera{
     foundation::NodeId{"node_alpha_camera"},
     "Alpha Camera",
     cameraPayload.transform,
-    cameraPayload.lens,
-    true
+    cameraPayload.lens
   });
   orderedPlan.effectGraphs.push_back(projection::RenderEffectGraph{
     foundation::GraphId{"effect_graph_node_alpha_camera"},
@@ -303,8 +300,7 @@ int main() {
     {
       projection::RenderEffectNode{
         foundation::NodeId{"node_alpha_effect"},
-        effectPayload,
-        true
+        effectPayload
       }
     },
     {
@@ -314,8 +310,7 @@ int main() {
         graph::PortName{"camera_transform"},
         foundation::NodeId{"node_alpha_camera"},
         graph::PortName{"input"},
-        0,
-        true
+        0
       }
     }
   });

@@ -21,8 +21,7 @@ grapple::projection::RenderPlan makePlan(std::string layerName) {
     {
       grapple::projection::RenderLayer{
         grapple::foundation::NodeId{"node_track"},
-        std::move(layerName),
-        true
+        std::move(layerName)
       }
     },
     {},
@@ -47,8 +46,7 @@ grapple::projection::RenderPlan makeClipPlan(double playbackRate) {
       playbackRate,
       grapple::foundation::AssetId{"asset_video"},
       grapple::timeline::Transform{}
-    },
-    true
+    }
   });
   return plan;
 }
@@ -65,20 +63,13 @@ grapple::projection::RenderPlan makeClipPlanWithLayerName(std::string layerName)
   return plan;
 }
 
-grapple::projection::RenderPlan makeDisabledClipPlan() {
-  grapple::projection::RenderPlan plan = makeClipPlan(1.0);
-  plan.clips[0].enabled = false;
-  return plan;
-}
-
 grapple::projection::RenderPlan makeEffectPlan(std::string source) {
   grapple::projection::RenderPlan plan = makePlan("Video");
   plan.cameras.push_back(grapple::projection::RenderCamera{
     grapple::foundation::NodeId{"node_camera"},
     "Camera",
     grapple::timeline::Transform{},
-    grapple::timeline::CameraLens{},
-    true
+    grapple::timeline::CameraLens{}
   });
   plan.effectGraphs.push_back(grapple::projection::RenderEffectGraph{
     grapple::foundation::GraphId{"effect_graph_node_camera"},
@@ -102,8 +93,7 @@ grapple::projection::RenderPlan makeEffectPlan(std::string source) {
           grapple::timeline::EffectPortSet{},
           grapple::timeline::ParamSet{},
           grapple::foundation::TimeRange{grapple::foundation::TimeSeconds{0.0}, grapple::foundation::TimeSeconds{10.0}}
-        },
-        true
+        }
       }
     },
     {
@@ -113,8 +103,7 @@ grapple::projection::RenderPlan makeEffectPlan(std::string source) {
         grapple::graph::PortName{"camera_transform"},
         grapple::foundation::NodeId{"node_camera"},
         grapple::graph::PortName{"input"},
-        0,
-        true
+        0
       }
     }
   });
@@ -151,8 +140,7 @@ grapple::projection::RenderPlan makeClipEffectPlan() {
           grapple::timeline::EffectPortSet{},
           grapple::timeline::ParamSet{},
           grapple::foundation::TimeRange{grapple::foundation::TimeSeconds{0.0}, grapple::foundation::TimeSeconds{10.0}}
-        },
-        true
+        }
       }
     },
     {
@@ -162,8 +150,7 @@ grapple::projection::RenderPlan makeClipEffectPlan() {
         grapple::graph::PortName{"frame"},
         grapple::foundation::NodeId{"node_clip"},
         grapple::graph::PortName{"input"},
-        0,
-        true
+        0
       }
     }
   });
@@ -204,18 +191,15 @@ grapple::projection::RenderPlan makeEffectChainPlan(double effectAParam, double 
     {
       grapple::projection::RenderEffectNode{
         grapple::foundation::NodeId{"node_effect_a"},
-        makeEffectPayload("Effect A", effectAParam),
-        true
+        makeEffectPayload("Effect A", effectAParam)
       },
       grapple::projection::RenderEffectNode{
         grapple::foundation::NodeId{"node_effect_b"},
-        makeEffectPayload("Effect B", 0.2),
-        true
+        makeEffectPayload("Effect B", 0.2)
       },
       grapple::projection::RenderEffectNode{
         grapple::foundation::NodeId{"node_effect_c"},
-        makeEffectPayload("Effect C", 0.3),
-        true
+        makeEffectPayload("Effect C", 0.3)
       }
     },
     {
@@ -225,8 +209,7 @@ grapple::projection::RenderPlan makeEffectChainPlan(double effectAParam, double 
         grapple::graph::PortName{"frame"},
         grapple::foundation::NodeId{"node_clip"},
         grapple::graph::PortName{"input"},
-        0,
-        true
+        0
       },
       grapple::projection::RenderEffectEdge{
         grapple::foundation::EdgeId{"edge_effect_b_targets_clip"},
@@ -234,8 +217,7 @@ grapple::projection::RenderPlan makeEffectChainPlan(double effectAParam, double 
         grapple::graph::PortName{"frame"},
         grapple::foundation::NodeId{"node_clip"},
         grapple::graph::PortName{"input"},
-        1,
-        true
+        1
       },
       grapple::projection::RenderEffectEdge{
         grapple::foundation::EdgeId{"edge_effect_c_targets_clip"},
@@ -243,8 +225,7 @@ grapple::projection::RenderPlan makeEffectChainPlan(double effectAParam, double 
         grapple::graph::PortName{"frame"},
         grapple::foundation::NodeId{"node_clip"},
         grapple::graph::PortName{"input"},
-        2,
-        true
+        2
       },
       grapple::projection::RenderEffectEdge{
         grapple::foundation::EdgeId{"edge_effect_a_to_b"},
@@ -252,8 +233,7 @@ grapple::projection::RenderPlan makeEffectChainPlan(double effectAParam, double 
         grapple::graph::PortName{"output"},
         grapple::foundation::NodeId{"node_effect_b"},
         grapple::graph::PortName{"input"},
-        3,
-        true
+        3
       }
     }
   });
@@ -266,18 +246,6 @@ grapple::projection::RenderPlan makeEffectChainPlanWithAssetVersion(std::string 
   return plan;
 }
 
-grapple::projection::RenderPlan makeEffectChainPlanWithDisabledLink(double effectAParam) {
-  grapple::projection::RenderPlan plan = makeEffectChainPlan(effectAParam);
-  plan.effectGraphs[0].edges[3].enabled = false;
-  return plan;
-}
-
-grapple::projection::RenderPlan makeEffectChainPlanWithDisabledEffect() {
-  grapple::projection::RenderPlan plan = makeEffectChainPlan(0.1);
-  plan.effectGraphs[0].nodes[1].enabled = false;
-  return plan;
-}
-
 grapple::projection::RenderPlan makeOutOfOrderEffectChainPlan(double effectAParam) {
   grapple::projection::RenderPlan plan = makeClipPlan(1.0);
   plan.effectGraphs.push_back(grapple::projection::RenderEffectGraph{
@@ -286,13 +254,11 @@ grapple::projection::RenderPlan makeOutOfOrderEffectChainPlan(double effectAPara
     {
       grapple::projection::RenderEffectNode{
         grapple::foundation::NodeId{"node_effect_b"},
-        makeEffectPayload("Effect B", 0.2),
-        true
+        makeEffectPayload("Effect B", 0.2)
       },
       grapple::projection::RenderEffectNode{
         grapple::foundation::NodeId{"node_effect_a"},
-        makeEffectPayload("Effect A", effectAParam),
-        true
+        makeEffectPayload("Effect A", effectAParam)
       }
     },
     {
@@ -302,8 +268,7 @@ grapple::projection::RenderPlan makeOutOfOrderEffectChainPlan(double effectAPara
         grapple::graph::PortName{"frame"},
         grapple::foundation::NodeId{"node_clip"},
         grapple::graph::PortName{"input"},
-        0,
-        true
+        0
       },
       grapple::projection::RenderEffectEdge{
         grapple::foundation::EdgeId{"edge_effect_a_targets_clip"},
@@ -311,8 +276,7 @@ grapple::projection::RenderPlan makeOutOfOrderEffectChainPlan(double effectAPara
         grapple::graph::PortName{"frame"},
         grapple::foundation::NodeId{"node_clip"},
         grapple::graph::PortName{"input"},
-        1,
-        true
+        1
       },
       grapple::projection::RenderEffectEdge{
         grapple::foundation::EdgeId{"edge_effect_a_to_b"},
@@ -320,8 +284,7 @@ grapple::projection::RenderPlan makeOutOfOrderEffectChainPlan(double effectAPara
         grapple::graph::PortName{"output"},
         grapple::foundation::NodeId{"node_effect_b"},
         grapple::graph::PortName{"input"},
-        2,
-        true
+        2
       }
     }
   });
@@ -352,7 +315,6 @@ int main() {
   const runtime::RuntimeDependencyGraph changed = planner.build(makePlan("Changed"));
   const runtime::RuntimeDependencyGraph firstClip = planner.build(makeClipPlan(1.0));
   const runtime::RuntimeDependencyGraph changedClip = planner.build(makeClipPlan(2.0));
-  const runtime::RuntimeDependencyGraph disabledClip = planner.build(makeDisabledClipPlan());
   const runtime::RuntimeDependencyGraph renamedLayerClip = planner.build(makeClipPlanWithLayerName("Renamed"));
   const runtime::RuntimeDependencyGraph firstEffect = planner.build(makeEffectPlan("def prepare(): pass"));
   const runtime::RuntimeDependencyGraph changedEffect = planner.build(makeEffectPlan("def prepare(): return 1"));
@@ -370,7 +332,6 @@ int main() {
   GRAPPLE_REQUIRE(firstClip.nodes[0].assetDependencies[0].assetId == foundation::AssetId{"asset_video"});
   GRAPPLE_REQUIRE(firstClip.nodes[0].assetDependencies[0].versionHash == foundation::stableHash("asset_video_v1"));
   GRAPPLE_REQUIRE(!(firstClip.nodes[0].paramsHash == changedClip.nodes[0].paramsHash));
-  GRAPPLE_REQUIRE(disabledClip.nodes.empty());
   const foundation::TimeRange expectedClipRange{
     foundation::TimeSeconds{0.0},
     foundation::TimeSeconds{10.0}
@@ -428,14 +389,6 @@ int main() {
     "runtime_v1"
   );
   GRAPPLE_REQUIRE(!(effectBCacheKey.inputsHash == changedEffectBCacheKey.inputsHash));
-  const runtime::RuntimeDependencyGraph disabledLinkEffectChain = planner.build(makeEffectChainPlanWithDisabledLink(0.1));
-  GRAPPLE_REQUIRE(disabledLinkEffectChain.nodes[2].inputDependencies.size() == 1);
-  GRAPPLE_REQUIRE(disabledLinkEffectChain.nodes[2].inputDependencies[0] == runtime::RuntimeDependencyId{"dep_node_clip"});
-  const runtime::RuntimeDependencyGraph disabledEffectChain = planner.build(makeEffectChainPlanWithDisabledEffect());
-  GRAPPLE_REQUIRE(disabledEffectChain.nodes.size() == 3);
-  GRAPPLE_REQUIRE(disabledEffectChain.nodes[0].id == runtime::RuntimeDependencyId{"dep_node_clip"});
-  GRAPPLE_REQUIRE(disabledEffectChain.nodes[1].id == runtime::RuntimeDependencyId{"dep_node_effect_a"});
-  GRAPPLE_REQUIRE(disabledEffectChain.nodes[2].id == runtime::RuntimeDependencyId{"dep_node_effect_c"});
   const runtime::RuntimeInvalidationResult effectAParamInvalidation = planner.diff(runtime::RuntimeInvalidationRequest{
     effectChain,
     makeEffectChainPlan(0.9),
@@ -458,13 +411,6 @@ int main() {
   GRAPPLE_REQUIRE(outOfOrderEffectInvalidation.invalidatedDependencies.size() == 2);
   GRAPPLE_REQUIRE(outOfOrderEffectInvalidation.invalidatedDependencies[0] == runtime::RuntimeDependencyId{"dep_node_effect_a"});
   GRAPPLE_REQUIRE(outOfOrderEffectInvalidation.invalidatedDependencies[1] == runtime::RuntimeDependencyId{"dep_node_effect_b"});
-  const runtime::RuntimeInvalidationResult disabledLinkEffectInvalidation = planner.diff(runtime::RuntimeInvalidationRequest{
-    disabledLinkEffectChain,
-    makeEffectChainPlanWithDisabledLink(0.9),
-    "runtime_v1"
-  });
-  GRAPPLE_REQUIRE(disabledLinkEffectInvalidation.invalidatedDependencies.size() == 1);
-  GRAPPLE_REQUIRE(disabledLinkEffectInvalidation.invalidatedDependencies[0] == runtime::RuntimeDependencyId{"dep_node_effect_a"});
   const runtime::RuntimeInvalidationResult clipParamInvalidation = planner.diff(runtime::RuntimeInvalidationRequest{
     effectChain,
     makeEffectChainPlan(0.1, 2.0),

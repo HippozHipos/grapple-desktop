@@ -150,10 +150,6 @@ RuntimeDependencyGraph RuntimeDependencyPlanner::build(const projection::RenderP
   std::vector<RenderNodeDependency> dependencies;
 
   for (const projection::RenderClip& clip : plan.clips) {
-    if (!clip.enabled) {
-      continue;
-    }
-
     const RuntimeDependencyId dependencyId = dependencyIdFor(clip.sourceNodeId);
     graph.nodes.push_back(RuntimeDependencyNode{
       dependencyId,
@@ -168,10 +164,6 @@ RuntimeDependencyGraph RuntimeDependencyPlanner::build(const projection::RenderP
   }
 
   for (const projection::RenderCamera& camera : plan.cameras) {
-    if (!camera.enabled) {
-      continue;
-    }
-
     const RuntimeDependencyId dependencyId = dependencyIdFor(camera.sourceNodeId);
     graph.nodes.push_back(RuntimeDependencyNode{
       dependencyId,
@@ -187,10 +179,6 @@ RuntimeDependencyGraph RuntimeDependencyPlanner::build(const projection::RenderP
 
   for (const projection::RenderEffectGraph& effectGraph : plan.effectGraphs) {
     for (const projection::RenderEffectNode& effectNode : effectGraph.nodes) {
-      if (!effectNode.enabled) {
-        continue;
-      }
-
       const RuntimeDependencyId dependencyId = dependencyIdFor(effectNode.sourceNodeId);
       graph.nodes.push_back(RuntimeDependencyNode{
         dependencyId,
@@ -222,10 +210,6 @@ RuntimeDependencyGraph RuntimeDependencyPlanner::build(const projection::RenderP
       }
 
       for (const projection::RenderEffectEdge& edge : effectGraph.edges) {
-        if (!edge.enabled) {
-          continue;
-        }
-
         if (edge.targetNodeId != effectNode.sourceNodeId) {
           continue;
         }

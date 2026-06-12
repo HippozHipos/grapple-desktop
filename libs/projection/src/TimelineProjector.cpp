@@ -106,7 +106,7 @@ foundation::Result<BuildTimelineIRResult> TimelineProjector::buildTimelineIR(
         return foundation::Error{"projection.track_payload_invalid", "Track node must carry a track payload."};
       }
 
-      timeline.layers.push_back(TimelineLayer{node.id, payload->name, node.enabled});
+      timeline.layers.push_back(TimelineLayer{node.id, payload->name});
     }
 
     if (node.kind == graph::NodeKind::Clip) {
@@ -127,7 +127,7 @@ foundation::Result<BuildTimelineIRResult> TimelineProjector::buildTimelineIR(
             return foundation::Error{"projection.clip_track_invalid", "Clip containment source must be a track."};
           }
 
-          timeline.clips.push_back(TimelineClip{node.id, edge.sourceNodeId, *payload, true});
+          timeline.clips.push_back(TimelineClip{node.id, edge.sourceNodeId, *payload});
           extendDuration(timeline.duration, payload->timelineRange.end);
           foundTrack = true;
           break;
@@ -145,7 +145,7 @@ foundation::Result<BuildTimelineIRResult> TimelineProjector::buildTimelineIR(
         return foundation::Error{"projection.camera_payload_invalid", "Camera node must carry a camera payload."};
       }
 
-      timeline.cameras.push_back(TimelineCamera{node.id, payload->name, payload->transform, payload->lens, node.enabled});
+      timeline.cameras.push_back(TimelineCamera{node.id, payload->name, payload->transform, payload->lens});
     }
 
     if (node.kind == graph::NodeKind::Effect) {
@@ -183,7 +183,7 @@ foundation::Result<BuildTimelineIRResult> TimelineProjector::buildTimelineIR(
     }
 
     TimelineEffectGraph& effectGraph = getOrCreateEffectGraph(timeline.effectGraphs, edge.targetNodeId);
-    effectGraph.nodes.push_back(TimelineEffectNode{effect->id, *payload, true});
+    effectGraph.nodes.push_back(TimelineEffectNode{effect->id, *payload});
     extendDuration(timeline.duration, payload->activeRange.end);
     effectGraph.edges.push_back(TimelineEffectEdge{
       edge.id,
@@ -191,8 +191,7 @@ foundation::Result<BuildTimelineIRResult> TimelineProjector::buildTimelineIR(
       edge.sourcePort,
       edge.targetNodeId,
       edge.targetPort,
-      edge.order,
-      edge.enabled
+      edge.order
     });
     targetedEffectNodeIds.push_back(edge.sourceNodeId);
   }
@@ -229,8 +228,7 @@ foundation::Result<BuildTimelineIRResult> TimelineProjector::buildTimelineIR(
       edge.sourcePort,
       edge.targetNodeId,
       edge.targetPort,
-      edge.order,
-      edge.enabled
+      edge.order
     });
   }
 

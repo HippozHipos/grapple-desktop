@@ -39,27 +39,22 @@ foundation::Result<RuntimeSampleResult> RuntimeEvaluator::sample(
   };
 
   for (const projection::RenderLayer& layer : request.prepared.layers) {
-    if (layer.enabled) {
-      sample.layers.push_back(ResolvedLayer{layer.sourceNodeId, layer.name, layer.enabled});
-    }
+    sample.layers.push_back(ResolvedLayer{layer.sourceNodeId, layer.name});
   }
 
   for (const projection::RenderClip& clip : request.prepared.clips) {
-    if (clip.enabled && clip.payload.timelineRange.contains(request.time)) {
-      sample.clips.push_back(ResolvedClip{clip.sourceNodeId, clip.trackNodeId, clip.payload, clip.enabled});
+    if (clip.payload.timelineRange.contains(request.time)) {
+      sample.clips.push_back(ResolvedClip{clip.sourceNodeId, clip.trackNodeId, clip.payload});
     }
   }
 
   for (const projection::RenderCamera& camera : request.prepared.cameras) {
-    if (camera.enabled) {
-      sample.cameras.push_back(ResolvedCamera{
-        camera.sourceNodeId,
-        camera.name,
-        camera.transform,
-        camera.lens,
-        camera.enabled
-      });
-    }
+    sample.cameras.push_back(ResolvedCamera{
+      camera.sourceNodeId,
+      camera.name,
+      camera.transform,
+      camera.lens
+    });
   }
 
   return RuntimeSampleResult{sample, sample.diagnostics};

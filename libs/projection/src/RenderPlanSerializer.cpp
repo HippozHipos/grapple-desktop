@@ -131,7 +131,7 @@ std::string serializeCanonicalRenderPlan(const RenderPlan& plan) {
     foundation::writeJsonStringProperty(stream, "sourceNodeId", layer.sourceNodeId.value());
     stream << ',';
     foundation::writeJsonStringProperty(stream, "name", layer.name);
-    stream << ",\"enabled\":" << (layer.enabled ? "true" : "false") << '}';
+    stream << '}';
   }
   stream << "],\"clips\":[";
   for (std::size_t index = 0; index < clips.size(); ++index) {
@@ -145,7 +145,7 @@ std::string serializeCanonicalRenderPlan(const RenderPlan& plan) {
     foundation::writeJsonStringProperty(stream, "trackNodeId", clip.trackNodeId.value());
     stream << ",\"payload\":";
     stream << timeline::serializeCanonicalClipPayload(clip.payload);
-    stream << ",\"enabled\":" << (clip.enabled ? "true" : "false") << '}';
+    stream << '}';
   }
   stream << "],\"cameras\":[";
   for (std::size_t index = 0; index < cameras.size(); ++index) {
@@ -161,7 +161,7 @@ std::string serializeCanonicalRenderPlan(const RenderPlan& plan) {
     stream << timeline::serializeCanonicalTransform(camera.transform);
     stream << ",\"lens\":{\"focalLength\":";
     writeNumber(stream, camera.lens.focalLength);
-    stream << "},\"enabled\":" << (camera.enabled ? "true" : "false") << '}';
+    stream << "}}";
   }
   stream << "],\"effectGraphs\":[";
   for (std::size_t graphIndex = 0; graphIndex < effectGraphs.size(); ++graphIndex) {
@@ -183,7 +183,7 @@ std::string serializeCanonicalRenderPlan(const RenderPlan& plan) {
       foundation::writeJsonStringProperty(stream, "sourceNodeId", node.sourceNodeId.value());
       stream << ",\"payload\":";
       stream << timeline::serializeCanonicalEffectPayload(node.payload);
-      stream << ",\"enabled\":" << (node.enabled ? "true" : "false") << '}';
+      stream << '}';
     }
     stream << "],\"edges\":[";
     for (std::size_t edgeIndex = 0; edgeIndex < effectGraph.edges.size(); ++edgeIndex) {
@@ -202,7 +202,7 @@ std::string serializeCanonicalRenderPlan(const RenderPlan& plan) {
       stream << ',';
       foundation::writeJsonStringProperty(stream, "targetPort", edge.targetPort.value);
       stream << ",\"order\":" << edge.order;
-      stream << ",\"enabled\":" << (edge.enabled ? "true" : "false") << '}';
+      stream << '}';
     }
     stream << "]}";
   }

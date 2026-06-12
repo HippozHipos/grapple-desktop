@@ -25,14 +25,12 @@ struct TimelineAsset {
 struct TimelineLayer {
   foundation::NodeId sourceNodeId;
   std::string name;
-  bool enabled = true;
 };
 
 struct TimelineClip {
   foundation::NodeId sourceNodeId;
   foundation::NodeId trackNodeId;
   timeline::ClipPayload payload;
-  bool enabled = true;
 };
 
 struct TimelineCamera {
@@ -40,13 +38,11 @@ struct TimelineCamera {
   std::string name;
   timeline::Transform transform;
   timeline::CameraLens lens;
-  bool enabled = true;
 };
 
 struct TimelineEffectNode {
   foundation::NodeId sourceNodeId;
   timeline::EffectPayload payload;
-  bool enabled = true;
 };
 
 struct TimelineEffectEdge {
@@ -56,7 +52,6 @@ struct TimelineEffectEdge {
   foundation::NodeId targetNodeId;
   graph::PortName targetPort;
   std::int64_t order = 0;
-  bool enabled = true;
 };
 
 struct TimelineEffectGraph {

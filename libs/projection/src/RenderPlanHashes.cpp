@@ -13,8 +13,7 @@ foundation::Hash256 hashRenderClipImplementation() {
 foundation::Hash256 hashRenderClipParams(const RenderClip& clip) {
   std::ostringstream stream;
   stream << "clip|" << clip.trackNodeId.value() << '|'
-         << timeline::serializeCanonicalClipPayload(clip.payload) << '|'
-         << (clip.enabled ? "1" : "0");
+         << timeline::serializeCanonicalClipPayload(clip.payload);
   return foundation::stableHash(stream.str());
 }
 
@@ -29,8 +28,7 @@ foundation::Hash256 hashRenderCameraParams(const RenderCamera& camera) {
               camera.name,
               camera.transform,
               camera.lens
-            }) << '|'
-         << (camera.enabled ? "1" : "0");
+            });
   return foundation::stableHash(stream.str());
 }
 
@@ -40,8 +38,7 @@ foundation::Hash256 hashRenderEffectImplementation(const RenderEffectNode& effec
 
 foundation::Hash256 hashRenderEffectParams(const RenderEffectNode& effectNode) {
   std::ostringstream stream;
-  stream << timeline::serializeCanonicalEffectParams(effectNode.payload) << '|'
-         << (effectNode.enabled ? "1" : "0");
+  stream << timeline::serializeCanonicalEffectParams(effectNode.payload);
   return foundation::stableHash(stream.str());
 }
 

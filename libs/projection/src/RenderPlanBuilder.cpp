@@ -25,22 +25,22 @@ foundation::Result<BuildRenderPlanResult> RenderPlanBuilder::buildRenderPlan(
   }
 
   for (const TimelineLayer& layer : request.timeline.layers) {
-    plan.layers.push_back(RenderLayer{layer.sourceNodeId, layer.name, layer.enabled});
+    plan.layers.push_back(RenderLayer{layer.sourceNodeId, layer.name});
   }
 
   for (const TimelineClip& clip : request.timeline.clips) {
-    plan.clips.push_back(RenderClip{clip.sourceNodeId, clip.trackNodeId, clip.payload, clip.enabled});
+    plan.clips.push_back(RenderClip{clip.sourceNodeId, clip.trackNodeId, clip.payload});
   }
 
   for (const TimelineCamera& camera : request.timeline.cameras) {
-    plan.cameras.push_back(RenderCamera{camera.sourceNodeId, camera.name, camera.transform, camera.lens, camera.enabled});
+    plan.cameras.push_back(RenderCamera{camera.sourceNodeId, camera.name, camera.transform, camera.lens});
   }
 
   for (const TimelineEffectGraph& effectGraph : request.timeline.effectGraphs) {
     RenderEffectGraph renderEffectGraph{effectGraph.id, effectGraph.targetNodeId, {}, {}};
 
     for (const TimelineEffectNode& node : effectGraph.nodes) {
-      renderEffectGraph.nodes.push_back(RenderEffectNode{node.sourceNodeId, node.payload, node.enabled});
+      renderEffectGraph.nodes.push_back(RenderEffectNode{node.sourceNodeId, node.payload});
     }
 
     for (const TimelineEffectEdge& edge : effectGraph.edges) {
@@ -50,8 +50,7 @@ foundation::Result<BuildRenderPlanResult> RenderPlanBuilder::buildRenderPlan(
         edge.sourcePort,
         edge.targetNodeId,
         edge.targetPort,
-        edge.order,
-        edge.enabled
+        edge.order
       });
     }
 

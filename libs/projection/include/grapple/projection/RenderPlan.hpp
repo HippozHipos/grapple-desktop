@@ -25,14 +25,12 @@ struct RenderAsset {
 struct RenderLayer {
   foundation::NodeId sourceNodeId;
   std::string name;
-  bool enabled = true;
 };
 
 struct RenderClip {
   foundation::NodeId sourceNodeId;
   foundation::NodeId trackNodeId;
   timeline::ClipPayload payload;
-  bool enabled = true;
 };
 
 struct RenderCamera {
@@ -40,13 +38,11 @@ struct RenderCamera {
   std::string name;
   timeline::Transform transform;
   timeline::CameraLens lens;
-  bool enabled = true;
 };
 
 struct RenderEffectNode {
   foundation::NodeId sourceNodeId;
   timeline::EffectPayload payload;
-  bool enabled = true;
 };
 
 struct RenderEffectEdge {
@@ -56,7 +52,6 @@ struct RenderEffectEdge {
   foundation::NodeId targetNodeId;
   graph::PortName targetPort;
   std::int64_t order = 0;
-  bool enabled = true;
 };
 
 struct RenderEffectGraph {
