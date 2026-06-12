@@ -522,7 +522,8 @@ int main() {
   GRAPPLE_REQUIRE(sampledRange.value().frames[1].sample.clips.size() == 1);
   GRAPPLE_REQUIRE(sampledRange.value().diagnostics.empty());
 
-  runtime::MemoryRuntimeCache cache;
+  runtime::MemoryRuntimeCache cache{2};
+  GRAPPLE_REQUIRE(cache.capacity() == 2);
   const runtime::RuntimeCacheKey key{
     foundation::ProjectId{"proj_runtime"},
     foundation::NodeId{"node_track"},
@@ -565,6 +566,34 @@ int main() {
   const auto cachedUnrelated = cache.get(unrelatedKey);
   GRAPPLE_REQUIRE(cachedUnrelated.has_value());
   GRAPPLE_REQUIRE(std::get<double>(*cachedUnrelated) == 7.0);
+
+  const auto putAgain = cache.put(key, runtime::RuntimeValue{42.0});
+  GRAPPLE_REQUIRE(putAgain);
+  GRAPPLE_REQUIRE(cache.size() == 2);
+  GRAPPLE_REQUIRE(cache.get(unrelatedKey).has_value());
+  const runtime::RuntimeCacheKey thirdKey{
+    foundation::ProjectId{"proj_runtime"},
+    foundation::NodeId{"node_third"},
+    foundation::stableHash("implementation"),
+    foundation::stableHash("params"),
+    foundation::stableHash("inputs"),
+    {},
+    foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}},
+    "runtime_v1"
+  };
+  const auto putThird = cache.put(thirdKey, runtime::RuntimeValue{9.0});
+  GRAPPLE_REQUIRE(putThird);
+  GRAPPLE_REQUIRE(cache.size() == 2);
+  GRAPPLE_REQUIRE(!cache.get(key).has_value());
+  GRAPPLE_REQUIRE(cache.get(unrelatedKey).has_value());
+  const auto thirdCached = cache.get(thirdKey);
+  GRAPPLE_REQUIRE(thirdCached.has_value());
+  GRAPPLE_REQUIRE(std::get<double>(*thirdCached) == 9.0);
+
+  runtime::MemoryRuntimeCache zeroCapacityCache{0};
+  const auto zeroCapacityPut = zeroCapacityCache.put(key, runtime::RuntimeValue{1.0});
+  GRAPPLE_REQUIRE(!zeroCapacityPut);
+  GRAPPLE_REQUIRE(zeroCapacityPut.error().code == "runtime.cache_capacity_empty");
 
   return 0;
 }
