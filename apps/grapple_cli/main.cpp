@@ -16,6 +16,17 @@ void printError(const grapple::foundation::Error& error) {
   std::cerr << error.code << ": " << error.message << '\n';
 }
 
+const char* mediaKindText(grapple::render::RenderedMediaKind kind) {
+  switch (kind) {
+    case grapple::render::RenderedMediaKind::Video:
+      return "video";
+    case grapple::render::RenderedMediaKind::Image:
+      return "image";
+  }
+
+  return "unknown";
+}
+
 } // namespace
 
 int main(int argc, char* argv[]) {
@@ -99,6 +110,16 @@ int main(int argc, char* argv[]) {
 
     std::cout << "revision=" << refresh.value().revision.value() << '\n';
     std::cout << "frame=" << frame.value().frame.description << '\n';
+    std::cout << "mediaFrames=" << frame.value().frame.mediaFrames.size() << '\n';
+    for (const render::RenderedMediaFrame& mediaFrame : frame.value().frame.mediaFrames) {
+      std::cout << "mediaFrame="
+                << mediaFrame.clipNodeId.value() << ','
+                << mediaFrame.trackNodeId.value() << ','
+                << mediaFrame.assetId.value() << ','
+                << mediaKindText(mediaFrame.kind) << ','
+                << mediaFrame.sourceTime.value
+                << '\n';
+    }
     return 0;
   }
 

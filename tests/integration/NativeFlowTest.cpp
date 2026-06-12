@@ -272,6 +272,10 @@ int main() {
   });
   GRAPPLE_REQUIRE(previewFrame);
   GRAPPLE_REQUIRE(previewFrame.value().frame.description == "layers=1 clips=1 cameras=1 effects=1");
+  GRAPPLE_REQUIRE(previewFrame.value().frame.mediaFrames.size() == 1);
+  GRAPPLE_REQUIRE(previewFrame.value().frame.mediaFrames[0].assetId == foundation::AssetId{"asset_video"});
+  GRAPPLE_REQUIRE(previewFrame.value().frame.mediaFrames[0].kind == render::RenderedMediaKind::Video);
+  GRAPPLE_REQUIRE(previewFrame.value().frame.mediaFrames[0].sourceTime == foundation::TimeSeconds{1.0});
   GRAPPLE_REQUIRE(previewFrame.value().runtimeDiagnostics.empty());
   GRAPPLE_REQUIRE(effectRuntime.processCount == 1);
 
