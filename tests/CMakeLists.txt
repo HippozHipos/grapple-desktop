@@ -1,4 +1,5 @@
 add_subdirectory(unit/foundation)
+add_subdirectory(unit/asset)
 add_subdirectory(unit/timeline)
 add_subdirectory(unit/graph)
 add_subdirectory(unit/project)
