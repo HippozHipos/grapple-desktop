@@ -52,6 +52,7 @@ public:
   [[nodiscard]] NativeExportSession& exportSession() noexcept;
   [[nodiscard]] media::MediaSourceCatalog& mediaSources() noexcept;
   [[nodiscard]] std::size_t cachedMediaFrameCount() const noexcept;
+  foundation::Result<foundation::AssetId> importMediaFile(foundation::FilePath path);
 
   [[nodiscard]] foundation::Result<project::ProjectQueryResult> query(
     const project::ProjectQuery& query
