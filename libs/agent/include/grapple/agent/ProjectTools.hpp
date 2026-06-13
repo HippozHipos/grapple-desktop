@@ -9,6 +9,7 @@ AgentTool makeAssetListTool();
 AgentTool makeTimelineCreateTrackTool();
 AgentTool makeTimelineCreateClipTool();
 AgentTool makeTimelineMoveClipTool();
+AgentTool makeTimelineTrimClipTool();
 AgentTool makeEffectCreateNodeTool();
 AgentTool makeNoteCreateTool();
 AgentTool makeNoteUpdateTool();

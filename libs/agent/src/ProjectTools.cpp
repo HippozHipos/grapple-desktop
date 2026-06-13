@@ -78,6 +78,31 @@ constexpr const char TimelineMoveClipSchema[] = R"json({
   }
 })json";
 
+constexpr const char TimelineTrimClipSchema[] = R"json({
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["clipNodeId", "timelineRange", "sourceRange"],
+  "properties": {
+    "clipNodeId": {"type": "string"},
+    "timelineRange": {
+      "type": "object",
+      "required": ["start", "end"],
+      "properties": {
+        "start": {"type": "number"},
+        "end": {"type": "number"}
+      }
+    },
+    "sourceRange": {
+      "type": "object",
+      "required": ["start", "end"],
+      "properties": {
+        "start": {"type": "number"},
+        "end": {"type": "number"}
+      }
+    }
+  }
+})json";
+
 constexpr const char EffectCreateNodeSchema[] = R"json({
   "type": "object",
   "additionalProperties": false,
@@ -709,6 +734,78 @@ AgentTool makeTimelineMoveClipTool() {
               << "\"commandId\":" << foundation::jsonQuoted(commandId.value())
               << ",\"clipNodeId\":" << foundation::jsonQuoted(clipNodeId.value())
               << ",\"newStart\":" << newStart.value()
+              << ",\"revision\":" << foundation::jsonQuoted(command.value().afterRevision.value())
+              << '}';
+      return ToolResult{
+        call.toolId,
+        ToolResultStatus::Succeeded,
+        command.value().afterRevision,
+        payload.str(),
+        {}
+      };
+    }
+  };
+}
+
+AgentTool makeTimelineTrimClipTool() {
+  return AgentTool{
+    foundation::ToolId{"tool_timeline_trim_clip"},
+    "timeline.trim_clip",
+    "Trim Timeline Clip",
+    "Trims a clip to explicit timeline and source ranges through Project Core.",
+    TimelineTrimClipSchema,
+    [](const ToolCall& call, AgentToolContext& context) -> foundation::Result<ToolResult> {
+      auto arguments = parseArguments(call.arguments);
+      if (!arguments) {
+        return arguments.error();
+      }
+      auto clipNodeId = requiredStringMember(arguments.value(), "clipNodeId", "$");
+      if (!clipNodeId) {
+        return clipNodeId.error();
+      }
+      auto timelineRangeObject = requiredMember(arguments.value(), "timelineRange", "$");
+      if (!timelineRangeObject) {
+        return timelineRangeObject.error();
+      }
+      auto timelineRange = parseTimeRange(timelineRangeObject.value(), "$.timelineRange");
+      if (!timelineRange) {
+        return timelineRange.error();
+      }
+      auto sourceRangeObject = requiredMember(arguments.value(), "sourceRange", "$");
+      if (!sourceRangeObject) {
+        return sourceRangeObject.error();
+      }
+      auto sourceRange = parseTimeRange(sourceRangeObject.value(), "$.sourceRange");
+      if (!sourceRange) {
+        return sourceRange.error();
+      }
+
+      auto snapshot = readProjectSnapshot(context, "Trim clip");
+      if (!snapshot) {
+        return snapshot.error();
+      }
+
+      const std::int64_t nextRevisionNumber = snapshot.value().revisionNumber + 1;
+      const foundation::CommandId commandId{"cmd_agent_trim_clip_rev_" + std::to_string(nextRevisionNumber)};
+      auto command = context.commands.apply(project::ProjectCommandEnvelope{
+        commandId,
+        call.projectId,
+        call.expectedRevision,
+        project::CommandSource{project::CommandSourceKind::Agent, call.runId, "agent"},
+        project::TrimClipCommand{
+          foundation::NodeId{clipNodeId.value()},
+          timelineRange.value(),
+          sourceRange.value()
+        }
+      });
+      if (!command) {
+        return command.error();
+      }
+
+      std::ostringstream payload;
+      payload << '{'
+              << "\"commandId\":" << foundation::jsonQuoted(commandId.value())
+              << ",\"clipNodeId\":" << foundation::jsonQuoted(clipNodeId.value())
               << ",\"revision\":" << foundation::jsonQuoted(command.value().afterRevision.value())
               << '}';
       return ToolResult{

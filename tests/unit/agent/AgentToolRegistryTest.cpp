@@ -47,18 +47,21 @@ int main() {
   GRAPPLE_REQUIRE(registeredCreateClip);
   const auto registeredMoveClip = registry.registerTool(agent::makeTimelineMoveClipTool());
   GRAPPLE_REQUIRE(registeredMoveClip);
+  const auto registeredTrimClip = registry.registerTool(agent::makeTimelineTrimClipTool());
+  GRAPPLE_REQUIRE(registeredTrimClip);
   const auto registeredCreateEffect = registry.registerTool(agent::makeEffectCreateNodeTool());
   GRAPPLE_REQUIRE(registeredCreateEffect);
   const auto registeredCreateNote = registry.registerTool(agent::makeNoteCreateTool());
   GRAPPLE_REQUIRE(registeredCreateNote);
   const auto registeredUpdateNote = registry.registerTool(agent::makeNoteUpdateTool());
   GRAPPLE_REQUIRE(registeredUpdateNote);
-  GRAPPLE_REQUIRE(registry.tools().size() == 8);
+  GRAPPLE_REQUIRE(registry.tools().size() == 9);
   GRAPPLE_REQUIRE(registry.findBySerializedId("project.inspect") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("asset.list") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("timeline.create_track") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("timeline.create_clip") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("timeline.move_clip") != nullptr);
+  GRAPPLE_REQUIRE(registry.findBySerializedId("timeline.trim_clip") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("effect.create_node") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("project.create_effect") == nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("note.create") != nullptr);
@@ -81,6 +84,12 @@ int main() {
   GRAPPLE_REQUIRE(registeredMoveClipTool->schema.find("\"clipNodeId\"") != std::string::npos);
   GRAPPLE_REQUIRE(registeredMoveClipTool->schema.find("\"newStart\"") != std::string::npos);
   GRAPPLE_REQUIRE(registeredMoveClipTool->schema.find("\"commandId\"") == std::string::npos);
+  const agent::AgentTool* registeredTrimClipTool = registry.findBySerializedId("timeline.trim_clip");
+  GRAPPLE_REQUIRE(registeredTrimClipTool != nullptr);
+  GRAPPLE_REQUIRE(registeredTrimClipTool->schema.find("\"clipNodeId\"") != std::string::npos);
+  GRAPPLE_REQUIRE(registeredTrimClipTool->schema.find("\"timelineRange\"") != std::string::npos);
+  GRAPPLE_REQUIRE(registeredTrimClipTool->schema.find("\"sourceRange\"") != std::string::npos);
+  GRAPPLE_REQUIRE(registeredTrimClipTool->schema.find("\"commandId\"") == std::string::npos);
   const agent::AgentTool* registeredCreateEffectTool = registry.findBySerializedId("effect.create_node");
   GRAPPLE_REQUIRE(registeredCreateEffectTool != nullptr);
   GRAPPLE_REQUIRE(registeredCreateEffectTool->schema.find("\"targetNodeId\"") != std::string::npos);
@@ -514,6 +523,39 @@ int main() {
   GRAPPLE_REQUIRE(movedClipPayload->sourceRange.start == foundation::TimeSeconds{1.0});
   GRAPPLE_REQUIRE(movedClipPayload->sourceRange.end == foundation::TimeSeconds{5.0});
   GRAPPLE_REQUIRE(movedClipPayload->assetId == foundation::AssetId{"asset_video"});
+
+  const agent::AgentTool* trimClip = registry.findBySerializedId("timeline.trim_clip");
+  GRAPPLE_REQUIRE(trimClip != nullptr);
+  const auto trimClipResult = trimClip->handler(
+    agent::ToolCall{
+      foundation::ToolId{"tool_timeline_trim_clip"},
+      foundation::RunId{"run_1"},
+      foundation::ProjectId{"proj_agent"},
+      moveClipResult.value().observedRevision,
+      R"({
+        "clipNodeId": "node_agent_clip_rev_8",
+        "timelineRange": {"start": 3, "end": 5},
+        "sourceRange": {"start": 2, "end": 4}
+      })"
+    },
+    context
+  );
+  GRAPPLE_REQUIRE(trimClipResult);
+  GRAPPLE_REQUIRE(trimClipResult.value().status == agent::ToolResultStatus::Succeeded);
+  GRAPPLE_REQUIRE(trimClipResult.value().observedRevision == foundation::RevisionId{"rev_10"});
+  GRAPPLE_REQUIRE(trimClipResult.value().payload == "{\"commandId\":\"cmd_agent_trim_clip_rev_10\",\"clipNodeId\":\"node_agent_clip_rev_8\",\"revision\":\"rev_10\"}");
+
+  const auto afterTrimSnapshot = project.snapshot();
+  GRAPPLE_REQUIRE(afterTrimSnapshot);
+  const graph::GraphNode* trimmedClipNode = afterTrimSnapshot.value().graph.findNode(foundation::NodeId{"node_agent_clip_rev_8"});
+  GRAPPLE_REQUIRE(trimmedClipNode != nullptr);
+  const auto* trimmedClipPayload = std::get_if<timeline::ClipPayload>(&trimmedClipNode->payload);
+  GRAPPLE_REQUIRE(trimmedClipPayload != nullptr);
+  GRAPPLE_REQUIRE(trimmedClipPayload->timelineRange.start == foundation::TimeSeconds{3.0});
+  GRAPPLE_REQUIRE(trimmedClipPayload->timelineRange.end == foundation::TimeSeconds{5.0});
+  GRAPPLE_REQUIRE(trimmedClipPayload->sourceRange.start == foundation::TimeSeconds{2.0});
+  GRAPPLE_REQUIRE(trimmedClipPayload->sourceRange.end == foundation::TimeSeconds{4.0});
+  GRAPPLE_REQUIRE(trimmedClipPayload->assetId == foundation::AssetId{"asset_video"});
 
   return 0;
 }
