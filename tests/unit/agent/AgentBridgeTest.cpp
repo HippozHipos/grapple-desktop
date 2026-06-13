@@ -69,7 +69,8 @@ int main() {
   };
   TestModelService models;
   agent::AgentToolContext context{project, project, models};
-  agent::AgentBridge bridge{registry, context, log};
+  std::int64_t nextSequence = 1;
+  agent::AgentBridge bridge{registry, context, log, nextSequence};
 
   const auto result = bridge.dispatchToolCall(agent::AgentToolDispatchRequest{
     foundation::RunId{"run_bridge"},
@@ -113,7 +114,8 @@ int main() {
   GRAPPLE_REQUIRE(state.runs[0].toolCalls[0].status == agent::AgentConversationToolCallStatus::Succeeded);
 
   agent::AgentRunEventLog missingToolLog;
-  agent::AgentBridge missingToolBridge{registry, context, missingToolLog};
+  std::int64_t missingToolNextSequence = 1;
+  agent::AgentBridge missingToolBridge{registry, context, missingToolLog, missingToolNextSequence};
   const auto missingTool = missingToolBridge.dispatchToolCall(agent::AgentToolDispatchRequest{
     foundation::RunId{"run_bridge"},
     foundation::ProjectId{"proj_bridge"},

@@ -1,4 +1,6 @@
 find_package(OpenCV REQUIRED COMPONENTS core imgproc videoio)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(JSONCPP REQUIRED jsoncpp)
 
 add_library(grapple_app
   src/NativeEffectSession.cpp
@@ -30,9 +32,16 @@ target_link_libraries(grapple_app
     Grapple::Storage
   PRIVATE
     ${OpenCV_LIBS}
+    ${JSONCPP_LIBRARIES}
 )
 
 target_include_directories(grapple_app
   PRIVATE
     ${OpenCV_INCLUDE_DIRS}
+    ${JSONCPP_INCLUDE_DIRS}
+)
+
+target_link_directories(grapple_app
+  PRIVATE
+    ${JSONCPP_LIBRARY_DIRS}
 )

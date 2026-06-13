@@ -48,10 +48,12 @@ std::string errorResultJson(const foundation::Error& error) {
 AgentBridge::AgentBridge(
   const AgentToolRegistry& tools,
   AgentToolContext& context,
-  IAgentRunEventSink& events
+  IAgentRunEventSink& events,
+  std::int64_t& nextSequence
 ) : tools_{tools},
     context_{context},
-    events_{events} {}
+    events_{events},
+    nextSequence_{nextSequence} {}
 
 foundation::Result<ToolResult> AgentBridge::dispatchToolCall(const AgentToolDispatchRequest& request) {
   auto started = appendEvent(

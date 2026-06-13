@@ -24,7 +24,8 @@ public:
   AgentBridge(
     const AgentToolRegistry& tools,
     AgentToolContext& context,
-    IAgentRunEventSink& events
+    IAgentRunEventSink& events,
+    std::int64_t& nextSequence
   );
 
   foundation::Result<ToolResult> dispatchToolCall(const AgentToolDispatchRequest& request);
@@ -39,7 +40,7 @@ private:
   const AgentToolRegistry& tools_;
   AgentToolContext& context_;
   IAgentRunEventSink& events_;
-  std::int64_t nextSequence_ = 1;
+  std::int64_t& nextSequence_;
 };
 
 } // namespace grapple::agent
