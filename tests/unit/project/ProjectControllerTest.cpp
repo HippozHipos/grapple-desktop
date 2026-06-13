@@ -69,6 +69,7 @@ int main() {
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::ConnectPorts) == "project.connect_ports");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::DisconnectPorts) == "project.disconnect_ports");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::UpdateEffectParams) == "project.update_effect_params");
+  GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::UpdateEffectParamValue) == "project.update_effect_param_value");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::UpsertEffectParamKeyframe) == "project.upsert_effect_param_keyframe");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::DeleteEffectParamKeyframe) == "project.delete_effect_param_keyframe");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::CreateNote) == "project.create_note");
@@ -96,6 +97,7 @@ int main() {
     project::serializedCommandName(project::CommandKind::ConnectPorts),
     project::serializedCommandName(project::CommandKind::DisconnectPorts),
     project::serializedCommandName(project::CommandKind::UpdateEffectParams),
+    project::serializedCommandName(project::CommandKind::UpdateEffectParamValue),
     project::serializedCommandName(project::CommandKind::UpsertEffectParamKeyframe),
     project::serializedCommandName(project::CommandKind::DeleteEffectParamKeyframe),
     project::serializedCommandName(project::CommandKind::CreateNote),
@@ -935,10 +937,60 @@ int main() {
   GRAPPLE_REQUIRE(std::get<double>(roundTrippedEffect->params.values[0].keyframes[0].value) == 0.75);
   GRAPPLE_REQUIRE(roundTrippedEffect->activeRange.end == foundation::TimeSeconds{1.0});
 
+  const project::ProjectCommandEnvelope updateEffectParamValue{
+    foundation::CommandId{"cmd_update_effect_param_value"},
+    foundation::ProjectId{"proj_effect"},
+    afterTrackEffect.value().revision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::UpdateEffectParamValueCommand{
+      foundation::NodeId{"node_track_effect"},
+      "smoothing",
+      0.4
+    }
+  };
+  GRAPPLE_REQUIRE(project::commandKind(updateEffectParamValue.payload) == project::CommandKind::UpdateEffectParamValue);
+  GRAPPLE_REQUIRE(
+    project::serializeCanonicalCommandPayload(updateEffectParamValue.payload) ==
+    "{\"effectNodeId\":\"node_track_effect\",\"paramName\":\"smoothing\",\"value\":0.40000000000000002}"
+  );
+  const auto parsedUpdateEffectParamValue = project::deserializeCanonicalCommandPayload(
+    project::serializedCommandName(project::CommandKind::UpdateEffectParamValue),
+    project::serializeCanonicalCommandPayload(updateEffectParamValue.payload)
+  );
+  GRAPPLE_REQUIRE(parsedUpdateEffectParamValue);
+  GRAPPLE_REQUIRE(project::commandKind(parsedUpdateEffectParamValue.value()) == project::CommandKind::UpdateEffectParamValue);
+  GRAPPLE_REQUIRE(project::serializeCanonicalCommandPayload(parsedUpdateEffectParamValue.value()) == project::serializeCanonicalCommandPayload(updateEffectParamValue.payload));
+  const auto updateEffectParamValueResult = effectProject.apply(updateEffectParamValue);
+  GRAPPLE_REQUIRE(updateEffectParamValueResult);
+  const auto afterParamValueUpdate = effectProject.snapshot();
+  GRAPPLE_REQUIRE(afterParamValueUpdate);
+  const graph::GraphNode* valueUpdatedEffectNode = afterParamValueUpdate.value().graph.findNode(foundation::NodeId{"node_track_effect"});
+  GRAPPLE_REQUIRE(valueUpdatedEffectNode != nullptr);
+  const auto* valueUpdatedEffect = std::get_if<timeline::EffectPayload>(&valueUpdatedEffectNode->payload);
+  GRAPPLE_REQUIRE(valueUpdatedEffect != nullptr);
+  GRAPPLE_REQUIRE(std::get<double>(valueUpdatedEffect->params.values[0].value) == 0.4);
+  GRAPPLE_REQUIRE(valueUpdatedEffect->params.values[0].control.label == "Smoothing");
+  GRAPPLE_REQUIRE(valueUpdatedEffect->params.values[0].keyframes.size() == 1);
+  GRAPPLE_REQUIRE(valueUpdatedEffect->params.values[0].keyframes[0].id == foundation::KeyframeId{"key_smoothing_1"});
+
+  const auto mismatchedParamValue = effectProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_mismatched_effect_param_value"},
+    foundation::ProjectId{"proj_effect"},
+    afterParamValueUpdate.value().revision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::UpdateEffectParamValueCommand{
+      foundation::NodeId{"node_track_effect"},
+      "smoothing",
+      true
+    }
+  });
+  GRAPPLE_REQUIRE(!mismatchedParamValue);
+  GRAPPLE_REQUIRE(mismatchedParamValue.error().code == "project.effect_param_value_type_mismatch");
+
   const project::ProjectCommandEnvelope upsertEffectKeyframe{
     foundation::CommandId{"cmd_upsert_effect_keyframe"},
     foundation::ProjectId{"proj_effect"},
-    afterTrackEffect.value().revision,
+    afterParamValueUpdate.value().revision,
     project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
     project::UpsertEffectParamKeyframeCommand{
       foundation::NodeId{"node_track_effect"},

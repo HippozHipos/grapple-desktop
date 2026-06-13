@@ -635,6 +635,18 @@ int main() {
   GRAPPLE_REQUIRE(keyframedEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].keyframes[0].keyframeId == foundation::KeyframeId{"key_app_target_x"});
   GRAPPLE_REQUIRE(keyframedEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].keyframes[0].time == foundation::TimeSeconds{1.25});
   GRAPPLE_REQUIRE(keyframedEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].keyframes[0].value == "0.8");
+  const auto appParamValueUpdate = effectEdits.setNumericParam(
+    effectNodeId,
+    "target_x",
+    0.6,
+    userSource()
+  );
+  GRAPPLE_REQUIRE(appParamValueUpdate);
+  const auto valueUpdatedEffectViewModel = effectSession.buildViewModel();
+  GRAPPLE_REQUIRE(valueUpdatedEffectViewModel);
+  GRAPPLE_REQUIRE(valueUpdatedEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].value == "0.6");
+  GRAPPLE_REQUIRE(valueUpdatedEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].keyframes.size() == 1);
+  GRAPPLE_REQUIRE(valueUpdatedEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].keyframes[0].keyframeId == foundation::KeyframeId{"key_app_target_x"});
   const auto appKeyframeDelete = effectEdits.deleteParamKeyframe(
     effectNodeId,
     "target_x",

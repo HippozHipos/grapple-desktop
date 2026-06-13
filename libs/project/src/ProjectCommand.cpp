@@ -38,6 +38,8 @@ CommandKind commandKind(const ProjectCommand& command) {
         return CommandKind::DisconnectPorts;
       } else if constexpr (std::is_same_v<Command, UpdateEffectParamsCommand>) {
         return CommandKind::UpdateEffectParams;
+      } else if constexpr (std::is_same_v<Command, UpdateEffectParamValueCommand>) {
+        return CommandKind::UpdateEffectParamValue;
       } else if constexpr (std::is_same_v<Command, UpsertEffectParamKeyframeCommand>) {
         return CommandKind::UpsertEffectParamKeyframe;
       } else if constexpr (std::is_same_v<Command, DeleteEffectParamKeyframeCommand>) {

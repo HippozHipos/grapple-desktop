@@ -1368,6 +1368,29 @@ foundation::Result<ProjectCommand> deserializeCanonicalCommandPayload(
     }
     return ProjectCommand{UpdateEffectParamsCommand{foundation::NodeId{effectNodeId.value()}, params.value()}};
   }
+  if (serializedName == "project.update_effect_param_value") {
+    auto effectNodeId = requiredStringMember(root.value(), "effectNodeId", "$");
+    if (!effectNodeId) {
+      return effectNodeId.error();
+    }
+    auto paramName = requiredStringMember(root.value(), "paramName", "$");
+    if (!paramName) {
+      return paramName.error();
+    }
+    auto value = requiredMember(root.value(), "value", "$");
+    if (!value) {
+      return value.error();
+    }
+    auto paramValue = parseParamValue(value.value(), "$.value");
+    if (!paramValue) {
+      return paramValue.error();
+    }
+    return ProjectCommand{UpdateEffectParamValueCommand{
+      foundation::NodeId{effectNodeId.value()},
+      paramName.value(),
+      paramValue.value()
+    }};
+  }
   if (serializedName == "project.upsert_effect_param_keyframe") {
     auto effectNodeId = requiredStringMember(root.value(), "effectNodeId", "$");
     if (!effectNodeId) {

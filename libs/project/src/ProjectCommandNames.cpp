@@ -36,6 +36,8 @@ std::string_view serializedCommandName(CommandKind kind) {
       return "project.disconnect_ports";
     case CommandKind::UpdateEffectParams:
       return "project.update_effect_params";
+    case CommandKind::UpdateEffectParamValue:
+      return "project.update_effect_param_value";
     case CommandKind::UpsertEffectParamKeyframe:
       return "project.upsert_effect_param_keyframe";
     case CommandKind::DeleteEffectParamKeyframe:

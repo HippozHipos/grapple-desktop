@@ -5,6 +5,7 @@
 #include <grapple/foundation/Time.hpp>
 #include <grapple/graph/GraphEdge.hpp>
 #include <grapple/project/ProjectSnapshot.hpp>
+#include <grapple/timeline/ParamValue.hpp>
 #include <grapple/timeline/Payloads.hpp>
 
 #include <cstdint>
@@ -30,6 +31,7 @@ enum class CommandKind {
   ConnectPorts,
   DisconnectPorts,
   UpdateEffectParams,
+  UpdateEffectParamValue,
   UpsertEffectParamKeyframe,
   DeleteEffectParamKeyframe,
   CreateNote,
@@ -140,6 +142,12 @@ struct UpdateEffectParamsCommand {
   timeline::ParamSet params;
 };
 
+struct UpdateEffectParamValueCommand {
+  foundation::NodeId effectNodeId;
+  std::string paramName;
+  timeline::ParamValue value;
+};
+
 struct UpsertEffectParamKeyframeCommand {
   foundation::NodeId effectNodeId;
   std::string paramName;
@@ -183,6 +191,7 @@ using ProjectCommand = std::variant<
   ConnectPortsCommand,
   DisconnectPortsCommand,
   UpdateEffectParamsCommand,
+  UpdateEffectParamValueCommand,
   UpsertEffectParamKeyframeCommand,
   DeleteEffectParamKeyframeCommand,
   CreateNoteCommand,

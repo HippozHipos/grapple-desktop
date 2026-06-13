@@ -149,6 +149,8 @@ foundation::Result<void> ProjectController::applyPayload(const ProjectCommand& p
         return handleDisconnectPorts(typedCommand);
       } else if constexpr (std::is_same_v<Command, UpdateEffectParamsCommand>) {
         return handleUpdateEffectParams(typedCommand);
+      } else if constexpr (std::is_same_v<Command, UpdateEffectParamValueCommand>) {
+        return handleUpdateEffectParamValue(typedCommand);
       } else if constexpr (std::is_same_v<Command, UpsertEffectParamKeyframeCommand>) {
         return handleUpsertEffectParamKeyframe(typedCommand);
       } else if constexpr (std::is_same_v<Command, DeleteEffectParamKeyframeCommand>) {
@@ -440,6 +442,34 @@ foundation::Result<void> ProjectController::handleUpdateEffectParams(const Updat
 
   timeline::EffectPayload updated = *payload;
   updated.params = command.params;
+  return document_.graph.replaceNodePayload(command.effectNodeId, std::move(updated));
+}
+
+foundation::Result<void> ProjectController::handleUpdateEffectParamValue(
+  const UpdateEffectParamValueCommand& command
+) {
+  const graph::GraphNode* effect = document_.graph.findNode(command.effectNodeId);
+  if (effect == nullptr || effect->kind != graph::NodeKind::Effect) {
+    return foundation::Error{"project.effect_missing", "Effect param values can only be set on an existing effect node."};
+  }
+
+  const auto* payload = std::get_if<timeline::EffectPayload>(&effect->payload);
+  if (payload == nullptr) {
+    return foundation::Error{"project.effect_payload_invalid", "Effect node must carry an effect payload."};
+  }
+
+  timeline::EffectPayload updated = *payload;
+  auto param = std::find_if(updated.params.values.begin(), updated.params.values.end(), [&](const timeline::Param& current) {
+    return current.name == command.paramName;
+  });
+  if (param == updated.params.values.end()) {
+    return foundation::Error{"project.effect_param_missing", "Effect param value command requires an existing effect parameter."};
+  }
+  if (!sameParamValueType(param->value, command.value)) {
+    return foundation::Error{"project.effect_param_value_type_mismatch", "Effect param value must match the existing parameter value type."};
+  }
+
+  param->value = command.value;
   return document_.graph.replaceNodePayload(command.effectNodeId, std::move(updated));
 }
 
