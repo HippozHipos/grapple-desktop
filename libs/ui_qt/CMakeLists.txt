@@ -2,7 +2,9 @@ find_package(Qt5 REQUIRED COMPONENTS Widgets)
 
 add_library(grapple_ui_qt
   src/EffectParamPanel.cpp
+  src/PreviewSurface.cpp
   src/StewardPanel.cpp
+  src/TimelinePanel.cpp
 )
 
 add_library(Grapple::UiQt ALIAS grapple_ui_qt)
