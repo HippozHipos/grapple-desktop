@@ -48,6 +48,7 @@ int main() {
   GRAPPLE_REQUIRE(registeredCreateEffectTool != nullptr);
   GRAPPLE_REQUIRE(registeredCreateEffectTool->schema.find("\"targetNodeId\"") != std::string::npos);
   GRAPPLE_REQUIRE(registeredCreateEffectTool->schema.find("\"params\"") != std::string::npos);
+  GRAPPLE_REQUIRE(registeredCreateEffectTool->schema.find("\"minItems\": 1") != std::string::npos);
   GRAPPLE_REQUIRE(registeredCreateEffectTool->schema.find("\"numeric\"") != std::string::npos);
   GRAPPLE_REQUIRE(registeredCreateEffectTool->schema.find("\"commandId\"") == std::string::npos);
   GRAPPLE_REQUIRE(registeredCreateEffectTool->schema.find("\"effectNodeId\"") == std::string::npos);
@@ -117,6 +118,66 @@ int main() {
 
   const agent::AgentTool* createEffect = registry.findBySerializedId("project.create_effect");
   GRAPPLE_REQUIRE(createEffect != nullptr);
+  const auto hiddenEffectResult = createEffect->handler(
+    agent::ToolCall{
+      foundation::ToolId{"tool_project_create_effect"},
+      foundation::RunId{"run_1"},
+      foundation::ProjectId{"proj_agent"},
+      camera.value().afterRevision,
+      R"({
+        "targetNodeId": "node_camera",
+        "displayName": "Hidden Effect",
+        "implementationKind": "python",
+        "language": "python",
+        "entrypoint": "prepare",
+        "source": "def prepare(ctx):\n  return {}\n",
+        "sourcePort": "camera_transform",
+        "targetPort": "input",
+        "inputPorts": ["frame"],
+        "outputPorts": ["camera_transform"],
+        "activeRange": {"start": 0, "end": 10},
+        "params": []
+      })"
+    },
+    context
+  );
+  GRAPPLE_REQUIRE(!hiddenEffectResult);
+  GRAPPLE_REQUIRE(hiddenEffectResult.error().code == "agent.tool_arguments_invalid");
+  GRAPPLE_REQUIRE(hiddenEffectResult.error().message.find("at least one editable parameter") != std::string::npos);
+
+  const auto unlabeledEffectResult = createEffect->handler(
+    agent::ToolCall{
+      foundation::ToolId{"tool_project_create_effect"},
+      foundation::RunId{"run_1"},
+      foundation::ProjectId{"proj_agent"},
+      camera.value().afterRevision,
+      R"({
+        "targetNodeId": "node_camera",
+        "displayName": "Unlabeled Effect",
+        "implementationKind": "python",
+        "language": "python",
+        "entrypoint": "prepare",
+        "source": "def prepare(ctx):\n  return {}\n",
+        "sourcePort": "camera_transform",
+        "targetPort": "input",
+        "inputPorts": ["frame"],
+        "outputPorts": ["camera_transform"],
+        "activeRange": {"start": 0, "end": 10},
+        "params": [
+          {
+            "name": "target_x",
+            "value": 0.5,
+            "numeric": {"min": 0, "max": 1, "step": 0.01}
+          }
+        ]
+      })"
+    },
+    context
+  );
+  GRAPPLE_REQUIRE(!unlabeledEffectResult);
+  GRAPPLE_REQUIRE(unlabeledEffectResult.error().code == "agent.tool_arguments_invalid");
+  GRAPPLE_REQUIRE(unlabeledEffectResult.error().message.find("$.params[0].label") != std::string::npos);
+
   const auto createEffectResult = createEffect->handler(
     agent::ToolCall{
       foundation::ToolId{"tool_project_create_effect"},

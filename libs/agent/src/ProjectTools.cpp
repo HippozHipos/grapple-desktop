@@ -61,13 +61,14 @@ constexpr const char ProjectCreateEffectSchema[] = R"json({
     },
     "params": {
       "type": "array",
+      "minItems": 1,
       "items": {
         "type": "object",
-        "required": ["name", "value"],
+        "required": ["name", "label", "value", "numeric"],
         "properties": {
           "name": {"type": "string"},
           "label": {"type": "string"},
-          "value": {"type": ["number", "string", "boolean"]},
+          "value": {"type": "number"},
           "numeric": {
             "type": "object",
             "required": ["min", "max"],
@@ -173,21 +174,18 @@ foundation::Result<timeline::EffectImplementationKind> parseImplementationKind(c
 }
 
 foundation::Result<timeline::ParamValue> parseParamValue(const Json::Value& value, const std::string& path) {
-  if (value.isBool()) {
-    return timeline::ParamValue{value.asBool()};
-  }
-  if (value.isString()) {
-    return timeline::ParamValue{value.asString()};
-  }
   if (value.isNumeric()) {
     return timeline::ParamValue{value.asDouble()};
   }
-  return argumentError(path, "Expected boolean, string, or number.");
+  return argumentError(path, "Expected number.");
 }
 
 foundation::Result<timeline::ParamSet> parseParamSet(const Json::Value& array, const std::string& path) {
   if (!array.isArray()) {
     return argumentError(path, "Expected parameter array.");
+  }
+  if (array.empty()) {
+    return argumentError(path, "Agent-created effects must expose at least one editable parameter.");
   }
 
   timeline::ParamSet params;
@@ -209,37 +207,31 @@ foundation::Result<timeline::ParamSet> parseParamSet(const Json::Value& array, c
       return paramValue.error();
     }
 
-    timeline::Param::Control control;
-    if (array[index].isMember("label")) {
-      auto label = requiredStringMember(array[index], "label", itemPath);
-      if (!label) {
-        return label.error();
-      }
-      control.label = label.value();
+    auto label = requiredStringMember(array[index], "label", itemPath);
+    if (!label) {
+      return label.error();
     }
-    if (array[index].isMember("numeric")) {
-      const Json::Value& numericObject = array[index]["numeric"];
-      if (!numericObject.isObject()) {
-        return argumentError(itemPath + ".numeric", "Expected numeric control object.");
-      }
-      auto min = requiredDoubleMember(numericObject, "min", itemPath + ".numeric");
-      if (!min) {
-        return min.error();
-      }
-      auto max = requiredDoubleMember(numericObject, "max", itemPath + ".numeric");
-      if (!max) {
-        return max.error();
-      }
-      timeline::Param::NumericControl numeric{min.value(), max.value(), std::nullopt};
-      if (numericObject.isMember("step")) {
-        auto step = requiredDoubleMember(numericObject, "step", itemPath + ".numeric");
-        if (!step) {
-          return step.error();
-        }
-        numeric.step = step.value();
-      }
-      control.numeric = numeric;
+    const Json::Value& numericObject = array[index]["numeric"];
+    if (!numericObject.isObject()) {
+      return argumentError(itemPath + ".numeric", "Expected numeric control object.");
     }
+    auto min = requiredDoubleMember(numericObject, "min", itemPath + ".numeric");
+    if (!min) {
+      return min.error();
+    }
+    auto max = requiredDoubleMember(numericObject, "max", itemPath + ".numeric");
+    if (!max) {
+      return max.error();
+    }
+    timeline::Param::NumericControl numeric{min.value(), max.value(), std::nullopt};
+    if (numericObject.isMember("step")) {
+      auto step = requiredDoubleMember(numericObject, "step", itemPath + ".numeric");
+      if (!step) {
+        return step.error();
+      }
+      numeric.step = step.value();
+    }
+    timeline::Param::Control control{label.value(), numeric};
     params.values.push_back(timeline::Param{name.value(), paramValue.value(), control});
   }
   return params;
