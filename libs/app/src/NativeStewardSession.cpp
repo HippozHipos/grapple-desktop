@@ -7,7 +7,6 @@
 #include <grapple/foundation/Json.hpp>
 #include <grapple/graph/GraphNode.hpp>
 #include <grapple/model/ModelService.hpp>
-#include <grapple/project/ProjectCommandService.hpp>
 #include <grapple/runtime/BuiltinEffects.hpp>
 #include <grapple/runtime/RuntimeOutputNames.hpp>
 #include <grapple/timeline/EffectPayload.hpp>
@@ -46,16 +45,6 @@ constexpr const char StewardCreateCameraTransformSchema[] = R"json({
     }
   }
 })json";
-
-class StewardUnusedCommandService final : public project::IProjectCommandService {
-public:
-  foundation::Result<project::ProjectCommandResult> apply(const project::ProjectCommandEnvelope&) override {
-    return foundation::Error{
-      "steward.unexpected_generic_command",
-      "Steward camera transform tool commits through the native package writer."
-    };
-  }
-};
 
 class StewardUnusedModelService final : public model::IModelService {
 public:
@@ -405,9 +394,8 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::c
     return registered.error();
   }
 
-  StewardUnusedCommandService unusedCommands;
   StewardUnusedModelService unusedModels;
-  agent::AgentToolContext toolContext{unusedCommands, project_, unusedModels};
+  agent::AgentToolContext toolContext{commandWriter_, project_, unusedModels};
   agent::AgentBridge bridge{registry, toolContext, events_, nextSequence_};
   auto dispatched = bridge.dispatchToolCall(agent::AgentToolDispatchRequest{
     runId.value(),

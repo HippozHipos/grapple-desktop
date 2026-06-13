@@ -101,6 +101,31 @@ int main() {
   GRAPPLE_REQUIRE(session.packageState().commandLog.records().size() == 1);
   GRAPPLE_REQUIRE(session.packageState().snapshots.records().size() == 1);
 
+  app::NativeProjectSession commandServiceSession{
+    foundation::ProjectId{"proj_app_command_service"},
+    "Command Service App Project",
+    storage::ProjectPackage{
+      foundation::ProjectId{"proj_app_command_service"},
+      foundation::FilePath{"command-service-app.grapple"},
+      1
+    }
+  };
+  app::NativeProjectCommandWriter commandServiceWriter{commandServiceSession};
+  project::IProjectCommandService& commandService = commandServiceWriter;
+  const auto commandServiceResult = commandService.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_agent_create_composition"},
+    foundation::ProjectId{"proj_app_command_service"},
+    foundation::RevisionId{"rev_0"},
+    project::CommandSource{project::CommandSourceKind::Agent, foundation::RunId{"run_agent_service"}, "agent"},
+    project::CreateCompositionCommand{foundation::NodeId{"node_service_composition"}, "Service Main"}
+  });
+  GRAPPLE_REQUIRE(commandServiceResult);
+  GRAPPLE_REQUIRE(commandServiceResult.value().commandId == foundation::CommandId{"cmd_agent_create_composition"});
+  GRAPPLE_REQUIRE(commandServiceResult.value().afterRevision == foundation::RevisionId{"rev_1"});
+  GRAPPLE_REQUIRE(commandServiceSession.packageState().head.has_value());
+  GRAPPLE_REQUIRE(commandServiceSession.packageState().head->lastSnapshotId == foundation::SnapshotId{"snap_cmd_agent_create_composition_1"});
+  GRAPPLE_REQUIRE(commandServiceSession.packageState().snapshots.records().size() == 1);
+
   const auto snapshotQuery = session.query(project::GetProjectSnapshotQuery{});
   GRAPPLE_REQUIRE(snapshotQuery);
   const auto* snapshotResult = std::get_if<project::ProjectSnapshotResult>(&snapshotQuery.value());

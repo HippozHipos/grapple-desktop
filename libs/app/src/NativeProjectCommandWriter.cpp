@@ -76,6 +76,27 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeProjectCommandWri
   );
 }
 
+foundation::Result<project::ProjectCommandResult> NativeProjectCommandWriter::apply(
+  const project::ProjectCommandEnvelope& command
+) {
+  foundation::SnapshotId snapshotId = nextSnapshotId(command.id.value());
+  auto committed = session_.applyAndCommit(
+    command,
+    storage::ProjectCommitRecordOptions{
+      std::chrono::system_clock::now(),
+      storage::SnapshotCommitRecord{
+        snapshotId,
+        foundation::FilePath{"snapshots/" + snapshotId.value() + ".json"},
+        std::nullopt
+      }
+    }
+  );
+  if (!committed) {
+    return committed.error();
+  }
+  return committed.value().commandResult;
+}
+
 foundation::Result<storage::ProjectPackageSessionResult> NativeProjectCommandWriter::restoreCommittedRevision(
   foundation::RevisionId revision,
   project::CommandSource source,

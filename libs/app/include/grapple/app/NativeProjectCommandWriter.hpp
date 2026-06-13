@@ -3,6 +3,7 @@
 #include <grapple/app/NativeProjectSession.hpp>
 #include <grapple/foundation/Result.hpp>
 #include <grapple/project/ProjectCommand.hpp>
+#include <grapple/project/ProjectCommandService.hpp>
 #include <grapple/storage/ProjectCommitBuilder.hpp>
 
 #include <cstdint>
@@ -11,7 +12,7 @@
 
 namespace grapple::app {
 
-class NativeProjectCommandWriter {
+class NativeProjectCommandWriter final : public project::IProjectCommandService {
 public:
   explicit NativeProjectCommandWriter(NativeProjectSession& session);
 
@@ -25,6 +26,9 @@ public:
     project::CommandSource source,
     std::optional<storage::SnapshotCommitRecord> snapshot = std::nullopt
   );
+  foundation::Result<project::ProjectCommandResult> apply(
+    const project::ProjectCommandEnvelope& command
+  ) override;
   foundation::Result<storage::ProjectPackageSessionResult> restoreCommittedRevision(
     foundation::RevisionId revision,
     project::CommandSource source,
