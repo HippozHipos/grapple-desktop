@@ -6,6 +6,7 @@ namespace grapple::agent {
 
 AgentTool makeProjectInspectTool();
 AgentTool makeAssetListTool();
+AgentTool makeAssetImportTool();
 AgentTool makeCompositionInspectTool();
 AgentTool makeTimelineCreateTrackTool();
 AgentTool makeTimelineCreateClipTool();

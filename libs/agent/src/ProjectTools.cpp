@@ -30,6 +30,36 @@ constexpr const char AssetListSchema[] = R"json({
   "properties": {}
 })json";
 
+constexpr const char AssetImportSchema[] = R"json({
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["assetId", "name", "mediaType", "sourcePath"],
+  "properties": {
+    "assetId": {"type": "string"},
+    "name": {"type": "string"},
+    "mediaType": {"enum": ["video", "audio", "image"]},
+    "sourcePath": {"type": "string"},
+    "thumbnailPath": {"type": "string"},
+    "duration": {"type": "number"},
+    "dimensions": {
+      "type": "object",
+      "required": ["width", "height"],
+      "properties": {
+        "width": {"type": "integer"},
+        "height": {"type": "integer"}
+      }
+    },
+    "frameRate": {
+      "type": "object",
+      "required": ["numerator", "denominator"],
+      "properties": {
+        "numerator": {"type": "integer"},
+        "denominator": {"type": "integer"}
+      }
+    }
+  }
+})json";
+
 constexpr const char CompositionInspectSchema[] = R"json({
   "type": "object",
   "additionalProperties": false,
@@ -287,6 +317,20 @@ foundation::Result<std::string> requiredStringMember(const Json::Value& object, 
   return value.value().asString();
 }
 
+foundation::Result<std::optional<std::string>> optionalStringMember(
+  const Json::Value& object,
+  const char* key,
+  const std::string& path
+) {
+  if (!object.isMember(key)) {
+    return std::optional<std::string>{};
+  }
+  if (!object[key].isString()) {
+    return argumentError(path + "." + key, "Expected string.");
+  }
+  return std::optional<std::string>{object[key].asString()};
+}
+
 foundation::Result<double> requiredDoubleMember(const Json::Value& object, const char* key, const std::string& path) {
   auto value = requiredMember(object, key, path);
   if (!value) {
@@ -298,6 +342,20 @@ foundation::Result<double> requiredDoubleMember(const Json::Value& object, const
   return value.value().asDouble();
 }
 
+foundation::Result<std::optional<double>> optionalDoubleMember(
+  const Json::Value& object,
+  const char* key,
+  const std::string& path
+) {
+  if (!object.isMember(key)) {
+    return std::optional<double>{};
+  }
+  if (!object[key].isNumeric()) {
+    return argumentError(path + "." + key, "Expected number.");
+  }
+  return std::optional<double>{object[key].asDouble()};
+}
+
 foundation::Result<std::int64_t> requiredInt64Member(const Json::Value& object, const char* key, const std::string& path) {
   auto value = requiredMember(object, key, path);
   if (!value) {
@@ -307,6 +365,56 @@ foundation::Result<std::int64_t> requiredInt64Member(const Json::Value& object, 
     return argumentError(path + "." + key, "Expected integer.");
   }
   return value.value().asInt64();
+}
+
+foundation::Result<std::optional<foundation::Resolution>> optionalResolutionMember(
+  const Json::Value& object,
+  const char* key,
+  const std::string& path
+) {
+  if (!object.isMember(key)) {
+    return std::optional<foundation::Resolution>{};
+  }
+  if (!object[key].isObject()) {
+    return argumentError(path + "." + key, "Expected object.");
+  }
+  auto width = requiredInt64Member(object[key], "width", path + "." + key);
+  if (!width) {
+    return width.error();
+  }
+  auto height = requiredInt64Member(object[key], "height", path + "." + key);
+  if (!height) {
+    return height.error();
+  }
+  return std::optional<foundation::Resolution>{foundation::Resolution{
+    static_cast<int>(width.value()),
+    static_cast<int>(height.value())
+  }};
+}
+
+foundation::Result<std::optional<foundation::FrameRate>> optionalFrameRateMember(
+  const Json::Value& object,
+  const char* key,
+  const std::string& path
+) {
+  if (!object.isMember(key)) {
+    return std::optional<foundation::FrameRate>{};
+  }
+  if (!object[key].isObject()) {
+    return argumentError(path + "." + key, "Expected object.");
+  }
+  auto numerator = requiredInt64Member(object[key], "numerator", path + "." + key);
+  if (!numerator) {
+    return numerator.error();
+  }
+  auto denominator = requiredInt64Member(object[key], "denominator", path + "." + key);
+  if (!denominator) {
+    return denominator.error();
+  }
+  return std::optional<foundation::FrameRate>{foundation::FrameRate{
+    static_cast<std::int32_t>(numerator.value()),
+    static_cast<std::int32_t>(denominator.value())
+  }};
 }
 
 foundation::Result<Json::Value> requiredArrayMember(const Json::Value& object, const char* key, const std::string& path) {
@@ -357,6 +465,19 @@ foundation::Result<timeline::ClipKind> parseClipKind(const std::string& value, c
   }
   if (value == "image") {
     return timeline::ClipKind::Image;
+  }
+  return argumentError(path, "Expected video, audio, or image.");
+}
+
+foundation::Result<asset::AssetMediaType> parseAssetMediaType(const std::string& value, const std::string& path) {
+  if (value == "video") {
+    return asset::AssetMediaType::Video;
+  }
+  if (value == "audio") {
+    return asset::AssetMediaType::Audio;
+  }
+  if (value == "image") {
+    return asset::AssetMediaType::Image;
   }
   return argumentError(path, "Expected video, audio, or image.");
 }
@@ -672,6 +793,104 @@ AgentTool makeAssetListTool() {
         call.toolId,
         ToolResultStatus::Succeeded,
         snapshot.value().revision,
+        payload.str(),
+        {}
+      };
+    }
+  };
+}
+
+AgentTool makeAssetImportTool() {
+  return AgentTool{
+    foundation::ToolId{"tool_asset_import"},
+    "asset.import",
+    "Import Asset",
+    "Registers an explicitly described asset through Project Core.",
+    AssetImportSchema,
+    [](const ToolCall& call, AgentToolContext& context) -> foundation::Result<ToolResult> {
+      auto arguments = parseArguments(call.arguments);
+      if (!arguments) {
+        return arguments.error();
+      }
+      auto assetId = requiredStringMember(arguments.value(), "assetId", "$");
+      if (!assetId) {
+        return assetId.error();
+      }
+      auto name = requiredStringMember(arguments.value(), "name", "$");
+      if (!name) {
+        return name.error();
+      }
+      auto mediaTypeName = requiredStringMember(arguments.value(), "mediaType", "$");
+      if (!mediaTypeName) {
+        return mediaTypeName.error();
+      }
+      auto mediaType = parseAssetMediaType(mediaTypeName.value(), "$.mediaType");
+      if (!mediaType) {
+        return mediaType.error();
+      }
+      auto sourcePath = requiredStringMember(arguments.value(), "sourcePath", "$");
+      if (!sourcePath) {
+        return sourcePath.error();
+      }
+      auto thumbnailPath = optionalStringMember(arguments.value(), "thumbnailPath", "$");
+      if (!thumbnailPath) {
+        return thumbnailPath.error();
+      }
+      auto duration = optionalDoubleMember(arguments.value(), "duration", "$");
+      if (!duration) {
+        return duration.error();
+      }
+      auto dimensions = optionalResolutionMember(arguments.value(), "dimensions", "$");
+      if (!dimensions) {
+        return dimensions.error();
+      }
+      auto frameRate = optionalFrameRateMember(arguments.value(), "frameRate", "$");
+      if (!frameRate) {
+        return frameRate.error();
+      }
+
+      std::optional<foundation::FilePath> parsedThumbnailPath;
+      if (thumbnailPath.value().has_value()) {
+        parsedThumbnailPath = foundation::FilePath{thumbnailPath.value().value()};
+      }
+      std::optional<foundation::TimeSeconds> parsedDuration;
+      if (duration.value().has_value()) {
+        parsedDuration = foundation::TimeSeconds{duration.value().value()};
+      }
+
+      auto command = context.commands.apply(project::ProjectCommandEnvelope{
+        foundation::CommandId{"cmd_agent_import_asset_" + assetId.value()},
+        call.projectId,
+        call.expectedRevision,
+        project::CommandSource{project::CommandSourceKind::Agent, call.runId, "agent"},
+        project::RegisterAssetCommand{
+          asset::Asset{
+            foundation::AssetId{assetId.value()},
+            name.value(),
+            asset::AssetMetadata{
+              mediaType.value(),
+              foundation::FilePath{sourcePath.value()},
+              parsedThumbnailPath,
+              parsedDuration,
+              dimensions.value(),
+              frameRate.value()
+            }
+          }
+        }
+      });
+      if (!command) {
+        return command.error();
+      }
+
+      std::ostringstream payload;
+      payload << '{'
+              << "\"assetId\":" << foundation::jsonQuoted(assetId.value())
+              << ",\"revision\":" << foundation::jsonQuoted(command.value().afterRevision.value())
+              << '}';
+      return ToolResult{
+        call.toolId,
+        ToolResultStatus::Succeeded,
+        command.value().afterRevision,
         payload.str(),
         {}
       };

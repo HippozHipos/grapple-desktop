@@ -41,6 +41,8 @@ int main() {
   GRAPPLE_REQUIRE(registered);
   const auto registeredAssetList = registry.registerTool(agent::makeAssetListTool());
   GRAPPLE_REQUIRE(registeredAssetList);
+  const auto registeredAssetImport = registry.registerTool(agent::makeAssetImportTool());
+  GRAPPLE_REQUIRE(registeredAssetImport);
   const auto registeredCompositionInspect = registry.registerTool(agent::makeCompositionInspectTool());
   GRAPPLE_REQUIRE(registeredCompositionInspect);
   const auto registeredCreateTrack = registry.registerTool(agent::makeTimelineCreateTrackTool());
@@ -63,9 +65,10 @@ int main() {
   GRAPPLE_REQUIRE(registeredCreateNote);
   const auto registeredUpdateNote = registry.registerTool(agent::makeNoteUpdateTool());
   GRAPPLE_REQUIRE(registeredUpdateNote);
-  GRAPPLE_REQUIRE(registry.tools().size() == 13);
+  GRAPPLE_REQUIRE(registry.tools().size() == 14);
   GRAPPLE_REQUIRE(registry.findBySerializedId("project.inspect") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("asset.list") != nullptr);
+  GRAPPLE_REQUIRE(registry.findBySerializedId("asset.import") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("composition.inspect") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("timeline.create_track") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("timeline.create_clip") != nullptr);
@@ -82,6 +85,13 @@ int main() {
   GRAPPLE_REQUIRE(registeredAssetListTool != nullptr);
   GRAPPLE_REQUIRE(registeredAssetListTool->schema.find("\"additionalProperties\": false") != std::string::npos);
   GRAPPLE_REQUIRE(registeredAssetListTool->schema.find("\"commandId\"") == std::string::npos);
+  const agent::AgentTool* registeredAssetImportTool = registry.findBySerializedId("asset.import");
+  GRAPPLE_REQUIRE(registeredAssetImportTool != nullptr);
+  GRAPPLE_REQUIRE(registeredAssetImportTool->schema.find("\"assetId\"") != std::string::npos);
+  GRAPPLE_REQUIRE(registeredAssetImportTool->schema.find("\"mediaType\"") != std::string::npos);
+  GRAPPLE_REQUIRE(registeredAssetImportTool->schema.find("\"sourcePath\"") != std::string::npos);
+  GRAPPLE_REQUIRE(registeredAssetImportTool->schema.find("\"frameRate\"") != std::string::npos);
+  GRAPPLE_REQUIRE(registeredAssetImportTool->schema.find("\"commandId\"") == std::string::npos);
   const agent::AgentTool* registeredCompositionInspectTool = registry.findBySerializedId("composition.inspect");
   GRAPPLE_REQUIRE(registeredCompositionInspectTool != nullptr);
   GRAPPLE_REQUIRE(registeredCompositionInspectTool->schema.find("\"additionalProperties\": false") != std::string::npos);
@@ -396,27 +406,31 @@ int main() {
   GRAPPLE_REQUIRE(!missingNoteUpdateResult);
   GRAPPLE_REQUIRE(missingNoteUpdateResult.error().code == "project.note_missing");
 
-  const auto registerAsset = project.apply(project::ProjectCommandEnvelope{
-    foundation::CommandId{"cmd_register_asset"},
-    foundation::ProjectId{"proj_agent"},
-    updateNoteResult.value().observedRevision,
-    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
-    project::RegisterAssetCommand{
-      asset::Asset{
-        foundation::AssetId{"asset_video"},
-        "Walking Woman",
-        asset::AssetMetadata{
-          asset::AssetMediaType::Video,
-          foundation::FilePath{"/media/walking-woman.mov"},
-          foundation::FilePath{"/media/thumbs/walking-woman.jpg"},
-          foundation::TimeSeconds{10.0},
-          foundation::Resolution{1080, 1920},
-          foundation::FrameRate{30000, 1001}
-        }
-      }
-    }
-  });
-  GRAPPLE_REQUIRE(registerAsset);
+  const agent::AgentTool* importAsset = registry.findBySerializedId("asset.import");
+  GRAPPLE_REQUIRE(importAsset != nullptr);
+  const auto importAssetResult = importAsset->handler(
+    agent::ToolCall{
+      foundation::ToolId{"tool_asset_import"},
+      foundation::RunId{"run_1"},
+      foundation::ProjectId{"proj_agent"},
+      updateNoteResult.value().observedRevision,
+      R"({
+        "assetId": "asset_video",
+        "name": "Walking Woman",
+        "mediaType": "video",
+        "sourcePath": "/media/walking-woman.mov",
+        "thumbnailPath": "/media/thumbs/walking-woman.jpg",
+        "duration": 10,
+        "dimensions": {"width": 1080, "height": 1920},
+        "frameRate": {"numerator": 30000, "denominator": 1001}
+      })"
+    },
+    context
+  );
+  GRAPPLE_REQUIRE(importAssetResult);
+  GRAPPLE_REQUIRE(importAssetResult.value().status == agent::ToolResultStatus::Succeeded);
+  GRAPPLE_REQUIRE(importAssetResult.value().observedRevision == foundation::RevisionId{"rev_6"});
+  GRAPPLE_REQUIRE(importAssetResult.value().payload == "{\"assetId\":\"asset_video\",\"revision\":\"rev_6\"}");
 
   const agent::AgentTool* listAssets = registry.findBySerializedId("asset.list");
   GRAPPLE_REQUIRE(listAssets != nullptr);
@@ -425,7 +439,7 @@ int main() {
       foundation::ToolId{"tool_asset_list"},
       foundation::RunId{"run_1"},
       foundation::ProjectId{"proj_agent"},
-      registerAsset.value().afterRevision,
+      importAssetResult.value().observedRevision,
       ""
     },
     context
@@ -445,7 +459,7 @@ int main() {
       foundation::ToolId{"tool_timeline_create_track"},
       foundation::RunId{"run_1"},
       foundation::ProjectId{"proj_agent"},
-      registerAsset.value().afterRevision,
+      importAssetResult.value().observedRevision,
       R"({
         "compositionNodeId": "node_composition",
         "name": "Agent Track"
