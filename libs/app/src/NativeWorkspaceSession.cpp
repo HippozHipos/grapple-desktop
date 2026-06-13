@@ -35,7 +35,7 @@ project::CommandSource importerSource() {
   return project::CommandSource{
     project::CommandSourceKind::Importer,
     std::nullopt,
-    "desktop"
+    "workspace"
   };
 }
 
