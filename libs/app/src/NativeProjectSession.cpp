@@ -343,6 +343,7 @@ foundation::Result<AppViewModel> NativeProjectSession::buildViewModel() const {
       });
     }
 
+    viewModel.timeline.effectCount += effectGraphRow.effects.size();
     viewModel.timeline.effectGraphs.push_back(std::move(effectGraphRow));
   }
 

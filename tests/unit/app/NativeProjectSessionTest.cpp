@@ -244,6 +244,7 @@ int main() {
   GRAPPLE_REQUIRE(viewModel.value().timeline.clips.empty());
   GRAPPLE_REQUIRE(viewModel.value().timeline.cameras.empty());
   GRAPPLE_REQUIRE(viewModel.value().timeline.effectGraphs.empty());
+  GRAPPLE_REQUIRE(viewModel.value().timeline.effectCount == 0);
 
   const auto manifest = storage::buildProjectPackageManifest(session.packageState());
   GRAPPLE_REQUIRE(manifest);
@@ -621,6 +622,7 @@ int main() {
   GRAPPLE_REQUIRE(effectViewModel.value().timeline.cameras[0].sourceNodeId == effectCameraNodeId);
   GRAPPLE_REQUIRE(effectViewModel.value().timeline.cameras[0].transform == effectCameraTransform);
   GRAPPLE_REQUIRE(effectViewModel.value().timeline.effectGraphs.size() == 1);
+  GRAPPLE_REQUIRE(effectViewModel.value().timeline.effectCount == 1);
   GRAPPLE_REQUIRE(effectViewModel.value().timeline.effectGraphs[0].targetNodeId == effectCameraNodeId);
   GRAPPLE_REQUIRE(effectViewModel.value().timeline.effectGraphs[0].nodeCount == 1);
   GRAPPLE_REQUIRE(effectViewModel.value().timeline.effectGraphs[0].edgeCount == 1);
@@ -691,6 +693,52 @@ int main() {
   const auto unkeyframedEffectViewModel = effectSession.buildViewModel();
   GRAPPLE_REQUIRE(unkeyframedEffectViewModel);
   GRAPPLE_REQUIRE(unkeyframedEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].keyframes.empty());
+  const auto secondEffectCommand = effectWriter.apply(
+    project::CreateEffectCommand{
+      foundation::NodeId{"node_second_effect"},
+      effectCameraNodeId,
+      foundation::EdgeId{"edge_second_effect_targets_camera"},
+      timeline::EffectPayload{
+        "Camera Ease",
+        timeline::EffectImplementation{
+          timeline::EffectImplementationKind::Python,
+          "prepare",
+          timeline::EffectSource{
+            timeline::EffectSourceKind::InlineSource,
+            "python",
+            "def prepare(ctx): return {'ease': True}\n",
+            std::nullopt,
+            foundation::stableHash("def prepare(ctx): return {'ease': True}\n")
+          }
+        },
+        timeline::EffectPortSet{
+          {timeline::EffectPort{"frame"}},
+          {timeline::EffectPort{"camera"}}
+        },
+        timeline::ParamSet{
+          {timeline::Param{
+            "smoothness",
+            0.25,
+            timeline::Param::Control{
+              "Smoothness",
+              timeline::Param::NumericControl{0.0, 1.0, 0.01}
+            }
+          }}
+        },
+        foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{10.0}}
+      },
+      graph::PortName{"camera"},
+      graph::PortName{"input"},
+      1
+    },
+    userSource()
+  );
+  GRAPPLE_REQUIRE(secondEffectCommand);
+  const auto twoEffectViewModel = effectSession.buildViewModel();
+  GRAPPLE_REQUIRE(twoEffectViewModel);
+  GRAPPLE_REQUIRE(twoEffectViewModel.value().timeline.effectGraphs.size() == 1);
+  GRAPPLE_REQUIRE(twoEffectViewModel.value().timeline.effectGraphs[0].effects.size() == 2);
+  GRAPPLE_REQUIRE(twoEffectViewModel.value().timeline.effectCount == 2);
 
   app::NativeProjectSession runtimeProject{
     foundation::ProjectId{"proj_app_runtime"},

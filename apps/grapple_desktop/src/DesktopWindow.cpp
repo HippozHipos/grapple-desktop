@@ -66,7 +66,7 @@ QString summaryText(const grapple::app::AppViewModel& viewModel) {
     QString{"Duration: %1s"}.arg(viewModel.timeline.duration.value, 0, 'f', 2),
     QString{"Media: %1 assets, %2 clips"}.arg(viewModel.assets.count).arg(viewModel.timeline.clips.size()),
     QString{"Cameras: %1"}.arg(viewModel.timeline.cameras.size()),
-    QString{"Editable effects: %1"}.arg(viewModel.timeline.effectGraphs.size()),
+    QString{"Editable effects: %1"}.arg(viewModel.timeline.effectCount),
     QString{"Notes: %1"}.arg(viewModel.notes.rows.size())
   };
 

@@ -126,6 +126,7 @@ struct AppTimelineView {
   std::vector<AppClipRow> clips;
   std::vector<AppCameraRow> cameras;
   std::vector<AppEffectGraphRow> effectGraphs;
+  std::size_t effectCount = 0;
 };
 
 struct AppViewModel {

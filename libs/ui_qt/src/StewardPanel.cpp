@@ -200,7 +200,7 @@ void StewardPanel::setViewModel(
     QString{"%1 clips | %2 cameras | %3 editable effects"}
       .arg(viewModel.timeline.clips.size())
       .arg(viewModel.timeline.cameras.size())
-      .arg(viewModel.timeline.effectGraphs.size()),
+      .arg(viewModel.timeline.effectCount),
     "",
     "Editable controls"
   };
