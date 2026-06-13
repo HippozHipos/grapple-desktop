@@ -729,7 +729,8 @@ int main() {
   GRAPPLE_REQUIRE(runtimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].label == "Position X");
   GRAPPLE_REQUIRE(runtimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[1].label == "Position Y");
   GRAPPLE_REQUIRE(runtimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[2].label == "Zoom");
-  GRAPPLE_REQUIRE(runtimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[2].value == "1");
+  GRAPPLE_REQUIRE(runtimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].value == "0.15");
+  GRAPPLE_REQUIRE(runtimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[2].value == "1.1");
   GRAPPLE_REQUIRE(runtimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[2].numericMin == 0.25);
   GRAPPLE_REQUIRE(runtimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[2].numericMax == 4.0);
   GRAPPLE_REQUIRE(runtimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[2].numericStep == 0.01);
@@ -737,6 +738,20 @@ int main() {
   GRAPPLE_REQUIRE(runtimeEffectViewModel.value().steward.edits[0].revision == foundation::RevisionId{"rev_3"});
   GRAPPLE_REQUIRE(runtimeEffectViewModel.value().steward.edits[0].intent == "Center the subject with an editable camera transform.");
   const foundation::NodeId runtimeEffectNodeId = runtimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].sourceNodeId;
+  const auto initialRuntimeRefresh = runtimeWorkspace.value().preview().refreshFromProject();
+  GRAPPLE_REQUIRE(initialRuntimeRefresh);
+  const auto initialRuntimeFrame = runtimeWorkspace.value().preview().renderFrame(render::RenderFrameRequest{
+    foundation::TimeSeconds{0.0},
+    render::RenderQuality::Draft
+  });
+  GRAPPLE_REQUIRE(initialRuntimeFrame);
+  GRAPPLE_REQUIRE(initialRuntimeFrame.value().runtimeDiagnostics.empty());
+  GRAPPLE_REQUIRE(initialRuntimeFrame.value().frame.cameras.size() == 1);
+  GRAPPLE_REQUIRE(initialRuntimeFrame.value().frame.cameras[0].cameraNodeId == runtimeCameraNodeId);
+  GRAPPLE_REQUIRE(initialRuntimeFrame.value().frame.cameras[0].transform.position.x == 0.15);
+  GRAPPLE_REQUIRE(initialRuntimeFrame.value().frame.cameras[0].transform.position.y == 0.0);
+  GRAPPLE_REQUIRE(initialRuntimeFrame.value().frame.cameras[0].transform.scale.x == 1.1);
+  GRAPPLE_REQUIRE(initialRuntimeFrame.value().frame.cameras[0].transform.scale.y == 1.1);
   const auto updatedRuntimeEffect = runtimeWorkspace.value().effects().setNumericParam(
     runtimeEffectNodeId,
     runtime::builtin_effect::PositionXParam,

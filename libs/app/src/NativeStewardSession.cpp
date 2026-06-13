@@ -28,6 +28,9 @@ namespace grapple::app {
 namespace {
 
 constexpr const char StewardCreateCameraTransformToolId[] = "steward.create_camera_transform";
+constexpr double InitialCameraTransformPositionX = 0.15;
+constexpr double InitialCameraTransformPositionY = 0.0;
+constexpr double InitialCameraTransformZoom = 1.1;
 
 constexpr const char StewardCreateCameraTransformSchema[] = R"json({
   "type": "object",
@@ -113,7 +116,7 @@ timeline::EffectPayload cameraTransformPayload(foundation::TimeRange activeRange
       {
         timeline::Param{
           runtime::builtin_effect::PositionXParam,
-          0.0,
+          InitialCameraTransformPositionX,
           timeline::Param::Control{
             runtime::builtin_effect::PositionXLabel,
             timeline::Param::NumericControl{-1.0, 1.0, 0.01}
@@ -121,7 +124,7 @@ timeline::EffectPayload cameraTransformPayload(foundation::TimeRange activeRange
         },
         timeline::Param{
           runtime::builtin_effect::PositionYParam,
-          0.0,
+          InitialCameraTransformPositionY,
           timeline::Param::Control{
             runtime::builtin_effect::PositionYLabel,
             timeline::Param::NumericControl{-1.0, 1.0, 0.01}
@@ -129,7 +132,7 @@ timeline::EffectPayload cameraTransformPayload(foundation::TimeRange activeRange
         },
         timeline::Param{
           runtime::builtin_effect::ZoomParam,
-          1.0,
+          InitialCameraTransformZoom,
           timeline::Param::Control{
             runtime::builtin_effect::ZoomLabel,
             timeline::Param::NumericControl{0.25, 4.0, 0.01}

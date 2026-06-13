@@ -413,11 +413,11 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_6"} &&
            cameraHasEffect &&
            inspector.find("Camera Transform") != std::string::npos &&
-           inspector.find("Position X (position_x)=0") != std::string::npos &&
+           inspector.find("Position X (position_x)=0.15") != std::string::npos &&
            intentRecorded &&
-           steward.find("Position X=0 [-1..1 step 0.01]") != std::string::npos &&
+           steward.find("Position X=0.15 [-1..1 step 0.01]") != std::string::npos &&
            steward.find("Position Y=0 [-1..1 step 0.01]") != std::string::npos &&
-           steward.find("Zoom=1 [0.25..4 step 0.01]") != std::string::npos &&
+           steward.find("Zoom=1.1 [0.25..4 step 0.01]") != std::string::npos &&
            steward.find("Recent Steward runs") != std::string::npos &&
            steward.find("project edit -> succeeded") != std::string::npos &&
            steward.find("project edit -> failed") != std::string::npos &&
