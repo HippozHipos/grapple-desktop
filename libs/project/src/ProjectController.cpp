@@ -122,6 +122,8 @@ foundation::Result<void> ProjectController::applyPayload(const ProjectCommand& p
         return handleCreateTrack(typedCommand);
       } else if constexpr (std::is_same_v<Command, CreateClipCommand>) {
         return handleCreateClip(typedCommand);
+      } else if constexpr (std::is_same_v<Command, MoveClipCommand>) {
+        return handleMoveClip(typedCommand);
       } else if constexpr (std::is_same_v<Command, UpdateClipCommand>) {
         return handleUpdateClip(typedCommand);
       } else if constexpr (std::is_same_v<Command, DeleteClipCommand>) {
@@ -244,6 +246,29 @@ foundation::Result<void> ProjectController::handleUpdateClip(const UpdateClipCom
   }
 
   return document_.graph.replaceNodePayload(command.nodeId, command.payload);
+}
+
+foundation::Result<void> ProjectController::handleMoveClip(const MoveClipCommand& command) {
+  const graph::GraphNode* clip = document_.graph.findNode(command.nodeId);
+  if (clip == nullptr || clip->kind != graph::NodeKind::Clip) {
+    return foundation::Error{"project.clip_missing", "Clip movement requires an existing clip node."};
+  }
+
+  const auto* payload = std::get_if<timeline::ClipPayload>(&clip->payload);
+  if (payload == nullptr) {
+    return foundation::Error{"project.clip_payload_invalid", "Clip movement requires a clip payload."};
+  }
+  if (command.newStart.value < 0.0) {
+    return foundation::Error{"project.clip_move_before_zero", "Clip movement cannot place a clip before timeline start."};
+  }
+
+  timeline::ClipPayload movedPayload = *payload;
+  const double duration = movedPayload.timelineRange.duration();
+  movedPayload.timelineRange = foundation::TimeRange{
+    command.newStart,
+    foundation::TimeSeconds{command.newStart.value + duration}
+  };
+  return document_.graph.replaceNodePayload(command.nodeId, movedPayload);
 }
 
 foundation::Result<void> ProjectController::handleDeleteClip(const DeleteClipCommand& command) {

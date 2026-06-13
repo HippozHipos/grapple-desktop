@@ -16,6 +16,8 @@ CommandKind commandKind(const ProjectCommand& command) {
         return CommandKind::CreateTrack;
       } else if constexpr (std::is_same_v<Command, CreateClipCommand>) {
         return CommandKind::CreateClip;
+      } else if constexpr (std::is_same_v<Command, MoveClipCommand>) {
+        return CommandKind::MoveClip;
       } else if constexpr (std::is_same_v<Command, UpdateClipCommand>) {
         return CommandKind::UpdateClip;
       } else if constexpr (std::is_same_v<Command, DeleteClipCommand>) {

@@ -51,6 +51,7 @@ int main() {
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::CreateComposition) == "project.create_composition");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::CreateTrack) == "project.create_track");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::CreateClip) == "project.create_clip");
+  GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::MoveClip) == "project.move_clip");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::UpdateClip) == "project.update_clip");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::DeleteClip) == "project.delete_clip");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::CreateCamera) == "project.create_camera");
@@ -432,6 +433,102 @@ int main() {
   });
   GRAPPLE_REQUIRE(!deleteMissingClip);
   GRAPPLE_REQUIRE(deleteMissingClip.error().code == "project.clip_missing");
+
+  project::ProjectController moveClipProject{
+    project::createEmptyProject(foundation::ProjectId{"proj_move_clip"}, "Move Clip Project")
+  };
+  const auto moveClipInitial = moveClipProject.snapshot();
+  GRAPPLE_REQUIRE(moveClipInitial);
+  const auto moveClipComposition = moveClipProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_move_clip_composition"},
+    foundation::ProjectId{"proj_move_clip"},
+    moveClipInitial.value().revision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::CreateCompositionCommand{foundation::NodeId{"node_move_clip_composition"}, "Main"}
+  });
+  GRAPPLE_REQUIRE(moveClipComposition);
+  const auto moveClipTrack = moveClipProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_move_clip_track"},
+    foundation::ProjectId{"proj_move_clip"},
+    moveClipComposition.value().afterRevision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::CreateTrackCommand{
+      foundation::NodeId{"node_move_clip_track"},
+      foundation::NodeId{"node_move_clip_composition"},
+      foundation::EdgeId{"edge_move_clip_contains_track"},
+      "Video"
+    }
+  });
+  GRAPPLE_REQUIRE(moveClipTrack);
+  const auto moveClipCreate = moveClipProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_move_clip_create"},
+    foundation::ProjectId{"proj_move_clip"},
+    moveClipTrack.value().afterRevision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::CreateClipCommand{
+      foundation::NodeId{"node_move_clip"},
+      foundation::NodeId{"node_move_clip_track"},
+      foundation::EdgeId{"edge_move_clip_contains_clip"},
+      timeline::ClipPayload{
+        timeline::ClipKind::Video,
+        foundation::TimeRange{foundation::TimeSeconds{1.0}, foundation::TimeSeconds{6.0}},
+        foundation::TimeRange{foundation::TimeSeconds{3.0}, foundation::TimeSeconds{8.0}},
+        0.5,
+        foundation::AssetId{"asset_move_clip"},
+        timeline::Transform{
+          foundation::Vec2{2.0, 3.0},
+          foundation::Vec2{1.5, 1.5},
+          10.0,
+          0.75
+        }
+      }
+    }
+  });
+  GRAPPLE_REQUIRE(moveClipCreate);
+  const project::ProjectCommandEnvelope moveClip{
+    foundation::CommandId{"cmd_move_clip"},
+    foundation::ProjectId{"proj_move_clip"},
+    moveClipCreate.value().afterRevision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::MoveClipCommand{foundation::NodeId{"node_move_clip"}, foundation::TimeSeconds{4.0}}
+  };
+  GRAPPLE_REQUIRE(project::commandKind(moveClip.payload) == project::CommandKind::MoveClip);
+  GRAPPLE_REQUIRE(project::serializeCanonicalCommandPayload(moveClip.payload) == "{\"nodeId\":\"node_move_clip\",\"newStart\":4}");
+  const auto moveClipResult = moveClipProject.apply(moveClip);
+  GRAPPLE_REQUIRE(moveClipResult);
+  GRAPPLE_REQUIRE(moveClipResult.value().afterRevision == foundation::RevisionId{"rev_4"});
+  const auto afterMoveClip = moveClipProject.snapshot();
+  GRAPPLE_REQUIRE(afterMoveClip);
+  const graph::GraphNode* movedClipNode = afterMoveClip.value().graph.findNode(foundation::NodeId{"node_move_clip"});
+  GRAPPLE_REQUIRE(movedClipNode != nullptr);
+  const auto* movedClip = std::get_if<timeline::ClipPayload>(&movedClipNode->payload);
+  GRAPPLE_REQUIRE(movedClip != nullptr);
+  GRAPPLE_REQUIRE(movedClip->timelineRange.start == foundation::TimeSeconds{4.0});
+  GRAPPLE_REQUIRE(movedClip->timelineRange.end == foundation::TimeSeconds{9.0});
+  GRAPPLE_REQUIRE(movedClip->sourceRange.start == foundation::TimeSeconds{3.0});
+  GRAPPLE_REQUIRE(movedClip->sourceRange.end == foundation::TimeSeconds{8.0});
+  GRAPPLE_REQUIRE(movedClip->playbackRate == 0.5);
+  GRAPPLE_REQUIRE(movedClip->assetId == foundation::AssetId{"asset_move_clip"});
+  GRAPPLE_REQUIRE(movedClip->transform.position.x == 2.0);
+  GRAPPLE_REQUIRE(movedClip->transform.opacity == 0.75);
+  const auto moveClipBeforeZero = moveClipProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_move_clip_before_zero"},
+    foundation::ProjectId{"proj_move_clip"},
+    afterMoveClip.value().revision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::MoveClipCommand{foundation::NodeId{"node_move_clip"}, foundation::TimeSeconds{-1.0}}
+  });
+  GRAPPLE_REQUIRE(!moveClipBeforeZero);
+  GRAPPLE_REQUIRE(moveClipBeforeZero.error().code == "project.clip_move_before_zero");
+  const auto moveMissingClip = moveClipProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_move_missing_clip"},
+    foundation::ProjectId{"proj_move_clip"},
+    afterMoveClip.value().revision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::MoveClipCommand{foundation::NodeId{"node_missing_clip"}, foundation::TimeSeconds{0.0}}
+  });
+  GRAPPLE_REQUIRE(!moveMissingClip);
+  GRAPPLE_REQUIRE(moveMissingClip.error().code == "project.clip_missing");
 
   project::ProjectController cameraProject{
     project::createEmptyProject(foundation::ProjectId{"proj_camera"}, "Camera Project")

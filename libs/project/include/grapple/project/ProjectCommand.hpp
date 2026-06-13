@@ -2,6 +2,7 @@
 
 #include <grapple/asset/Asset.hpp>
 #include <grapple/foundation/StrongId.hpp>
+#include <grapple/foundation/Time.hpp>
 #include <grapple/graph/GraphEdge.hpp>
 #include <grapple/project/ProjectSnapshot.hpp>
 #include <grapple/timeline/Payloads.hpp>
@@ -18,6 +19,7 @@ enum class CommandKind {
   CreateComposition,
   CreateTrack,
   CreateClip,
+  MoveClip,
   UpdateClip,
   DeleteClip,
   CreateCamera,
@@ -68,6 +70,11 @@ struct CreateClipCommand {
   foundation::EdgeId containmentEdgeId;
   timeline::ClipPayload payload;
   std::int64_t order = 0;
+};
+
+struct MoveClipCommand {
+  foundation::NodeId nodeId;
+  foundation::TimeSeconds newStart;
 };
 
 struct UpdateClipCommand {
@@ -144,6 +151,7 @@ using ProjectCommand = std::variant<
   CreateCompositionCommand,
   CreateTrackCommand,
   CreateClipCommand,
+  MoveClipCommand,
   UpdateClipCommand,
   DeleteClipCommand,
   CreateCameraCommand,

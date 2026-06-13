@@ -104,6 +104,9 @@ std::string serializeCanonicalCommandPayload(const ProjectCommand& command) {
         writeIdProperty(stream, "containmentEdgeId", typedCommand.containmentEdgeId.value());
         stream << ",\"payload\":" << timeline::serializeCanonicalClipPayload(typedCommand.payload);
         stream << ",\"order\":" << typedCommand.order;
+      } else if constexpr (std::is_same_v<Command, MoveClipCommand>) {
+        writeIdProperty(stream, "nodeId", typedCommand.nodeId.value());
+        stream << ",\"newStart\":" << typedCommand.newStart.value;
       } else if constexpr (std::is_same_v<Command, UpdateClipCommand>) {
         writeIdProperty(stream, "nodeId", typedCommand.nodeId.value());
         stream << ",\"payload\":" << timeline::serializeCanonicalClipPayload(typedCommand.payload);
