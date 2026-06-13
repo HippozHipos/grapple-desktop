@@ -440,7 +440,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   }
 
   if (openPackageSmoke) {
-    const auto write = workspace.value().project().writePackage();
+    const auto write = workspace.value().writePackage();
     if (!write) {
       printError(write.error());
       return 1;
@@ -464,7 +464,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   if (editSaveSmoke) {
     window.importVideoFile(grapple::foundation::FilePath{"/tmp/grapple-native-demo/walking-woman.avi"});
     window.addSelectedVideoToTimeline();
-    const auto write = workspace.value().project().writePackage();
+    const auto write = workspace.value().writePackage();
     if (!write) {
       printError(write.error());
       return 1;

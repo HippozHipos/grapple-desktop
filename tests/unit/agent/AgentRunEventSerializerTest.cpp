@@ -1,5 +1,6 @@
 #include <grapple/agent/AgentConversationState.hpp>
 #include <grapple/agent/AgentRunEventSerializer.hpp>
+#include <grapple/agent/AgentRunSerializer.hpp>
 
 #include <TestAssert.hpp>
 
@@ -77,6 +78,20 @@ int main() {
   GRAPPLE_REQUIRE(state.runs[0].toolCalls.size() == 1);
   GRAPPLE_REQUIRE(state.runs[0].toolCalls[0].toolSerializedId == "composition.inspect");
   GRAPPLE_REQUIRE(state.runs[0].status == agent::AgentRunStatus::Succeeded);
+
+  const std::string serializedRuns = agent::serializeCanonicalAgentRuns(runs);
+  const std::string expectedRuns =
+    R"([{"id":"run_serialized","projectId":"proj_serialized","parentRunId":null,"status":"running","createdAtMs":900}])";
+  GRAPPLE_REQUIRE(serializedRuns == expectedRuns);
+  const auto deserializedRuns = agent::deserializeCanonicalAgentRuns(serializedRuns);
+  GRAPPLE_REQUIRE(deserializedRuns);
+  GRAPPLE_REQUIRE(agent::serializeCanonicalAgentRuns(deserializedRuns.value()) == serializedRuns);
+
+  const auto invalidRunStatus = agent::deserializeCanonicalAgentRuns(
+    R"([{"id":"run_serialized","projectId":"proj_serialized","parentRunId":null,"status":"missing","createdAtMs":900}])"
+  );
+  GRAPPLE_REQUIRE(!invalidRunStatus);
+  GRAPPLE_REQUIRE(invalidRunStatus.error().code == "agent.run_status_invalid");
 
   const auto invalidKind = agent::deserializeCanonicalAgentRunEvents(
     R"([{"runId":"run_serialized","sequence":1,"kind":"missing_kind","payloadJson":"{}","createdAtMs":1000}])"

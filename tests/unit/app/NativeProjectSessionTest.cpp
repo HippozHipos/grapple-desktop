@@ -720,7 +720,9 @@ int main() {
 
   const auto savedInitial = savedSession.snapshot();
   GRAPPLE_REQUIRE(savedInitial);
-  app::NativeProjectCommandWriter savedWriter{savedSession};
+  auto savedWorkspace = app::NativeWorkspaceSession::fromProject(std::move(savedSession));
+  GRAPPLE_REQUIRE(savedWorkspace);
+  app::NativeProjectCommandWriter& savedWriter = savedWorkspace.value().commandWriter();
   const auto savedComposition = savedWriter.apply(
     project::CreateCompositionCommand{savedWriter.nextNodeId("saved composition"), "Saved Main"},
     userSource(),
@@ -732,14 +734,16 @@ int main() {
   );
   GRAPPLE_REQUIRE(savedComposition);
 
-  const auto savedWrite = savedSession.writePackage();
+  const auto savedWrite = savedWorkspace.value().writePackage();
   GRAPPLE_REQUIRE(savedWrite);
-  GRAPPLE_REQUIRE(savedWrite.value().snapshotPath.value == (packageRoot / "snapshots/rev_1.json").lexically_normal().string());
-  GRAPPLE_REQUIRE(savedWrite.value().manifestPath.value == (packageRoot / "manifest.json").lexically_normal().string());
-  GRAPPLE_REQUIRE(savedWrite.value().commandLogPath.value == (packageRoot / "history/commands.json").lexically_normal().string());
-  GRAPPLE_REQUIRE(savedWrite.value().eventLogPath.value == (packageRoot / "history/events.json").lexically_normal().string());
+  GRAPPLE_REQUIRE(savedWrite.value().project.snapshotPath.value == (packageRoot / "snapshots/rev_1.json").lexically_normal().string());
+  GRAPPLE_REQUIRE(savedWrite.value().project.manifestPath.value == (packageRoot / "manifest.json").lexically_normal().string());
+  GRAPPLE_REQUIRE(savedWrite.value().project.commandLogPath.value == (packageRoot / "history/commands.json").lexically_normal().string());
+  GRAPPLE_REQUIRE(savedWrite.value().project.eventLogPath.value == (packageRoot / "history/events.json").lexically_normal().string());
+  GRAPPLE_REQUIRE(savedWrite.value().agentRunsPath.value == (packageRoot / "agent/runs.json").lexically_normal().string());
+  GRAPPLE_REQUIRE(savedWrite.value().agentEventsPath.value == (packageRoot / "agent/events.json").lexically_normal().string());
 
-  std::ifstream savedSnapshotFile{savedWrite.value().snapshotPath.value, std::ios::binary};
+  std::ifstream savedSnapshotFile{savedWrite.value().project.snapshotPath.value, std::ios::binary};
   GRAPPLE_REQUIRE(savedSnapshotFile.good());
   std::ostringstream savedSnapshotContents;
   savedSnapshotContents << savedSnapshotFile.rdbuf();
@@ -747,30 +751,40 @@ int main() {
   const auto parsedSavedSnapshot = project::deserializeCanonicalProjectSnapshot(savedSnapshotContents.str());
   GRAPPLE_REQUIRE(parsedSavedSnapshot);
   GRAPPLE_REQUIRE(project::serializeCanonicalProjectSnapshot(parsedSavedSnapshot.value()) == savedSnapshotContents.str());
-  std::ifstream savedCommandLogFile{savedWrite.value().commandLogPath.value, std::ios::binary};
+  std::ifstream savedCommandLogFile{savedWrite.value().project.commandLogPath.value, std::ios::binary};
   GRAPPLE_REQUIRE(savedCommandLogFile.good());
   std::ostringstream savedCommandLogContents;
   savedCommandLogContents << savedCommandLogFile.rdbuf();
-  GRAPPLE_REQUIRE(savedCommandLogContents.str() == history::serializeCanonicalCommandLog(savedSession.packageState().commandLog));
-  std::ifstream savedEventLogFile{savedWrite.value().eventLogPath.value, std::ios::binary};
+  GRAPPLE_REQUIRE(savedCommandLogContents.str() == history::serializeCanonicalCommandLog(savedWorkspace.value().project().packageState().commandLog));
+  std::ifstream savedEventLogFile{savedWrite.value().project.eventLogPath.value, std::ios::binary};
   GRAPPLE_REQUIRE(savedEventLogFile.good());
   std::ostringstream savedEventLogContents;
   savedEventLogContents << savedEventLogFile.rdbuf();
-  GRAPPLE_REQUIRE(savedEventLogContents.str() == history::serializeCanonicalEventLog(savedSession.packageState().eventLog));
+  GRAPPLE_REQUIRE(savedEventLogContents.str() == history::serializeCanonicalEventLog(savedWorkspace.value().project().packageState().eventLog));
+  std::ifstream savedAgentRunsFile{savedWrite.value().agentRunsPath.value, std::ios::binary};
+  GRAPPLE_REQUIRE(savedAgentRunsFile.good());
+  std::ostringstream savedAgentRunsContents;
+  savedAgentRunsContents << savedAgentRunsFile.rdbuf();
+  GRAPPLE_REQUIRE(savedAgentRunsContents.str() == "[]");
+  std::ifstream savedAgentEventsFile{savedWrite.value().agentEventsPath.value, std::ios::binary};
+  GRAPPLE_REQUIRE(savedAgentEventsFile.good());
+  std::ostringstream savedAgentEventsContents;
+  savedAgentEventsContents << savedAgentEventsFile.rdbuf();
+  GRAPPLE_REQUIRE(savedAgentEventsContents.str() == "[]");
 
-  const auto savedManifest = storage::buildProjectPackageManifest(savedSession.packageState());
+  const auto savedManifest = storage::buildProjectPackageManifest(savedWorkspace.value().project().packageState());
   GRAPPLE_REQUIRE(savedManifest);
-  std::ifstream savedManifestFile{savedWrite.value().manifestPath.value, std::ios::binary};
+  std::ifstream savedManifestFile{savedWrite.value().project.manifestPath.value, std::ios::binary};
   GRAPPLE_REQUIRE(savedManifestFile.good());
   std::ostringstream savedManifestContents;
   savedManifestContents << savedManifestFile.rdbuf();
   GRAPPLE_REQUIRE(savedManifestContents.str() == storage::serializeCanonicalProjectPackageManifest(savedManifest.value()));
   const storage::ProjectPackageReader reader;
-  const auto readLogs = reader.readHistoryLogs(savedSession.packageState().package);
+  const auto readLogs = reader.readHistoryLogs(savedWorkspace.value().project().packageState().package);
   GRAPPLE_REQUIRE(readLogs);
   GRAPPLE_REQUIRE(history::serializeCanonicalCommandLog(readLogs.value().commandLog) == savedCommandLogContents.str());
   GRAPPLE_REQUIRE(history::serializeCanonicalEventLog(readLogs.value().eventLog) == savedEventLogContents.str());
-  auto openedSavedSession = app::NativeProjectSession::openPackage(savedSession.packageState().package);
+  auto openedSavedSession = app::NativeProjectSession::openPackage(savedWorkspace.value().project().packageState().package);
   GRAPPLE_REQUIRE(openedSavedSession);
   const auto openedSavedViewModel = openedSavedSession.value().buildViewModel();
   GRAPPLE_REQUIRE(openedSavedViewModel);
@@ -850,10 +864,21 @@ int main() {
     foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{4.0}}
   );
   GRAPPLE_REQUIRE(stewardEffect);
-  const auto stewardWrite = stewardWorkspace.value().project().writePackage();
+  const agent::AgentConversationState stewardConversationBeforeSave = stewardWorkspace.value().steward().conversationState();
+  GRAPPLE_REQUIRE(stewardConversationBeforeSave.runs.size() == 1);
+  GRAPPLE_REQUIRE(stewardConversationBeforeSave.runs[0].status == agent::AgentRunStatus::Succeeded);
+  const auto stewardWrite = stewardWorkspace.value().writePackage();
   GRAPPLE_REQUIRE(stewardWrite);
+  GRAPPLE_REQUIRE(stewardWrite.value().agentRunsPath.value == (stewardPackageRoot / "agent/runs.json").lexically_normal().string());
+  GRAPPLE_REQUIRE(stewardWrite.value().agentEventsPath.value == (stewardPackageRoot / "agent/events.json").lexically_normal().string());
   auto reopenedStewardWorkspace = app::NativeWorkspaceSession::openPackageRoot(foundation::FilePath{stewardPackageRoot.string()});
   GRAPPLE_REQUIRE(reopenedStewardWorkspace);
+  const agent::AgentConversationState reopenedStewardConversation = reopenedStewardWorkspace.value().steward().conversationState();
+  GRAPPLE_REQUIRE(reopenedStewardConversation.diagnostics.empty());
+  GRAPPLE_REQUIRE(reopenedStewardConversation.runs.size() == 1);
+  GRAPPLE_REQUIRE(reopenedStewardConversation.runs[0].status == agent::AgentRunStatus::Succeeded);
+  GRAPPLE_REQUIRE(reopenedStewardConversation.runs[0].toolCalls.size() == 1);
+  GRAPPLE_REQUIRE(reopenedStewardConversation.runs[0].toolCalls[0].toolSerializedId == "steward.create_camera_transform");
   const auto reopenedStewardViewModel = reopenedStewardWorkspace.value().project().buildViewModel();
   GRAPPLE_REQUIRE(reopenedStewardViewModel);
   GRAPPLE_REQUIRE(reopenedStewardViewModel.value().project.revision == foundation::RevisionId{"rev_3"});

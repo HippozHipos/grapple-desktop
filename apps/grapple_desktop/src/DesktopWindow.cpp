@@ -1071,16 +1071,18 @@ public:
   }
 
   void savePackage() {
-    const auto write = workspace_.project().writePackage();
+    const auto write = workspace_.writePackage();
     if (!write) {
       appendError(write.error());
       return;
     }
-    log_->append(QString{"Package saved\n%1\n%2\n%3\n%4"}
-      .arg(qString(write.value().snapshotPath.value))
-      .arg(qString(write.value().manifestPath.value))
-      .arg(qString(write.value().commandLogPath.value))
-      .arg(qString(write.value().eventLogPath.value)));
+    log_->append(QString{"Package saved\n%1\n%2\n%3\n%4\n%5\n%6"}
+      .arg(qString(write.value().project.snapshotPath.value))
+      .arg(qString(write.value().project.manifestPath.value))
+      .arg(qString(write.value().project.commandLogPath.value))
+      .arg(qString(write.value().project.eventLogPath.value))
+      .arg(qString(write.value().agentRunsPath.value))
+      .arg(qString(write.value().agentEventsPath.value)));
   }
 
   void openPackageRoot(const grapple::foundation::FilePath& rootPath) {

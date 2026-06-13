@@ -13,11 +13,14 @@
 
 #include <json/json.h>
 
+#include <algorithm>
 #include <chrono>
+#include <cctype>
 #include <memory>
 #include <optional>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <variant>
 
@@ -284,6 +287,38 @@ std::string runFinishedPayload(const std::string& status, const std::string& sum
   return payload.str();
 }
 
+std::int64_t stewardRunNumber(const foundation::RunId& runId) {
+  constexpr std::string_view prefix{"run_steward_"};
+  if (runId.value().rfind(prefix, 0) != 0) {
+    return 0;
+  }
+  const std::string suffix = runId.value().substr(prefix.size());
+  if (suffix.empty() || !std::all_of(suffix.begin(), suffix.end(), [](unsigned char character) {
+    return std::isdigit(character) != 0;
+  })) {
+    return 0;
+  }
+  return std::stoll(suffix);
+}
+
+std::int64_t stewardToolNumberFromPayload(const std::string& payloadJson) {
+  constexpr std::string_view prefix{"\"toolCallId\":\"tool_steward_camera_transform_"};
+  const std::size_t start = payloadJson.find(prefix);
+  if (start == std::string::npos) {
+    return 0;
+  }
+  std::size_t cursor = start + prefix.size();
+  std::string digits;
+  while (cursor < payloadJson.size() && std::isdigit(static_cast<unsigned char>(payloadJson[cursor])) != 0) {
+    digits.push_back(payloadJson[cursor]);
+    ++cursor;
+  }
+  if (digits.empty()) {
+    return 0;
+  }
+  return std::stoll(digits);
+}
+
 agent::AgentTool makeStewardCreateCameraTransformTool(
   NativeProjectSession& project,
   NativeProjectCommandWriter& commandWriter,
@@ -444,6 +479,46 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::c
 agent::AgentConversationState NativeStewardSession::conversationState() const {
   const agent::AgentConversationStateProjector projector;
   return projector.project(runs_, events_.records());
+}
+
+const std::vector<agent::AgentRun>& NativeStewardSession::runs() const noexcept {
+  return runs_;
+}
+
+const std::vector<agent::AgentRunEvent>& NativeStewardSession::events() const noexcept {
+  return events_.records();
+}
+
+foundation::Result<void> NativeStewardSession::restoreConversation(
+  std::vector<agent::AgentRun> runs,
+  std::vector<agent::AgentRunEvent> events
+) {
+  agent::AgentRunEventLog restoredEvents;
+  for (const agent::AgentRunEvent& event : events) {
+    auto appended = restoredEvents.append(event);
+    if (!appended) {
+      return appended.error();
+    }
+  }
+
+  std::int64_t nextRunNumber = 1;
+  for (const agent::AgentRun& run : runs) {
+    nextRunNumber = std::max(nextRunNumber, stewardRunNumber(run.id) + 1);
+  }
+
+  std::int64_t nextToolNumber = 1;
+  std::int64_t nextSequence = 1;
+  for (const agent::AgentRunEvent& event : restoredEvents.records()) {
+    nextToolNumber = std::max(nextToolNumber, stewardToolNumberFromPayload(event.payloadJson) + 1);
+    nextSequence = std::max(nextSequence, event.sequence + 1);
+  }
+
+  runs_ = std::move(runs);
+  events_ = std::move(restoredEvents);
+  nextRunNumber_ = nextRunNumber;
+  nextToolNumber_ = nextToolNumber;
+  nextSequence_ = nextSequence;
+  return {};
 }
 
 foundation::Result<foundation::RunId> NativeStewardSession::startRun(

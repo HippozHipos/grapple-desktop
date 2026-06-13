@@ -15,6 +15,12 @@
 
 namespace grapple::app {
 
+struct NativeWorkspaceWriteResult {
+  NativePackageWriteResult project;
+  foundation::FilePath agentRunsPath;
+  foundation::FilePath agentEventsPath;
+};
+
 class NativeWorkspaceSession final : public project::IProjectQueryService {
 public:
   NativeWorkspaceSession(NativeWorkspaceSession&&) noexcept;
@@ -35,6 +41,7 @@ public:
   foundation::Result<void> replaceWithProject(NativeProjectSession project);
   foundation::Result<void> openPackageInPlace(storage::ProjectPackage package);
   foundation::Result<void> openPackageRootInPlace(foundation::FilePath rootPath);
+  [[nodiscard]] foundation::Result<NativeWorkspaceWriteResult> writePackage() const;
 
   [[nodiscard]] NativeProjectSession& project() noexcept;
   [[nodiscard]] const NativeProjectSession& project() const noexcept;

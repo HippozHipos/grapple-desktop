@@ -25,6 +25,12 @@ public:
   );
 
   [[nodiscard]] agent::AgentConversationState conversationState() const;
+  [[nodiscard]] const std::vector<agent::AgentRun>& runs() const noexcept;
+  [[nodiscard]] const std::vector<agent::AgentRunEvent>& events() const noexcept;
+  foundation::Result<void> restoreConversation(
+    std::vector<agent::AgentRun> runs,
+    std::vector<agent::AgentRunEvent> events
+  );
 
 private:
   foundation::Result<foundation::RunId> startRun(

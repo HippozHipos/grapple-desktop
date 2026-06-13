@@ -1,5 +1,7 @@
 #include <grapple/app/NativeWorkspaceSession.hpp>
 
+#include <grapple/agent/AgentRunEventSerializer.hpp>
+#include <grapple/agent/AgentRunSerializer.hpp>
 #include <grapple/asset/Asset.hpp>
 #include <grapple/media/CachingMediaReader.hpp>
 #include <grapple/media/FrameCache.hpp>
@@ -8,6 +10,9 @@
 #include <grapple/storage/ProjectPackageReader.hpp>
 
 #include <cstdlib>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
 #include <utility>
 #include <variant>
 
@@ -68,6 +73,83 @@ project::RuntimeDiagnosticSummary runtimeDiagnosticSummary(
     diagnostic.location.nodeId,
     diagnostic.message
   };
+}
+
+foundation::FilePath agentRunsRelativePath() {
+  return foundation::FilePath{"agent/runs.json"};
+}
+
+foundation::FilePath agentEventsRelativePath() {
+  return foundation::FilePath{"agent/events.json"};
+}
+
+foundation::Result<std::filesystem::path> packagePath(
+  const storage::ProjectPackage& package,
+  const foundation::FilePath& relativePath
+) {
+  if (package.rootPath.value.empty()) {
+    return foundation::Error{"app.package_root_empty", "Workspace package root path must not be empty."};
+  }
+  if (relativePath.value.empty()) {
+    return foundation::Error{"app.package_sidecar_path_empty", "Workspace sidecar path must not be empty."};
+  }
+  const std::filesystem::path path{relativePath.value};
+  if (path.is_absolute()) {
+    return foundation::Error{"app.package_sidecar_path_absolute", "Workspace sidecar path must be package-relative."};
+  }
+  return std::filesystem::path{package.rootPath.value} / path;
+}
+
+foundation::Result<foundation::FilePath> writePackageTextFile(
+  const storage::ProjectPackage& package,
+  const foundation::FilePath& relativePath,
+  const std::string& contents
+) {
+  auto path = packagePath(package, relativePath);
+  if (!path) {
+    return path.error();
+  }
+
+  const std::filesystem::path parent = path.value().parent_path();
+  if (!parent.empty()) {
+    std::error_code directoryError;
+    std::filesystem::create_directories(parent, directoryError);
+    if (directoryError) {
+      return foundation::Error{"app.package_sidecar_directory_create_failed", directoryError.message()};
+    }
+  }
+
+  std::ofstream output{path.value(), std::ios::binary | std::ios::trunc};
+  if (!output) {
+    return foundation::Error{"app.package_sidecar_open_failed", "Could not open workspace sidecar for writing."};
+  }
+  output << contents;
+  if (!output) {
+    return foundation::Error{"app.package_sidecar_write_failed", "Could not write workspace sidecar."};
+  }
+  return foundation::FilePath{path.value().lexically_normal().string()};
+}
+
+foundation::Result<std::string> readPackageTextFile(
+  const storage::ProjectPackage& package,
+  const foundation::FilePath& relativePath
+) {
+  auto path = packagePath(package, relativePath);
+  if (!path) {
+    return path.error();
+  }
+
+  std::ifstream input{path.value(), std::ios::binary};
+  if (!input) {
+    return foundation::Error{"app.package_sidecar_open_failed", "Could not open workspace sidecar for reading."};
+  }
+
+  std::ostringstream contents;
+  contents << input.rdbuf();
+  if (!input.good() && !input.eof()) {
+    return foundation::Error{"app.package_sidecar_read_failed", "Could not read workspace sidecar."};
+  }
+  return contents.str();
 }
 
 } // namespace
@@ -132,7 +214,33 @@ foundation::Result<NativeWorkspaceSession> NativeWorkspaceSession::openPackage(s
   if (!project) {
     return project.error();
   }
-  return fromProject(std::move(project.value()));
+  auto workspace = fromProject(std::move(project.value()));
+  if (!workspace) {
+    return workspace.error();
+  }
+
+  const storage::ProjectPackage& openedPackage = workspace.value().state_->project.packageState().package;
+  auto runsContents = readPackageTextFile(openedPackage, agentRunsRelativePath());
+  if (!runsContents) {
+    return runsContents.error();
+  }
+  auto eventsContents = readPackageTextFile(openedPackage, agentEventsRelativePath());
+  if (!eventsContents) {
+    return eventsContents.error();
+  }
+  auto runs = agent::deserializeCanonicalAgentRuns(runsContents.value());
+  if (!runs) {
+    return runs.error();
+  }
+  auto events = agent::deserializeCanonicalAgentRunEvents(eventsContents.value());
+  if (!events) {
+    return events.error();
+  }
+  auto restored = workspace.value().state_->steward.restoreConversation(std::move(runs.value()), std::move(events.value()));
+  if (!restored) {
+    return restored.error();
+  }
+  return std::move(workspace.value());
 }
 
 foundation::Result<NativeWorkspaceSession> NativeWorkspaceSession::openPackageRoot(foundation::FilePath rootPath) {
@@ -155,11 +263,12 @@ foundation::Result<void> NativeWorkspaceSession::replaceWithProject(NativeProjec
 }
 
 foundation::Result<void> NativeWorkspaceSession::openPackageInPlace(storage::ProjectPackage package) {
-  auto project = NativeProjectSession::openPackage(std::move(package));
-  if (!project) {
-    return project.error();
+  auto workspace = openPackage(std::move(package));
+  if (!workspace) {
+    return workspace.error();
   }
-  return replaceWithProject(std::move(project.value()));
+  *this = std::move(workspace.value());
+  return {};
 }
 
 foundation::Result<void> NativeWorkspaceSession::openPackageRootInPlace(foundation::FilePath rootPath) {
@@ -205,6 +314,37 @@ media::MediaSourceCatalog& NativeWorkspaceSession::mediaSources() noexcept {
 
 std::size_t NativeWorkspaceSession::cachedMediaFrameCount() const noexcept {
   return state_->frameCache.size();
+}
+
+foundation::Result<NativeWorkspaceWriteResult> NativeWorkspaceSession::writePackage() const {
+  auto projectWrite = state_->project.writePackage();
+  if (!projectWrite) {
+    return projectWrite.error();
+  }
+
+  const storage::ProjectPackage& package = state_->project.packageState().package;
+  auto runsPath = writePackageTextFile(
+    package,
+    agentRunsRelativePath(),
+    agent::serializeCanonicalAgentRuns(state_->steward.runs())
+  );
+  if (!runsPath) {
+    return runsPath.error();
+  }
+  auto eventsPath = writePackageTextFile(
+    package,
+    agentEventsRelativePath(),
+    agent::serializeCanonicalAgentRunEvents(state_->steward.events())
+  );
+  if (!eventsPath) {
+    return eventsPath.error();
+  }
+
+  return NativeWorkspaceWriteResult{
+    projectWrite.value(),
+    runsPath.value(),
+    eventsPath.value()
+  };
 }
 
 foundation::Result<project::ProjectQueryResult> NativeWorkspaceSession::query(
