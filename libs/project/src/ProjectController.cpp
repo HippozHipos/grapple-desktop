@@ -164,6 +164,12 @@ foundation::Result<ProjectQueryResult> ProjectController::readQuery(const Projec
         return ProjectQueryResult{ProjectSnapshotResult{makeProjectSnapshot(document_)}};
       } else if constexpr (std::is_same_v<Query, GetGraphQuery>) {
         return ProjectQueryResult{GraphResult{document_.graph}};
+      } else if constexpr (std::is_same_v<Query, InspectCompositionsQuery>) {
+        auto result = inspectCompositions(makeProjectSnapshot(document_));
+        if (!result) {
+          return result.error();
+        }
+        return ProjectQueryResult{result.value()};
       }
     },
     query

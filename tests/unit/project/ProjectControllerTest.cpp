@@ -117,6 +117,17 @@ int main() {
   GRAPPLE_REQUIRE(finalSnapshot.value().graph.nodes().size() == 2);
   GRAPPLE_REQUIRE(finalSnapshot.value().graph.edges().size() == 1);
 
+  const auto compositionQuery = controller.query(project::InspectCompositionsQuery{});
+  GRAPPLE_REQUIRE(compositionQuery);
+  const auto* compositionResult = std::get_if<project::CompositionInspectResult>(&compositionQuery.value());
+  GRAPPLE_REQUIRE(compositionResult != nullptr);
+  GRAPPLE_REQUIRE(compositionResult->revision == foundation::RevisionId{"rev_2"});
+  GRAPPLE_REQUIRE(compositionResult->compositions.size() == 1);
+  GRAPPLE_REQUIRE(compositionResult->compositions[0].nodeId == foundation::NodeId{"node_composition"});
+  GRAPPLE_REQUIRE(compositionResult->compositions[0].tracks.size() == 1);
+  GRAPPLE_REQUIRE(compositionResult->compositions[0].tracks[0].nodeId == foundation::NodeId{"node_track"});
+  GRAPPLE_REQUIRE(compositionResult->compositions[0].tracks[0].name == "Video");
+
   const project::ProjectCommandEnvelope restoreCompositionSnapshot{
     foundation::CommandId{"cmd_restore_snapshot"},
     foundation::ProjectId{"proj_test"},

@@ -139,6 +139,12 @@ foundation::Result<project::ProjectQueryResult> NativeProjectSession::query(cons
         return project::ProjectQueryResult{project::ProjectSnapshotResult{snapshotResult.value()}};
       } else if constexpr (std::is_same_v<Query, project::GetGraphQuery>) {
         return project::ProjectQueryResult{project::GraphResult{snapshotResult.value().graph}};
+      } else if constexpr (std::is_same_v<Query, project::InspectCompositionsQuery>) {
+        auto result = project::inspectCompositions(snapshotResult.value());
+        if (!result) {
+          return result.error();
+        }
+        return project::ProjectQueryResult{result.value()};
       }
     },
     query

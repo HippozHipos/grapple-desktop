@@ -30,6 +30,12 @@ constexpr const char AssetListSchema[] = R"json({
   "properties": {}
 })json";
 
+constexpr const char CompositionInspectSchema[] = R"json({
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+})json";
+
 constexpr const char TimelineCreateTrackSchema[] = R"json({
   "type": "object",
   "additionalProperties": false,
@@ -486,6 +492,19 @@ const char* assetMediaTypeText(asset::AssetMediaType mediaType) {
   return "unknown";
 }
 
+const char* clipKindText(timeline::ClipKind kind) {
+  switch (kind) {
+    case timeline::ClipKind::Video:
+      return "video";
+    case timeline::ClipKind::Audio:
+      return "audio";
+    case timeline::ClipKind::Image:
+      return "image";
+  }
+
+  return "unknown";
+}
+
 void writeAssetJson(std::ostream& stream, const asset::Asset& asset) {
   stream << '{'
          << "\"assetId\":" << foundation::jsonQuoted(asset.id.value())
@@ -511,6 +530,79 @@ void writeAssetJson(std::ostream& stream, const asset::Asset& asset) {
   }
 
   stream << '}';
+}
+
+void writeCompositionClipJson(std::ostream& stream, const project::CompositionClipSummary& clip) {
+  stream << '{'
+         << "\"nodeId\":" << foundation::jsonQuoted(clip.nodeId.value())
+         << ",\"trackNodeId\":" << foundation::jsonQuoted(clip.trackNodeId.value())
+         << ",\"assetId\":" << foundation::jsonQuoted(clip.assetId.value())
+         << ",\"kind\":" << foundation::jsonQuoted(clipKindText(clip.kind))
+         << ",\"timelineRange\":{\"start\":" << clip.timelineRange.start.value
+         << ",\"end\":" << clip.timelineRange.end.value
+         << "},\"enabled\":" << (clip.enabled ? "true" : "false")
+         << '}';
+}
+
+void writeCompositionTrackJson(std::ostream& stream, const project::CompositionTrackSummary& track) {
+  stream << '{'
+         << "\"nodeId\":" << foundation::jsonQuoted(track.nodeId.value())
+         << ",\"name\":" << foundation::jsonQuoted(track.name)
+         << ",\"enabled\":" << (track.enabled ? "true" : "false")
+         << ",\"clips\":[";
+  for (std::size_t index = 0; index < track.clips.size(); ++index) {
+    if (index != 0) {
+      stream << ',';
+    }
+    writeCompositionClipJson(stream, track.clips[index]);
+  }
+  stream << "]}";
+}
+
+void writeCompositionCameraJson(std::ostream& stream, const project::CompositionCameraSummary& camera) {
+  stream << '{'
+         << "\"nodeId\":" << foundation::jsonQuoted(camera.nodeId.value())
+         << ",\"name\":" << foundation::jsonQuoted(camera.name)
+         << ",\"enabled\":" << (camera.enabled ? "true" : "false")
+         << '}';
+}
+
+void writeCompositionEffectJson(std::ostream& stream, const project::CompositionEffectSummary& effect) {
+  stream << '{'
+         << "\"nodeId\":" << foundation::jsonQuoted(effect.nodeId.value())
+         << ",\"targetNodeId\":" << foundation::jsonQuoted(effect.targetNodeId.value())
+         << ",\"displayName\":" << foundation::jsonQuoted(effect.displayName)
+         << ",\"enabled\":" << (effect.enabled ? "true" : "false")
+         << '}';
+}
+
+void writeCompositionJson(std::ostream& stream, const project::CompositionSummary& composition) {
+  stream << '{'
+         << "\"nodeId\":" << foundation::jsonQuoted(composition.nodeId.value())
+         << ",\"name\":" << foundation::jsonQuoted(composition.name)
+         << ",\"enabled\":" << (composition.enabled ? "true" : "false")
+         << ",\"tracks\":[";
+  for (std::size_t index = 0; index < composition.tracks.size(); ++index) {
+    if (index != 0) {
+      stream << ',';
+    }
+    writeCompositionTrackJson(stream, composition.tracks[index]);
+  }
+  stream << "],\"cameras\":[";
+  for (std::size_t index = 0; index < composition.cameras.size(); ++index) {
+    if (index != 0) {
+      stream << ',';
+    }
+    writeCompositionCameraJson(stream, composition.cameras[index]);
+  }
+  stream << "],\"effects\":[";
+  for (std::size_t index = 0; index < composition.effects.size(); ++index) {
+    if (index != 0) {
+      stream << ',';
+    }
+    writeCompositionEffectJson(stream, composition.effects[index]);
+  }
+  stream << "]}";
 }
 
 } // namespace
@@ -580,6 +672,49 @@ AgentTool makeAssetListTool() {
         call.toolId,
         ToolResultStatus::Succeeded,
         snapshot.value().revision,
+        payload.str(),
+        {}
+      };
+    }
+  };
+}
+
+AgentTool makeCompositionInspectTool() {
+  return AgentTool{
+    foundation::ToolId{"tool_composition_inspect"},
+    "composition.inspect",
+    "Inspect Composition",
+    "Returns authored composition membership through Project Core.",
+    CompositionInspectSchema,
+    [](const ToolCall& call, AgentToolContext& context) -> foundation::Result<ToolResult> {
+      auto query = context.queries.query(project::InspectCompositionsQuery{});
+      if (!query) {
+        return query.error();
+      }
+      const auto* compositionResult = std::get_if<project::CompositionInspectResult>(&query.value());
+      if (compositionResult == nullptr) {
+        return foundation::Error{
+          "agent.composition_inspect_result_missing",
+          "Composition inspect query returned the wrong result type."
+        };
+      }
+
+      std::ostringstream payload;
+      payload << '{'
+              << "\"revision\":" << foundation::jsonQuoted(compositionResult->revision.value())
+              << ",\"compositions\":[";
+      for (std::size_t index = 0; index < compositionResult->compositions.size(); ++index) {
+        if (index != 0) {
+          payload << ',';
+        }
+        writeCompositionJson(payload, compositionResult->compositions[index]);
+      }
+      payload << "]}";
+
+      return ToolResult{
+        call.toolId,
+        ToolResultStatus::Succeeded,
+        compositionResult->revision,
         payload.str(),
         {}
       };

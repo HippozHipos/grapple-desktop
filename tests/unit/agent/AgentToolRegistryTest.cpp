@@ -41,6 +41,8 @@ int main() {
   GRAPPLE_REQUIRE(registered);
   const auto registeredAssetList = registry.registerTool(agent::makeAssetListTool());
   GRAPPLE_REQUIRE(registeredAssetList);
+  const auto registeredCompositionInspect = registry.registerTool(agent::makeCompositionInspectTool());
+  GRAPPLE_REQUIRE(registeredCompositionInspect);
   const auto registeredCreateTrack = registry.registerTool(agent::makeTimelineCreateTrackTool());
   GRAPPLE_REQUIRE(registeredCreateTrack);
   const auto registeredCreateClip = registry.registerTool(agent::makeTimelineCreateClipTool());
@@ -61,9 +63,10 @@ int main() {
   GRAPPLE_REQUIRE(registeredCreateNote);
   const auto registeredUpdateNote = registry.registerTool(agent::makeNoteUpdateTool());
   GRAPPLE_REQUIRE(registeredUpdateNote);
-  GRAPPLE_REQUIRE(registry.tools().size() == 12);
+  GRAPPLE_REQUIRE(registry.tools().size() == 13);
   GRAPPLE_REQUIRE(registry.findBySerializedId("project.inspect") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("asset.list") != nullptr);
+  GRAPPLE_REQUIRE(registry.findBySerializedId("composition.inspect") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("timeline.create_track") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("timeline.create_clip") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("timeline.move_clip") != nullptr);
@@ -79,6 +82,10 @@ int main() {
   GRAPPLE_REQUIRE(registeredAssetListTool != nullptr);
   GRAPPLE_REQUIRE(registeredAssetListTool->schema.find("\"additionalProperties\": false") != std::string::npos);
   GRAPPLE_REQUIRE(registeredAssetListTool->schema.find("\"commandId\"") == std::string::npos);
+  const agent::AgentTool* registeredCompositionInspectTool = registry.findBySerializedId("composition.inspect");
+  GRAPPLE_REQUIRE(registeredCompositionInspectTool != nullptr);
+  GRAPPLE_REQUIRE(registeredCompositionInspectTool->schema.find("\"additionalProperties\": false") != std::string::npos);
+  GRAPPLE_REQUIRE(registeredCompositionInspectTool->schema.find("\"commandId\"") == std::string::npos);
   const agent::AgentTool* registeredCreateTrackTool = registry.findBySerializedId("timeline.create_track");
   GRAPPLE_REQUIRE(registeredCreateTrackTool != nullptr);
   GRAPPLE_REQUIRE(registeredCreateTrackTool->schema.find("\"compositionNodeId\"") != std::string::npos);
@@ -691,6 +698,30 @@ int main() {
   for (const graph::GraphEdge& edge : afterDisconnectPortsSnapshot.value().graph.edges()) {
     GRAPPLE_REQUIRE(edge.id != foundation::EdgeId{"edge_agent_effect_ports"});
   }
+
+  const agent::AgentTool* inspectComposition = registry.findBySerializedId("composition.inspect");
+  GRAPPLE_REQUIRE(inspectComposition != nullptr);
+  const auto inspectCompositionResult = inspectComposition->handler(
+    agent::ToolCall{
+      foundation::ToolId{"tool_composition_inspect"},
+      foundation::RunId{"run_1"},
+      foundation::ProjectId{"proj_agent"},
+      disconnectPortsResult.value().observedRevision,
+      ""
+    },
+    context
+  );
+  GRAPPLE_REQUIRE(inspectCompositionResult);
+  GRAPPLE_REQUIRE(inspectCompositionResult.value().status == agent::ToolResultStatus::Succeeded);
+  GRAPPLE_REQUIRE(inspectCompositionResult.value().observedRevision == foundation::RevisionId{"rev_13"});
+  GRAPPLE_REQUIRE(inspectCompositionResult.value().payload.find("\"revision\":\"rev_13\"") != std::string::npos);
+  GRAPPLE_REQUIRE(inspectCompositionResult.value().payload.find("\"nodeId\":\"node_composition\"") != std::string::npos);
+  GRAPPLE_REQUIRE(inspectCompositionResult.value().payload.find("\"tracks\":[{\"nodeId\":\"node_agent_track_rev_7\"") != std::string::npos);
+  GRAPPLE_REQUIRE(inspectCompositionResult.value().payload.find("\"clips\":[{\"nodeId\":\"node_agent_clip_rev_8\"") != std::string::npos);
+  GRAPPLE_REQUIRE(inspectCompositionResult.value().payload.find("\"cameras\":[{\"nodeId\":\"node_camera\"") != std::string::npos);
+  GRAPPLE_REQUIRE(inspectCompositionResult.value().payload.find("\"effects\":[{\"nodeId\":\"node_agent_effect_rev_3\"") != std::string::npos);
+  GRAPPLE_REQUIRE(inspectCompositionResult.value().payload.find("\"targetNodeId\":\"node_camera\"") != std::string::npos);
+  GRAPPLE_REQUIRE(inspectCompositionResult.value().payload.find("\"commandId\"") == std::string::npos);
 
   return 0;
 }
