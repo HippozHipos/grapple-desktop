@@ -29,6 +29,7 @@
 #include <QMouseEvent>
 #include <QPushButton>
 #include <QStringList>
+#include <QTabWidget>
 #include <QTextEdit>
 #include <QTimer>
 #include <QVBoxLayout>
@@ -421,11 +422,14 @@ public:
     auto* sideLayout = new QVBoxLayout{sidePanel};
     sideLayout->setContentsMargins(0, 0, 0, 0);
     sideLayout->setSpacing(12);
-    sideLayout->addWidget(steward_, 2);
-    sideLayout->addWidget(inspector_, 1);
-    sideLayout->addWidget(effectParams_);
-    sideLayout->addWidget(summary_);
-    sideLayout->addWidget(log_, 1);
+    auto* detailsTabs = new QTabWidget;
+    detailsTabs->setObjectName("detailsTabs");
+    detailsTabs->addTab(inspector_, "Inspector");
+    detailsTabs->addTab(summary_, "Project");
+    detailsTabs->addTab(log_, "Log");
+    sideLayout->addWidget(steward_, 3);
+    sideLayout->addWidget(effectParams_, 2);
+    sideLayout->addWidget(detailsTabs, 2);
 
     layout->addWidget(actions, 0, 0, 1, 2);
     layout->addWidget(studioPanel, 1, 0, 1, 1);
@@ -467,6 +471,11 @@ public:
       QLabel#summary, QListWidget#mediaBin, QTextEdit#timeline, QTextEdit#inspector, QWidget#effectParams, QTextEdit#log, QWidget#actions, QWidget#assetStrip {
         background: #20242d; border: 1px solid #343b4a; border-radius: 10px; padding: 12px;
       }
+      QTabWidget#detailsTabs::pane { background: #20242d; border: 1px solid #343b4a; border-radius: 10px; }
+      QTabBar::tab {
+        background: #151b25; color: #9fb0c8; border: 1px solid #343b4a; border-bottom: 0; border-top-left-radius: 8px; border-top-right-radius: 8px; padding: 7px 12px;
+      }
+      QTabBar::tab:selected { background: #20242d; color: #f2f7ff; }
       QWidget#sidePanel { background: transparent; }
       QWidget#stewardPanel, QTextEdit#stewardText {
         background: #20242d; border: 1px solid #343b4a; border-radius: 10px; color: #eaf3ff;
