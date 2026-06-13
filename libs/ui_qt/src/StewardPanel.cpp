@@ -110,7 +110,7 @@ StewardPanel::StewardPanel(QWidget* parent)
   intent_->setCursorPosition(0);
   layout->addWidget(intent_);
 
-  createCameraEffectButton_ = new QPushButton{"Steward: Create Camera Transform"};
+  createCameraEffectButton_ = new QPushButton{"Apply Camera Edit"};
   createCameraEffectButton_->setObjectName("stewardCreateCameraEffect");
   layout->addWidget(createCameraEffectButton_);
   connect(createCameraEffectButton_, &QPushButton::clicked, this, [this] {

@@ -25,6 +25,7 @@
 #include <QListWidget>
 #include <QListWidgetItem>
 #include <QMainWindow>
+#include <QMenu>
 #include <QMouseEvent>
 #include <QPushButton>
 #include <QStringList>
@@ -359,27 +360,30 @@ public:
     playbackTimer_->setInterval(33);
     connect(playbackTimer_, &QTimer::timeout, this, [this] { advancePlaybackFrame(); });
 
-    auto* refreshButton = new QPushButton{"Refresh Preview"};
+    auto* refreshButton = new QPushButton{"Refresh"};
     playheadLabel_ = new QLabel;
     playheadLabel_->setObjectName("playheadLabel");
     auto* playButton = new QPushButton{"Play"};
     auto* pauseButton = new QPushButton{"Pause"};
-    auto* seekStartButton = new QPushButton{"Seek Start"};
-    auto* stepBackButton = new QPushButton{"Step -1s"};
-    auto* stepForwardButton = new QPushButton{"Step +1s"};
-    auto* importVideoButton = new QPushButton{"Import Video"};
-    auto* addMediaButton = new QPushButton{"Add Video To Timeline"};
-    auto* openPackageButton = new QPushButton{"Open Package"};
-    auto* addTrackButton = new QPushButton{"Add Track"};
-    auto* moveClipButton = new QPushButton{"Move Clip +1s"};
-    auto* deleteClipButton = new QPushButton{"Delete Clip"};
+    auto* seekStartButton = new QPushButton{"Start"};
+    auto* stepBackButton = new QPushButton{"-1s"};
+    auto* stepForwardButton = new QPushButton{"+1s"};
+    auto* importVideoButton = new QPushButton{"Import"};
+    auto* addMediaButton = new QPushButton{"Add To Timeline"};
     auto* undoButton = new QPushButton{"Undo"};
     auto* redoButton = new QPushButton{"Redo"};
-    auto* exportButton = new QPushButton{"Export Smoke"};
-    auto* saveButton = new QPushButton{"Save Package"};
+    auto* exportButton = new QPushButton{"Export"};
+    auto* saveButton = new QPushButton{"Save"};
+    auto* moreButton = new QPushButton{"More"};
+    auto* moreMenu = new QMenu{moreButton};
+    auto* openPackageAction = moreMenu->addAction("Open Package");
+    auto* addTrackAction = moreMenu->addAction("Add Track");
+    auto* moveClipAction = moreMenu->addAction("Move Clip +1s");
+    auto* deleteClipAction = moreMenu->addAction("Delete Clip");
+    moreButton->setMenu(moreMenu);
     auto* productTitle = new QLabel{"Grapple"};
     productTitle->setObjectName("productTitle");
-    auto* productSubtitle = new QLabel{"Intent -> editable graph -> shared render core"};
+    auto* productSubtitle = new QLabel{"Prompt -> editable graph -> preview/export"};
     productSubtitle->setObjectName("productSubtitle");
     auto* titleBlock = new QWidget;
     auto* titleLayout = new QVBoxLayout{titleBlock};
@@ -394,23 +398,20 @@ public:
     actionRow->setContentsMargins(10, 8, 10, 8);
     actionRow->setSpacing(8);
     actionRow->addWidget(titleBlock, 1);
-    actionRow->addWidget(refreshButton);
+    actionRow->addWidget(importVideoButton);
+    actionRow->addWidget(addMediaButton);
     actionRow->addWidget(playheadLabel_);
     actionRow->addWidget(playButton);
     actionRow->addWidget(pauseButton);
     actionRow->addWidget(seekStartButton);
     actionRow->addWidget(stepBackButton);
     actionRow->addWidget(stepForwardButton);
-    actionRow->addWidget(importVideoButton);
-    actionRow->addWidget(addMediaButton);
-    actionRow->addWidget(openPackageButton);
-    actionRow->addWidget(addTrackButton);
-    actionRow->addWidget(moveClipButton);
-    actionRow->addWidget(deleteClipButton);
+    actionRow->addWidget(refreshButton);
     actionRow->addWidget(undoButton);
     actionRow->addWidget(redoButton);
-    actionRow->addWidget(exportButton);
     actionRow->addWidget(saveButton);
+    actionRow->addWidget(exportButton);
+    actionRow->addWidget(moreButton);
 
     auto* assetStrip = new QWidget;
     assetStrip->setObjectName("assetStrip");
@@ -456,10 +457,10 @@ public:
     connect(redoButton, &QPushButton::clicked, this, [this] { redoLastEdit(); });
     connect(importVideoButton, &QPushButton::clicked, this, [this] { chooseAndImportVideo(); });
     connect(addMediaButton, &QPushButton::clicked, this, [this] { addSelectedVideoToTimeline(); });
-    connect(openPackageButton, &QPushButton::clicked, this, [this] { chooseAndOpenPackage(); });
-    connect(addTrackButton, &QPushButton::clicked, this, [this] { addTrack(); });
-    connect(moveClipButton, &QPushButton::clicked, this, [this] { moveSelectedClip(grapple::foundation::TimeSeconds{1.0}); });
-    connect(deleteClipButton, &QPushButton::clicked, this, [this] { deleteSelectedClip(); });
+    connect(openPackageAction, &QAction::triggered, this, [this] { chooseAndOpenPackage(); });
+    connect(addTrackAction, &QAction::triggered, this, [this] { addTrack(); });
+    connect(moveClipAction, &QAction::triggered, this, [this] { moveSelectedClip(grapple::foundation::TimeSeconds{1.0}); });
+    connect(deleteClipAction, &QAction::triggered, this, [this] { deleteSelectedClip(); });
     connect(exportButton, &QPushButton::clicked, this, [this] { runExport(); });
     connect(saveButton, &QPushButton::clicked, this, [this] { savePackage(); });
     steward_->setCreateCameraEffectHandler([this](std::string intent) { addEffectToSelectedTarget(std::move(intent)); });
@@ -495,6 +496,11 @@ public:
       QPushButton {
         background: #58c7d8; color: #071015; border: 0; border-radius: 8px; padding: 6px 10px; min-height: 24px; font-weight: 700;
       }
+      QMenu {
+        background: #20242d; color: #e9edf5; border: 1px solid #343b4a; border-radius: 8px; padding: 6px;
+      }
+      QMenu::item { padding: 7px 24px 7px 10px; border-radius: 6px; }
+      QMenu::item:selected { background: #36506f; color: #ffffff; }
       QLineEdit, QDoubleSpinBox {
         background: #10141d; color: #e8f4ff; border: 1px solid #343b4a; border-radius: 8px; padding: 8px 10px;
       }
@@ -760,7 +766,7 @@ public:
 
   void addSelectedVideoToTimeline() {
     if (!selectedAssetId_.has_value()) {
-      appendError(grapple::foundation::Error{"desktop.asset_selection_missing", "Add Video To Timeline requires a selected video asset."});
+      appendError(grapple::foundation::Error{"desktop.asset_selection_missing", "Add To Timeline requires a selected video asset."});
       return;
     }
 
@@ -770,7 +776,7 @@ public:
       return;
     }
     if (viewModel.value().timeline.layers.empty()) {
-      appendError(grapple::foundation::Error{"desktop.track_missing", "Add Video To Timeline requires a timeline track."});
+      appendError(grapple::foundation::Error{"desktop.track_missing", "Add To Timeline requires a timeline track."});
       return;
     }
 
@@ -786,7 +792,7 @@ public:
       return;
     }
     if (selectedAsset->mediaType != "video") {
-      appendError(grapple::foundation::Error{"desktop.asset_not_video", "Add Video To Timeline requires a video asset."});
+      appendError(grapple::foundation::Error{"desktop.asset_not_video", "Add To Timeline requires a video asset."});
       return;
     }
     if (!selectedAsset->duration.has_value()) {
