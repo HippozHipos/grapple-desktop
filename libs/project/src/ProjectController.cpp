@@ -2,9 +2,11 @@
 
 #include <grapple/graph/GraphEdge.hpp>
 #include <grapple/graph/GraphNode.hpp>
+#include <grapple/timeline/EffectPayload.hpp>
 #include <grapple/timeline/Payloads.hpp>
 
 #include <string>
+#include <variant>
 
 namespace grapple::project {
 
@@ -88,6 +90,21 @@ foundation::Result<void> ProjectController::validateCommand(const ProjectCommand
       "project.agent_effect_params_missing",
       "Agent-created effects must expose at least one user-editable parameter."
     };
+  }
+
+  for (const timeline::Param& param : createEffect->payload.params.values) {
+    if (param.control.label.empty()) {
+      return foundation::Error{
+        "project.agent_effect_param_label_missing",
+        "Agent-created effect parameter " + param.name + " must expose a user-facing label."
+      };
+    }
+    if (!std::holds_alternative<double>(param.value) || !param.control.numeric.has_value()) {
+      return foundation::Error{
+        "project.agent_effect_param_control_missing",
+        "Agent-created effect parameter " + param.name + " must expose a numeric user control."
+      };
+    }
   }
 
   return {};

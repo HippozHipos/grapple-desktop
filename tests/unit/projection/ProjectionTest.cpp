@@ -138,7 +138,14 @@ int main() {
       {timeline::EffectPort{"camera_transform"}}
     },
     timeline::ParamSet{
-      {timeline::Param{"target_x", 0.77}}
+      {timeline::Param{
+        "target_x",
+        0.77,
+        timeline::Param::Control{
+          "Target X",
+          timeline::Param::NumericControl{0.0, 1.0, 0.01}
+        }
+      }}
     },
     foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{10.0}}
   };
@@ -230,7 +237,7 @@ int main() {
   GRAPPLE_REQUIRE(serializedPlan.find("\"projectId\":\"proj_projection\"") != std::string::npos);
   GRAPPLE_REQUIRE(serializedPlan.find("\"duration\":10") != std::string::npos);
   GRAPPLE_REQUIRE(serializedPlan.find("\"inlineSource\":\"def prepare(ctx):\\n  return {'x': 1}\\n\"") != std::string::npos);
-  GRAPPLE_REQUIRE(serializedPlan.find("\"name\":\"target_x\",\"value\":0.77000000000000002") != std::string::npos);
+  GRAPPLE_REQUIRE(serializedPlan.find("\"name\":\"target_x\",\"label\":\"Target X\",\"numeric\":{\"min\":0,\"max\":1,\"step\":0.01},\"value\":0.77000000000000002") != std::string::npos);
   GRAPPLE_REQUIRE(serializedPlan.find("\"sourceEdgeId\":\"edge_effect_targets_camera\"") != std::string::npos);
   GRAPPLE_REQUIRE(serializedPlan.find("\"sourcePort\":\"camera_transform\"") != std::string::npos);
   GRAPPLE_REQUIRE(serializedPlan.find("\"targetPort\":\"input\"") != std::string::npos);

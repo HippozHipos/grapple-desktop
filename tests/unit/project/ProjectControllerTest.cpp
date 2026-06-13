@@ -613,6 +613,42 @@ int main() {
   GRAPPLE_REQUIRE(afterBlackBoxAgentEffect);
   GRAPPLE_REQUIRE(afterBlackBoxAgentEffect.value().revision == effectTrack.value().afterRevision);
   GRAPPLE_REQUIRE(!afterBlackBoxAgentEffect.value().graph.hasNode(foundation::NodeId{"node_black_box_agent_effect"}));
+  timeline::EffectPayload unlabeledEffectPayload = projectEffectPayload;
+  unlabeledEffectPayload.params.values[0].control.label = "";
+  const auto unlabeledAgentEffect = effectProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_unlabeled_agent_effect"},
+    foundation::ProjectId{"proj_effect"},
+    effectTrack.value().afterRevision,
+    project::CommandSource{project::CommandSourceKind::Agent, foundation::RunId{"run_effect"}, "agent"},
+    project::CreateEffectCommand{
+      foundation::NodeId{"node_unlabeled_agent_effect"},
+      foundation::NodeId{"node_effect_track"},
+      foundation::EdgeId{"edge_unlabeled_agent_effect_target"},
+      unlabeledEffectPayload,
+      graph::PortName{"output"},
+      graph::PortName{"input"}
+    }
+  });
+  GRAPPLE_REQUIRE(!unlabeledAgentEffect);
+  GRAPPLE_REQUIRE(unlabeledAgentEffect.error().code == "project.agent_effect_param_label_missing");
+  timeline::EffectPayload uncontrolledEffectPayload = projectEffectPayload;
+  uncontrolledEffectPayload.params.values[0].control.numeric = std::nullopt;
+  const auto uncontrolledAgentEffect = effectProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_uncontrolled_agent_effect"},
+    foundation::ProjectId{"proj_effect"},
+    effectTrack.value().afterRevision,
+    project::CommandSource{project::CommandSourceKind::Agent, foundation::RunId{"run_effect"}, "agent"},
+    project::CreateEffectCommand{
+      foundation::NodeId{"node_uncontrolled_agent_effect"},
+      foundation::NodeId{"node_effect_track"},
+      foundation::EdgeId{"edge_uncontrolled_agent_effect_target"},
+      uncontrolledEffectPayload,
+      graph::PortName{"output"},
+      graph::PortName{"input"}
+    }
+  });
+  GRAPPLE_REQUIRE(!uncontrolledAgentEffect);
+  GRAPPLE_REQUIRE(uncontrolledAgentEffect.error().code == "project.agent_effect_param_control_missing");
   const auto userParameterlessEffect = effectProject.apply(project::ProjectCommandEnvelope{
     foundation::CommandId{"cmd_user_parameterless_effect"},
     foundation::ProjectId{"proj_effect"},
