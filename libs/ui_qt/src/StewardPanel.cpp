@@ -54,6 +54,41 @@ QStringList exposedControlsFor(const app::AppEffectRow& effect) {
   return controls;
 }
 
+bool selectedCameraExists(
+  const app::AppViewModel& viewModel,
+  const std::optional<foundation::NodeId>& selectedNodeId
+) {
+  if (!selectedNodeId.has_value()) {
+    return false;
+  }
+  for (const app::AppCameraRow& camera : viewModel.timeline.cameras) {
+    if (camera.sourceNodeId == selectedNodeId.value()) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool selectedCameraHasTransformEffect(
+  const app::AppViewModel& viewModel,
+  const std::optional<foundation::NodeId>& selectedNodeId
+) {
+  if (!selectedNodeId.has_value()) {
+    return false;
+  }
+  for (const app::AppEffectGraphRow& graph : viewModel.timeline.effectGraphs) {
+    if (graph.targetNodeId != selectedNodeId.value()) {
+      continue;
+    }
+    for (const app::AppEffectRow& effect : graph.effects) {
+      if (effect.entrypoint == "camera_transform") {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 QString runStatusText(agent::AgentRunStatus status) {
   switch (status) {
     case agent::AgentRunStatus::Pending:
@@ -135,7 +170,22 @@ void StewardPanel::setCreateCameraEffectHandler(CreateCameraEffectHandler handle
   createCameraEffectHandler_ = std::move(handler);
 }
 
-void StewardPanel::setViewModel(const app::AppViewModel& viewModel, const agent::AgentConversationState& conversationState) {
+void StewardPanel::setViewModel(
+  const app::AppViewModel& viewModel,
+  const agent::AgentConversationState& conversationState,
+  const std::optional<foundation::NodeId>& selectedNodeId
+) {
+  if (!selectedCameraExists(viewModel, selectedNodeId)) {
+    createCameraEffectButton_->setText("Select Camera");
+    createCameraEffectButton_->setEnabled(false);
+  } else if (selectedCameraHasTransformEffect(viewModel, selectedNodeId)) {
+    createCameraEffectButton_->setText("Editable Controls Created");
+    createCameraEffectButton_->setEnabled(false);
+  } else {
+    createCameraEffectButton_->setText("Create Editable Camera Controls");
+    createCameraEffectButton_->setEnabled(true);
+  }
+
   QStringList lines{
     "Steward",
     "Current request",

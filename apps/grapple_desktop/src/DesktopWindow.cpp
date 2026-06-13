@@ -519,6 +519,7 @@ public:
         background: #10141d; color: #e8f4ff; border: 1px solid #343b4a; border-radius: 8px; padding: 8px 10px;
       }
       QPushButton:hover { background: #79ddea; }
+      QPushButton:disabled { background: #30404d; color: #9fb0c8; }
       QPushButton#effectParamDelete { background: #3a4658; color: #f4d4d4; }
       QPushButton#effectParamDelete:hover { background: #5a3841; }
     )");
@@ -551,7 +552,7 @@ public:
     summary_->setText(summaryText(viewModel.value()));
     rebuildMediaBin(viewModel.value());
     previewSurface_->setAssetLabels(viewModel.value().assets);
-    steward_->setViewModel(viewModel.value(), workspace_.steward().conversationState());
+    steward_->setViewModel(viewModel.value(), workspace_.steward().conversationState(), selectedNodeId_);
     timeline_->setViewModel(viewModel.value());
     timeline_->setPlayhead(workspace_.preview().state().playhead);
     timeline_->setSelectedNodeId(selectedNodeId_);

@@ -2,10 +2,12 @@
 
 #include <grapple/agent/AgentConversationState.hpp>
 #include <grapple/app/AppViewModel.hpp>
+#include <grapple/foundation/StrongId.hpp>
 
 #include <QWidget>
 
 #include <functional>
+#include <optional>
 #include <string>
 
 class QPushButton;
@@ -20,7 +22,11 @@ public:
   explicit StewardPanel(QWidget* parent = nullptr);
 
   void setCreateCameraEffectHandler(CreateCameraEffectHandler handler);
-  void setViewModel(const app::AppViewModel& viewModel, const agent::AgentConversationState& conversationState);
+  void setViewModel(
+    const app::AppViewModel& viewModel,
+    const agent::AgentConversationState& conversationState,
+    const std::optional<foundation::NodeId>& selectedNodeId
+  );
   void setIntent(std::string intent);
   void triggerCreateCameraEffect();
   [[nodiscard]] std::string contents() const;

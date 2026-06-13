@@ -423,9 +423,9 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            steward.find("Zoom=1.1 [0.25..4 step 0.01]") != std::string::npos &&
            steward.find("Recent Steward runs") != std::string::npos &&
            steward.find("project edit -> succeeded") != std::string::npos &&
-           steward.find("project edit -> failed") != std::string::npos &&
+           steward.find("project edit -> failed") == std::string::npos &&
            steward.find("- Center the walking subject with exposed controls.") != std::string::npos &&
-           logText.find("steward.camera_transform_exists") != std::string::npos &&
+           logText.find("steward.camera_transform_exists") == std::string::npos &&
            logText.find("runtime.effect_runtime_missing") == std::string::npos
       ? 0
       : 1;
