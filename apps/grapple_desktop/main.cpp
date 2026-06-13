@@ -21,6 +21,7 @@
 #include <QFileDialog>
 #include <QFontMetrics>
 #include <QGridLayout>
+#include <QHBoxLayout>
 #include <QImage>
 #include <QLabel>
 #include <QListWidget>
@@ -767,14 +768,14 @@ class DesktopWindow final : public QMainWindow {
 public:
   explicit DesktopWindow(grapple::app::NativeWorkspaceSession& workspace)
     : workspace_{workspace} {
-    setWindowTitle("Grapple Native");
-    resize(1180, 720);
+    setWindowTitle("Grapple");
+    resize(1440, 860);
 
     auto* root = new QWidget;
     auto* layout = new QGridLayout{root};
-    layout->setContentsMargins(18, 18, 18, 18);
-    layout->setHorizontalSpacing(16);
-    layout->setVerticalSpacing(16);
+    layout->setContentsMargins(14, 14, 14, 14);
+    layout->setHorizontalSpacing(12);
+    layout->setVerticalSpacing(12);
 
     summary_ = new QLabel;
     summary_->setObjectName("summary");
@@ -786,7 +787,7 @@ public:
 
     previewFrame_ = new QFrame;
     previewFrame_->setObjectName("previewFrame");
-    previewFrame_->setMinimumSize(520, 320);
+    previewFrame_->setMinimumSize(620, 420);
     auto* previewLayout = new QVBoxLayout{previewFrame_};
     previewTitle_ = new QLabel{"Preview"};
     previewTitle_->setObjectName("panelTitle");
@@ -795,6 +796,7 @@ public:
     previewLayout->addWidget(previewSurface_, 1);
 
     timeline_ = new TimelinePanel;
+    timeline_->setMinimumHeight(230);
 
     inspector_ = new QTextEdit;
     inspector_->setObjectName("inspector");
@@ -835,61 +837,72 @@ public:
     auto* deleteClipButton = new QPushButton{"Delete Clip"};
     auto* exportButton = new QPushButton{"Export Smoke"};
     auto* saveButton = new QPushButton{"Save Package"};
-    auto* actionColumn = new QVBoxLayout;
-    actionColumn->addWidget(refreshButton);
-    actionColumn->addWidget(playheadLabel_);
-    actionColumn->addWidget(playButton);
-    actionColumn->addWidget(pauseButton);
-    actionColumn->addWidget(seekStartButton);
-    actionColumn->addWidget(stepBackButton);
-    actionColumn->addWidget(stepForwardButton);
-    actionColumn->addWidget(importVideoButton);
-    actionColumn->addWidget(addMediaButton);
-    actionColumn->addWidget(openPackageButton);
-    actionColumn->addWidget(addTrackButton);
-    actionColumn->addWidget(moveClipButton);
-    actionColumn->addWidget(deleteClipButton);
-    actionColumn->addWidget(exportButton);
-    actionColumn->addWidget(saveButton);
-    actionColumn->addStretch(1);
+    auto* productTitle = new QLabel{"Grapple"};
+    productTitle->setObjectName("productTitle");
+    auto* productSubtitle = new QLabel{"Intent -> editable graph -> shared render core"};
+    productSubtitle->setObjectName("productSubtitle");
+    auto* titleBlock = new QWidget;
+    auto* titleLayout = new QVBoxLayout{titleBlock};
+    titleLayout->setContentsMargins(0, 0, 0, 0);
+    titleLayout->setSpacing(0);
+    titleLayout->addWidget(productTitle);
+    titleLayout->addWidget(productSubtitle);
 
     auto* actions = new QWidget;
     actions->setObjectName("actions");
-    actions->setLayout(actionColumn);
+    auto* actionRow = new QHBoxLayout{actions};
+    actionRow->setContentsMargins(10, 8, 10, 8);
+    actionRow->setSpacing(8);
+    actionRow->addWidget(titleBlock, 1);
+    actionRow->addWidget(refreshButton);
+    actionRow->addWidget(playheadLabel_);
+    actionRow->addWidget(playButton);
+    actionRow->addWidget(pauseButton);
+    actionRow->addWidget(seekStartButton);
+    actionRow->addWidget(stepBackButton);
+    actionRow->addWidget(stepForwardButton);
+    actionRow->addWidget(moveClipButton);
+    actionRow->addWidget(deleteClipButton);
+    actionRow->addWidget(exportButton);
+    actionRow->addWidget(saveButton);
 
     auto* leftPanel = new QWidget;
+    leftPanel->setObjectName("assetPanel");
+    leftPanel->setMinimumWidth(240);
     auto* leftLayout = new QVBoxLayout{leftPanel};
     leftLayout->setContentsMargins(0, 0, 0, 0);
-    leftLayout->setSpacing(16);
-    leftLayout->addWidget(summary_);
+    leftLayout->setSpacing(12);
+    auto* assetTitle = new QLabel{"Assets"};
+    assetTitle->setObjectName("panelTitle");
+    leftLayout->addWidget(assetTitle);
     leftLayout->addWidget(mediaBin_, 1);
+    leftLayout->addWidget(importVideoButton);
+    leftLayout->addWidget(addMediaButton);
+    leftLayout->addWidget(openPackageButton);
+    leftLayout->addWidget(addTrackButton);
+    leftLayout->addWidget(summary_);
 
-    layout->addWidget(leftPanel, 0, 0, 2, 1);
-    layout->addWidget(previewFrame_, 0, 1, 2, 1);
     auto* sidePanel = new QWidget;
+    sidePanel->setObjectName("sidePanel");
     auto* sideLayout = new QVBoxLayout{sidePanel};
     sideLayout->setContentsMargins(0, 0, 0, 0);
-    sideLayout->setSpacing(16);
-    sideLayout->addWidget(steward_, 1);
+    sideLayout->setSpacing(12);
+    sideLayout->addWidget(steward_, 2);
     sideLayout->addWidget(inspector_, 1);
     sideLayout->addWidget(effectParams_);
     sideLayout->addWidget(log_, 1);
 
-    auto* rightColumn = new QWidget;
-    auto* rightLayout = new QVBoxLayout{rightColumn};
-    rightLayout->setContentsMargins(0, 0, 0, 0);
-    rightLayout->setSpacing(16);
-    rightLayout->addWidget(actions);
-    rightLayout->addWidget(sidePanel, 1);
-
-    layout->addWidget(rightColumn, 0, 2, 2, 1);
+    layout->addWidget(actions, 0, 0, 1, 3);
+    layout->addWidget(leftPanel, 1, 0, 1, 1);
+    layout->addWidget(previewFrame_, 1, 1, 1, 1);
+    layout->addWidget(sidePanel, 1, 2, 1, 1);
     layout->addWidget(timeline_, 2, 0, 1, 3);
     layout->setColumnStretch(0, 2);
-    layout->setColumnStretch(1, 4);
+    layout->setColumnStretch(1, 5);
     layout->setColumnStretch(2, 2);
-    layout->setRowStretch(0, 1);
-    layout->setRowStretch(1, 1);
-    layout->setRowStretch(2, 1);
+    layout->setRowStretch(0, 0);
+    layout->setRowStretch(1, 5);
+    layout->setRowStretch(2, 2);
     setCentralWidget(root);
 
     connect(refreshButton, &QPushButton::clicked, this, [this] { refreshPreview(); });
@@ -917,6 +930,7 @@ public:
       QLabel#summary, QListWidget#mediaBin, QTextEdit#timeline, QTextEdit#inspector, QWidget#effectParams, QTextEdit#log, QWidget#actions {
         background: #20242d; border: 1px solid #343b4a; border-radius: 10px; padding: 12px;
       }
+      QWidget#assetPanel, QWidget#sidePanel { background: transparent; }
       QWidget#stewardPanel, QTextEdit#stewardText {
         background: #20242d; border: 1px solid #343b4a; border-radius: 10px; color: #eaf3ff;
       }
@@ -930,9 +944,11 @@ public:
         border: 1px solid #3c526f; border-radius: 12px;
       }
       QLabel#panelTitle { color: #9fb7d5; font-weight: 700; letter-spacing: 1px; }
+      QLabel#productTitle { color: #f2f7ff; font-size: 22px; font-weight: 900; }
+      QLabel#productSubtitle { color: #9fb0c8; font-size: 12px; }
       QLabel#effectParamTitle { color: #e8f4ff; font-weight: 800; }
       QLabel#effectParamHelp { color: #9fb0c8; }
-      QLabel#playheadLabel { color: #d8f3ff; font-weight: 700; padding: 6px 0; }
+      QLabel#playheadLabel { color: #d8f3ff; font-weight: 800; padding: 0 8px; }
       QPushButton {
         background: #58c7d8; color: #071015; border: 0; border-radius: 8px; padding: 6px 10px; min-height: 24px; font-weight: 700;
       }
