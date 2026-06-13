@@ -1,5 +1,6 @@
 add_library(grapple_model
   src/ModelRegistry.cpp
+  src/RoutedModelService.cpp
 )
 
 add_library(Grapple::Model ALIAS grapple_model)
@@ -13,4 +14,3 @@ target_link_libraries(grapple_model
   PUBLIC
     Grapple::Foundation
 )
-

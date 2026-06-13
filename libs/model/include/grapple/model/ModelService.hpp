@@ -10,7 +10,6 @@ namespace grapple::model {
 
 struct ModelRequest {
   foundation::ModelId modelId;
-  ModelCapability capability = ModelCapability::TextCompletion;
   std::string input;
 };
 
@@ -51,4 +50,3 @@ public:
 };
 
 } // namespace grapple::model
-
