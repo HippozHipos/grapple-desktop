@@ -547,6 +547,23 @@ int main() {
   GRAPPLE_REQUIRE(roundTrippedClip->playbackRate == 0.5);
   GRAPPLE_REQUIRE(roundTrippedClip->transform.position.x == 3.0);
   GRAPPLE_REQUIRE(roundTrippedClip->transform.position.y == 4.0);
+  project::ProjectSnapshot invalidRestoredClipSnapshot = afterClipUpdate.value();
+  invalidRestoredClipSnapshot.assets = asset::AssetCatalog{};
+  const auto restoreInvalidClipSnapshot = clipProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_restore_invalid_clip_snapshot"},
+    foundation::ProjectId{"proj_clip"},
+    afterClipUpdate.value().revision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::RestoreSnapshotCommand{
+      foundation::SnapshotId{"snap_invalid_clip"},
+      invalidRestoredClipSnapshot
+    }
+  });
+  GRAPPLE_REQUIRE(!restoreInvalidClipSnapshot);
+  GRAPPLE_REQUIRE(restoreInvalidClipSnapshot.error().code == "project.snapshot_clip_asset_missing");
+  const auto afterInvalidRestore = clipProject.snapshot();
+  GRAPPLE_REQUIRE(afterInvalidRestore);
+  GRAPPLE_REQUIRE(afterInvalidRestore.value().revision == afterClipUpdate.value().revision);
   const project::ProjectCommandEnvelope deleteClip{
     foundation::CommandId{"cmd_delete_clip"},
     foundation::ProjectId{"proj_clip"},

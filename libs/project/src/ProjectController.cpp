@@ -34,6 +34,22 @@ foundation::Result<void> requireNonEmptyId(const Id& id, const char* code, const
   return requireNonEmpty(id.value(), code, message);
 }
 
+foundation::Result<void> validateSnapshotReferences(const ProjectSnapshot& snapshot) {
+  for (const graph::GraphNode& node : snapshot.graph.nodes()) {
+    if (node.kind != graph::NodeKind::Clip) {
+      continue;
+    }
+    const auto* payload = std::get_if<timeline::ClipPayload>(&node.payload);
+    if (payload == nullptr) {
+      return foundation::Error{"project.snapshot_clip_payload_invalid", "Snapshot clip nodes must carry clip payloads."};
+    }
+    if (snapshot.assets.find(payload->assetId) == nullptr) {
+      return foundation::Error{"project.snapshot_clip_asset_missing", "Snapshot clip assets must exist in the snapshot asset catalog."};
+    }
+  }
+  return {};
+}
+
 } // namespace
 
 ProjectController::ProjectController(ProjectDocument document)
@@ -596,6 +612,10 @@ foundation::Result<void> ProjectController::handleRestoreSnapshot(const RestoreS
 
   if (command.snapshot.info.id != document_.info.id) {
     return foundation::Error{"project.restore_project_id_mismatch", "Restore snapshot must match the open project."};
+  }
+  auto references = validateSnapshotReferences(command.snapshot);
+  if (!references) {
+    return references.error();
   }
 
   document_.info = command.snapshot.info;
