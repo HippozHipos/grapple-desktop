@@ -111,7 +111,7 @@ private:
   }
 
   static int fourccForCodec(const std::string& codec) {
-    if (codec == "test" || codec == "mjpeg") {
+    if (codec == "mjpeg") {
       return cv::VideoWriter::fourcc('M', 'J', 'P', 'G');
     }
     if (codec == "mp4v") {

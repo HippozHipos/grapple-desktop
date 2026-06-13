@@ -150,7 +150,7 @@ int main(int argc, char* argv[]) {
       foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}},
       foundation::FrameRate{2, 1},
       foundation::Resolution{1920, 1080},
-      render::Codec{"test"},
+      render::Codec{"mjpeg"},
       render::RenderQuality::Final,
       foundation::FilePath{"/tmp/grapple-cli-export.avi"}
     });

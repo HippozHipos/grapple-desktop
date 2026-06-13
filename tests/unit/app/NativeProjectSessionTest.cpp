@@ -464,7 +464,7 @@ int main() {
     foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}},
     foundation::FrameRate{1, 1},
     foundation::Resolution{2, 1},
-    render::Codec{"test"},
+    render::Codec{"mjpeg"},
     render::RenderQuality::Final,
     foundation::FilePath{"/tmp/cache-export.mov"}
   });
@@ -478,7 +478,7 @@ int main() {
     foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}},
     foundation::FrameRate{1, 1},
     foundation::Resolution{16, 16},
-    render::Codec{"test"},
+    render::Codec{"mjpeg"},
     render::RenderQuality::Final,
     foundation::FilePath{videoExportPath.string()}
   });
@@ -804,7 +804,7 @@ int main() {
     foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}},
     foundation::FrameRate{2, 1},
     foundation::Resolution{1920, 1080},
-    render::Codec{"test"},
+    render::Codec{"mjpeg"},
     render::RenderQuality::Final,
     foundation::FilePath{"/tmp/app-runtime-export.mov"}
   });
@@ -843,7 +843,7 @@ int main() {
     foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}},
     foundation::FrameRate{2, 1},
     foundation::Resolution{1920, 1080},
-    render::Codec{"test"},
+    render::Codec{"mjpeg"},
     render::RenderQuality::Final,
     foundation::FilePath{"/tmp/app-export.mov"}
   });
@@ -863,7 +863,7 @@ int main() {
     foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}},
     foundation::FrameRate{2, 1},
     foundation::Resolution{1920, 1080},
-    render::Codec{"test"},
+    render::Codec{"mjpeg"},
     render::RenderQuality::Final,
     foundation::FilePath{"/tmp/app-export.mov"}
   });
@@ -879,7 +879,7 @@ int main() {
     foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}},
     foundation::FrameRate{2, 1},
     foundation::Resolution{1280, 720},
-    render::Codec{"test"},
+    render::Codec{"mjpeg"},
     render::RenderQuality::Final,
     foundation::FilePath{"/tmp/app-export-720.mov"}
   });
