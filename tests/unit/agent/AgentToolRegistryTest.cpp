@@ -7,7 +7,10 @@
 
 #include <TestAssert.hpp>
 
+#include <algorithm>
+#include <string>
 #include <type_traits>
+#include <vector>
 
 namespace {
 
@@ -155,6 +158,11 @@ private:
   mutable std::size_t runtimeDiagnosticsQueryCount_ = 0;
 };
 
+bool allUnique(std::vector<std::string> values) {
+  std::sort(values.begin(), values.end());
+  return std::adjacent_find(values.begin(), values.end()) == values.end();
+}
+
 } // namespace
 
 int main() {
@@ -194,6 +202,12 @@ int main() {
   const auto registeredUpdateNote = registry.registerTool(agent::makeNoteUpdateTool());
   GRAPPLE_REQUIRE(registeredUpdateNote);
   GRAPPLE_REQUIRE(registry.tools().size() == 16);
+  std::vector<std::string> serializedToolIds;
+  serializedToolIds.reserve(registry.tools().size());
+  for (const agent::AgentTool& tool : registry.tools()) {
+    serializedToolIds.push_back(tool.serializedId);
+  }
+  GRAPPLE_REQUIRE(allUnique(std::move(serializedToolIds)));
   GRAPPLE_REQUIRE(registry.findBySerializedId("project.inspect") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("asset.list") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("asset.import") != nullptr);
