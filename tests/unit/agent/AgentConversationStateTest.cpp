@@ -2,9 +2,11 @@
 
 #include <TestAssert.hpp>
 
+#include <algorithm>
 #include <chrono>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace {
@@ -37,6 +39,11 @@ grapple::agent::AgentRunEvent event(
   };
 }
 
+bool allUnique(std::vector<std::string_view> values) {
+  std::sort(values.begin(), values.end());
+  return std::adjacent_find(values.begin(), values.end()) == values.end();
+}
+
 } // namespace
 
 int main() {
@@ -51,6 +58,17 @@ int main() {
   GRAPPLE_REQUIRE(std::string{agent::serializedAgentRunEventKind(agent::AgentRunEventKind::DelegatedRunStarted)} == "delegated_run_started");
   GRAPPLE_REQUIRE(std::string{agent::serializedAgentRunEventKind(agent::AgentRunEventKind::DelegatedRunUpdated)} == "delegated_run_updated");
   GRAPPLE_REQUIRE(std::string{agent::serializedAgentRunEventKind(agent::AgentRunEventKind::DelegatedRunFinished)} == "delegated_run_finished");
+  GRAPPLE_REQUIRE(allUnique({
+    agent::serializedAgentRunEventKind(agent::AgentRunEventKind::RunStarted),
+    agent::serializedAgentRunEventKind(agent::AgentRunEventKind::ModelMessage),
+    agent::serializedAgentRunEventKind(agent::AgentRunEventKind::ToolCallStarted),
+    agent::serializedAgentRunEventKind(agent::AgentRunEventKind::ToolCallFinished),
+    agent::serializedAgentRunEventKind(agent::AgentRunEventKind::DiagnosticEmitted),
+    agent::serializedAgentRunEventKind(agent::AgentRunEventKind::RunFinished),
+    agent::serializedAgentRunEventKind(agent::AgentRunEventKind::DelegatedRunStarted),
+    agent::serializedAgentRunEventKind(agent::AgentRunEventKind::DelegatedRunUpdated),
+    agent::serializedAgentRunEventKind(agent::AgentRunEventKind::DelegatedRunFinished)
+  }));
 
   const agent::AgentConversationStateProjector projector;
   const std::vector<agent::AgentRun> metadataOnlyRuns{
