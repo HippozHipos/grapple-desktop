@@ -258,6 +258,7 @@ int main() {
   GRAPPLE_REQUIRE(registeredAssetImportTool->schema.find("\"mediaType\"") != std::string::npos);
   GRAPPLE_REQUIRE(registeredAssetImportTool->schema.find("\"sourcePath\"") != std::string::npos);
   GRAPPLE_REQUIRE(registeredAssetImportTool->schema.find("\"frameRate\"") != std::string::npos);
+  GRAPPLE_REQUIRE(registeredAssetImportTool->schema.find("\"minLength\": 1") != std::string::npos);
   GRAPPLE_REQUIRE(registeredAssetImportTool->schema.find("\"commandId\"") == std::string::npos);
   const agent::AgentTool* registeredCompositionInspectTool = registry.findBySerializedId("composition.inspect");
   GRAPPLE_REQUIRE(registeredCompositionInspectTool != nullptr);
@@ -288,6 +289,7 @@ int main() {
   GRAPPLE_REQUIRE(registeredCreateEffectTool->schema.find("\"targetNodeId\"") != std::string::npos);
   GRAPPLE_REQUIRE(registeredCreateEffectTool->schema.find("\"params\"") != std::string::npos);
   GRAPPLE_REQUIRE(registeredCreateEffectTool->schema.find("\"minItems\": 1") != std::string::npos);
+  GRAPPLE_REQUIRE(registeredCreateEffectTool->schema.find("\"minLength\": 1") != std::string::npos);
   GRAPPLE_REQUIRE(registeredCreateEffectTool->schema.find("\"numeric\"") != std::string::npos);
   GRAPPLE_REQUIRE(registeredCreateEffectTool->schema.find("\"boolean\"") != std::string::npos);
   GRAPPLE_REQUIRE(registeredCreateEffectTool->schema.find("\"commandId\"") == std::string::npos);
@@ -502,6 +504,42 @@ int main() {
   GRAPPLE_REQUIRE(!effectWithUnexpectedNestedArgument);
   GRAPPLE_REQUIRE(effectWithUnexpectedNestedArgument.error().code == "agent.tool_arguments_invalid");
   GRAPPLE_REQUIRE(effectWithUnexpectedNestedArgument.error().message.find("Unexpected tool argument") != std::string::npos);
+  GRAPPLE_REQUIRE(commands.applyCount() == 0);
+
+  const auto effectWithEmptyPortResult = createEffect->handler(
+    agent::ToolCall{
+      foundation::ToolId{"tool_effect_create_node"},
+      foundation::RunId{"run_1"},
+      foundation::ProjectId{"proj_agent"},
+      camera.value().afterRevision,
+      R"({
+        "targetNodeId": "node_camera",
+        "displayName": "Empty Port Effect",
+        "implementationKind": "python",
+        "language": "python",
+        "entrypoint": "prepare",
+        "source": "def prepare(ctx):\n  return {}\n",
+        "sourcePort": "",
+        "targetPort": "input",
+        "inputPorts": ["frame"],
+        "outputPorts": ["camera_transform"],
+        "activeRange": {"start": 0, "end": 10},
+        "params": [
+          {
+            "name": "target_x",
+            "label": "Target X",
+            "value": 0.5,
+            "numeric": {"min": 0, "max": 1}
+          }
+        ]
+      })"
+    },
+    context
+  );
+  GRAPPLE_REQUIRE(!effectWithEmptyPortResult);
+  GRAPPLE_REQUIRE(effectWithEmptyPortResult.error().code == "agent.tool_arguments_invalid");
+  GRAPPLE_REQUIRE(effectWithEmptyPortResult.error().message.find("$.sourcePort") != std::string::npos);
+  GRAPPLE_REQUIRE(effectWithEmptyPortResult.error().message.find("non-empty") != std::string::npos);
   GRAPPLE_REQUIRE(commands.applyCount() == 0);
 
   const auto createEffectResult = createEffect->handler(

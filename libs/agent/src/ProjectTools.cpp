@@ -38,10 +38,10 @@ constexpr const char AssetImportSchema[] = R"json({
   "additionalProperties": false,
   "required": ["assetId", "name", "mediaType", "sourcePath"],
   "properties": {
-    "assetId": {"type": "string"},
-    "name": {"type": "string"},
+    "assetId": {"type": "string", "minLength": 1},
+    "name": {"type": "string", "minLength": 1},
     "mediaType": {"enum": ["video", "audio", "image"]},
-    "sourcePath": {"type": "string"},
+    "sourcePath": {"type": "string", "minLength": 1},
     "thumbnailPath": {"type": "string"},
     "duration": {"type": "number"},
     "dimensions": {
@@ -76,8 +76,8 @@ constexpr const char TimelineCreateTrackSchema[] = R"json({
   "additionalProperties": false,
   "required": ["compositionNodeId", "name"],
   "properties": {
-    "compositionNodeId": {"type": "string"},
-    "name": {"type": "string"}
+    "compositionNodeId": {"type": "string", "minLength": 1},
+    "name": {"type": "string", "minLength": 1}
   }
 })json";
 
@@ -86,8 +86,8 @@ constexpr const char TimelineCreateClipSchema[] = R"json({
   "additionalProperties": false,
   "required": ["trackNodeId", "assetId", "kind", "timelineRange", "sourceRange", "playbackRate"],
   "properties": {
-    "trackNodeId": {"type": "string"},
-    "assetId": {"type": "string"},
+    "trackNodeId": {"type": "string", "minLength": 1},
+    "assetId": {"type": "string", "minLength": 1},
     "kind": {"enum": ["video", "audio", "image"]},
     "timelineRange": {
       "type": "object",
@@ -116,7 +116,7 @@ constexpr const char TimelineMoveClipSchema[] = R"json({
   "additionalProperties": false,
   "required": ["clipNodeId", "newStart"],
   "properties": {
-    "clipNodeId": {"type": "string"},
+    "clipNodeId": {"type": "string", "minLength": 1},
     "newStart": {"type": "number"}
   }
 })json";
@@ -126,7 +126,7 @@ constexpr const char TimelineTrimClipSchema[] = R"json({
   "additionalProperties": false,
   "required": ["clipNodeId", "timelineRange", "sourceRange"],
   "properties": {
-    "clipNodeId": {"type": "string"},
+    "clipNodeId": {"type": "string", "minLength": 1},
     "timelineRange": {
       "type": "object",
       "additionalProperties": false,
@@ -166,16 +166,16 @@ constexpr const char EffectCreateNodeSchema[] = R"json({
     "params"
   ],
   "properties": {
-    "targetNodeId": {"type": "string"},
-    "displayName": {"type": "string"},
+    "targetNodeId": {"type": "string", "minLength": 1},
+    "displayName": {"type": "string", "minLength": 1},
     "implementationKind": {"enum": ["builtin", "python", "shader"]},
-    "language": {"type": "string"},
-    "entrypoint": {"type": "string"},
-    "source": {"type": "string"},
-    "sourcePort": {"type": "string"},
-    "targetPort": {"type": "string"},
-    "inputPorts": {"type": "array", "items": {"type": "string"}},
-    "outputPorts": {"type": "array", "items": {"type": "string"}},
+    "language": {"type": "string", "minLength": 1},
+    "entrypoint": {"type": "string", "minLength": 1},
+    "source": {"type": "string", "minLength": 1},
+    "sourcePort": {"type": "string", "minLength": 1},
+    "targetPort": {"type": "string", "minLength": 1},
+    "inputPorts": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "outputPorts": {"type": "array", "items": {"type": "string", "minLength": 1}},
     "activeRange": {
       "type": "object",
       "additionalProperties": false,
@@ -193,8 +193,8 @@ constexpr const char EffectCreateNodeSchema[] = R"json({
         "additionalProperties": false,
         "required": ["name", "label", "value"],
         "properties": {
-          "name": {"type": "string"},
-          "label": {"type": "string"},
+          "name": {"type": "string", "minLength": 1},
+          "label": {"type": "string", "minLength": 1},
           "value": {
             "oneOf": [
               {"type": "number"},
@@ -228,8 +228,8 @@ constexpr const char EffectUpdateParamValueSchema[] = R"json({
     "value"
   ],
   "properties": {
-    "effectNodeId": {"type": "string"},
-    "paramName": {"type": "string"},
+    "effectNodeId": {"type": "string", "minLength": 1},
+    "paramName": {"type": "string", "minLength": 1},
     "value": {
       "oneOf": [
         {"type": "number"},
@@ -246,11 +246,11 @@ constexpr const char EffectConnectPortsSchema[] = R"json({
   "additionalProperties": false,
   "required": ["edgeId", "sourceNodeId", "sourcePort", "targetNodeId", "targetPort"],
   "properties": {
-    "edgeId": {"type": "string"},
-    "sourceNodeId": {"type": "string"},
-    "sourcePort": {"type": "string"},
-    "targetNodeId": {"type": "string"},
-    "targetPort": {"type": "string"},
+    "edgeId": {"type": "string", "minLength": 1},
+    "sourceNodeId": {"type": "string", "minLength": 1},
+    "sourcePort": {"type": "string", "minLength": 1},
+    "targetNodeId": {"type": "string", "minLength": 1},
+    "targetPort": {"type": "string", "minLength": 1},
     "order": {"type": "integer"}
   }
 })json";
@@ -260,7 +260,7 @@ constexpr const char EffectDisconnectPortsSchema[] = R"json({
   "additionalProperties": false,
   "required": ["edgeId"],
   "properties": {
-    "edgeId": {"type": "string"}
+    "edgeId": {"type": "string", "minLength": 1}
   }
 })json";
 
@@ -281,8 +281,8 @@ constexpr const char NoteCreateSchema[] = R"json({
   "additionalProperties": false,
   "required": ["title", "markdown"],
   "properties": {
-    "title": {"type": "string"},
-    "markdown": {"type": "string"}
+    "title": {"type": "string", "minLength": 1},
+    "markdown": {"type": "string", "minLength": 1}
   }
 })json";
 
@@ -291,9 +291,9 @@ constexpr const char NoteUpdateSchema[] = R"json({
   "additionalProperties": false,
   "required": ["nodeId", "title", "markdown"],
   "properties": {
-    "nodeId": {"type": "string"},
-    "title": {"type": "string"},
-    "markdown": {"type": "string"}
+    "nodeId": {"type": "string", "minLength": 1},
+    "title": {"type": "string", "minLength": 1},
+    "markdown": {"type": "string", "minLength": 1}
   }
 })json";
 
@@ -357,6 +357,9 @@ foundation::Result<std::string> requiredStringMember(const Json::Value& object, 
   }
   if (!value.value().isString()) {
     return argumentError(path + "." + key, "Expected string.");
+  }
+  if (value.value().asString().empty()) {
+    return argumentError(path + "." + key, "Expected non-empty string.");
   }
   return value.value().asString();
 }
@@ -682,6 +685,9 @@ foundation::Result<std::vector<timeline::EffectPort>> parsePorts(const Json::Val
   for (Json::ArrayIndex index = 0; index < array.size(); ++index) {
     if (!array[index].isString()) {
       return argumentError(path + "[" + std::to_string(index) + "]", "Expected port name string.");
+    }
+    if (array[index].asString().empty()) {
+      return argumentError(path + "[" + std::to_string(index) + "]", "Expected non-empty port name.");
     }
     ports.push_back(timeline::EffectPort{array[index].asString()});
   }
