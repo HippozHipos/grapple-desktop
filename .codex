@@ -1,5 +1,9 @@
 CRITICAL ENGINEERING RULES
 
+This native implementation is based on `/home/rahul/Documents/grapple-migration`.
+Use those migration design files as the product/system source of truth, not the
+old `showrunner-services` implementation.
+
 Before implementing anything, ask:
 Is this the simplest, minimal, cleanest, architecturally correct way to do it?
 
