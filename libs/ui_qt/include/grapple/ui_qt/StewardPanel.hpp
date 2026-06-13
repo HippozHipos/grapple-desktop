@@ -8,7 +8,6 @@
 #include <functional>
 #include <string>
 
-class QLineEdit;
 class QPushButton;
 class QTextEdit;
 
@@ -29,7 +28,7 @@ public:
 
 private:
   CreateCameraEffectHandler createCameraEffectHandler_;
-  QLineEdit* intent_ = nullptr;
+  QTextEdit* intent_ = nullptr;
   QPushButton* createCameraEffectButton_ = nullptr;
   QTextEdit* text_ = nullptr;
 };

@@ -1,6 +1,5 @@
 #include <grapple/ui_qt/StewardPanel.hpp>
 
-#include <QLineEdit>
 #include <QPushButton>
 #include <QTextEdit>
 #include <QVBoxLayout>
@@ -105,9 +104,14 @@ StewardPanel::StewardPanel(QWidget* parent)
   auto* layout = new QVBoxLayout{this};
   layout->setContentsMargins(0, 0, 0, 0);
 
-  intent_ = new QLineEdit{"Center the subject with an editable camera transform."};
+  intent_ = new QTextEdit{"Center the subject with an editable camera transform."};
   intent_->setObjectName("stewardIntent");
-  intent_->setCursorPosition(0);
+  intent_->setAcceptRichText(false);
+  intent_->setLineWrapMode(QTextEdit::WidgetWidth);
+  intent_->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+  intent_->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+  intent_->setMinimumHeight(54);
+  intent_->setMaximumHeight(72);
   layout->addWidget(intent_);
 
   createCameraEffectButton_ = new QPushButton{"Create Editable Camera Controls"};
@@ -224,8 +228,8 @@ void StewardPanel::setViewModel(const app::AppViewModel& viewModel, const agent:
 }
 
 void StewardPanel::setIntent(std::string intent) {
-  intent_->setText(qString(intent));
-  intent_->setCursorPosition(0);
+  intent_->setPlainText(qString(intent));
+  intent_->moveCursor(QTextCursor::Start);
 }
 
 void StewardPanel::triggerCreateCameraEffect() {
@@ -237,7 +241,7 @@ std::string StewardPanel::contents() const {
 }
 
 std::string StewardPanel::intent() const {
-  return intent_->text().toStdString();
+  return intent_->toPlainText().toStdString();
 }
 
 } // namespace grapple::ui

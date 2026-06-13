@@ -477,9 +477,10 @@ public:
       }
       QTabBar::tab:selected { background: #20242d; color: #f2f7ff; }
       QWidget#sidePanel { background: transparent; }
-      QWidget#stewardPanel, QTextEdit#stewardText {
+      QWidget#stewardPanel, QTextEdit#stewardText, QTextEdit#stewardIntent {
         background: #20242d; border: 1px solid #343b4a; border-radius: 10px; color: #eaf3ff;
       }
+      QTextEdit#stewardIntent { background: #10141d; padding: 8px 10px; }
       QListWidget#mediaBin { color: #dce8f6; outline: 0; }
       QListWidget#mediaBin::item { padding: 10px; border-radius: 8px; }
       QListWidget#mediaBin::item:selected { background: #36506f; color: #ffffff; }
