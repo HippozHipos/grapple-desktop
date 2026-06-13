@@ -23,9 +23,16 @@ namespace {
 constexpr std::size_t MediaFrameCacheBytes = 256 * 1024 * 1024;
 
 media::MediaSourceKind sourceKindFor(asset::AssetMediaType mediaType) {
-  return mediaType == asset::AssetMediaType::Image
-    ? media::MediaSourceKind::Image
-    : media::MediaSourceKind::Video;
+  switch (mediaType) {
+    case asset::AssetMediaType::Video:
+      return media::MediaSourceKind::Video;
+    case asset::AssetMediaType::Audio:
+      return media::MediaSourceKind::Audio;
+    case asset::AssetMediaType::Image:
+      return media::MediaSourceKind::Image;
+  }
+
+  std::abort();
 }
 
 foundation::Result<media::MediaSourceCatalog> buildMediaSources(const NativeProjectSession& session) {

@@ -73,9 +73,16 @@ int main() {
     foundation::FilePath{videoPath.string()}
   });
   GRAPPLE_REQUIRE(registerVideoSource);
-  GRAPPLE_REQUIRE(sources.sources().size() == 2);
+  const auto registerAudioSource = sources.registerSource(media::MediaSource{
+    foundation::AssetId{"asset_audio"},
+    media::MediaSourceKind::Audio,
+    foundation::FilePath{"/tmp/grapple-audio.wav"}
+  });
+  GRAPPLE_REQUIRE(registerAudioSource);
+  GRAPPLE_REQUIRE(sources.sources().size() == 3);
   GRAPPLE_REQUIRE(sources.find(foundation::AssetId{"asset_image"}) != nullptr);
   GRAPPLE_REQUIRE(sources.find(foundation::AssetId{"asset_video"}) != nullptr);
+  GRAPPLE_REQUIRE(sources.find(foundation::AssetId{"asset_audio"}) != nullptr);
 
   const auto duplicate = sources.registerSource(media::MediaSource{
     foundation::AssetId{"asset_image"},
@@ -128,6 +135,38 @@ int main() {
     );
     GRAPPLE_REQUIRE(!missing);
     GRAPPLE_REQUIRE(missing.error().code == "media.source_missing");
+
+    const auto audioFrame = reader.frameAt(
+      foundation::AssetId{"asset_audio"},
+      foundation::TimeSeconds{0.0},
+      media::MediaQuality::Proxy
+    );
+    GRAPPLE_REQUIRE(!audioFrame);
+    GRAPPLE_REQUIRE(audioFrame.error().code == "media.audio_frame_unsupported");
+
+    const auto missingAudio = reader.audioRange(
+      foundation::AssetId{"asset_missing"},
+      foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}},
+      media::MediaQuality::Proxy
+    );
+    GRAPPLE_REQUIRE(!missingAudio);
+    GRAPPLE_REQUIRE(missingAudio.error().code == "media.source_missing");
+
+    const auto imageAudio = reader.audioRange(
+      foundation::AssetId{"asset_image"},
+      foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}},
+      media::MediaQuality::Proxy
+    );
+    GRAPPLE_REQUIRE(!imageAudio);
+    GRAPPLE_REQUIRE(imageAudio.error().code == "media.audio_source_kind_invalid");
+
+    const auto audio = reader.audioRange(
+      foundation::AssetId{"asset_audio"},
+      foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}},
+      media::MediaQuality::Proxy
+    );
+    GRAPPLE_REQUIRE(!audio);
+    GRAPPLE_REQUIRE(audio.error().code == "media.audio_decode_unsupported");
   }
 
   std::filesystem::remove(imagePath);

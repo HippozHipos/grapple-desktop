@@ -436,6 +436,22 @@ int main() {
     userSource()
   );
   GRAPPLE_REQUIRE(cacheAsset);
+  const auto cacheAudioAsset = cacheWriter.apply(
+    project::RegisterAssetCommand{asset::Asset{
+      foundation::AssetId{"asset_cache_audio"},
+      "Cache Audio",
+      asset::AssetMetadata{
+        asset::AssetMediaType::Audio,
+        foundation::FilePath{"/tmp/grapple-cache-audio.wav"},
+        std::nullopt,
+        foundation::TimeSeconds{1.0},
+        std::nullopt,
+        std::nullopt
+      }
+    }},
+    userSource()
+  );
+  GRAPPLE_REQUIRE(cacheAudioAsset);
   const foundation::NodeId cacheCompositionNodeId = cacheWriter.nextNodeId("composition");
   const auto cacheComposition = cacheWriter.apply(
     project::CreateCompositionCommand{cacheCompositionNodeId, "Cache Main"},
@@ -473,6 +489,11 @@ int main() {
   GRAPPLE_REQUIRE(cacheClip);
   auto cacheWorkspace = app::NativeWorkspaceSession::fromProject(std::move(cacheProject));
   GRAPPLE_REQUIRE(cacheWorkspace);
+  GRAPPLE_REQUIRE(cacheWorkspace.value().mediaSources().sources().size() == 2);
+  const media::MediaSource* cacheAudioSource =
+    cacheWorkspace.value().mediaSources().find(foundation::AssetId{"asset_cache_audio"});
+  GRAPPLE_REQUIRE(cacheAudioSource != nullptr);
+  GRAPPLE_REQUIRE(cacheAudioSource->kind == media::MediaSourceKind::Audio);
   GRAPPLE_REQUIRE(cacheWorkspace.value().cachedMediaFrameCount() == 0);
   const auto exportOnlyPrepare = cacheWorkspace.value().exportSession().prepareFromProject();
   GRAPPLE_REQUIRE(exportOnlyPrepare);
@@ -522,8 +543,15 @@ int main() {
   GRAPPLE_REQUIRE(cacheWorkspaceWrite);
   auto reopenedCacheWorkspace = app::NativeWorkspaceSession::openPackageRoot(foundation::FilePath{cachePackageRoot.string()});
   GRAPPLE_REQUIRE(reopenedCacheWorkspace);
-  GRAPPLE_REQUIRE(reopenedCacheWorkspace.value().mediaSources().sources().size() == 1);
-  GRAPPLE_REQUIRE(reopenedCacheWorkspace.value().mediaSources().sources()[0].assetId == foundation::AssetId{"asset_cache_image"});
+  GRAPPLE_REQUIRE(reopenedCacheWorkspace.value().mediaSources().sources().size() == 2);
+  const media::MediaSource* reopenedCacheImageSource =
+    reopenedCacheWorkspace.value().mediaSources().find(foundation::AssetId{"asset_cache_image"});
+  GRAPPLE_REQUIRE(reopenedCacheImageSource != nullptr);
+  GRAPPLE_REQUIRE(reopenedCacheImageSource->kind == media::MediaSourceKind::Image);
+  const media::MediaSource* reopenedCacheAudioSource =
+    reopenedCacheWorkspace.value().mediaSources().find(foundation::AssetId{"asset_cache_audio"});
+  GRAPPLE_REQUIRE(reopenedCacheAudioSource != nullptr);
+  GRAPPLE_REQUIRE(reopenedCacheAudioSource->kind == media::MediaSourceKind::Audio);
   const auto reopenedCacheRefresh = reopenedCacheWorkspace.value().preview().refreshFromProject();
   GRAPPLE_REQUIRE(reopenedCacheRefresh);
   const auto reopenedCacheFrame = reopenedCacheWorkspace.value().preview().renderFrame(render::RenderFrameRequest{

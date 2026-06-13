@@ -10,6 +10,7 @@ namespace grapple::media {
 
 enum class MediaSourceKind {
   Video,
+  Audio,
   Image
 };
 

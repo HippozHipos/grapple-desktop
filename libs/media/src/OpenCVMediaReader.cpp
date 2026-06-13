@@ -139,6 +139,10 @@ foundation::Result<MediaFrame> OpenCVMediaReader::frameAt(
     return imageFrame(*source, time, quality);
   }
 
+  if (source->kind == MediaSourceKind::Audio) {
+    return foundation::Error{"media.audio_frame_unsupported", "Audio sources do not provide video frames."};
+  }
+
   auto capture = impl_->videoCaptureFor(*source);
   if (!capture) {
     return capture.error();
@@ -151,6 +155,18 @@ foundation::Result<AudioBuffer> OpenCVMediaReader::audioRange(
   foundation::TimeRange range,
   MediaQuality quality
 ) {
+  (void)range;
+  (void)quality;
+
+  const MediaSource* source = impl_->sources.find(assetId);
+  if (source == nullptr) {
+    return foundation::Error{"media.source_missing", "Media source is not registered for asset " + assetId.value() + "."};
+  }
+
+  if (source->kind != MediaSourceKind::Audio) {
+    return foundation::Error{"media.audio_source_kind_invalid", "Audio ranges require an audio media source."};
+  }
+
   return foundation::Error{"media.audio_decode_unsupported", "OpenCVMediaReader does not decode audio for asset " + assetId.value() + "."};
 }
 
