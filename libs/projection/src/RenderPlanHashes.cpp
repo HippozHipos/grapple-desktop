@@ -1,10 +1,15 @@
 #include <grapple/projection/RenderPlanHashes.hpp>
 
+#include <grapple/projection/RenderPlanSerializer.hpp>
 #include <grapple/timeline/TimelineSerializer.hpp>
 
 #include <sstream>
 
 namespace grapple::projection {
+
+foundation::Hash256 hashRenderPlan(const RenderPlan& plan) {
+  return foundation::stableHash(serializeCanonicalRenderPlan(plan));
+}
 
 foundation::Hash256 hashRenderClipImplementation() {
   return foundation::stableHash("runtime.clip.media");

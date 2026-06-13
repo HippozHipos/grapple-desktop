@@ -4,6 +4,7 @@
 #include <grapple/project/ProjectSerializer.hpp>
 #include <grapple/projection/ProjectionQueryService.hpp>
 #include <grapple/projection/RenderPlanBuilder.hpp>
+#include <grapple/projection/RenderPlanHashes.hpp>
 #include <grapple/projection/RenderPlanSerializer.hpp>
 #include <grapple/projection/TimelineProjector.hpp>
 
@@ -234,6 +235,7 @@ int main() {
   );
 
   const std::string serializedPlan = projection::serializeCanonicalRenderPlan(planResult.value().plan);
+  GRAPPLE_REQUIRE(projection::hashRenderPlan(planResult.value().plan) == foundation::stableHash(serializedPlan));
   GRAPPLE_REQUIRE(serializedPlan.find("\"projectId\":\"proj_projection\"") != std::string::npos);
   GRAPPLE_REQUIRE(serializedPlan.find("\"duration\":10") != std::string::npos);
   GRAPPLE_REQUIRE(serializedPlan.find("\"inlineSource\":\"def prepare(ctx):\\n  return {'x': 1}\\n\"") != std::string::npos);

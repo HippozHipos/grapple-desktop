@@ -1,7 +1,6 @@
 #include <grapple/runtime/RuntimeDependencyPlanner.hpp>
 
 #include <grapple/projection/RenderPlanHashes.hpp>
-#include <grapple/projection/RenderPlanSerializer.hpp>
 #include <grapple/runtime/RuntimeCache.hpp>
 
 #include <algorithm>
@@ -166,7 +165,7 @@ bool dependencyNodeChanged(
 RuntimeDependencyGraph RuntimeDependencyPlanner::build(const projection::RenderPlan& plan) const {
   RuntimeDependencyGraph graph{
     plan.projectId,
-    foundation::stableHash(projection::serializeCanonicalRenderPlan(plan)),
+    projection::hashRenderPlan(plan),
     {}
   };
 

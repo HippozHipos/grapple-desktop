@@ -5,6 +5,7 @@
 
 namespace grapple::projection {
 
+foundation::Hash256 hashRenderPlan(const RenderPlan& plan);
 foundation::Hash256 hashRenderClipImplementation();
 foundation::Hash256 hashRenderClipParams(const RenderClip& clip);
 foundation::Hash256 hashRenderCameraImplementation();
