@@ -104,6 +104,19 @@ int main() {
   GRAPPLE_REQUIRE(!missingConnectPorts);
   GRAPPLE_REQUIRE(missingConnectPorts.error().code == "graph.edge_port_missing");
 
+  auto missingTargetPorts = next.addEdge(graph::GraphEdge{
+    foundation::EdgeId{"edge_target_missing_ports"},
+    graph::EdgeKind::Targets,
+    foundation::NodeId{"node_composition"},
+    graph::PortName{"output"},
+    foundation::NodeId{"node_track"},
+    graph::PortName{},
+    0,
+    true
+  });
+  GRAPPLE_REQUIRE(!missingTargetPorts);
+  GRAPPLE_REQUIRE(missingTargetPorts.error().code == "graph.edge_port_missing");
+
   auto connectEdge = next.addEdge(graph::GraphEdge{
     foundation::EdgeId{"edge_connect_ports"},
     graph::EdgeKind::Connects,

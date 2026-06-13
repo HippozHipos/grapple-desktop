@@ -108,6 +108,17 @@ foundation::Result<std::string> requiredStringMember(const Json::Value& object, 
   return value.value().asString();
 }
 
+foundation::Result<std::string> requiredNonEmptyStringMember(const Json::Value& object, const char* key, const std::string& path) {
+  auto value = requiredStringMember(object, key, path);
+  if (!value) {
+    return value.error();
+  }
+  if (value.value().empty()) {
+    return parseError(path + "." + key, "Expected non-empty string.");
+  }
+  return value.value();
+}
+
 foundation::Result<bool> requiredBoolMember(const Json::Value& object, const char* key, const std::string& path) {
   auto value = requiredMember(object, key, path);
   if (!value) {
@@ -1250,6 +1261,14 @@ foundation::Result<ProjectSettings> parseSettings(const Json::Value& object, con
   return settings;
 }
 
+foundation::Result<ProjectCommand> validatedCommand(ProjectCommand command) {
+  auto valid = validateProjectCommandShape(command);
+  if (!valid) {
+    return valid.error();
+  }
+  return command;
+}
+
 } // namespace
 
 foundation::Result<ProjectCommand> deserializeCanonicalCommandPayload(
@@ -1274,7 +1293,7 @@ foundation::Result<ProjectCommand> deserializeCanonicalCommandPayload(
     if (!asset) {
       return asset.error();
     }
-    return ProjectCommand{RegisterAssetCommand{asset.value()}};
+    return validatedCommand(ProjectCommand{RegisterAssetCommand{asset.value()}});
   }
   if (serializedName == "project.create_composition") {
     auto members = requireOnlyMembers(root.value(), {"nodeId", "name"}, "$");
@@ -1289,7 +1308,7 @@ foundation::Result<ProjectCommand> deserializeCanonicalCommandPayload(
     if (!name) {
       return name.error();
     }
-    return ProjectCommand{CreateCompositionCommand{foundation::NodeId{nodeId.value()}, name.value()}};
+    return validatedCommand(ProjectCommand{CreateCompositionCommand{foundation::NodeId{nodeId.value()}, name.value()}});
   }
   if (serializedName == "project.create_track") {
     auto members = requireOnlyMembers(root.value(), {"nodeId", "compositionNodeId", "containmentEdgeId", "name", "order"}, "$");
@@ -1316,13 +1335,13 @@ foundation::Result<ProjectCommand> deserializeCanonicalCommandPayload(
     if (!order) {
       return order.error();
     }
-    return ProjectCommand{CreateTrackCommand{
+    return validatedCommand(ProjectCommand{CreateTrackCommand{
       foundation::NodeId{nodeId.value()},
       foundation::NodeId{compositionNodeId.value()},
       foundation::EdgeId{containmentEdgeId.value()},
       name.value(),
       order.value()
-    }};
+    }});
   }
   if (serializedName == "project.create_clip") {
     auto members = requireOnlyMembers(root.value(), {"nodeId", "trackNodeId", "containmentEdgeId", "payload", "order"}, "$");
@@ -1353,13 +1372,13 @@ foundation::Result<ProjectCommand> deserializeCanonicalCommandPayload(
     if (!order) {
       return order.error();
     }
-    return ProjectCommand{CreateClipCommand{
+    return validatedCommand(ProjectCommand{CreateClipCommand{
       foundation::NodeId{nodeId.value()},
       foundation::NodeId{trackNodeId.value()},
       foundation::EdgeId{containmentEdgeId.value()},
       payload.value(),
       order.value()
-    }};
+    }});
   }
   if (serializedName == "project.move_clip") {
     auto members = requireOnlyMembers(root.value(), {"nodeId", "newStart"}, "$");
@@ -1374,7 +1393,7 @@ foundation::Result<ProjectCommand> deserializeCanonicalCommandPayload(
     if (!newStart) {
       return newStart.error();
     }
-    return ProjectCommand{MoveClipCommand{foundation::NodeId{nodeId.value()}, foundation::TimeSeconds{newStart.value()}}};
+    return validatedCommand(ProjectCommand{MoveClipCommand{foundation::NodeId{nodeId.value()}, foundation::TimeSeconds{newStart.value()}}});
   }
   if (serializedName == "project.trim_clip") {
     auto members = requireOnlyMembers(root.value(), {"nodeId", "timelineRange", "sourceRange"}, "$");
@@ -1401,7 +1420,7 @@ foundation::Result<ProjectCommand> deserializeCanonicalCommandPayload(
     if (!sourceRange) {
       return sourceRange.error();
     }
-    return ProjectCommand{TrimClipCommand{foundation::NodeId{nodeId.value()}, timelineRange.value(), sourceRange.value()}};
+    return validatedCommand(ProjectCommand{TrimClipCommand{foundation::NodeId{nodeId.value()}, timelineRange.value(), sourceRange.value()}});
   }
   if (serializedName == "project.update_clip") {
     auto members = requireOnlyMembers(root.value(), {"nodeId", "payload"}, "$");
@@ -1420,7 +1439,7 @@ foundation::Result<ProjectCommand> deserializeCanonicalCommandPayload(
     if (!payload) {
       return payload.error();
     }
-    return ProjectCommand{UpdateClipCommand{foundation::NodeId{nodeId.value()}, payload.value()}};
+    return validatedCommand(ProjectCommand{UpdateClipCommand{foundation::NodeId{nodeId.value()}, payload.value()}});
   }
   if (serializedName == "project.delete_clip") {
     auto members = requireOnlyMembers(root.value(), {"nodeId"}, "$");
@@ -1431,7 +1450,7 @@ foundation::Result<ProjectCommand> deserializeCanonicalCommandPayload(
     if (!nodeId) {
       return nodeId.error();
     }
-    return ProjectCommand{DeleteClipCommand{foundation::NodeId{nodeId.value()}}};
+    return validatedCommand(ProjectCommand{DeleteClipCommand{foundation::NodeId{nodeId.value()}}});
   }
   if (serializedName == "project.create_camera") {
     auto members = requireOnlyMembers(root.value(), {"nodeId", "compositionNodeId", "containmentEdgeId", "payload", "order"}, "$");
@@ -1462,13 +1481,13 @@ foundation::Result<ProjectCommand> deserializeCanonicalCommandPayload(
     if (!order) {
       return order.error();
     }
-    return ProjectCommand{CreateCameraCommand{
+    return validatedCommand(ProjectCommand{CreateCameraCommand{
       foundation::NodeId{nodeId.value()},
       foundation::NodeId{compositionNodeId.value()},
       foundation::EdgeId{containmentEdgeId.value()},
       payload.value(),
       order.value()
-    }};
+    }});
   }
   if (serializedName == "project.update_camera") {
     auto members = requireOnlyMembers(root.value(), {"nodeId", "payload"}, "$");
@@ -1487,7 +1506,7 @@ foundation::Result<ProjectCommand> deserializeCanonicalCommandPayload(
     if (!payload) {
       return payload.error();
     }
-    return ProjectCommand{UpdateCameraCommand{foundation::NodeId{nodeId.value()}, payload.value()}};
+    return validatedCommand(ProjectCommand{UpdateCameraCommand{foundation::NodeId{nodeId.value()}, payload.value()}});
   }
   if (serializedName == "project.create_effect") {
     auto members = requireOnlyMembers(root.value(), {"nodeId", "targetNodeId", "targetEdgeId", "payload", "sourcePort", "targetPort", "order"}, "$");
@@ -1526,7 +1545,7 @@ foundation::Result<ProjectCommand> deserializeCanonicalCommandPayload(
     if (!order) {
       return order.error();
     }
-    return ProjectCommand{CreateEffectCommand{
+    return validatedCommand(ProjectCommand{CreateEffectCommand{
       foundation::NodeId{nodeId.value()},
       foundation::NodeId{targetNodeId.value()},
       foundation::EdgeId{targetEdgeId.value()},
@@ -1534,7 +1553,7 @@ foundation::Result<ProjectCommand> deserializeCanonicalCommandPayload(
       graph::PortName{sourcePort.value()},
       graph::PortName{targetPort.value()},
       order.value()
-    }};
+    }});
   }
   if (serializedName == "project.delete_effect") {
     auto members = requireOnlyMembers(root.value(), {"nodeId"}, "$");
@@ -1545,7 +1564,7 @@ foundation::Result<ProjectCommand> deserializeCanonicalCommandPayload(
     if (!nodeId) {
       return nodeId.error();
     }
-    return ProjectCommand{DeleteEffectCommand{foundation::NodeId{nodeId.value()}}};
+    return validatedCommand(ProjectCommand{DeleteEffectCommand{foundation::NodeId{nodeId.value()}}});
   }
   if (serializedName == "project.connect_ports") {
     auto members = requireOnlyMembers(root.value(), {"edgeId", "sourceNodeId", "sourcePort", "targetNodeId", "targetPort", "order"}, "$");
@@ -1576,14 +1595,14 @@ foundation::Result<ProjectCommand> deserializeCanonicalCommandPayload(
     if (!order) {
       return order.error();
     }
-    return ProjectCommand{ConnectPortsCommand{
+    return validatedCommand(ProjectCommand{ConnectPortsCommand{
       foundation::EdgeId{edgeId.value()},
       foundation::NodeId{sourceNodeId.value()},
       graph::PortName{sourcePort.value()},
       foundation::NodeId{targetNodeId.value()},
       graph::PortName{targetPort.value()},
       order.value()
-    }};
+    }});
   }
   if (serializedName == "project.disconnect_ports") {
     auto members = requireOnlyMembers(root.value(), {"edgeId"}, "$");
@@ -1594,7 +1613,7 @@ foundation::Result<ProjectCommand> deserializeCanonicalCommandPayload(
     if (!edgeId) {
       return edgeId.error();
     }
-    return ProjectCommand{DisconnectPortsCommand{foundation::EdgeId{edgeId.value()}}};
+    return validatedCommand(ProjectCommand{DisconnectPortsCommand{foundation::EdgeId{edgeId.value()}}});
   }
   if (serializedName == "project.update_effect_param_value") {
     auto members = requireOnlyMembers(root.value(), {"effectNodeId", "paramName", "value"}, "$");
@@ -1617,11 +1636,11 @@ foundation::Result<ProjectCommand> deserializeCanonicalCommandPayload(
     if (!paramValue) {
       return paramValue.error();
     }
-    return ProjectCommand{UpdateEffectParamValueCommand{
+    return validatedCommand(ProjectCommand{UpdateEffectParamValueCommand{
       foundation::NodeId{effectNodeId.value()},
       paramName.value(),
       paramValue.value()
-    }};
+    }});
   }
   if (serializedName == "project.upsert_effect_param_keyframe") {
     auto members = requireOnlyMembers(root.value(), {"effectNodeId", "paramName", "keyframe"}, "$");
@@ -1644,11 +1663,11 @@ foundation::Result<ProjectCommand> deserializeCanonicalCommandPayload(
     if (!keyframe) {
       return keyframe.error();
     }
-    return ProjectCommand{UpsertEffectParamKeyframeCommand{
+    return validatedCommand(ProjectCommand{UpsertEffectParamKeyframeCommand{
       foundation::NodeId{effectNodeId.value()},
       paramName.value(),
       keyframe.value()
-    }};
+    }});
   }
   if (serializedName == "project.delete_effect_param_keyframe") {
     auto members = requireOnlyMembers(root.value(), {"effectNodeId", "paramName", "keyframeId"}, "$");
@@ -1667,11 +1686,11 @@ foundation::Result<ProjectCommand> deserializeCanonicalCommandPayload(
     if (!keyframeId) {
       return keyframeId.error();
     }
-    return ProjectCommand{DeleteEffectParamKeyframeCommand{
+    return validatedCommand(ProjectCommand{DeleteEffectParamKeyframeCommand{
       foundation::NodeId{effectNodeId.value()},
       paramName.value(),
       foundation::KeyframeId{keyframeId.value()}
-    }};
+    }});
   }
   if (serializedName == "project.create_note" || serializedName == "project.update_note") {
     auto members = requireOnlyMembers(root.value(), {"nodeId", "title", "markdown"}, "$");
@@ -1692,9 +1711,9 @@ foundation::Result<ProjectCommand> deserializeCanonicalCommandPayload(
     }
     timeline::NotePayload payload{title.value(), markdown.value()};
     if (serializedName == "project.create_note") {
-      return ProjectCommand{CreateNoteCommand{foundation::NodeId{nodeId.value()}, payload}};
+      return validatedCommand(ProjectCommand{CreateNoteCommand{foundation::NodeId{nodeId.value()}, payload}});
     }
-    return ProjectCommand{UpdateNoteCommand{foundation::NodeId{nodeId.value()}, payload}};
+    return validatedCommand(ProjectCommand{UpdateNoteCommand{foundation::NodeId{nodeId.value()}, payload}});
   }
   if (serializedName == "project.restore_snapshot") {
     auto members = requireOnlyMembers(root.value(), {"snapshotId", "snapshot"}, "$");
@@ -1715,7 +1734,7 @@ foundation::Result<ProjectCommand> deserializeCanonicalCommandPayload(
     if (!snapshot) {
       return snapshot.error();
     }
-    return ProjectCommand{RestoreSnapshotCommand{foundation::SnapshotId{snapshotId.value()}, snapshot.value()}};
+    return validatedCommand(ProjectCommand{RestoreSnapshotCommand{foundation::SnapshotId{snapshotId.value()}, snapshot.value()}});
   }
 
   return foundation::Error{
@@ -1739,15 +1758,15 @@ foundation::Result<ProjectSnapshot> deserializeCanonicalProjectSnapshot(const st
     return members.error();
   }
 
-  auto projectId = requiredStringMember(root.value(), "projectId", "$");
+  auto projectId = requiredNonEmptyStringMember(root.value(), "projectId", "$");
   if (!projectId) {
     return projectId.error();
   }
-  auto name = requiredStringMember(root.value(), "name", "$");
+  auto name = requiredNonEmptyStringMember(root.value(), "name", "$");
   if (!name) {
     return name.error();
   }
-  auto revision = requiredStringMember(root.value(), "revision", "$");
+  auto revision = requiredNonEmptyStringMember(root.value(), "revision", "$");
   if (!revision) {
     return revision.error();
   }

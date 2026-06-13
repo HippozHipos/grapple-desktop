@@ -162,6 +162,12 @@ int main() {
   );
   GRAPPLE_REQUIRE(!commandWithUnexpectedField);
   GRAPPLE_REQUIRE(commandWithUnexpectedField.error().message.find("Unexpected serialized field") != std::string::npos);
+  const auto commandWithEmptyName = project::deserializeCanonicalCommandPayload(
+    project::serializedCommandName(project::CommandKind::CreateComposition),
+    "{\"nodeId\":\"node_empty_composition\",\"name\":\"\"}"
+  );
+  GRAPPLE_REQUIRE(!commandWithEmptyName);
+  GRAPPLE_REQUIRE(commandWithEmptyName.error().code == "project.composition_name_empty");
 
   const auto trackResult = controller.apply(createTrack);
   GRAPPLE_REQUIRE(trackResult);
@@ -222,6 +228,12 @@ int main() {
   const auto snapshotWithUnexpectedNodeField = project::deserializeCanonicalProjectSnapshot(serializedWithUnexpectedNodeField);
   GRAPPLE_REQUIRE(!snapshotWithUnexpectedNodeField);
   GRAPPLE_REQUIRE(snapshotWithUnexpectedNodeField.error().message.find("Unexpected serialized field") != std::string::npos);
+  const auto snapshotWithEmptyName = project::deserializeCanonicalProjectSnapshot(
+    "{\"projectId\":\"proj_test\",\"name\":\"\",\"revision\":\"rev_3\",\"revisionNumber\":3,"
+    "\"settings\":{\"defaultDuration\":null},\"assets\":[],\"graph\":{\"nodes\":[],\"edges\":[]}}"
+  );
+  GRAPPLE_REQUIRE(!snapshotWithEmptyName);
+  GRAPPLE_REQUIRE(snapshotWithEmptyName.error().message.find("Expected non-empty string") != std::string::npos);
   GRAPPLE_REQUIRE(project::hashProjectSnapshot(afterRestore.value()) == project::hashProjectSnapshot(afterRestore.value()));
   project::ProjectSnapshot durationSnapshot = afterRestore.value();
   durationSnapshot.settings.defaultDuration = foundation::TimeSeconds{12.5};
@@ -872,6 +884,40 @@ int main() {
   });
   GRAPPLE_REQUIRE(!unlabeledAgentEffect);
   GRAPPLE_REQUIRE(unlabeledAgentEffect.error().code == "project.agent_effect_param_label_missing");
+  timeline::EffectPayload emptyParamNameEffectPayload = projectEffectPayload;
+  emptyParamNameEffectPayload.params.values[0].name = "";
+  const auto emptyParamNameEffect = effectProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_empty_param_name_effect"},
+    foundation::ProjectId{"proj_effect"},
+    effectTrack.value().afterRevision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::CreateEffectCommand{
+      foundation::NodeId{"node_empty_param_name_effect"},
+      foundation::NodeId{"node_effect_track"},
+      foundation::EdgeId{"edge_empty_param_name_effect_target"},
+      emptyParamNameEffectPayload,
+      graph::PortName{"output"},
+      graph::PortName{"input"}
+    }
+  });
+  GRAPPLE_REQUIRE(!emptyParamNameEffect);
+  GRAPPLE_REQUIRE(emptyParamNameEffect.error().code == "project.effect_param_name_empty");
+  const auto emptyEffectTargetPort = effectProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_empty_effect_target_port"},
+    foundation::ProjectId{"proj_effect"},
+    effectTrack.value().afterRevision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::CreateEffectCommand{
+      foundation::NodeId{"node_empty_effect_target_port"},
+      foundation::NodeId{"node_effect_track"},
+      foundation::EdgeId{"edge_empty_effect_target_port"},
+      projectEffectPayload,
+      graph::PortName{},
+      graph::PortName{"input"}
+    }
+  });
+  GRAPPLE_REQUIRE(!emptyEffectTargetPort);
+  GRAPPLE_REQUIRE(emptyEffectTargetPort.error().code == "project.effect_target_port_empty");
   timeline::EffectPayload nonNumericEffectPayload = projectEffectPayload;
   nonNumericEffectPayload.params.values[0].name = "enabled";
   nonNumericEffectPayload.params.values[0].value = true;

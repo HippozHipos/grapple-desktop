@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <string>
+#include <string_view>
 #include <variant>
 
 namespace grapple::project {
@@ -21,12 +22,51 @@ bool sameParamValueType(const timeline::ParamValue& left, const timeline::ParamV
   return left.index() == right.index();
 }
 
+foundation::Result<void> requireNonEmpty(std::string_view value, const char* code, const char* message) {
+  if (value.empty()) {
+    return foundation::Error{code, message};
+  }
+  return {};
+}
+
+template <typename Id>
+foundation::Result<void> requireNonEmptyId(const Id& id, const char* code, const char* message) {
+  return requireNonEmpty(id.value(), code, message);
+}
+
 } // namespace
 
 ProjectController::ProjectController(ProjectDocument document)
   : document_(std::move(document)) {}
 
 foundation::Result<ProjectCommandResult> ProjectController::apply(const ProjectCommandEnvelope& command) {
+  auto commandId = requireNonEmptyId(command.id, "project.command_id_empty", "Command id must not be empty.");
+  if (!commandId) {
+    return commandId.error();
+  }
+
+  auto projectId = requireNonEmptyId(command.projectId, "project.command_project_id_empty", "Command project id must not be empty.");
+  if (!projectId) {
+    return projectId.error();
+  }
+
+  auto expectedRevision = requireNonEmptyId(command.expectedRevision, "project.command_expected_revision_empty", "Command expected revision must not be empty.");
+  if (!expectedRevision) {
+    return expectedRevision.error();
+  }
+
+  auto actorName = requireNonEmpty(command.source.actorName, "project.command_actor_empty", "Command actor name must not be empty.");
+  if (!actorName) {
+    return actorName.error();
+  }
+
+  if (command.source.runId.has_value()) {
+    auto runId = requireNonEmptyId(*command.source.runId, "project.command_run_id_empty", "Command run id must not be empty when present.");
+    if (!runId) {
+      return runId.error();
+    }
+  }
+
   if (command.projectId != document_.info.id) {
     return foundation::Error{"project.id_mismatch", "Command project id does not match the open project."};
   }
@@ -81,6 +121,11 @@ foundation::RevisionId ProjectController::nextRevisionId() const {
 }
 
 foundation::Result<void> ProjectController::validateCommand(const ProjectCommandEnvelope& command) const {
+  auto payloadShape = validateProjectCommandShape(command.payload);
+  if (!payloadShape) {
+    return payloadShape;
+  }
+
   if (command.source.kind != CommandSourceKind::Agent) {
     return {};
   }

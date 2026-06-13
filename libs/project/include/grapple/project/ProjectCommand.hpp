@@ -1,6 +1,7 @@
 #pragma once
 
 #include <grapple/asset/Asset.hpp>
+#include <grapple/foundation/Result.hpp>
 #include <grapple/foundation/StrongId.hpp>
 #include <grapple/foundation/Time.hpp>
 #include <grapple/graph/GraphEdge.hpp>
@@ -201,5 +202,6 @@ struct ProjectCommandEnvelope {
 };
 
 [[nodiscard]] CommandKind commandKind(const ProjectCommand& command);
+[[nodiscard]] foundation::Result<void> validateProjectCommandShape(const ProjectCommand& command);
 
 } // namespace grapple::project
