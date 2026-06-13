@@ -32,6 +32,10 @@ std::string_view serializedCommandName(CommandKind kind) {
       return "project.disconnect_nodes";
     case CommandKind::SetEffectParams:
       return "project.set_effect_params";
+    case CommandKind::CreateNote:
+      return "project.create_note";
+    case CommandKind::UpdateNote:
+      return "project.update_note";
     case CommandKind::RestoreSnapshot:
       return "project.restore_snapshot";
   }

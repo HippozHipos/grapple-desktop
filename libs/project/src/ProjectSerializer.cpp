@@ -26,6 +26,18 @@ void writeProjectSettings(std::ostringstream& stream, const ProjectSettings& set
   stream << '}';
 }
 
+void writeNoteCommandPayload(
+  std::ostringstream& stream,
+  foundation::NodeId nodeId,
+  const timeline::NotePayload& payload
+) {
+  writeIdProperty(stream, "nodeId", nodeId.value());
+  stream << ',';
+  foundation::writeJsonStringProperty(stream, "title", payload.title);
+  stream << ',';
+  foundation::writeJsonStringProperty(stream, "markdown", payload.markdown);
+}
+
 } // namespace
 
 std::string serializeCanonicalProjectDocument(const ProjectDocument& document) {
@@ -138,6 +150,10 @@ std::string serializeCanonicalCommandPayload(const ProjectCommand& command) {
       } else if constexpr (std::is_same_v<Command, SetEffectParamsCommand>) {
         writeIdProperty(stream, "effectNodeId", typedCommand.effectNodeId.value());
         stream << ",\"params\":" << timeline::serializeCanonicalParamSet(typedCommand.params);
+      } else if constexpr (std::is_same_v<Command, CreateNoteCommand>) {
+        writeNoteCommandPayload(stream, typedCommand.nodeId, typedCommand.payload);
+      } else if constexpr (std::is_same_v<Command, UpdateNoteCommand>) {
+        writeNoteCommandPayload(stream, typedCommand.nodeId, typedCommand.payload);
       } else if constexpr (std::is_same_v<Command, RestoreSnapshotCommand>) {
         writeIdProperty(stream, "snapshotId", typedCommand.snapshotId.value());
         stream << ",\"snapshot\":" << serializeCanonicalProjectSnapshot(typedCommand.snapshot);

@@ -60,6 +60,8 @@ int main() {
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::ConnectNodes) == "project.connect_nodes");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::DisconnectNodes) == "project.disconnect_nodes");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::SetEffectParams) == "project.set_effect_params");
+  GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::CreateNote) == "project.create_note");
+  GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::UpdateNote) == "project.update_note");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::RestoreSnapshot) == "project.restore_snapshot");
   GRAPPLE_REQUIRE(project::serializedCommandSourceKind(project::CommandSourceKind::User) == "user");
   GRAPPLE_REQUIRE(project::serializedCommandSourceKind(project::CommandSourceKind::Agent) == "agent");
@@ -748,6 +750,99 @@ int main() {
   });
   GRAPPLE_REQUIRE(!deleteNonEffect);
   GRAPPLE_REQUIRE(deleteNonEffect.error().code == "project.effect_missing");
+
+  project::ProjectController noteProject{
+    project::createEmptyProject(foundation::ProjectId{"proj_notes"}, "Notes Project")
+  };
+  const auto noteInitial = noteProject.snapshot();
+  GRAPPLE_REQUIRE(noteInitial);
+  const project::ProjectCommandEnvelope createNote{
+    foundation::CommandId{"cmd_create_note"},
+    foundation::ProjectId{"proj_notes"},
+    noteInitial.value().revision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::CreateNoteCommand{
+      foundation::NodeId{"node_note"},
+      timeline::NotePayload{"Framing note", "Keep the subject editable."}
+    }
+  };
+  GRAPPLE_REQUIRE(project::commandKind(createNote.payload) == project::CommandKind::CreateNote);
+  GRAPPLE_REQUIRE(project::serializeCanonicalCommandPayload(createNote.payload) == "{\"nodeId\":\"node_note\",\"title\":\"Framing note\",\"markdown\":\"Keep the subject editable.\"}");
+  const auto createNoteResult = noteProject.apply(createNote);
+  GRAPPLE_REQUIRE(createNoteResult);
+  GRAPPLE_REQUIRE(createNoteResult.value().afterRevision == foundation::RevisionId{"rev_1"});
+  const auto afterCreateNote = noteProject.snapshot();
+  GRAPPLE_REQUIRE(afterCreateNote);
+  const graph::GraphNode* createdNote = afterCreateNote.value().graph.findNode(foundation::NodeId{"node_note"});
+  GRAPPLE_REQUIRE(createdNote != nullptr);
+  GRAPPLE_REQUIRE(createdNote->kind == graph::NodeKind::Note);
+  const auto* createdNotePayload = std::get_if<timeline::NotePayload>(&createdNote->payload);
+  GRAPPLE_REQUIRE(createdNotePayload != nullptr);
+  GRAPPLE_REQUIRE(createdNotePayload->title == "Framing note");
+  GRAPPLE_REQUIRE(createdNotePayload->markdown == "Keep the subject editable.");
+  const project::ProjectCommandEnvelope updateNote{
+    foundation::CommandId{"cmd_update_note"},
+    foundation::ProjectId{"proj_notes"},
+    afterCreateNote.value().revision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::UpdateNoteCommand{
+      foundation::NodeId{"node_note"},
+      timeline::NotePayload{"Updated note", "Expose the control as a parameter."}
+    }
+  };
+  GRAPPLE_REQUIRE(project::commandKind(updateNote.payload) == project::CommandKind::UpdateNote);
+  GRAPPLE_REQUIRE(project::serializeCanonicalCommandPayload(updateNote.payload) == "{\"nodeId\":\"node_note\",\"title\":\"Updated note\",\"markdown\":\"Expose the control as a parameter.\"}");
+  const auto updateNoteResult = noteProject.apply(updateNote);
+  GRAPPLE_REQUIRE(updateNoteResult);
+  GRAPPLE_REQUIRE(updateNoteResult.value().afterRevision == foundation::RevisionId{"rev_2"});
+  const auto afterUpdateNote = noteProject.snapshot();
+  GRAPPLE_REQUIRE(afterUpdateNote);
+  const auto noteSnapshotRoundTrip = project::deserializeCanonicalProjectSnapshot(
+    project::serializeCanonicalProjectSnapshot(afterUpdateNote.value())
+  );
+  GRAPPLE_REQUIRE(noteSnapshotRoundTrip);
+  GRAPPLE_REQUIRE(
+    project::serializeCanonicalProjectSnapshot(noteSnapshotRoundTrip.value()) ==
+    project::serializeCanonicalProjectSnapshot(afterUpdateNote.value())
+  );
+  const graph::GraphNode* updatedNote = noteSnapshotRoundTrip.value().graph.findNode(foundation::NodeId{"node_note"});
+  GRAPPLE_REQUIRE(updatedNote != nullptr);
+  const auto* updatedNotePayload = std::get_if<timeline::NotePayload>(&updatedNote->payload);
+  GRAPPLE_REQUIRE(updatedNotePayload != nullptr);
+  GRAPPLE_REQUIRE(updatedNotePayload->title == "Updated note");
+  GRAPPLE_REQUIRE(updatedNotePayload->markdown == "Expose the control as a parameter.");
+  const auto updateMissingNote = noteProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_update_missing_note"},
+    foundation::ProjectId{"proj_notes"},
+    afterUpdateNote.value().revision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::UpdateNoteCommand{
+      foundation::NodeId{"node_missing_note"},
+      timeline::NotePayload{"Missing", "No node."}
+    }
+  });
+  GRAPPLE_REQUIRE(!updateMissingNote);
+  GRAPPLE_REQUIRE(updateMissingNote.error().code == "project.note_missing");
+  const auto createNoteComposition = noteProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_note_composition"},
+    foundation::ProjectId{"proj_notes"},
+    afterUpdateNote.value().revision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::CreateCompositionCommand{foundation::NodeId{"node_note_composition"}, "Main"}
+  });
+  GRAPPLE_REQUIRE(createNoteComposition);
+  const auto updateNonNote = noteProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_update_non_note"},
+    foundation::ProjectId{"proj_notes"},
+    createNoteComposition.value().afterRevision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::UpdateNoteCommand{
+      foundation::NodeId{"node_note_composition"},
+      timeline::NotePayload{"Wrong kind", "Composition is not a note."}
+    }
+  });
+  GRAPPLE_REQUIRE(!updateNonNote);
+  GRAPPLE_REQUIRE(updateNonNote.error().code == "project.note_missing");
 
   const auto graphQuery = controller.query(project::GetGraphQuery{});
   GRAPPLE_REQUIRE(graphQuery);

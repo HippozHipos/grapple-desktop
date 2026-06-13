@@ -27,6 +27,8 @@ enum class CommandKind {
   ConnectNodes,
   DisconnectNodes,
   SetEffectParams,
+  CreateNote,
+  UpdateNote,
   RestoreSnapshot
 };
 
@@ -122,6 +124,16 @@ struct SetEffectParamsCommand {
   timeline::ParamSet params;
 };
 
+struct CreateNoteCommand {
+  foundation::NodeId nodeId;
+  timeline::NotePayload payload;
+};
+
+struct UpdateNoteCommand {
+  foundation::NodeId nodeId;
+  timeline::NotePayload payload;
+};
+
 struct RestoreSnapshotCommand {
   foundation::SnapshotId snapshotId;
   ProjectSnapshot snapshot;
@@ -141,6 +153,8 @@ using ProjectCommand = std::variant<
   ConnectNodesCommand,
   DisconnectNodesCommand,
   SetEffectParamsCommand,
+  CreateNoteCommand,
+  UpdateNoteCommand,
   RestoreSnapshotCommand
 >;
 

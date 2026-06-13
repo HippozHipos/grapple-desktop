@@ -140,6 +140,10 @@ foundation::Result<void> ProjectController::applyPayload(const ProjectCommand& p
         return handleDisconnectNodes(typedCommand);
       } else if constexpr (std::is_same_v<Command, SetEffectParamsCommand>) {
         return handleSetEffectParams(typedCommand);
+      } else if constexpr (std::is_same_v<Command, CreateNoteCommand>) {
+        return handleCreateNote(typedCommand);
+      } else if constexpr (std::is_same_v<Command, UpdateNoteCommand>) {
+        return handleUpdateNote(typedCommand);
       } else if constexpr (std::is_same_v<Command, RestoreSnapshotCommand>) {
         return handleRestoreSnapshot(typedCommand);
       }
@@ -362,6 +366,24 @@ foundation::Result<void> ProjectController::handleSetEffectParams(const SetEffec
   timeline::EffectPayload updated = *payload;
   updated.params = command.params;
   return document_.graph.replaceNodePayload(command.effectNodeId, std::move(updated));
+}
+
+foundation::Result<void> ProjectController::handleCreateNote(const CreateNoteCommand& command) {
+  return document_.graph.addNode(graph::GraphNode{
+    command.nodeId,
+    graph::NodeKind::Note,
+    command.payload,
+    true
+  });
+}
+
+foundation::Result<void> ProjectController::handleUpdateNote(const UpdateNoteCommand& command) {
+  const graph::GraphNode* note = document_.graph.findNode(command.nodeId);
+  if (note == nullptr || note->kind != graph::NodeKind::Note) {
+    return foundation::Error{"project.note_missing", "Note updates require an existing note node."};
+  }
+
+  return document_.graph.replaceNodePayload(command.nodeId, command.payload);
 }
 
 foundation::Result<void> ProjectController::handleRestoreSnapshot(const RestoreSnapshotCommand& command) {
