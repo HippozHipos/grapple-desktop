@@ -69,6 +69,9 @@ int main() {
   const std::filesystem::path stewardPackageRoot =
     std::filesystem::temp_directory_path() /
     ("grapple_native_app_steward_" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+  const std::filesystem::path cachePackageRoot =
+    std::filesystem::temp_directory_path() /
+    ("grapple_native_app_cache_" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
   app::NativeProjectSession savedSession{
     foundation::ProjectId{"proj_app_saved"},
     "Saved App Project",
@@ -343,7 +346,7 @@ int main() {
     "Cache App Project",
     storage::ProjectPackage{
       foundation::ProjectId{"proj_app_cache"},
-      foundation::FilePath{"cache-app.grapple"},
+      foundation::FilePath{cachePackageRoot.string()},
       1
     }
   };
@@ -446,7 +449,23 @@ int main() {
   });
   GRAPPLE_REQUIRE(secondCachedFrame);
   GRAPPLE_REQUIRE(cacheWorkspace.value().cachedMediaFrameCount() == 2);
+  const auto cacheWorkspaceWrite = cacheWorkspace.value().writePackage();
+  GRAPPLE_REQUIRE(cacheWorkspaceWrite);
+  auto reopenedCacheWorkspace = app::NativeWorkspaceSession::openPackageRoot(foundation::FilePath{cachePackageRoot.string()});
+  GRAPPLE_REQUIRE(reopenedCacheWorkspace);
+  GRAPPLE_REQUIRE(reopenedCacheWorkspace.value().mediaSources().sources().size() == 1);
+  GRAPPLE_REQUIRE(reopenedCacheWorkspace.value().mediaSources().sources()[0].assetId == foundation::AssetId{"asset_cache_image"});
+  const auto reopenedCacheRefresh = reopenedCacheWorkspace.value().preview().refreshFromProject();
+  GRAPPLE_REQUIRE(reopenedCacheRefresh);
+  const auto reopenedCacheFrame = reopenedCacheWorkspace.value().preview().renderFrame(render::RenderFrameRequest{
+    foundation::TimeSeconds{0.0},
+    render::RenderQuality::Draft
+  });
+  GRAPPLE_REQUIRE(reopenedCacheFrame);
+  GRAPPLE_REQUIRE(reopenedCacheFrame.value().frame.image.has_value());
+  GRAPPLE_REQUIRE((reopenedCacheFrame.value().frame.image->resolution == foundation::Resolution{2, 1}));
   std::filesystem::remove(cacheImagePath);
+  std::filesystem::remove_all(cachePackageRoot);
 
   app::NativeProjectSession effectSession{
     foundation::ProjectId{"proj_app_effects"},
