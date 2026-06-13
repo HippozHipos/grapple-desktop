@@ -560,6 +560,14 @@ int main() {
   const auto cameraLoad = cameraCore.loadPlan(makeCameraEffectRenderPlan());
   GRAPPLE_REQUIRE(cameraLoad);
   GRAPPLE_REQUIRE(cameraRuntime.prepareCount == 1);
+  const auto sameCameraLoad = cameraCore.loadPlan(makeCameraEffectRenderPlan());
+  GRAPPLE_REQUIRE(sameCameraLoad);
+  GRAPPLE_REQUIRE(cameraRuntime.prepareCount == 1);
+  projection::RenderPlan revisedCameraPlan = makeCameraEffectRenderPlan();
+  revisedCameraPlan.revision = foundation::RevisionId{"rev_4"};
+  const auto revisedCameraLoad = cameraCore.loadPlan(revisedCameraPlan);
+  GRAPPLE_REQUIRE(revisedCameraLoad);
+  GRAPPLE_REQUIRE(cameraRuntime.prepareCount == 2);
   const auto cameraFrame = cameraPreview.renderFrame(render::RenderFrameRequest{
     foundation::TimeSeconds{2.5},
     render::RenderQuality::Draft

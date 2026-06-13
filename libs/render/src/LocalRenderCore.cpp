@@ -1,5 +1,6 @@
 #include <grapple/render/LocalRenderCore.hpp>
 
+#include <grapple/projection/RenderPlanSerializer.hpp>
 #include <grapple/runtime/RuntimeOutputNames.hpp>
 
 #include <algorithm>
@@ -253,6 +254,15 @@ LocalRenderCore::LocalRenderCore(runtime::RuntimeEvaluator& runtime, IRenderFram
     frameSource_{&frameSource} {}
 
 foundation::Result<void> LocalRenderCore::loadPlan(const projection::RenderPlan& plan) {
+  const foundation::Hash256 planHash = foundation::stableHash(
+    projection::serializeCanonicalRenderPlan(plan)
+  );
+  if (prepared_.has_value() &&
+      state_.preparedPlanHash.has_value() &&
+      state_.preparedPlanHash.value() == planHash) {
+    return {};
+  }
+
   auto prepared = runtime_.prepare(runtime::PrepareRuntimePlanRequest{
     plan
   });
