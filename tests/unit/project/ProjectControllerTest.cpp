@@ -8,6 +8,8 @@
 #include <TestAssert.hpp>
 
 #include <algorithm>
+#include <string_view>
+#include <vector>
 
 namespace {
 
@@ -24,6 +26,11 @@ grapple::project::ProjectCommandEnvelope makeCreateComposition(
       "Main"
     }
   };
+}
+
+bool allUnique(std::vector<std::string_view> values) {
+  std::sort(values.begin(), values.end());
+  return std::adjacent_find(values.begin(), values.end()) == values.end();
 }
 
 } // namespace
@@ -68,8 +75,39 @@ int main() {
   GRAPPLE_REQUIRE(project::serializedCommandSourceKind(project::CommandSourceKind::User) == "user");
   GRAPPLE_REQUIRE(project::serializedCommandSourceKind(project::CommandSourceKind::Agent) == "agent");
   GRAPPLE_REQUIRE(project::serializedCommandSourceKind(project::CommandSourceKind::Importer) == "importer");
+  GRAPPLE_REQUIRE(project::serializedCommandSourceKind(project::CommandSourceKind::Migration) == "migration");
   GRAPPLE_REQUIRE(project::serializedEventName(project::EventKind::ProjectCommandApplied) == "project.command_applied");
   GRAPPLE_REQUIRE(project::serializedEventName(project::EventKind::ProjectChanged) == "project.changed");
+  GRAPPLE_REQUIRE(allUnique({
+    project::serializedCommandName(project::CommandKind::RegisterAsset),
+    project::serializedCommandName(project::CommandKind::CreateComposition),
+    project::serializedCommandName(project::CommandKind::CreateTrack),
+    project::serializedCommandName(project::CommandKind::CreateClip),
+    project::serializedCommandName(project::CommandKind::MoveClip),
+    project::serializedCommandName(project::CommandKind::TrimClip),
+    project::serializedCommandName(project::CommandKind::UpdateClip),
+    project::serializedCommandName(project::CommandKind::DeleteClip),
+    project::serializedCommandName(project::CommandKind::CreateCamera),
+    project::serializedCommandName(project::CommandKind::UpdateCamera),
+    project::serializedCommandName(project::CommandKind::CreateEffect),
+    project::serializedCommandName(project::CommandKind::DeleteEffect),
+    project::serializedCommandName(project::CommandKind::ConnectPorts),
+    project::serializedCommandName(project::CommandKind::DisconnectPorts),
+    project::serializedCommandName(project::CommandKind::UpdateEffectParams),
+    project::serializedCommandName(project::CommandKind::CreateNote),
+    project::serializedCommandName(project::CommandKind::UpdateNote),
+    project::serializedCommandName(project::CommandKind::RestoreSnapshot)
+  }));
+  GRAPPLE_REQUIRE(allUnique({
+    project::serializedCommandSourceKind(project::CommandSourceKind::User),
+    project::serializedCommandSourceKind(project::CommandSourceKind::Agent),
+    project::serializedCommandSourceKind(project::CommandSourceKind::Importer),
+    project::serializedCommandSourceKind(project::CommandSourceKind::Migration)
+  }));
+  GRAPPLE_REQUIRE(allUnique({
+    project::serializedEventName(project::EventKind::ProjectCommandApplied),
+    project::serializedEventName(project::EventKind::ProjectChanged)
+  }));
   GRAPPLE_REQUIRE(createComposition.value().beforeRevision == foundation::RevisionId{"rev_0"});
   GRAPPLE_REQUIRE(createComposition.value().afterRevision == foundation::RevisionId{"rev_1"});
   GRAPPLE_REQUIRE(createComposition.value().events.size() == 2);
