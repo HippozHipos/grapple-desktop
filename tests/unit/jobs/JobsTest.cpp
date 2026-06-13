@@ -110,12 +110,12 @@ int main() {
   GRAPPLE_REQUIRE(progress.lastProgress == 1.0);
 
   jobs::JobQueue cancelledJobs;
-  bool cancellationObserved = false;
+  bool cancelledJobRan = false;
   const auto enqueueCancelledJob = cancelledJobs.enqueue(jobs::Job{
     foundation::JobId{"job_cancelled"},
     "Cancelled Job",
     [&](jobs::CancellationToken& token, jobs::IProgressSink& progressSink) {
-      cancellationObserved = token.cancelled();
+      cancelledJobRan = true;
       progressSink.reportProgress(0.25);
       return foundation::Result<void>{};
     }
@@ -125,9 +125,44 @@ int main() {
   cancelledToken.cancel();
   const auto cancelledJobResults = cancelledJobs.drain(cancelledToken, progress);
   GRAPPLE_REQUIRE(cancelledJobResults);
-  GRAPPLE_REQUIRE(cancelledJobResults.value().size() == 1);
-  GRAPPLE_REQUIRE(cancellationObserved);
-  GRAPPLE_REQUIRE(progress.lastProgress == 0.25);
+  GRAPPLE_REQUIRE(cancelledJobResults.value().empty());
+  GRAPPLE_REQUIRE(!cancelledJobRan);
+  GRAPPLE_REQUIRE(cancelledJobs.size() == 1);
+
+  jobs::JobQueue midDrainCancelledJobs;
+  bool firstMidDrainJobRan = false;
+  bool secondMidDrainJobRan = false;
+  const auto enqueueFirstMidDrainJob = midDrainCancelledJobs.enqueue(jobs::Job{
+    foundation::JobId{"job_cancel_during_first"},
+    "Cancel During First Job",
+    [&](jobs::CancellationToken& token, jobs::IProgressSink& progressSink) {
+      firstMidDrainJobRan = true;
+      progressSink.reportProgress(0.5);
+      token.cancel();
+      return foundation::Result<void>{};
+    }
+  });
+  GRAPPLE_REQUIRE(enqueueFirstMidDrainJob);
+  const auto enqueueSecondMidDrainJob = midDrainCancelledJobs.enqueue(jobs::Job{
+    foundation::JobId{"job_after_cancel"},
+    "Job After Cancel",
+    [&](jobs::CancellationToken& token, jobs::IProgressSink& progressSink) {
+      (void)token;
+      secondMidDrainJobRan = true;
+      progressSink.reportProgress(1.0);
+      return foundation::Result<void>{};
+    }
+  });
+  GRAPPLE_REQUIRE(enqueueSecondMidDrainJob);
+  jobs::CancellationToken midDrainCancellation;
+  const auto midDrainResults = midDrainCancelledJobs.drain(midDrainCancellation, progress);
+  GRAPPLE_REQUIRE(midDrainResults);
+  GRAPPLE_REQUIRE(midDrainResults.value().size() == 1);
+  GRAPPLE_REQUIRE(midDrainResults.value()[0].jobId == foundation::JobId{"job_cancel_during_first"});
+  GRAPPLE_REQUIRE(firstMidDrainJobRan);
+  GRAPPLE_REQUIRE(!secondMidDrainJobRan);
+  GRAPPLE_REQUIRE(midDrainCancelledJobs.size() == 1);
+  GRAPPLE_REQUIRE(progress.lastProgress == 0.5);
 
   return 0;
 }

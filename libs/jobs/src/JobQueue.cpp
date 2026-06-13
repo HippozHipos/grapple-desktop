@@ -26,6 +26,10 @@ foundation::Result<std::vector<JobRunRecord>> JobQueue::drain(
   std::vector<JobRunRecord> records;
 
   while (!jobs_.empty()) {
+    if (cancellation.cancelled()) {
+      break;
+    }
+
     Job job = std::move(jobs_.front());
     jobs_.pop_front();
 
