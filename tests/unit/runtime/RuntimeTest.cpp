@@ -752,6 +752,31 @@ int main() {
     foundation::NodeId{"node_effect_a"},
     foundation::NodeId{"node_effect_b"}
   }));
+  runtime::MemoryRuntimeCache prepareCache{4};
+  const runtime::RuntimeDependencyGraph& reusableGraph = initialReusablePrepare.value().prepared.dependencyGraph;
+  const runtime::RuntimeCacheKey cachedEffectA = runtime::runtimeCacheKeyForDependency(
+    reusableGraph,
+    reusableGraph.nodes[1],
+    "runtime_prepare_v1"
+  );
+  const runtime::RuntimeCacheKey cachedEffectC = runtime::runtimeCacheKeyForDependency(
+    reusableGraph,
+    reusableGraph.nodes[3],
+    "runtime_prepare_v1"
+  );
+  GRAPPLE_REQUIRE(prepareCache.put(cachedEffectA, runtime::RuntimeValue{1.0}));
+  GRAPPLE_REQUIRE(prepareCache.put(cachedEffectC, runtime::RuntimeValue{3.0}));
+  const auto changedReusablePrepareWithCache = reuseEvaluator.prepare(runtime::PrepareRuntimePlanRequest{
+    makeEffectChainPlan(0.9),
+    &initialReusablePrepare.value().prepared,
+    &prepareCache,
+    "runtime_prepare_v1"
+  });
+  GRAPPLE_REQUIRE(changedReusablePrepareWithCache);
+  GRAPPLE_REQUIRE(!prepareCache.get(cachedEffectA).has_value());
+  const auto cachedUnchangedEffect = prepareCache.get(cachedEffectC);
+  GRAPPLE_REQUIRE(cachedUnchangedEffect.has_value());
+  GRAPPLE_REQUIRE(std::get<double>(*cachedUnchangedEffect) == 3.0);
 
   runtime::BuiltinEffectRuntime builtinRuntime;
   const runtime::RuntimeEvaluator evaluatorWithBuiltinRuntime{{&builtinRuntime}};

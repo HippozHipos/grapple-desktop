@@ -3,10 +3,12 @@
 #include <grapple/foundation/Result.hpp>
 #include <grapple/projection/RenderPlan.hpp>
 #include <grapple/runtime/EffectRuntime.hpp>
+#include <grapple/runtime/RuntimeCache.hpp>
 #include <grapple/runtime/RuntimeDependencyGraph.hpp>
 #include <grapple/runtime/RuntimeDiagnostic.hpp>
 #include <grapple/runtime/RuntimeSample.hpp>
 
+#include <string>
 #include <vector>
 
 namespace grapple::runtime {
@@ -25,6 +27,8 @@ struct PreparedRuntimePlan {
 struct PrepareRuntimePlanRequest {
   projection::RenderPlan plan;
   const PreparedRuntimePlan* previousPrepared = nullptr;
+  IRuntimeCache* cache = nullptr;
+  std::string runtimeVersion = "runtime_prepare_v1";
 };
 
 struct PrepareRuntimePlanResult {

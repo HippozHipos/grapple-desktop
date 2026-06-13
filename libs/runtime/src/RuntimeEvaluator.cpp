@@ -61,8 +61,14 @@ foundation::Result<PrepareRuntimePlanResult> RuntimeEvaluator::prepare(
     RuntimeInvalidationResult invalidation = planner.diff(RuntimeInvalidationRequest{
       request.previousPrepared->dependencyGraph,
       request.plan,
-      "runtime_prepare_v1"
+      request.runtimeVersion
     });
+    if (request.cache != nullptr && !invalidation.invalidatedCacheKeys.empty()) {
+      auto invalidated = request.cache->invalidate(invalidation.invalidatedCacheKeys);
+      if (!invalidated) {
+        return invalidated.error();
+      }
+    }
     graph = std::move(invalidation.nextGraph);
     invalidatedDependencies = std::move(invalidation.invalidatedDependencies);
   } else {
