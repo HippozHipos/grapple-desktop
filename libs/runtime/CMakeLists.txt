@@ -4,6 +4,7 @@ add_library(grapple_runtime
   src/RuntimeCache.cpp
   src/RuntimeDependencyPlanner.cpp
   src/RuntimeEvaluator.cpp
+  src/RuntimeParamEvaluator.cpp
 )
 
 add_library(Grapple::Runtime ALIAS grapple_runtime)

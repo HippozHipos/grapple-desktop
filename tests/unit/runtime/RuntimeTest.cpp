@@ -4,6 +4,7 @@
 #include <grapple/runtime/RuntimeEvaluator.hpp>
 #include <grapple/runtime/MemoryRuntimeCache.hpp>
 #include <grapple/runtime/RuntimeOutputNames.hpp>
+#include <grapple/runtime/RuntimeParamEvaluator.hpp>
 
 #include <TestAssert.hpp>
 
@@ -30,6 +31,7 @@ public:
         request.graph.targetNodeId,
         request.node.sourceNodeId,
         nullptr,
+        grapple::runtime::RuntimeParamSet{},
         {
           grapple::runtime::RuntimeNamedValue{
             "prepared",
@@ -221,6 +223,28 @@ grapple::projection::RenderPlan makeBuiltinCameraTransformPlan(bool includePosit
       }
     }
   });
+  return plan;
+}
+
+grapple::projection::RenderPlan makeKeyframedBuiltinCameraTransformPlan() {
+  grapple::projection::RenderPlan plan = makeBuiltinCameraTransformPlan();
+  for (grapple::timeline::Param& param : plan.effectGraphs[0].nodes[0].payload.params.values) {
+    if (param.name != grapple::runtime::builtin_effect::PositionXParam) {
+      continue;
+    }
+    param.keyframes = {
+      grapple::timeline::Param::Keyframe{
+        grapple::foundation::KeyframeId{"key_position_x_0"},
+        grapple::foundation::TimeSeconds{0.0},
+        0.0
+      },
+      grapple::timeline::Param::Keyframe{
+        grapple::foundation::KeyframeId{"key_position_x_2"},
+        grapple::foundation::TimeSeconds{2.0},
+        1.0
+      }
+    };
+  }
   return plan;
 }
 
@@ -701,6 +725,29 @@ int main() {
 
   runtime::BuiltinEffectRuntime builtinRuntime;
   const runtime::RuntimeEvaluator evaluatorWithBuiltinRuntime{{&builtinRuntime}};
+  const runtime::RuntimeValueMap sampledParams = runtime::evaluateRuntimeParams(
+    runtime::runtimeParamsFromEffectNode(makeKeyframedBuiltinCameraTransformPlan().effectGraphs[0].nodes[0]),
+    foundation::TimeSeconds{1.0}
+  );
+  GRAPPLE_REQUIRE(sampledParams.size() == 3);
+  GRAPPLE_REQUIRE(sampledParams[0].name == runtime::builtin_effect::PositionXParam);
+  GRAPPLE_REQUIRE(std::get<double>(sampledParams[0].value) == 0.5);
+  const runtime::RuntimeValueMap steppedParams = runtime::evaluateRuntimeParams(
+    runtime::RuntimeParamSet{
+      runtime::RuntimeParam{
+        "enabled",
+        runtime::RuntimeValue{false},
+        {
+          runtime::RuntimeParamKeyframe{foundation::KeyframeId{"key_enabled_0"}, foundation::TimeSeconds{0.0}, runtime::RuntimeValue{false}},
+          runtime::RuntimeParamKeyframe{foundation::KeyframeId{"key_enabled_2"}, foundation::TimeSeconds{2.0}, runtime::RuntimeValue{true}}
+        }
+      }
+    },
+    foundation::TimeSeconds{2.0}
+  );
+  GRAPPLE_REQUIRE(steppedParams.size() == 1);
+  GRAPPLE_REQUIRE(std::get<bool>(steppedParams[0].value));
+
   const auto preparedBuiltinEffectPlan = evaluatorWithBuiltinRuntime.prepare(runtime::PrepareRuntimePlanRequest{
     makeBuiltinCameraTransformPlan()
   });
@@ -724,6 +771,30 @@ int main() {
   GRAPPLE_REQUIRE(transform->position.y == -0.5);
   GRAPPLE_REQUIRE(transform->scale.x == 1.75);
   GRAPPLE_REQUIRE(transform->scale.y == 1.75);
+
+  const auto preparedKeyframedBuiltinEffectPlan = evaluatorWithBuiltinRuntime.prepare(runtime::PrepareRuntimePlanRequest{
+    makeKeyframedBuiltinCameraTransformPlan()
+  });
+  GRAPPLE_REQUIRE(preparedKeyframedBuiltinEffectPlan);
+  GRAPPLE_REQUIRE(preparedKeyframedBuiltinEffectPlan.value().diagnostics.empty());
+  const auto keyframedBuiltinMidSample = evaluatorWithBuiltinRuntime.sample(runtime::RuntimeSampleRequest{
+    preparedKeyframedBuiltinEffectPlan.value().prepared,
+    foundation::TimeSeconds{1.0},
+    runtime::RuntimeQuality::Interactive
+  });
+  GRAPPLE_REQUIRE(keyframedBuiltinMidSample);
+  const auto* midTransform = std::get_if<foundation::Transform2D>(&keyframedBuiltinMidSample.value().sample.effectOutputs[0].values[0].value);
+  GRAPPLE_REQUIRE(midTransform != nullptr);
+  GRAPPLE_REQUIRE(midTransform->position.x == 0.5);
+  const auto keyframedBuiltinEndSample = evaluatorWithBuiltinRuntime.sample(runtime::RuntimeSampleRequest{
+    preparedKeyframedBuiltinEffectPlan.value().prepared,
+    foundation::TimeSeconds{2.0},
+    runtime::RuntimeQuality::Interactive
+  });
+  GRAPPLE_REQUIRE(keyframedBuiltinEndSample);
+  const auto* endTransform = std::get_if<foundation::Transform2D>(&keyframedBuiltinEndSample.value().sample.effectOutputs[0].values[0].value);
+  GRAPPLE_REQUIRE(endTransform != nullptr);
+  GRAPPLE_REQUIRE(endTransform->position.x == 1.0);
 
   const auto preparedInvalidBuiltinEffectPlan = evaluatorWithBuiltinRuntime.prepare(runtime::PrepareRuntimePlanRequest{
     makeBuiltinCameraTransformPlan(false)

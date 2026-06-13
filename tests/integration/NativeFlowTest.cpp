@@ -39,6 +39,7 @@ public:
         request.graph.targetNodeId,
         request.node.sourceNodeId,
         nullptr,
+        grapple::runtime::RuntimeParamSet{},
         {
           grapple::runtime::RuntimeNamedValue{
             "source_hash",

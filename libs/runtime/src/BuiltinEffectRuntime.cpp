@@ -11,8 +11,8 @@ namespace grapple::runtime {
 
 namespace {
 
-std::optional<double> numericParam(const projection::RenderEffectNode& node, const std::string& name) {
-  for (const auto& param : node.payload.params.values) {
+std::optional<double> numericParam(const RuntimeParamSet& params, const std::string& name) {
+  for (const RuntimeParam& param : params) {
     if (param.name == name) {
       const auto* value = std::get_if<double>(&param.value);
       if (value != nullptr) {
@@ -49,9 +49,10 @@ bool BuiltinEffectRuntime::supports(const projection::RenderEffectNode& node) co
 
 foundation::Result<EffectPrepareResult> BuiltinEffectRuntime::prepare(const EffectPrepareRequest& request) {
   std::vector<RuntimeDiagnostic> diagnostics;
-  const std::optional<double> positionX = numericParam(request.node, builtin_effect::PositionXParam);
-  const std::optional<double> positionY = numericParam(request.node, builtin_effect::PositionYParam);
-  const std::optional<double> zoom = numericParam(request.node, builtin_effect::ZoomParam);
+  const RuntimeParamSet params = runtimeParamsFromEffectNode(request.node);
+  const std::optional<double> positionX = numericParam(params, builtin_effect::PositionXParam);
+  const std::optional<double> positionY = numericParam(params, builtin_effect::PositionYParam);
+  const std::optional<double> zoom = numericParam(params, builtin_effect::ZoomParam);
 
   if (!positionX.has_value()) {
     diagnostics.push_back(makeParamDiagnostic(request, builtin_effect::PositionXParam));
@@ -76,6 +77,7 @@ foundation::Result<EffectPrepareResult> BuiltinEffectRuntime::prepare(const Effe
       request.graph.targetNodeId,
       request.node.sourceNodeId,
       nullptr,
+      params,
       std::move(preparedValues)
     },
     diagnostics
@@ -87,7 +89,7 @@ foundation::Result<EffectProcessResult> BuiltinEffectRuntime::process(const Effe
   std::optional<double> positionY;
   std::optional<double> zoom;
 
-  for (const RuntimeNamedValue& value : request.prepared.preparedValues) {
+  for (const RuntimeNamedValue& value : request.params) {
     const auto* numeric = std::get_if<double>(&value.value);
     if (numeric == nullptr) {
       continue;

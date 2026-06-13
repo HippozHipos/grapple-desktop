@@ -1,5 +1,6 @@
 #include <grapple/runtime/RuntimeEvaluator.hpp>
 
+#include <grapple/runtime/RuntimeParamEvaluator.hpp>
 #include <grapple/runtime/RuntimeDependencyPlanner.hpp>
 
 #include <cstddef>
@@ -67,6 +68,7 @@ foundation::Result<PrepareRuntimePlanResult> RuntimeEvaluator::prepare(
 
       PreparedEffectNode preparedEffect = std::move(effectPrepare.value().prepared);
       preparedEffect.runtime = selectedRuntime;
+      preparedEffect.params = runtimeParamsFromEffectNode(effectNode);
       prepared.preparedEffects.push_back(std::move(preparedEffect));
       prepared.diagnostics.insert(
         prepared.diagnostics.end(),
@@ -128,7 +130,8 @@ foundation::Result<RuntimeSampleResult> RuntimeEvaluator::sample(
     auto effectProcess = effect.runtime->process(EffectProcessRequest{
       effect,
       request.time,
-      request.quality
+      request.quality,
+      evaluateRuntimeParams(effect.params, request.time)
     });
     if (!effectProcess) {
       return effectProcess.error();

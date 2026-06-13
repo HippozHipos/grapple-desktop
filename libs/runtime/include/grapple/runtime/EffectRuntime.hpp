@@ -5,6 +5,7 @@
 #include <grapple/projection/RenderPlan.hpp>
 #include <grapple/runtime/RuntimeDiagnostic.hpp>
 #include <grapple/runtime/RuntimeOutput.hpp>
+#include <grapple/runtime/RuntimeParamEvaluator.hpp>
 #include <grapple/runtime/RuntimeQuality.hpp>
 
 #include <vector>
@@ -18,6 +19,7 @@ struct PreparedEffectNode {
   foundation::NodeId targetNodeId;
   foundation::NodeId sourceNodeId;
   IEffectRuntime* runtime = nullptr;
+  RuntimeParamSet params;
   RuntimeValueMap preparedValues;
 };
 
@@ -37,6 +39,7 @@ struct EffectProcessRequest {
   const PreparedEffectNode& prepared;
   foundation::TimeSeconds time;
   RuntimeQuality quality = RuntimeQuality::Interactive;
+  RuntimeValueMap params;
 };
 
 struct EffectProcessResult {
