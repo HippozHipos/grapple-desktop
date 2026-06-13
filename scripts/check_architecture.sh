@@ -17,7 +17,7 @@ check_no_matches() {
   fi
 }
 
-if grep -RInE '\b(fallback|compat|legacy)\b' "$root/libs" "$root/tests" 2>/dev/null; then
+if grep -RInE '\b(fallback|alias|compat|legacy)\b' "$root/libs" "$root/tests" 2>/dev/null; then
   echo "Architecture guard failed: forbidden support-path wording in source." >&2
   exit 1
 fi
