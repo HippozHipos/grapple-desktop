@@ -1,7 +1,7 @@
 #pragma once
 
 #include <grapple/media/MediaReader.hpp>
-#include <grapple/render/LocalRenderCore.hpp>
+#include <grapple/render/RenderFrame.hpp>
 
 namespace grapple::app {
 

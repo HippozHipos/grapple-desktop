@@ -1,6 +1,7 @@
 #pragma once
 
 #include <grapple/app/AppViewModel.hpp>
+#include <grapple/render/RenderFrame.hpp>
 
 #include <QWidget>
 
@@ -16,6 +17,7 @@ public:
   explicit CompositionViewport(QWidget* parent = nullptr);
 
   void setViewModel(app::AppViewModel viewModel);
+  void setFrame(render::RenderFrame frame);
   void setPlayhead(foundation::TimeSeconds playhead);
   void setSelectedNodeId(std::optional<foundation::NodeId> selectedNodeId);
 
@@ -26,6 +28,7 @@ private:
   void drawGrid(QPainter& painter, const QRectF& world) const;
   void drawClip(QPainter& painter, const app::AppClipRow& clip, const QRectF& world) const;
   void drawCamera(QPainter& painter, const app::AppCameraRow& camera, const QRectF& world) const;
+  [[nodiscard]] timeline::Transform evaluatedCameraTransform(const app::AppCameraRow& camera) const;
   [[nodiscard]] QRectF worldRect(
     double width,
     double height,
@@ -37,6 +40,7 @@ private:
   [[nodiscard]] bool activeAtPlayhead(const app::AppClipRow& clip) const;
 
   std::optional<app::AppViewModel> viewModel_;
+  std::optional<render::RenderFrame> frame_;
   foundation::TimeSeconds playhead_;
   std::optional<foundation::NodeId> selectedNodeId_;
 };

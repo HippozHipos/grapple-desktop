@@ -35,6 +35,12 @@ void CompositionViewport::setViewModel(app::AppViewModel viewModel) {
   update();
 }
 
+void CompositionViewport::setFrame(render::RenderFrame frame) {
+  frame_ = std::move(frame);
+  playhead_ = frame_->time;
+  update();
+}
+
 void CompositionViewport::setPlayhead(foundation::TimeSeconds playhead) {
   playhead_ = playhead;
   update();
@@ -133,12 +139,13 @@ void CompositionViewport::drawClip(QPainter& painter, const app::AppClipRow& cli
 }
 
 void CompositionViewport::drawCamera(QPainter& painter, const app::AppCameraRow& camera, const QRectF& world) const {
-  QRectF cameraRect = worldRect(2.1, 1.18, camera.transform, world);
+  const timeline::Transform transform = evaluatedCameraTransform(camera);
+  QRectF cameraRect = worldRect(2.1, 1.18, transform, world);
   const bool isSelected = selected(camera.sourceNodeId);
 
   painter.save();
   painter.translate(cameraRect.center());
-  painter.rotate(camera.transform.rotationDegrees);
+  painter.rotate(transform.rotationDegrees);
   cameraRect.moveCenter(QPointF{0.0, 0.0});
 
   painter.setPen(isSelected ? QPen{QColor{"#061019"}, 5} : QPen{QColor{"#6be7f5"}, 2});
@@ -155,6 +162,20 @@ void CompositionViewport::drawCamera(QPainter& painter, const app::AppCameraRow&
   painter.setFont(QFont{"DejaVu Sans", 9, QFont::Bold});
   painter.drawText(cameraRect.adjusted(8.0, 6.0, -8.0, -6.0), Qt::AlignTop | Qt::AlignLeft, qString(camera.name));
   painter.restore();
+}
+
+timeline::Transform CompositionViewport::evaluatedCameraTransform(const app::AppCameraRow& camera) const {
+  if (!frame_.has_value() || frame_->time != playhead_) {
+    return camera.transform;
+  }
+
+  for (const render::RenderedCamera& renderedCamera : frame_->cameras) {
+    if (renderedCamera.cameraNodeId == camera.sourceNodeId) {
+      return renderedCamera.transform;
+    }
+  }
+
+  return camera.transform;
 }
 
 QRectF CompositionViewport::worldRect(

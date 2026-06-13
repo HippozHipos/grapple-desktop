@@ -1,7 +1,7 @@
 #pragma once
 
 #include <grapple/app/AppViewModel.hpp>
-#include <grapple/render/LocalRenderCore.hpp>
+#include <grapple/render/RenderFrame.hpp>
 
 #include <QRect>
 #include <QString>

@@ -576,9 +576,9 @@ public:
       appendDiagnostics(frame.value());
     }
     previewSurface_->setFrame(frame.value().frame);
+    compositionViewport_->setFrame(frame.value().frame);
     playheadLabel_->setText(QString{"Playhead: %1"}.arg(timeText(previewState.playhead)));
     timeline_->setPlayhead(previewState.playhead);
-    compositionViewport_->setPlayhead(previewState.playhead);
   }
 
   void seekTo(grapple::foundation::TimeSeconds time) {
