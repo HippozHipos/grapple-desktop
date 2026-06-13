@@ -874,6 +874,8 @@ int main() {
   const auto projectBeforeExport = session.snapshot();
   GRAPPLE_REQUIRE(projectBeforeExport);
   GRAPPLE_REQUIRE(projectBeforeExport.value().revision == foundation::RevisionId{"rev_1"});
+  const std::string serializedProjectBeforeExport =
+    project::serializeCanonicalProjectSnapshot(projectBeforeExport.value());
 
   const auto exportResult = exportSession.render(render::ExportSettings{
     foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}},
@@ -905,6 +907,7 @@ int main() {
   const auto projectAfterExport = session.snapshot();
   GRAPPLE_REQUIRE(projectAfterExport);
   GRAPPLE_REQUIRE(projectAfterExport.value().revision == foundation::RevisionId{"rev_1"});
+  GRAPPLE_REQUIRE(project::serializeCanonicalProjectSnapshot(projectAfterExport.value()) == serializedProjectBeforeExport);
 
   const auto savedInitial = savedSession.snapshot();
   GRAPPLE_REQUIRE(savedInitial);
