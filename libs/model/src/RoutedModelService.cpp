@@ -29,10 +29,21 @@ foundation::Result<const ModelRegistryEntry*> RoutedModelService::requireModel(
 foundation::Result<IModelProvider*> RoutedModelService::requireProvider(
   const ModelRegistryEntry& model
 ) const {
+  IModelProvider* matchedProvider = nullptr;
   for (IModelProvider* provider : providers_) {
     if (provider != nullptr && provider->providerName() == model.providerName) {
-      return provider;
+      if (matchedProvider != nullptr) {
+        return foundation::Error{
+          "model.provider_duplicate",
+          "Registered model provider name is ambiguous."
+        };
+      }
+      matchedProvider = provider;
     }
+  }
+
+  if (matchedProvider != nullptr) {
+    return matchedProvider;
   }
 
   return foundation::Error{"model.provider_missing", "Registered model provider is not available."};

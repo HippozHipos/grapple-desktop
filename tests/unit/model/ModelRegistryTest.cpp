@@ -204,6 +204,19 @@ int main() {
   GRAPPLE_REQUIRE(missingProvider.error().code == "model.provider_missing");
   GRAPPLE_REQUIRE(localProvider.textCalls == 0);
 
+  TestProvider firstDuplicateGoogleProvider{"google"};
+  TestProvider secondDuplicateGoogleProvider{"google"};
+  model::IModelProvider* duplicateProviders[] = {&firstDuplicateGoogleProvider, &secondDuplicateGoogleProvider};
+  model::RoutedModelService duplicateProviderService{registry, duplicateProviders};
+  const auto duplicateProvider = duplicateProviderService.complete(model::ModelRequest{
+    foundation::ModelId{"model_gemini_3_1_pro"},
+    "describe"
+  });
+  GRAPPLE_REQUIRE(!duplicateProvider);
+  GRAPPLE_REQUIRE(duplicateProvider.error().code == "model.provider_duplicate");
+  GRAPPLE_REQUIRE(firstDuplicateGoogleProvider.textCalls == 0);
+  GRAPPLE_REQUIRE(secondDuplicateGoogleProvider.textCalls == 0);
+
   TestProvider failingGoogleProvider{"google", true};
   TestProvider unusedLocalProvider{"local"};
   model::IModelProvider* failingProviders[] = {&failingGoogleProvider, &unusedLocalProvider};
