@@ -24,6 +24,12 @@ constexpr const char ProjectInspectSchema[] = R"json({
   "properties": {}
 })json";
 
+constexpr const char AssetListSchema[] = R"json({
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+})json";
+
 constexpr const char EffectCreateNodeSchema[] = R"json({
   "type": "object",
   "additionalProperties": false,
@@ -313,6 +319,46 @@ foundation::Result<project::ProjectSnapshot> readProjectSnapshot(
   return snapshotResult->snapshot;
 }
 
+const char* assetMediaTypeText(asset::AssetMediaType mediaType) {
+  switch (mediaType) {
+    case asset::AssetMediaType::Video:
+      return "video";
+    case asset::AssetMediaType::Audio:
+      return "audio";
+    case asset::AssetMediaType::Image:
+      return "image";
+  }
+
+  return "unknown";
+}
+
+void writeAssetJson(std::ostream& stream, const asset::Asset& asset) {
+  stream << '{'
+         << "\"assetId\":" << foundation::jsonQuoted(asset.id.value())
+         << ",\"name\":" << foundation::jsonQuoted(asset.name)
+         << ",\"mediaType\":" << foundation::jsonQuoted(assetMediaTypeText(asset.metadata.mediaType))
+         << ",\"sourcePath\":" << foundation::jsonQuoted(asset.metadata.sourcePath.value);
+
+  if (asset.metadata.thumbnailPath.has_value()) {
+    stream << ",\"thumbnailPath\":" << foundation::jsonQuoted(asset.metadata.thumbnailPath->value);
+  }
+  if (asset.metadata.duration.has_value()) {
+    stream << ",\"duration\":" << asset.metadata.duration->value;
+  }
+  if (asset.metadata.dimensions.has_value()) {
+    stream << ",\"dimensions\":{\"width\":" << asset.metadata.dimensions->width
+           << ",\"height\":" << asset.metadata.dimensions->height
+           << '}';
+  }
+  if (asset.metadata.frameRate.has_value()) {
+    stream << ",\"frameRate\":{\"numerator\":" << asset.metadata.frameRate->numerator
+           << ",\"denominator\":" << asset.metadata.frameRate->denominator
+           << '}';
+  }
+
+  stream << '}';
+}
+
 } // namespace
 
 AgentTool makeProjectInspectTool() {
@@ -338,6 +384,43 @@ AgentTool makeProjectInspectTool() {
               << ",\"edges\":" << snapshot.value().graph.edges().size()
               << "},\"assets\":{\"count\":" << snapshot.value().assets.assets().size()
               << "}}";
+
+      return ToolResult{
+        call.toolId,
+        ToolResultStatus::Succeeded,
+        snapshot.value().revision,
+        payload.str(),
+        {}
+      };
+    }
+  };
+}
+
+AgentTool makeAssetListTool() {
+  return AgentTool{
+    foundation::ToolId{"tool_asset_list"},
+    "asset.list",
+    "List Assets",
+    "Lists project assets from the canonical project snapshot.",
+    AssetListSchema,
+    [](const ToolCall& call, AgentToolContext& context) -> foundation::Result<ToolResult> {
+      auto snapshot = readProjectSnapshot(context, "Asset list");
+      if (!snapshot) {
+        return snapshot.error();
+      }
+
+      std::ostringstream payload;
+      payload << '{'
+              << "\"revision\":" << foundation::jsonQuoted(snapshot.value().revision.value())
+              << ",\"assets\":[";
+      const std::vector<asset::Asset>& assets = snapshot.value().assets.assets();
+      for (std::size_t index = 0; index < assets.size(); ++index) {
+        if (index != 0) {
+          payload << ',';
+        }
+        writeAssetJson(payload, assets[index]);
+      }
+      payload << "]}";
 
       return ToolResult{
         call.toolId,

@@ -39,18 +39,25 @@ int main() {
   agent::AgentToolRegistry registry;
   const auto registered = registry.registerTool(agent::makeProjectInspectTool());
   GRAPPLE_REQUIRE(registered);
+  const auto registeredAssetList = registry.registerTool(agent::makeAssetListTool());
+  GRAPPLE_REQUIRE(registeredAssetList);
   const auto registeredCreateEffect = registry.registerTool(agent::makeEffectCreateNodeTool());
   GRAPPLE_REQUIRE(registeredCreateEffect);
   const auto registeredCreateNote = registry.registerTool(agent::makeNoteCreateTool());
   GRAPPLE_REQUIRE(registeredCreateNote);
   const auto registeredUpdateNote = registry.registerTool(agent::makeNoteUpdateTool());
   GRAPPLE_REQUIRE(registeredUpdateNote);
-  GRAPPLE_REQUIRE(registry.tools().size() == 4);
+  GRAPPLE_REQUIRE(registry.tools().size() == 5);
   GRAPPLE_REQUIRE(registry.findBySerializedId("project.inspect") != nullptr);
+  GRAPPLE_REQUIRE(registry.findBySerializedId("asset.list") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("effect.create_node") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("project.create_effect") == nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("note.create") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("note.update") != nullptr);
+  const agent::AgentTool* registeredAssetListTool = registry.findBySerializedId("asset.list");
+  GRAPPLE_REQUIRE(registeredAssetListTool != nullptr);
+  GRAPPLE_REQUIRE(registeredAssetListTool->schema.find("\"additionalProperties\": false") != std::string::npos);
+  GRAPPLE_REQUIRE(registeredAssetListTool->schema.find("\"commandId\"") == std::string::npos);
   const agent::AgentTool* registeredCreateEffectTool = registry.findBySerializedId("effect.create_node");
   GRAPPLE_REQUIRE(registeredCreateEffectTool != nullptr);
   GRAPPLE_REQUIRE(registeredCreateEffectTool->schema.find("\"targetNodeId\"") != std::string::npos);
@@ -320,6 +327,48 @@ int main() {
   );
   GRAPPLE_REQUIRE(!missingNoteUpdateResult);
   GRAPPLE_REQUIRE(missingNoteUpdateResult.error().code == "project.note_missing");
+
+  const auto registerAsset = project.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_register_asset"},
+    foundation::ProjectId{"proj_agent"},
+    updateNoteResult.value().observedRevision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::RegisterAssetCommand{
+      asset::Asset{
+        foundation::AssetId{"asset_video"},
+        "Walking Woman",
+        asset::AssetMetadata{
+          asset::AssetMediaType::Video,
+          foundation::FilePath{"/media/walking-woman.mov"},
+          foundation::FilePath{"/media/thumbs/walking-woman.jpg"},
+          foundation::TimeSeconds{10.0},
+          foundation::Resolution{1080, 1920},
+          foundation::FrameRate{30000, 1001}
+        }
+      }
+    }
+  });
+  GRAPPLE_REQUIRE(registerAsset);
+
+  const agent::AgentTool* listAssets = registry.findBySerializedId("asset.list");
+  GRAPPLE_REQUIRE(listAssets != nullptr);
+  const auto listAssetsResult = listAssets->handler(
+    agent::ToolCall{
+      foundation::ToolId{"tool_asset_list"},
+      foundation::RunId{"run_1"},
+      foundation::ProjectId{"proj_agent"},
+      registerAsset.value().afterRevision,
+      ""
+    },
+    context
+  );
+  GRAPPLE_REQUIRE(listAssetsResult);
+  GRAPPLE_REQUIRE(listAssetsResult.value().status == agent::ToolResultStatus::Succeeded);
+  GRAPPLE_REQUIRE(listAssetsResult.value().observedRevision == foundation::RevisionId{"rev_6"});
+  GRAPPLE_REQUIRE(
+    listAssetsResult.value().payload ==
+    "{\"revision\":\"rev_6\",\"assets\":[{\"assetId\":\"asset_video\",\"name\":\"Walking Woman\",\"mediaType\":\"video\",\"sourcePath\":\"/media/walking-woman.mov\",\"thumbnailPath\":\"/media/thumbs/walking-woman.jpg\",\"duration\":10,\"dimensions\":{\"width\":1080,\"height\":1920},\"frameRate\":{\"numerator\":30000,\"denominator\":1001}}]}"
+  );
 
   return 0;
 }
