@@ -365,8 +365,7 @@ foundation::Result<project::ProjectQueryResult> NativeWorkspaceSession::query(
           return plan.error();
         }
 
-        runtime::RuntimeEvaluator runtime{{&state_->builtinEffectRuntime}};
-        auto prepared = runtime.prepare(runtime::PrepareRuntimePlanRequest{plan.value().plan});
+        auto prepared = state_->runtime.prepare(runtime::PrepareRuntimePlanRequest{plan.value().plan});
         if (!prepared) {
           return prepared.error();
         }
