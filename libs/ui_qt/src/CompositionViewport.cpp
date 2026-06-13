@@ -216,7 +216,7 @@ bool CompositionViewport::selected(const foundation::NodeId& nodeId) const {
 }
 
 bool CompositionViewport::activeAtPlayhead(const app::AppClipRow& clip) const {
-  return playhead_.value >= clip.timelineRange.start.value && playhead_.value <= clip.timelineRange.end.value;
+  return clip.timelineRange.contains(playhead_);
 }
 
 } // namespace grapple::ui
