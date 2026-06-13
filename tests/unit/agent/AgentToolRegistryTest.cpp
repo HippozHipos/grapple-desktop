@@ -11,6 +11,27 @@
 
 namespace {
 
+class TestAgentCommandService final : public grapple::project::IProjectCommandService {
+public:
+  explicit TestAgentCommandService(grapple::project::ProjectController& project)
+    : project_{project} {}
+
+  grapple::foundation::Result<grapple::project::ProjectCommandResult> apply(
+    const grapple::project::ProjectCommandEnvelope& command
+  ) override {
+    ++applyCount_;
+    return project_.apply(command);
+  }
+
+  [[nodiscard]] std::size_t applyCount() const noexcept {
+    return applyCount_;
+  }
+
+private:
+  grapple::project::ProjectController& project_;
+  std::size_t applyCount_ = 0;
+};
+
 class TestAgentQueryService final : public grapple::project::IProjectQueryService {
 public:
   explicit TestAgentQueryService(const grapple::project::ProjectController& project)
@@ -19,10 +40,12 @@ public:
   grapple::foundation::Result<grapple::project::ProjectQueryResult> query(
     const grapple::project::ProjectQuery& query
   ) const override {
+    ++totalQueryCount_;
     return std::visit(
       [&](const auto& typedQuery) -> grapple::foundation::Result<grapple::project::ProjectQueryResult> {
         using Query = std::decay_t<decltype(typedQuery)>;
         if constexpr (std::is_same_v<Query, grapple::project::InspectRenderPlanQuery>) {
+          ++renderPlanQueryCount_;
           auto snapshot = project_.snapshot();
           if (!snapshot) {
             return snapshot.error();
@@ -69,6 +92,7 @@ public:
             }
           };
         } else if constexpr (std::is_same_v<Query, grapple::project::InspectRuntimeDiagnosticsQuery>) {
+          ++runtimeDiagnosticsQueryCount_;
           auto snapshot = project_.snapshot();
           if (!snapshot) {
             return snapshot.error();
@@ -88,6 +112,12 @@ public:
               }
             }
           };
+        } else if constexpr (std::is_same_v<Query, grapple::project::GetProjectSnapshotQuery>) {
+          ++snapshotQueryCount_;
+          return project_.query(typedQuery);
+        } else if constexpr (std::is_same_v<Query, grapple::project::InspectCompositionsQuery>) {
+          ++compositionQueryCount_;
+          return project_.query(typedQuery);
         } else {
           return project_.query(typedQuery);
         }
@@ -96,8 +126,33 @@ public:
     );
   }
 
+  [[nodiscard]] std::size_t totalQueryCount() const noexcept {
+    return totalQueryCount_;
+  }
+
+  [[nodiscard]] std::size_t snapshotQueryCount() const noexcept {
+    return snapshotQueryCount_;
+  }
+
+  [[nodiscard]] std::size_t compositionQueryCount() const noexcept {
+    return compositionQueryCount_;
+  }
+
+  [[nodiscard]] std::size_t renderPlanQueryCount() const noexcept {
+    return renderPlanQueryCount_;
+  }
+
+  [[nodiscard]] std::size_t runtimeDiagnosticsQueryCount() const noexcept {
+    return runtimeDiagnosticsQueryCount_;
+  }
+
 private:
   const grapple::project::ProjectController& project_;
+  mutable std::size_t totalQueryCount_ = 0;
+  mutable std::size_t snapshotQueryCount_ = 0;
+  mutable std::size_t compositionQueryCount_ = 0;
+  mutable std::size_t renderPlanQueryCount_ = 0;
+  mutable std::size_t runtimeDiagnosticsQueryCount_ = 0;
 };
 
 } // namespace
@@ -251,8 +306,9 @@ int main() {
   const auto afterCommandSnapshot = project.snapshot();
   GRAPPLE_REQUIRE(afterCommandSnapshot);
 
+  TestAgentCommandService commands{project};
   TestAgentQueryService queries{project};
-  agent::AgentToolContext context{project, queries};
+  agent::AgentToolContext context{commands, queries};
 
   const agent::AgentTool* inspect = registry.findBySerializedId("project.inspect");
   GRAPPLE_REQUIRE(inspect != nullptr);
@@ -276,6 +332,9 @@ int main() {
       afterCommandSnapshot.value().canonicalHash.toHex() +
       "\",\"graph\":{\"nodes\":1,\"edges\":0},\"assets\":{\"count\":0}}"
   );
+  GRAPPLE_REQUIRE(commands.applyCount() == 0);
+  GRAPPLE_REQUIRE(queries.totalQueryCount() == 1);
+  GRAPPLE_REQUIRE(queries.snapshotQueryCount() == 1);
 
   const auto camera = project.apply(project::ProjectCommandEnvelope{
     foundation::CommandId{"cmd_camera"},
@@ -319,6 +378,7 @@ int main() {
   GRAPPLE_REQUIRE(!hiddenEffectResult);
   GRAPPLE_REQUIRE(hiddenEffectResult.error().code == "agent.tool_arguments_invalid");
   GRAPPLE_REQUIRE(hiddenEffectResult.error().message.find("at least one editable parameter") != std::string::npos);
+  GRAPPLE_REQUIRE(commands.applyCount() == 0);
 
   const auto unlabeledEffectResult = createEffect->handler(
     agent::ToolCall{
@@ -352,6 +412,7 @@ int main() {
   GRAPPLE_REQUIRE(!unlabeledEffectResult);
   GRAPPLE_REQUIRE(unlabeledEffectResult.error().code == "agent.tool_arguments_invalid");
   GRAPPLE_REQUIRE(unlabeledEffectResult.error().message.find("$.params[0].label") != std::string::npos);
+  GRAPPLE_REQUIRE(commands.applyCount() == 0);
 
   const auto createEffectResult = createEffect->handler(
     agent::ToolCall{
@@ -421,6 +482,7 @@ int main() {
   GRAPPLE_REQUIRE(effectPayload->params.values[0].control.numeric->max == 1.0);
   GRAPPLE_REQUIRE(effectPayload->params.values[0].control.numeric->step == 0.01);
   GRAPPLE_REQUIRE(effectPayload->activeRange.end == foundation::TimeSeconds{10.0});
+  GRAPPLE_REQUIRE(commands.applyCount() == 1);
 
   const agent::AgentTool* createNote = registry.findBySerializedId("note.create");
   GRAPPLE_REQUIRE(createNote != nullptr);
@@ -488,6 +550,7 @@ int main() {
   );
   GRAPPLE_REQUIRE(!missingNoteUpdateResult);
   GRAPPLE_REQUIRE(missingNoteUpdateResult.error().code == "project.note_missing");
+  GRAPPLE_REQUIRE(commands.applyCount() == 4);
 
   const agent::AgentTool* importAsset = registry.findBySerializedId("asset.import");
   GRAPPLE_REQUIRE(importAsset != nullptr);
@@ -515,6 +578,8 @@ int main() {
   GRAPPLE_REQUIRE(importAssetResult.value().observedRevision == foundation::RevisionId{"rev_6"});
   GRAPPLE_REQUIRE(importAssetResult.value().payload == "{\"assetId\":\"asset_video\",\"revision\":\"rev_6\"}");
 
+  const std::size_t commandCountBeforeAssetList = commands.applyCount();
+  const std::size_t queryCountBeforeAssetList = queries.totalQueryCount();
   const agent::AgentTool* listAssets = registry.findBySerializedId("asset.list");
   GRAPPLE_REQUIRE(listAssets != nullptr);
   const auto listAssetsResult = listAssets->handler(
@@ -534,6 +599,9 @@ int main() {
     listAssetsResult.value().payload ==
     "{\"revision\":\"rev_6\",\"assets\":[{\"assetId\":\"asset_video\",\"name\":\"Walking Woman\",\"mediaType\":\"video\",\"sourcePath\":\"/media/walking-woman.mov\",\"thumbnailPath\":\"/media/thumbs/walking-woman.jpg\",\"duration\":10,\"dimensions\":{\"width\":1080,\"height\":1920},\"frameRate\":{\"numerator\":30000,\"denominator\":1001}}]}"
   );
+  GRAPPLE_REQUIRE(commands.applyCount() == 5);
+  GRAPPLE_REQUIRE(commands.applyCount() == commandCountBeforeAssetList);
+  GRAPPLE_REQUIRE(queries.totalQueryCount() == queryCountBeforeAssetList + 1);
 
   const agent::AgentTool* createTrack = registry.findBySerializedId("timeline.create_track");
   GRAPPLE_REQUIRE(createTrack != nullptr);
@@ -795,6 +863,9 @@ int main() {
   for (const graph::GraphEdge& edge : afterDisconnectPortsSnapshot.value().graph.edges()) {
     GRAPPLE_REQUIRE(edge.id != foundation::EdgeId{"edge_agent_effect_ports"});
   }
+  GRAPPLE_REQUIRE(commands.applyCount() == 12);
+  const std::size_t commandCountBeforeInspectTools = commands.applyCount();
+  const std::size_t queryCountBeforeInspectTools = queries.totalQueryCount();
 
   const agent::AgentTool* inspectComposition = registry.findBySerializedId("composition.inspect");
   GRAPPLE_REQUIRE(inspectComposition != nullptr);
@@ -865,6 +936,11 @@ int main() {
   GRAPPLE_REQUIRE(inspectRuntimeDiagnosticsResult.value().payload.find("\"severity\":\"warning\"") != std::string::npos);
   GRAPPLE_REQUIRE(inspectRuntimeDiagnosticsResult.value().payload.find("\"nodeId\":\"node_agent_effect_rev_3\"") != std::string::npos);
   GRAPPLE_REQUIRE(inspectRuntimeDiagnosticsResult.value().payload.find("\"commandId\"") == std::string::npos);
+  GRAPPLE_REQUIRE(commands.applyCount() == commandCountBeforeInspectTools);
+  GRAPPLE_REQUIRE(queries.totalQueryCount() == queryCountBeforeInspectTools + 3);
+  GRAPPLE_REQUIRE(queries.compositionQueryCount() == 1);
+  GRAPPLE_REQUIRE(queries.renderPlanQueryCount() == 1);
+  GRAPPLE_REQUIRE(queries.runtimeDiagnosticsQueryCount() == 1);
 
   return 0;
 }
