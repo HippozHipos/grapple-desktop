@@ -1,5 +1,5 @@
 find_package(Qt5 REQUIRED COMPONENTS Widgets)
-find_package(OpenCV REQUIRED COMPONENTS core videoio)
+find_package(OpenCV REQUIRED COMPONENTS core imgcodecs videoio)
 
 add_executable(grapple_desktop
   src/DesktopApp.cpp

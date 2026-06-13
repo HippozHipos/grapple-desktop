@@ -15,6 +15,7 @@
 
 #include <algorithm>
 #include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <optional>
 #include <string>
@@ -24,6 +25,29 @@ namespace {
 
 void printError(const grapple::foundation::Error& error) {
   std::cerr << error.code << ": " << error.message << '\n';
+}
+
+grapple::foundation::Result<void> writeTinyPpm(const std::filesystem::path& path) {
+  std::ofstream output{path, std::ios::binary | std::ios::trunc};
+  if (!output) {
+    return grapple::foundation::Error{"desktop.test_image_write_failed", "Could not write test image."};
+  }
+  output << "P6\n2 1\n255\n";
+  const unsigned char pixels[] = {
+    240, 20, 10,
+    10, 20, 240
+  };
+  output.write(reinterpret_cast<const char*>(pixels), sizeof(pixels));
+  return {};
+}
+
+grapple::foundation::Result<void> writeDummyAudioFile(const std::filesystem::path& path) {
+  std::ofstream output{path, std::ios::binary | std::ios::trunc};
+  if (!output) {
+    return grapple::foundation::Error{"desktop.test_audio_write_failed", "Could not write test audio file."};
+  }
+  output << "Grapple audio import smoke";
+  return {};
 }
 
 grapple::foundation::Result<void> populateDemo(grapple::app::NativeProjectSession& session, bool savePackage) {
@@ -52,6 +76,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   bool selectSecondCameraSmoke = false;
   bool stewardSmoke = false;
   bool importSmoke = false;
+  bool importMediaTypesSmoke = false;
   bool addVideoSmoke = false;
   bool emptyAddVideoSmoke = false;
   bool emptyAddTrackSmoke = false;
@@ -87,6 +112,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       stewardSmoke = true;
     } else if (argument == "--import-smoke") {
       importSmoke = true;
+    } else if (argument == "--import-media-types-smoke") {
+      importMediaTypesSmoke = true;
     } else if (argument == "--add-video-smoke") {
       addVideoSmoke = true;
     } else if (argument == "--empty-add-video-smoke") {
@@ -118,7 +145,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     } else if (argument == "--effect-screenshot" && index + 1 < argc) {
       effectScreenshotPath = argv[++index];
     } else {
-      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --select-camera-smoke, --select-second-camera-smoke, --steward-smoke, --import-smoke, --add-video-smoke, --empty-add-video-smoke, --empty-add-track-smoke, --empty-add-camera-smoke, --move-clip-smoke, --undo-redo-smoke, --add-effect-smoke, --set-effect-param-smoke, --delete-effect-smoke, --delete-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, --screenshot <path>, or --effect-screenshot <path>.\n";
+      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --select-camera-smoke, --select-second-camera-smoke, --steward-smoke, --import-smoke, --import-media-types-smoke, --add-video-smoke, --empty-add-video-smoke, --empty-add-track-smoke, --empty-add-camera-smoke, --move-clip-smoke, --undo-redo-smoke, --add-effect-smoke, --set-effect-param-smoke, --delete-effect-smoke, --delete-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, --screenshot <path>, or --effect-screenshot <path>.\n";
       return 1;
     }
   }
@@ -139,7 +166,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     return 1;
   }
 
-  if (!emptyAddVideoSmoke && !emptyAddTrackSmoke && !emptyAddCameraSmoke) {
+  if (!emptyAddVideoSmoke && !emptyAddTrackSmoke && !emptyAddCameraSmoke && !importMediaTypesSmoke) {
     const auto populated = populateDemo(session, true);
     if (!populated) {
       printError(populated.error());
@@ -293,7 +320,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   }
 
   if (importSmoke) {
-    window.importVideoFile(grapple::foundation::FilePath{"/tmp/grapple-native-demo/starter-gradient.avi"});
+    window.importMediaFile(grapple::foundation::FilePath{"/tmp/grapple-native-demo/starter-gradient.avi"});
     const auto viewModel = workspace.value().project().buildViewModel();
     if (!viewModel) {
       printError(viewModel.error());
@@ -313,9 +340,73 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       : 1;
   }
 
+  if (importMediaTypesSmoke) {
+    const std::filesystem::path imagePath{"/tmp/grapple-desktop-import-image.ppm"};
+    const std::filesystem::path audioPath{"/tmp/grapple-desktop-import-audio.wav"};
+    const auto imageWrite = writeTinyPpm(imagePath);
+    if (!imageWrite) {
+      printError(imageWrite.error());
+      return 1;
+    }
+    const auto audioWrite = writeDummyAudioFile(audioPath);
+    if (!audioWrite) {
+      printError(audioWrite.error());
+      return 1;
+    }
+
+    window.importMediaFile(grapple::foundation::FilePath{imagePath.string()});
+    window.addSelectedMediaToTimeline();
+    window.importMediaFile(grapple::foundation::FilePath{audioPath.string()});
+    const auto viewModel = workspace.value().project().buildViewModel();
+    if (!viewModel) {
+      printError(viewModel.error());
+      return 1;
+    }
+
+    std::size_t imageAssets = 0;
+    std::size_t audioAssets = 0;
+    for (const grapple::app::AppAssetRow& asset : viewModel.value().assets.rows) {
+      if (asset.mediaType == "image") {
+        ++imageAssets;
+      } else if (asset.mediaType == "audio") {
+        ++audioAssets;
+      }
+    }
+    std::size_t imageSources = 0;
+    std::size_t audioSources = 0;
+    for (const grapple::media::MediaSource& source : workspace.value().mediaSources().sources()) {
+      if (source.kind == grapple::media::MediaSourceKind::Image) {
+        ++imageSources;
+      } else if (source.kind == grapple::media::MediaSourceKind::Audio) {
+        ++audioSources;
+      }
+    }
+
+    std::cout << "assets=" << viewModel.value().assets.count << '\n';
+    std::cout << "imageAssets=" << imageAssets << '\n';
+    std::cout << "audioAssets=" << audioAssets << '\n';
+    std::cout << "imageSources=" << imageSources << '\n';
+    std::cout << "audioSources=" << audioSources << '\n';
+    std::cout << "clips=" << viewModel.value().timeline.clips.size() << '\n';
+    std::cout << "duration=" << viewModel.value().timeline.duration.value << '\n';
+
+    std::filesystem::remove(imagePath);
+    std::filesystem::remove(audioPath);
+    return viewModel.value().assets.count == 2 &&
+           imageAssets == 1 &&
+           audioAssets == 1 &&
+           imageSources == 1 &&
+           audioSources == 1 &&
+           viewModel.value().timeline.clips.size() == 1 &&
+           viewModel.value().timeline.clips.front().kind == "image" &&
+           viewModel.value().timeline.duration.value == 5.0
+      ? 0
+      : 1;
+  }
+
   if (addVideoSmoke) {
-    window.importVideoFile(grapple::foundation::FilePath{"/tmp/grapple-native-demo/starter-gradient.avi"});
-    window.addSelectedVideoToTimeline();
+    window.importMediaFile(grapple::foundation::FilePath{"/tmp/grapple-native-demo/starter-gradient.avi"});
+    window.addSelectedMediaToTimeline();
     const auto viewModel = workspace.value().project().buildViewModel();
     if (!viewModel) {
       printError(viewModel.error());
@@ -332,8 +423,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   }
 
   if (emptyAddVideoSmoke) {
-    window.importVideoFile(grapple::foundation::FilePath{"/tmp/grapple-native-demo/starter-gradient.avi"});
-    window.addSelectedVideoToTimeline();
+    window.importMediaFile(grapple::foundation::FilePath{"/tmp/grapple-native-demo/starter-gradient.avi"});
+    window.addSelectedMediaToTimeline();
     const auto viewModel = workspace.value().project().buildViewModel();
     if (!viewModel) {
       printError(viewModel.error());
@@ -605,8 +696,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   }
 
   if (editSaveSmoke) {
-    window.importVideoFile(grapple::foundation::FilePath{"/tmp/grapple-native-demo/starter-gradient.avi"});
-    window.addSelectedVideoToTimeline();
+    window.importMediaFile(grapple::foundation::FilePath{"/tmp/grapple-native-demo/starter-gradient.avi"});
+    window.addSelectedMediaToTimeline();
     const auto write = workspace.value().writePackage();
     if (!write) {
       printError(write.error());

@@ -1,6 +1,7 @@
 #include "DesktopWindow.hpp"
 
 #include <grapple/app/AppViewModel.hpp>
+#include <grapple/app/MediaSourceMapping.hpp>
 #include <grapple/app/NativeWorkspaceSession.hpp>
 #include <grapple/asset/Asset.hpp>
 #include <grapple/foundation/Hash.hpp>
@@ -36,9 +37,12 @@
 #include <QVBoxLayout>
 #include <QWidget>
 
+#include <opencv2/imgcodecs.hpp>
 #include <opencv2/videoio.hpp>
 
 #include <algorithm>
+#include <cctype>
+#include <cstdlib>
 #include <cstdint>
 #include <filesystem>
 #include <iomanip>
@@ -48,6 +52,8 @@
 #include <vector>
 
 namespace {
+
+constexpr double DefaultImageClipDurationSeconds = 5.0;
 
 QString qString(const std::string& value) {
   return QString::fromStdString(value);
@@ -155,8 +161,9 @@ QString inspectorText(
 
   for (const grapple::app::AppClipRow& clip : viewModel.timeline.clips) {
     if (clip.sourceNodeId == selectedNodeId.value()) {
-      return QString{"Inspector\nClip\nAsset: %1\nRange: %2s - %3s\n\n%4"}
+      return QString{"Inspector\nClip\nAsset: %1\nType: %2\nRange: %3s - %4s\n\n%5"}
         .arg(qString(clip.assetName))
+        .arg(qString(clip.kind))
         .arg(clip.timelineRange.start.value)
         .arg(clip.timelineRange.end.value)
         .arg(attachedEffectsText(clip.sourceNodeId));
@@ -278,6 +285,122 @@ grapple::foundation::Result<grapple::asset::Asset> inspectVideoAsset(
   };
 }
 
+std::string lowerExtension(const grapple::foundation::FilePath& path) {
+  std::string extension = std::filesystem::path{path.value}.extension().string();
+  std::transform(extension.begin(), extension.end(), extension.begin(), [](unsigned char character) {
+    return static_cast<char>(std::tolower(character));
+  });
+  return extension;
+}
+
+grapple::foundation::Result<grapple::asset::AssetMediaType> mediaTypeForPath(
+  const grapple::foundation::FilePath& path
+) {
+  const std::string extension = lowerExtension(path);
+  if (extension == ".mov" || extension == ".mp4" || extension == ".avi" || extension == ".mkv") {
+    return grapple::asset::AssetMediaType::Video;
+  }
+  if (extension == ".png" || extension == ".jpg" || extension == ".jpeg" || extension == ".ppm" || extension == ".webp") {
+    return grapple::asset::AssetMediaType::Image;
+  }
+  if (extension == ".wav" || extension == ".aiff" || extension == ".aif" || extension == ".mp3" || extension == ".flac") {
+    return grapple::asset::AssetMediaType::Audio;
+  }
+  return grapple::foundation::Error{"desktop.media_type_unsupported", "Unsupported media file extension for " + path.value + "."};
+}
+
+grapple::foundation::Result<grapple::asset::Asset> inspectImageAsset(
+  const grapple::foundation::AssetId& assetId,
+  const grapple::foundation::FilePath& path
+) {
+  const cv::Mat decoded = cv::imread(path.value, cv::IMREAD_UNCHANGED);
+  if (decoded.empty()) {
+    return grapple::foundation::Error{"desktop.image_open_failed", "Could not inspect image file " + path.value + "."};
+  }
+
+  const std::filesystem::path filesystemPath{path.value};
+  return grapple::asset::Asset{
+    assetId,
+    filesystemPath.stem().string(),
+    grapple::asset::AssetMetadata{
+      grapple::asset::AssetMediaType::Image,
+      path,
+      std::nullopt,
+      std::nullopt,
+      grapple::foundation::Resolution{decoded.cols, decoded.rows},
+      std::nullopt
+    }
+  };
+}
+
+grapple::foundation::Result<grapple::asset::Asset> inspectAudioAsset(
+  const grapple::foundation::AssetId& assetId,
+  const grapple::foundation::FilePath& path
+) {
+  if (!std::filesystem::is_regular_file(std::filesystem::path{path.value})) {
+    return grapple::foundation::Error{"desktop.audio_file_missing", "Audio file does not exist: " + path.value + "."};
+  }
+
+  const std::filesystem::path filesystemPath{path.value};
+  return grapple::asset::Asset{
+    assetId,
+    filesystemPath.stem().string(),
+    grapple::asset::AssetMetadata{
+      grapple::asset::AssetMediaType::Audio,
+      path,
+      std::nullopt,
+      std::nullopt,
+      std::nullopt,
+      std::nullopt
+    }
+  };
+}
+
+grapple::foundation::Result<grapple::asset::Asset> inspectMediaAsset(
+  const grapple::foundation::AssetId& assetId,
+  const grapple::foundation::FilePath& path
+) {
+  auto mediaType = mediaTypeForPath(path);
+  if (!mediaType) {
+    return mediaType.error();
+  }
+
+  switch (mediaType.value()) {
+    case grapple::asset::AssetMediaType::Video:
+      return inspectVideoAsset(assetId, path);
+    case grapple::asset::AssetMediaType::Audio:
+      return inspectAudioAsset(assetId, path);
+    case grapple::asset::AssetMediaType::Image:
+      return inspectImageAsset(assetId, path);
+  }
+
+  std::abort();
+}
+
+grapple::foundation::Result<grapple::timeline::ClipKind> visualClipKindForMediaTypeName(
+  const std::string& mediaType
+) {
+  if (mediaType == "video") {
+    return grapple::timeline::ClipKind::Video;
+  }
+  if (mediaType == "image") {
+    return grapple::timeline::ClipKind::Image;
+  }
+  return grapple::foundation::Error{"desktop.asset_not_visual", "Add To Timeline requires a video or image asset."};
+}
+
+grapple::foundation::Result<grapple::foundation::TimeSeconds> timelineDurationForAsset(
+  const grapple::app::AppAssetRow& asset
+) {
+  if (asset.mediaType == "image") {
+    return grapple::foundation::TimeSeconds{DefaultImageClipDurationSeconds};
+  }
+  if (asset.duration.has_value()) {
+    return *asset.duration;
+  }
+  return grapple::foundation::Error{"desktop.asset_duration_missing", "Selected media asset requires a duration before it can be placed on the timeline."};
+}
+
 } // namespace
 
 namespace grapple::desktop {
@@ -373,7 +496,7 @@ public:
     auto* seekStartButton = new QPushButton{"Start"};
     auto* stepBackButton = new QPushButton{"-1s"};
     auto* stepForwardButton = new QPushButton{"+1s"};
-    auto* importVideoButton = new QPushButton{"Import"};
+    auto* importMediaButton = new QPushButton{"Import"};
     auto* addMediaButton = new QPushButton{"Add To Timeline"};
     auto* undoButton = new QPushButton{"Undo"};
     auto* redoButton = new QPushButton{"Redo"};
@@ -404,7 +527,7 @@ public:
     actionRow->setContentsMargins(10, 8, 10, 8);
     actionRow->setSpacing(8);
     actionRow->addWidget(titleBlock, 1);
-    actionRow->addWidget(importVideoButton);
+    actionRow->addWidget(importMediaButton);
     actionRow->addWidget(addMediaButton);
     actionRow->addWidget(playheadLabel_);
     actionRow->addWidget(playButton);
@@ -464,8 +587,8 @@ public:
     connect(stepForwardButton, &QPushButton::clicked, this, [this] { stepPlayhead(1.0); });
     connect(undoButton, &QPushButton::clicked, this, [this] { undoLastEdit(); });
     connect(redoButton, &QPushButton::clicked, this, [this] { redoLastEdit(); });
-    connect(importVideoButton, &QPushButton::clicked, this, [this] { chooseAndImportVideo(); });
-    connect(addMediaButton, &QPushButton::clicked, this, [this] { addSelectedVideoToTimeline(); });
+    connect(importMediaButton, &QPushButton::clicked, this, [this] { chooseAndImportMedia(); });
+    connect(addMediaButton, &QPushButton::clicked, this, [this] { addSelectedMediaToTimeline(); });
     connect(openPackageAction, &QAction::triggered, this, [this] { chooseAndOpenPackage(); });
     connect(addTrackAction, &QAction::triggered, this, [this] { addTrack(); });
     connect(addCameraAction, &QAction::triggered, this, [this] { addCamera(); });
@@ -838,16 +961,16 @@ public:
     log_->append("Added camera");
   }
 
-  void importVideoFile(const grapple::foundation::FilePath& path) {
-    const auto asset = inspectVideoAsset(workspace_.commandWriter().nextAssetId(std::filesystem::path{path.value}.stem().string()), path);
+  void importMediaFile(const grapple::foundation::FilePath& path) {
+    const auto asset = inspectMediaAsset(workspace_.commandWriter().nextAssetId(std::filesystem::path{path.value}.stem().string()), path);
     if (!asset) {
       appendError(asset.error());
       return;
     }
-    const grapple::asset::Asset& videoAsset = asset.value();
+    const grapple::asset::Asset& mediaAsset = asset.value();
 
     const auto registeredAsset = workspace_.commandWriter().apply(
-      grapple::project::RegisterAssetCommand{videoAsset},
+      grapple::project::RegisterAssetCommand{mediaAsset},
       importerSource()
     );
     if (!registeredAsset) {
@@ -856,8 +979,8 @@ public:
     }
 
     const auto registeredSource = workspace_.mediaSources().registerSource(grapple::media::MediaSource{
-      videoAsset.id,
-      grapple::media::MediaSourceKind::Video,
+      mediaAsset.id,
+      grapple::app::mediaSourceKindForAssetMediaType(mediaAsset.metadata.mediaType),
       path
     });
     if (!registeredSource) {
@@ -866,15 +989,15 @@ public:
     }
 
     selectedNodeId_ = std::nullopt;
-    selectedAssetId_ = videoAsset.id;
+    selectedAssetId_ = mediaAsset.id;
     refreshViewModel();
     refreshPreview();
-    log_->append(QString{"Imported %1"}.arg(qString(videoAsset.name)));
+    log_->append(QString{"Imported %1"}.arg(qString(mediaAsset.name)));
   }
 
-  void addSelectedVideoToTimeline() {
+  void addSelectedMediaToTimeline() {
     if (!selectedAssetId_.has_value()) {
-      appendError(grapple::foundation::Error{"desktop.asset_selection_missing", "Add To Timeline requires a selected video asset."});
+      appendError(grapple::foundation::Error{"desktop.asset_selection_missing", "Add To Timeline requires a selected media asset."});
       return;
     }
 
@@ -895,18 +1018,20 @@ public:
       appendError(grapple::foundation::Error{"desktop.asset_selection_stale", "Selected media asset is not in the current project."});
       return;
     }
-    if (selectedAsset->mediaType != "video") {
-      appendError(grapple::foundation::Error{"desktop.asset_not_video", "Add To Timeline requires a video asset."});
+    auto clipKind = visualClipKindForMediaTypeName(selectedAsset->mediaType);
+    if (!clipKind) {
+      appendError(clipKind.error());
       return;
     }
-    if (!selectedAsset->duration.has_value()) {
-      appendError(grapple::foundation::Error{"desktop.asset_duration_missing", "Selected media asset requires a duration before it can be placed on the timeline."});
+    auto duration = timelineDurationForAsset(*selectedAsset);
+    if (!duration) {
+      appendError(duration.error());
       return;
     }
 
     const grapple::foundation::AssetId assetId = selectedAsset->assetId;
     const std::string assetName = selectedAsset->name;
-    const grapple::foundation::TimeSeconds duration = *selectedAsset->duration;
+    const grapple::foundation::TimeSeconds clipDuration = duration.value();
 
     auto compositionNodeId = ensureComposition();
     if (!compositionNodeId) {
@@ -972,14 +1097,14 @@ public:
         viewModel.value().timeline.layers.front().sourceNodeId,
         workspace_.commandWriter().nextEdgeId("contains_clip"),
         grapple::timeline::ClipPayload{
-          grapple::timeline::ClipKind::Video,
+          clipKind.value(),
           grapple::foundation::TimeRange{
             viewModel.value().timeline.duration,
-            grapple::foundation::TimeSeconds{viewModel.value().timeline.duration.value + duration.value}
+            grapple::foundation::TimeSeconds{viewModel.value().timeline.duration.value + clipDuration.value}
           },
           grapple::foundation::TimeRange{
             grapple::foundation::TimeSeconds{0.0},
-            duration
+            clipDuration
           },
           1.0,
           assetId,
@@ -1397,12 +1522,17 @@ private:
     updateSelectionPanels(viewModel.value());
   }
 
-  void chooseAndImportVideo() {
-    const QString path = QFileDialog::getOpenFileName(this, "Import Video", QString{}, "Video Files (*.mov *.mp4 *.avi *.mkv)");
+  void chooseAndImportMedia() {
+    const QString path = QFileDialog::getOpenFileName(
+      this,
+      "Import Media",
+      QString{},
+      "Media Files (*.mov *.mp4 *.avi *.mkv *.png *.jpg *.jpeg *.ppm *.webp *.wav *.aiff *.aif *.mp3 *.flac)"
+    );
     if (path.isEmpty()) {
       return;
     }
-    importVideoFile(grapple::foundation::FilePath{path.toStdString()});
+    importMediaFile(grapple::foundation::FilePath{path.toStdString()});
   }
 
   void chooseAndExportVideo() {
@@ -1527,12 +1657,12 @@ void DesktopWindow::addCamera() {
   impl_->addCamera();
 }
 
-void DesktopWindow::importVideoFile(const foundation::FilePath& path) {
-  impl_->importVideoFile(path);
+void DesktopWindow::importMediaFile(const foundation::FilePath& path) {
+  impl_->importMediaFile(path);
 }
 
-void DesktopWindow::addSelectedVideoToTimeline() {
-  impl_->addSelectedVideoToTimeline();
+void DesktopWindow::addSelectedMediaToTimeline() {
+  impl_->addSelectedMediaToTimeline();
 }
 
 void DesktopWindow::deleteSelectedClip() {

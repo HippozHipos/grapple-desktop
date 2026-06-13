@@ -1,5 +1,6 @@
 #include <grapple/app/NativeWorkspaceSession.hpp>
 
+#include <grapple/app/MediaSourceMapping.hpp>
 #include <grapple/agent/AgentRunEventSerializer.hpp>
 #include <grapple/agent/AgentRunSerializer.hpp>
 #include <grapple/asset/Asset.hpp>
@@ -22,19 +23,6 @@ namespace {
 
 constexpr std::size_t MediaFrameCacheBytes = 256 * 1024 * 1024;
 
-media::MediaSourceKind sourceKindFor(asset::AssetMediaType mediaType) {
-  switch (mediaType) {
-    case asset::AssetMediaType::Video:
-      return media::MediaSourceKind::Video;
-    case asset::AssetMediaType::Audio:
-      return media::MediaSourceKind::Audio;
-    case asset::AssetMediaType::Image:
-      return media::MediaSourceKind::Image;
-  }
-
-  std::abort();
-}
-
 foundation::Result<media::MediaSourceCatalog> buildMediaSources(const NativeProjectSession& session) {
   auto snapshot = session.snapshot();
   if (!snapshot) {
@@ -45,7 +33,7 @@ foundation::Result<media::MediaSourceCatalog> buildMediaSources(const NativeProj
   for (const asset::Asset& asset : snapshot.value().assets.assets()) {
     auto registered = sources.registerSource(media::MediaSource{
       asset.id,
-      sourceKindFor(asset.metadata.mediaType),
+      mediaSourceKindForAssetMediaType(asset.metadata.mediaType),
       asset.metadata.sourcePath
     });
     if (!registered) {

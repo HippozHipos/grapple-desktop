@@ -41,6 +41,19 @@ std::string mediaTypeName(asset::AssetMediaType mediaType) {
   std::abort();
 }
 
+std::string clipKindName(timeline::ClipKind kind) {
+  switch (kind) {
+    case timeline::ClipKind::Video:
+      return "video";
+    case timeline::ClipKind::Audio:
+      return "audio";
+    case timeline::ClipKind::Image:
+      return "image";
+  }
+
+  std::abort();
+}
+
 foundation::Result<std::string> assetNameFor(
   const asset::AssetCatalog& assets,
   const foundation::AssetId& assetId
@@ -293,6 +306,7 @@ foundation::Result<AppViewModel> NativeProjectSession::buildViewModel() const {
       clip.trackNodeId,
       clip.payload.assetId,
       assetName.value(),
+      clipKindName(clip.payload.kind),
       clip.payload.timelineRange,
       clip.payload.transform
     });

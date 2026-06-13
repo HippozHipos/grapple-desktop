@@ -48,8 +48,8 @@ public:
   void advancePlaybackFrame();
   void addTrack();
   void addCamera();
-  void importVideoFile(const foundation::FilePath& path);
-  void addSelectedVideoToTimeline();
+  void importMediaFile(const foundation::FilePath& path);
+  void addSelectedMediaToTimeline();
   void deleteSelectedClip();
   void moveSelectedClip(foundation::TimeSeconds delta);
   void undoLastEdit();

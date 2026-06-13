@@ -74,6 +74,7 @@ struct AppClipRow {
   foundation::NodeId trackNodeId;
   foundation::AssetId assetId;
   std::string assetName;
+  std::string kind;
   foundation::TimeRange timelineRange;
   foundation::Transform2D transform;
 };
