@@ -179,6 +179,40 @@ int main() {
   const auto parsedManifest = storage::deserializeCanonicalProjectPackageManifest(manifestContents.str());
   GRAPPLE_REQUIRE(parsedManifest);
   GRAPPLE_REQUIRE(storage::serializeCanonicalProjectPackageManifest(parsedManifest.value()) == manifestContents.str());
+  const auto manifestWithExtraRootField = storage::deserializeCanonicalProjectPackageManifest(
+    "{\"schemaVersion\":1,\"projectId\":\"proj_storage\",\"commandLogPath\":\"history/commands.json\",\"eventLogPath\":\"history/events.json\",\"schemaMigrationLogPath\":\"history/schema_migrations.json\",\"head\":null,\"latestSnapshot\":null,\"metadata\":{}}"
+  );
+  GRAPPLE_REQUIRE(!manifestWithExtraRootField);
+  GRAPPLE_REQUIRE(manifestWithExtraRootField.error().code == "storage.manifest_json_invalid");
+  GRAPPLE_REQUIRE(manifestWithExtraRootField.error().message.find("Unexpected serialized field") != std::string::npos);
+  const auto manifestWithEmptyProjectId = storage::deserializeCanonicalProjectPackageManifest(
+    "{\"schemaVersion\":1,\"projectId\":\"\",\"commandLogPath\":\"history/commands.json\",\"eventLogPath\":\"history/events.json\",\"schemaMigrationLogPath\":\"history/schema_migrations.json\",\"head\":null,\"latestSnapshot\":null}"
+  );
+  GRAPPLE_REQUIRE(!manifestWithEmptyProjectId);
+  GRAPPLE_REQUIRE(manifestWithEmptyProjectId.error().code == "storage.manifest_json_invalid");
+  GRAPPLE_REQUIRE(manifestWithEmptyProjectId.error().message.find("non-empty") != std::string::npos);
+  const auto manifestWithExtraHeadField = storage::deserializeCanonicalProjectPackageManifest(
+    "{\"schemaVersion\":1,\"projectId\":\"proj_storage\",\"commandLogPath\":\"history/commands.json\",\"eventLogPath\":\"history/events.json\",\"schemaMigrationLogPath\":\"history/schema_migrations.json\",\"head\":{\"revision\":\"rev_1\",\"lastCommandId\":\"cmd_1\",\"lastSnapshotId\":\"snap_1\",\"metadata\":{}},\"latestSnapshot\":null}"
+  );
+  GRAPPLE_REQUIRE(!manifestWithExtraHeadField);
+  GRAPPLE_REQUIRE(manifestWithExtraHeadField.error().code == "storage.manifest_json_invalid");
+  GRAPPLE_REQUIRE(manifestWithExtraHeadField.error().message.find("Unexpected serialized field") != std::string::npos);
+  const auto manifestWithEmptyHeadCommandId = storage::deserializeCanonicalProjectPackageManifest(
+    "{\"schemaVersion\":1,\"projectId\":\"proj_storage\",\"commandLogPath\":\"history/commands.json\",\"eventLogPath\":\"history/events.json\",\"schemaMigrationLogPath\":\"history/schema_migrations.json\",\"head\":{\"revision\":\"rev_1\",\"lastCommandId\":\"\",\"lastSnapshotId\":\"snap_1\"},\"latestSnapshot\":null}"
+  );
+  GRAPPLE_REQUIRE(!manifestWithEmptyHeadCommandId);
+  GRAPPLE_REQUIRE(manifestWithEmptyHeadCommandId.error().code == "storage.manifest_json_invalid");
+  GRAPPLE_REQUIRE(manifestWithEmptyHeadCommandId.error().message.find("non-empty") != std::string::npos);
+  const auto manifestWithExtraSnapshotField = storage::deserializeCanonicalProjectPackageManifest(
+    std::string{
+      "{\"schemaVersion\":1,\"projectId\":\"proj_storage\",\"commandLogPath\":\"history/commands.json\",\"eventLogPath\":\"history/events.json\",\"schemaMigrationLogPath\":\"history/schema_migrations.json\",\"head\":null,\"latestSnapshot\":{\"id\":\"snap_1\",\"revision\":\"rev_1\",\"canonicalHash\":\""
+    } +
+      committedSnapshot.value().canonicalHash.toHex() +
+      "\",\"documentPath\":\"snapshots/rev_1.json\",\"label\":null,\"metadata\":{}}}"
+  );
+  GRAPPLE_REQUIRE(!manifestWithExtraSnapshotField);
+  GRAPPLE_REQUIRE(manifestWithExtraSnapshotField.error().code == "storage.manifest_json_invalid");
+  GRAPPLE_REQUIRE(manifestWithExtraSnapshotField.error().message.find("Unexpected serialized field") != std::string::npos);
 
   const auto writtenSnapshotPath = packageWriter.writeSnapshot(storage::ProjectSnapshotWriteRequest{
     diskPackage,

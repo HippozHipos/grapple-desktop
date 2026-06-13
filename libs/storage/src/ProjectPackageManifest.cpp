@@ -4,8 +4,10 @@
 
 #include <json/json.h>
 
+#include <initializer_list>
 #include <memory>
 #include <sstream>
+#include <string_view>
 
 namespace grapple::storage {
 
@@ -69,6 +71,31 @@ foundation::Result<Json::Value> requiredMember(const Json::Value& object, const 
   return object[key];
 }
 
+foundation::Result<void> requireOnlyMembers(
+  const Json::Value& object,
+  std::initializer_list<std::string_view> allowed,
+  const std::string& path
+) {
+  if (!object.isObject()) {
+    return parseError(path, "Expected object.");
+  }
+
+  for (const std::string& member : object.getMemberNames()) {
+    bool expected = false;
+    for (std::string_view allowedMember : allowed) {
+      if (member == allowedMember) {
+        expected = true;
+        break;
+      }
+    }
+    if (!expected) {
+      return parseError(path + "." + member, "Unexpected serialized field.");
+    }
+  }
+
+  return {};
+}
+
 foundation::Result<std::string> requiredStringMember(const Json::Value& object, const char* key, const std::string& path) {
   auto value = requiredMember(object, key, path);
   if (!value) {
@@ -76,6 +103,9 @@ foundation::Result<std::string> requiredStringMember(const Json::Value& object, 
   }
   if (!value.value().isString()) {
     return parseError(path + "." + key, "Expected string.");
+  }
+  if (value.value().asString().empty()) {
+    return parseError(path + "." + key, "Expected non-empty string.");
   }
   return value.value().asString();
 }
@@ -106,6 +136,9 @@ foundation::Result<std::optional<foundation::CommandId>> optionalCommandIdMember
   if (!value.value().isString()) {
     return parseError(path + "." + key, "Expected string or null.");
   }
+  if (value.value().asString().empty()) {
+    return parseError(path + "." + key, "Expected non-empty string or null.");
+  }
   return std::optional<foundation::CommandId>{foundation::CommandId{value.value().asString()}};
 }
 
@@ -123,6 +156,9 @@ foundation::Result<std::optional<foundation::SnapshotId>> optionalSnapshotIdMemb
   }
   if (!value.value().isString()) {
     return parseError(path + "." + key, "Expected string or null.");
+  }
+  if (value.value().asString().empty()) {
+    return parseError(path + "." + key, "Expected non-empty string or null.");
   }
   return std::optional<foundation::SnapshotId>{foundation::SnapshotId{value.value().asString()}};
 }
@@ -146,6 +182,10 @@ foundation::Result<std::optional<std::string>> optionalStringMember(
 }
 
 foundation::Result<ProjectPackageHeadManifest> parseHeadManifest(const Json::Value& object, const std::string& path) {
+  auto members = requireOnlyMembers(object, {"revision", "lastCommandId", "lastSnapshotId"}, path);
+  if (!members) {
+    return members.error();
+  }
   auto revision = requiredStringMember(object, "revision", path);
   if (!revision) {
     return revision.error();
@@ -166,6 +206,10 @@ foundation::Result<ProjectPackageHeadManifest> parseHeadManifest(const Json::Val
 }
 
 foundation::Result<ProjectPackageSnapshotManifest> parseSnapshotManifest(const Json::Value& object, const std::string& path) {
+  auto members = requireOnlyMembers(object, {"id", "revision", "canonicalHash", "documentPath", "label"}, path);
+  if (!members) {
+    return members.error();
+  }
   auto id = requiredStringMember(object, "id", path);
   if (!id) {
     return id.error();
@@ -295,6 +339,14 @@ foundation::Result<ProjectPackageManifest> deserializeCanonicalProjectPackageMan
   auto root = parseJson(json);
   if (!root) {
     return root.error();
+  }
+  auto members = requireOnlyMembers(
+    root.value(),
+    {"schemaVersion", "projectId", "commandLogPath", "eventLogPath", "schemaMigrationLogPath", "head", "latestSnapshot"},
+    "$"
+  );
+  if (!members) {
+    return members.error();
   }
 
   auto schemaVersion = requiredIntMember(root.value(), "schemaVersion", "$");
