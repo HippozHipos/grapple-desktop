@@ -22,6 +22,7 @@
 #include <filesystem>
 #include <fstream>
 #include <sstream>
+#include <stdexcept>
 #include <variant>
 
 namespace {
@@ -143,6 +144,13 @@ int main() {
   GRAPPLE_REQUIRE(writer.nextAssetId("walking woman") == foundation::AssetId{"asset_walking_woman_1"});
   GRAPPLE_REQUIRE(writer.nextEdgeId("contains track") == foundation::EdgeId{"edge_contains_track_1"});
   GRAPPLE_REQUIRE(writer.nextSnapshotId("rev 1") == foundation::SnapshotId{"snap_rev_1_2"});
+  bool rejectedEmptyIdStem = false;
+  try {
+    (void)writer.nextNodeId("...");
+  } catch (const std::invalid_argument&) {
+    rejectedEmptyIdStem = true;
+  }
+  GRAPPLE_REQUIRE(rejectedEmptyIdStem);
   GRAPPLE_REQUIRE(session.packageState().head.has_value());
   GRAPPLE_REQUIRE(session.packageState().head->currentRevision == foundation::RevisionId{"rev_1"});
   GRAPPLE_REQUIRE(session.packageState().head->lastSnapshotId == foundation::SnapshotId{"snap_cmd_app_1_1"});

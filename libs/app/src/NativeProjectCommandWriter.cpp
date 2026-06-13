@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cctype>
+#include <stdexcept>
 #include <utility>
 #include <variant>
 
@@ -26,15 +27,18 @@ NativeProjectCommandWriter::NativeProjectCommandWriter(NativeProjectSession& ses
 }
 
 foundation::AssetId NativeProjectCommandWriter::nextAssetId(const std::string& stem) {
-  return foundation::AssetId{"asset_" + sanitizeStem(stem) + "_" + std::to_string(assetSequence_++)};
+  const std::string sanitized = sanitizeStem(stem);
+  return foundation::AssetId{"asset_" + sanitized + "_" + std::to_string(assetSequence_++)};
 }
 
 foundation::NodeId NativeProjectCommandWriter::nextNodeId(const std::string& stem) {
-  return foundation::NodeId{"node_" + sanitizeStem(stem) + "_" + std::to_string(nodeSequence_++)};
+  const std::string sanitized = sanitizeStem(stem);
+  return foundation::NodeId{"node_" + sanitized + "_" + std::to_string(nodeSequence_++)};
 }
 
 foundation::EdgeId NativeProjectCommandWriter::nextEdgeId(const std::string& stem) {
-  return foundation::EdgeId{"edge_" + sanitizeStem(stem) + "_" + std::to_string(edgeSequence_++)};
+  const std::string sanitized = sanitizeStem(stem);
+  return foundation::EdgeId{"edge_" + sanitized + "_" + std::to_string(edgeSequence_++)};
 }
 
 foundation::SnapshotId NativeProjectCommandWriter::nextSnapshotId(const std::string& stem) {
@@ -265,7 +269,7 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeProjectCommandWri
 }
 
 foundation::CommandId NativeProjectCommandWriter::nextCommandId(const std::string& stem) {
-  (void)stem;
+  (void)sanitizeStem(stem);
   return foundation::CommandId{"cmd_app_" + std::to_string(commandSequence_++)};
 }
 
@@ -288,7 +292,7 @@ std::string NativeProjectCommandWriter::sanitizeStem(const std::string& stem) {
   }
 
   if (sanitized.empty()) {
-    return "id";
+    throw std::invalid_argument{"Project id stem must contain at least one alphanumeric character."};
   }
   return sanitized;
 }
