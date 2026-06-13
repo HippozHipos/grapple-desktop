@@ -92,6 +92,41 @@ public:
   std::optional<grapple::render::SourceFrameRequest> lastRequest;
 };
 
+class CapturingRangeSink final : public grapple::render::IRenderRangeSink {
+public:
+  grapple::foundation::Result<void> writeFrame(
+    std::size_t frameIndex,
+    const grapple::render::RenderFrameResult& frame
+  ) override {
+    frameIndexes.push_back(frameIndex);
+    frameTimes.push_back(frame.frame.time);
+    frameDescriptions.push_back(frame.frame.description);
+    return {};
+  }
+
+  std::vector<std::size_t> frameIndexes;
+  std::vector<grapple::foundation::TimeSeconds> frameTimes;
+  std::vector<std::string> frameDescriptions;
+};
+
+class FailingRangeSink final : public grapple::render::IRenderRangeSink {
+public:
+  grapple::foundation::Result<void> writeFrame(
+    std::size_t frameIndex,
+    const grapple::render::RenderFrameResult& frame
+  ) override {
+    (void)frame;
+    ++attempts;
+    if (frameIndex == failAtIndex) {
+      return grapple::foundation::Error{"render.sink_failed", "Range sink failed while writing a frame."};
+    }
+    return {};
+  }
+
+  std::size_t failAtIndex = 1;
+  int attempts = 0;
+};
+
 class ImageShiftCameraRuntime final : public grapple::runtime::IEffectRuntime {
 public:
   bool supports(const grapple::projection::RenderEffectNode& node) const override {
@@ -341,12 +376,17 @@ int main() {
   GRAPPLE_REQUIRE(stateAfterPause.playback == render::PreviewPlaybackState::Paused);
 
   const render::ExportSettings exportSettings = makeExportSettings(foundation::Resolution{3840, 2160});
-  const auto finalResult = finalRender.render(render::FinalRenderRequest{exportSettings});
+  CapturingRangeSink finalSink;
+  const auto finalResult = finalRender.render(render::FinalRenderRequest{exportSettings, &finalSink});
   GRAPPLE_REQUIRE(finalResult);
   GRAPPLE_REQUIRE(finalResult.value().outputPath.value == "/exports/test.mov");
   GRAPPLE_REQUIRE(finalResult.value().framesEvaluated == 2);
   GRAPPLE_REQUIRE(finalResult.value().runtimeDiagnostics.empty());
   GRAPPLE_REQUIRE(finalResult.value().renderDiagnostics.empty());
+  GRAPPLE_REQUIRE((finalSink.frameIndexes == std::vector<std::size_t>{0, 1}));
+  GRAPPLE_REQUIRE((finalSink.frameTimes == std::vector<foundation::TimeSeconds>{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{0.5}}));
+  GRAPPLE_REQUIRE(finalSink.frameDescriptions.size() == 2);
+  GRAPPLE_REQUIRE(finalSink.frameDescriptions[0] == "layers=1 clips=2 cameras=0 effects=0");
 
   const auto finalState = finalRender.state();
   GRAPPLE_REQUIRE(finalState.core.preparedPlanHash == coreAfterLoad.preparedPlanHash);
@@ -362,6 +402,15 @@ int main() {
   const auto stateAfterSettingsChange = finalRender.state();
   GRAPPLE_REQUIRE(stateAfterSettingsChange.core.preparedPlanHash == coreAfterLoad.preparedPlanHash);
   GRAPPLE_REQUIRE((stateAfterSettingsChange.lastSettings->resolution == foundation::Resolution{1920, 1080}));
+
+  FailingRangeSink failingSink;
+  const auto failedFinalWrite = finalRender.render(render::FinalRenderRequest{
+    makeExportSettings(foundation::Resolution{1920, 1080}),
+    &failingSink
+  });
+  GRAPPLE_REQUIRE(!failedFinalWrite);
+  GRAPPLE_REQUIRE(failedFinalWrite.error().code == "render.sink_failed");
+  GRAPPLE_REQUIRE(failingSink.attempts == 2);
 
   TestFrameSource frameSource;
   render::LocalRenderCore imageCore{runtime, frameSource};

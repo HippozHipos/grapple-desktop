@@ -11,7 +11,8 @@ foundation::Result<FinalRenderResult> FinalRenderShell::render(const FinalRender
   auto range = core_.renderRange(RenderRangeRequest{
     request.settings.range,
     request.settings.frameRate,
-    request.settings.quality
+    request.settings.quality,
+    request.sink
   });
   if (!range) {
     return range.error();

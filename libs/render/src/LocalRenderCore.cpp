@@ -290,6 +290,13 @@ foundation::Result<RenderRangeResult> LocalRenderCore::renderRange(const RenderR
       return frameResult.error();
     }
 
+    if (request.sink != nullptr) {
+      auto writeFrame = request.sink->writeFrame(frameIndex, frameResult.value());
+      if (!writeFrame) {
+        return writeFrame.error();
+      }
+    }
+
     const std::vector<runtime::RuntimeDiagnostic>& frameDiagnostics = frameResult.value().runtimeDiagnostics;
     const std::size_t firstFrameDiagnostic = std::min(preparedDiagnosticCount, frameDiagnostics.size());
     diagnostics.insert(

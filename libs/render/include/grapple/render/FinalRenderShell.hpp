@@ -12,6 +12,7 @@ namespace grapple::render {
 
 struct FinalRenderRequest {
   ExportSettings settings;
+  IRenderRangeSink* sink = nullptr;
 };
 
 struct FinalRenderResult {

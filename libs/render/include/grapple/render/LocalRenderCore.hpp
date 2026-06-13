@@ -79,10 +79,17 @@ struct RenderFrameResult {
   std::vector<RenderDiagnostic> renderDiagnostics;
 };
 
+class IRenderRangeSink {
+public:
+  virtual ~IRenderRangeSink() = default;
+  virtual foundation::Result<void> writeFrame(std::size_t frameIndex, const RenderFrameResult& frame) = 0;
+};
+
 struct RenderRangeRequest {
   foundation::TimeRange range;
   foundation::FrameRate frameRate;
   RenderQuality quality = RenderQuality::Final;
+  IRenderRangeSink* sink = nullptr;
 };
 
 struct RenderRangeResult {
