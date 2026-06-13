@@ -383,6 +383,7 @@ public:
     auto* moreMenu = new QMenu{moreButton};
     auto* openPackageAction = moreMenu->addAction("Open Package");
     auto* addTrackAction = moreMenu->addAction("Add Track");
+    auto* addCameraAction = moreMenu->addAction("Add Camera");
     auto* moveClipAction = moreMenu->addAction("Move Clip +1s");
     auto* deleteClipAction = moreMenu->addAction("Delete Clip");
     moreButton->setMenu(moreMenu);
@@ -467,6 +468,7 @@ public:
     connect(addMediaButton, &QPushButton::clicked, this, [this] { addSelectedVideoToTimeline(); });
     connect(openPackageAction, &QAction::triggered, this, [this] { chooseAndOpenPackage(); });
     connect(addTrackAction, &QAction::triggered, this, [this] { addTrack(); });
+    connect(addCameraAction, &QAction::triggered, this, [this] { addCamera(); });
     connect(moveClipAction, &QAction::triggered, this, [this] { moveSelectedClip(grapple::foundation::TimeSeconds{1.0}); });
     connect(deleteClipAction, &QAction::triggered, this, [this] { deleteSelectedClip(); });
     connect(exportButton, &QPushButton::clicked, this, [this] { chooseAndExportVideo(); });
@@ -715,36 +717,47 @@ public:
     seekTo(grapple::foundation::TimeSeconds{next});
   }
 
-  void addTrack() {
+  grapple::foundation::Result<grapple::foundation::NodeId> ensureComposition() {
     auto viewModel = workspace_.project().buildViewModel();
+    if (!viewModel) {
+      return viewModel.error();
+    }
+    if (!viewModel.value().timeline.compositions.empty()) {
+      return viewModel.value().timeline.compositions.front().sourceNodeId;
+    }
+
+    const grapple::foundation::NodeId compositionNodeId = workspace_.commandWriter().nextNodeId("composition");
+    const auto composition = workspace_.commandWriter().apply(
+      grapple::project::CreateCompositionCommand{
+        compositionNodeId,
+        "Main"
+      },
+      userSource()
+    );
+    if (!composition) {
+      return composition.error();
+    }
+    return compositionNodeId;
+  }
+
+  void addTrack() {
+    auto compositionNodeId = ensureComposition();
+    if (!compositionNodeId) {
+      appendError(compositionNodeId.error());
+      return;
+    }
+
+    const auto viewModel = workspace_.project().buildViewModel();
     if (!viewModel) {
       appendError(viewModel.error());
       return;
-    }
-    if (viewModel.value().timeline.compositions.empty()) {
-      const auto composition = workspace_.commandWriter().apply(
-        grapple::project::CreateCompositionCommand{
-          workspace_.commandWriter().nextNodeId("composition"),
-          "Main"
-        },
-        userSource()
-      );
-      if (!composition) {
-        appendError(composition.error());
-        return;
-      }
-      viewModel = workspace_.project().buildViewModel();
-      if (!viewModel) {
-        appendError(viewModel.error());
-        return;
-      }
     }
 
     const std::size_t trackNumber = viewModel.value().timeline.layers.size() + 1;
     const auto result = workspace_.commandWriter().apply(
       grapple::project::CreateTrackCommand{
         workspace_.commandWriter().nextNodeId("track"),
-        viewModel.value().timeline.compositions[0].sourceNodeId,
+        compositionNodeId.value(),
         workspace_.commandWriter().nextEdgeId("contains_track"),
         "Video " + std::to_string(trackNumber)
       },
@@ -758,6 +771,46 @@ public:
     refreshViewModel();
     refreshPreview();
     log_->append("Added track");
+  }
+
+  void addCamera() {
+    auto compositionNodeId = ensureComposition();
+    if (!compositionNodeId) {
+      appendError(compositionNodeId.error());
+      return;
+    }
+
+    const auto viewModel = workspace_.project().buildViewModel();
+    if (!viewModel) {
+      appendError(viewModel.error());
+      return;
+    }
+
+    const std::size_t cameraNumber = viewModel.value().timeline.cameras.size() + 1;
+    const grapple::foundation::NodeId cameraNodeId = workspace_.commandWriter().nextNodeId("camera");
+    const auto result = workspace_.commandWriter().apply(
+      grapple::project::CreateCameraCommand{
+        cameraNodeId,
+        compositionNodeId.value(),
+        workspace_.commandWriter().nextEdgeId("contains_camera"),
+        grapple::timeline::CameraPayload{
+          "Camera " + std::to_string(cameraNumber),
+          grapple::timeline::Transform{},
+          grapple::timeline::CameraLens{35.0}
+        }
+      },
+      userSource()
+    );
+    if (!result) {
+      appendError(result.error());
+      return;
+    }
+
+    selectedNodeId_ = cameraNodeId;
+    selectedAssetId_ = std::nullopt;
+    refreshViewModel();
+    refreshPreview();
+    log_->append("Added camera");
   }
 
   void importVideoFile(const grapple::foundation::FilePath& path) {
@@ -830,30 +883,22 @@ public:
     const std::string assetName = selectedAsset->name;
     const grapple::foundation::TimeSeconds duration = *selectedAsset->duration;
 
-    if (viewModel.value().timeline.compositions.empty()) {
-      const auto composition = workspace_.commandWriter().apply(
-        grapple::project::CreateCompositionCommand{
-          workspace_.commandWriter().nextNodeId("composition"),
-          "Main"
-        },
-        userSource()
-      );
-      if (!composition) {
-        appendError(composition.error());
-        return;
-      }
-      viewModel = workspace_.project().buildViewModel();
-      if (!viewModel) {
-        appendError(viewModel.error());
-        return;
-      }
+    auto compositionNodeId = ensureComposition();
+    if (!compositionNodeId) {
+      appendError(compositionNodeId.error());
+      return;
+    }
+    viewModel = workspace_.project().buildViewModel();
+    if (!viewModel) {
+      appendError(viewModel.error());
+      return;
     }
 
     if (viewModel.value().timeline.layers.empty()) {
       const auto track = workspace_.commandWriter().apply(
         grapple::project::CreateTrackCommand{
           workspace_.commandWriter().nextNodeId("track"),
-          viewModel.value().timeline.compositions.front().sourceNodeId,
+          compositionNodeId.value(),
           workspace_.commandWriter().nextEdgeId("contains_track"),
           "Video"
         },
@@ -874,7 +919,7 @@ public:
       const auto camera = workspace_.commandWriter().apply(
         grapple::project::CreateCameraCommand{
           workspace_.commandWriter().nextNodeId("camera"),
-          viewModel.value().timeline.compositions.front().sourceNodeId,
+          compositionNodeId.value(),
           workspace_.commandWriter().nextEdgeId("contains_camera"),
           grapple::timeline::CameraPayload{
             "Camera",
@@ -1446,6 +1491,10 @@ void DesktopWindow::advancePlaybackFrame() {
 
 void DesktopWindow::addTrack() {
   impl_->addTrack();
+}
+
+void DesktopWindow::addCamera() {
+  impl_->addCamera();
 }
 
 void DesktopWindow::importVideoFile(const foundation::FilePath& path) {

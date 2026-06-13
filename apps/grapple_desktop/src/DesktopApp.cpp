@@ -54,6 +54,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   bool addVideoSmoke = false;
   bool emptyAddVideoSmoke = false;
   bool emptyAddTrackSmoke = false;
+  bool emptyAddCameraSmoke = false;
   bool moveClipSmoke = false;
   bool undoRedoSmoke = false;
   bool addEffectSmoke = false;
@@ -89,6 +90,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       emptyAddVideoSmoke = true;
     } else if (argument == "--empty-add-track-smoke") {
       emptyAddTrackSmoke = true;
+    } else if (argument == "--empty-add-camera-smoke") {
+      emptyAddCameraSmoke = true;
     } else if (argument == "--move-clip-smoke") {
       moveClipSmoke = true;
     } else if (argument == "--undo-redo-smoke") {
@@ -112,7 +115,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     } else if (argument == "--effect-screenshot" && index + 1 < argc) {
       effectScreenshotPath = argv[++index];
     } else {
-      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --select-camera-smoke, --steward-smoke, --import-smoke, --add-video-smoke, --empty-add-video-smoke, --empty-add-track-smoke, --move-clip-smoke, --undo-redo-smoke, --add-effect-smoke, --set-effect-param-smoke, --delete-effect-smoke, --delete-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, --screenshot <path>, or --effect-screenshot <path>.\n";
+      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --select-camera-smoke, --steward-smoke, --import-smoke, --add-video-smoke, --empty-add-video-smoke, --empty-add-track-smoke, --empty-add-camera-smoke, --move-clip-smoke, --undo-redo-smoke, --add-effect-smoke, --set-effect-param-smoke, --delete-effect-smoke, --delete-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, --screenshot <path>, or --effect-screenshot <path>.\n";
       return 1;
     }
   }
@@ -133,7 +136,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     return 1;
   }
 
-  if (!emptyAddVideoSmoke && !emptyAddTrackSmoke) {
+  if (!emptyAddVideoSmoke && !emptyAddTrackSmoke && !emptyAddCameraSmoke) {
     const auto populated = populateDemo(session, true);
     if (!populated) {
       printError(populated.error());
@@ -337,6 +340,28 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            viewModel.value().timeline.compositions.size() == 1 &&
            viewModel.value().timeline.layers.size() == 1 &&
            viewModel.value().timeline.clips.empty()
+      ? 0
+      : 1;
+  }
+
+  if (emptyAddCameraSmoke) {
+    window.addCamera();
+    const auto viewModel = workspace.value().project().buildViewModel();
+    if (!viewModel) {
+      printError(viewModel.error());
+      return 1;
+    }
+    std::cout << "revision=" << viewModel.value().project.revision.value() << '\n';
+    std::cout << "compositions=" << viewModel.value().timeline.compositions.size() << '\n';
+    std::cout << "cameras=" << viewModel.value().timeline.cameras.size() << '\n';
+    if (window.selectedNodeId().has_value()) {
+      std::cout << "selectedNode=" << window.selectedNodeId()->value() << '\n';
+    }
+    return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_2"} &&
+           viewModel.value().timeline.compositions.size() == 1 &&
+           viewModel.value().timeline.cameras.size() == 1 &&
+           window.selectedNodeId().has_value() &&
+           window.selectedNodeId().value() == viewModel.value().timeline.cameras.front().sourceNodeId
       ? 0
       : 1;
   }

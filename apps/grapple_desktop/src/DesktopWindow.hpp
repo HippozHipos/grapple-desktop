@@ -46,6 +46,7 @@ public:
   void pausePlayback();
   void advancePlaybackFrame();
   void addTrack();
+  void addCamera();
   void importVideoFile(const foundation::FilePath& path);
   void addSelectedVideoToTimeline();
   void deleteSelectedClip();
