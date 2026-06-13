@@ -52,6 +52,7 @@ public:
   void moveSelectedClip(foundation::TimeSeconds delta);
   void undoLastEdit();
   void redoLastEdit();
+  void exportVideoFile(const foundation::FilePath& path);
   void setEffectParamControlValue(const std::string& paramName, double value);
   void setSelectedTargetNumericEffectParam(const std::string& paramName, double value);
   void deleteSelectedTargetEffect();

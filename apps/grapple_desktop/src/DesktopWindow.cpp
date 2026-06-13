@@ -461,7 +461,7 @@ public:
     connect(addTrackAction, &QAction::triggered, this, [this] { addTrack(); });
     connect(moveClipAction, &QAction::triggered, this, [this] { moveSelectedClip(grapple::foundation::TimeSeconds{1.0}); });
     connect(deleteClipAction, &QAction::triggered, this, [this] { deleteSelectedClip(); });
-    connect(exportButton, &QPushButton::clicked, this, [this] { runExport(); });
+    connect(exportButton, &QPushButton::clicked, this, [this] { chooseAndExportVideo(); });
     connect(saveButton, &QPushButton::clicked, this, [this] { savePackage(); });
     steward_->setCreateCameraEffectHandler([this](std::string intent) { addEffectToSelectedTarget(std::move(intent)); });
     connect(mediaBin_, &QListWidget::currentRowChanged, this, [this](int row) { selectMediaAssetAtRow(row); });
@@ -1084,19 +1084,19 @@ public:
     log_->append(QString{"Deleted effect at %1"}.arg(qString(deleted.value().snapshot.revision.value())));
   }
 
-  void runExport() {
+  void exportVideoFile(const grapple::foundation::FilePath& path) {
     const auto prepare = workspace_.exportSession().prepareFromProject();
     if (!prepare) {
       appendError(prepare.error());
       return;
     }
     const auto result = workspace_.exportSession().renderToVideo(grapple::render::ExportSettings{
-      grapple::foundation::TimeRange{grapple::foundation::TimeSeconds{0.0}, grapple::foundation::TimeSeconds{1.0}},
-      grapple::foundation::FrameRate{2, 1},
+      grapple::foundation::TimeRange{grapple::foundation::TimeSeconds{0.0}, timelineDuration_},
+      grapple::foundation::FrameRate{30, 1},
       grapple::foundation::Resolution{1920, 1080},
       grapple::render::Codec{"mjpeg"},
       grapple::render::RenderQuality::Final,
-      grapple::foundation::FilePath{"/tmp/grapple-desktop-export.avi"}
+      path
     });
     if (!result) {
       appendError(result.error());
@@ -1231,6 +1231,14 @@ private:
     importVideoFile(grapple::foundation::FilePath{path.toStdString()});
   }
 
+  void chooseAndExportVideo() {
+    const QString path = QFileDialog::getSaveFileName(this, "Export Video", "grapple-export.avi", "AVI Video (*.avi)");
+    if (path.isEmpty()) {
+      return;
+    }
+    exportVideoFile(grapple::foundation::FilePath{path.toStdString()});
+  }
+
   void chooseAndOpenPackage() {
     const QString path = QFileDialog::getExistingDirectory(this, "Open Package");
     if (path.isEmpty()) {
@@ -1359,6 +1367,10 @@ void DesktopWindow::undoLastEdit() {
 
 void DesktopWindow::redoLastEdit() {
   impl_->redoLastEdit();
+}
+
+void DesktopWindow::exportVideoFile(const foundation::FilePath& path) {
+  impl_->exportVideoFile(path);
 }
 
 void DesktopWindow::setEffectParamControlValue(const std::string& paramName, double value) {
