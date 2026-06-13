@@ -40,6 +40,34 @@ constexpr const char TimelineCreateTrackSchema[] = R"json({
   }
 })json";
 
+constexpr const char TimelineCreateClipSchema[] = R"json({
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["trackNodeId", "assetId", "kind", "timelineRange", "sourceRange", "playbackRate"],
+  "properties": {
+    "trackNodeId": {"type": "string"},
+    "assetId": {"type": "string"},
+    "kind": {"enum": ["video", "audio", "image"]},
+    "timelineRange": {
+      "type": "object",
+      "required": ["start", "end"],
+      "properties": {
+        "start": {"type": "number"},
+        "end": {"type": "number"}
+      }
+    },
+    "sourceRange": {
+      "type": "object",
+      "required": ["start", "end"],
+      "properties": {
+        "start": {"type": "number"},
+        "end": {"type": "number"}
+      }
+    },
+    "playbackRate": {"type": "number"}
+  }
+})json";
+
 constexpr const char EffectCreateNodeSchema[] = R"json({
   "type": "object",
   "additionalProperties": false,
@@ -209,6 +237,19 @@ foundation::Result<timeline::EffectImplementationKind> parseImplementationKind(c
     return timeline::EffectImplementationKind::Shader;
   }
   return argumentError(path, "Expected builtin, python, or shader.");
+}
+
+foundation::Result<timeline::ClipKind> parseClipKind(const std::string& value, const std::string& path) {
+  if (value == "video") {
+    return timeline::ClipKind::Video;
+  }
+  if (value == "audio") {
+    return timeline::ClipKind::Audio;
+  }
+  if (value == "image") {
+    return timeline::ClipKind::Image;
+  }
+  return argumentError(path, "Expected video, audio, or image.");
 }
 
 foundation::Result<timeline::ParamValue> parseParamValue(const Json::Value& value, const std::string& path) {
@@ -496,6 +537,108 @@ AgentTool makeTimelineCreateTrackTool() {
               << ",\"trackNodeId\":" << foundation::jsonQuoted(trackNodeId.value())
               << ",\"containmentEdgeId\":" << foundation::jsonQuoted(containmentEdgeId.value())
               << ",\"compositionNodeId\":" << foundation::jsonQuoted(compositionNodeId.value())
+              << ",\"revision\":" << foundation::jsonQuoted(command.value().afterRevision.value())
+              << '}';
+      return ToolResult{
+        call.toolId,
+        ToolResultStatus::Succeeded,
+        command.value().afterRevision,
+        payload.str(),
+        {}
+      };
+    }
+  };
+}
+
+AgentTool makeTimelineCreateClipTool() {
+  return AgentTool{
+    foundation::ToolId{"tool_timeline_create_clip"},
+    "timeline.create_clip",
+    "Create Timeline Clip",
+    "Creates a clip with explicit timing, media kind, asset, and track through Project Core.",
+    TimelineCreateClipSchema,
+    [](const ToolCall& call, AgentToolContext& context) -> foundation::Result<ToolResult> {
+      auto arguments = parseArguments(call.arguments);
+      if (!arguments) {
+        return arguments.error();
+      }
+      auto trackNodeId = requiredStringMember(arguments.value(), "trackNodeId", "$");
+      if (!trackNodeId) {
+        return trackNodeId.error();
+      }
+      auto assetId = requiredStringMember(arguments.value(), "assetId", "$");
+      if (!assetId) {
+        return assetId.error();
+      }
+      auto kindName = requiredStringMember(arguments.value(), "kind", "$");
+      if (!kindName) {
+        return kindName.error();
+      }
+      auto kind = parseClipKind(kindName.value(), "$.kind");
+      if (!kind) {
+        return kind.error();
+      }
+      auto timelineRangeObject = requiredMember(arguments.value(), "timelineRange", "$");
+      if (!timelineRangeObject) {
+        return timelineRangeObject.error();
+      }
+      auto timelineRange = parseTimeRange(timelineRangeObject.value(), "$.timelineRange");
+      if (!timelineRange) {
+        return timelineRange.error();
+      }
+      auto sourceRangeObject = requiredMember(arguments.value(), "sourceRange", "$");
+      if (!sourceRangeObject) {
+        return sourceRangeObject.error();
+      }
+      auto sourceRange = parseTimeRange(sourceRangeObject.value(), "$.sourceRange");
+      if (!sourceRange) {
+        return sourceRange.error();
+      }
+      auto playbackRate = requiredDoubleMember(arguments.value(), "playbackRate", "$");
+      if (!playbackRate) {
+        return playbackRate.error();
+      }
+
+      auto snapshot = readProjectSnapshot(context, "Create clip");
+      if (!snapshot) {
+        return snapshot.error();
+      }
+
+      const std::int64_t nextRevisionNumber = snapshot.value().revisionNumber + 1;
+      const foundation::CommandId commandId{"cmd_agent_create_clip_rev_" + std::to_string(nextRevisionNumber)};
+      const foundation::NodeId clipNodeId{"node_agent_clip_rev_" + std::to_string(nextRevisionNumber)};
+      const foundation::EdgeId containmentEdgeId{"edge_agent_clip_contains_rev_" + std::to_string(nextRevisionNumber)};
+      auto command = context.commands.apply(project::ProjectCommandEnvelope{
+        commandId,
+        call.projectId,
+        call.expectedRevision,
+        project::CommandSource{project::CommandSourceKind::Agent, call.runId, "agent"},
+        project::CreateClipCommand{
+          clipNodeId,
+          foundation::NodeId{trackNodeId.value()},
+          containmentEdgeId,
+          timeline::ClipPayload{
+            kind.value(),
+            timelineRange.value(),
+            sourceRange.value(),
+            playbackRate.value(),
+            foundation::AssetId{assetId.value()},
+            timeline::Transform{}
+          },
+          0
+        }
+      });
+      if (!command) {
+        return command.error();
+      }
+
+      std::ostringstream payload;
+      payload << '{'
+              << "\"commandId\":" << foundation::jsonQuoted(commandId.value())
+              << ",\"clipNodeId\":" << foundation::jsonQuoted(clipNodeId.value())
+              << ",\"containmentEdgeId\":" << foundation::jsonQuoted(containmentEdgeId.value())
+              << ",\"trackNodeId\":" << foundation::jsonQuoted(trackNodeId.value())
+              << ",\"assetId\":" << foundation::jsonQuoted(assetId.value())
               << ",\"revision\":" << foundation::jsonQuoted(command.value().afterRevision.value())
               << '}';
       return ToolResult{
