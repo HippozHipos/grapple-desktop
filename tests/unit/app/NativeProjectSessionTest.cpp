@@ -629,14 +629,22 @@ int main() {
     userSource()
   );
   GRAPPLE_REQUIRE(updatedRuntimeEffect);
+  const auto updatedRuntimeZoom = runtimeWorkspace.value().effects().setNumericParam(
+    runtimeEffectNodeId,
+    runtime::builtin_effect::ZoomParam,
+    1.5,
+    userSource()
+  );
+  GRAPPLE_REQUIRE(updatedRuntimeZoom);
   const auto updatedRuntimeEffectViewModel = runtimeWorkspace.value().project().buildViewModel();
   GRAPPLE_REQUIRE(updatedRuntimeEffectViewModel);
   GRAPPLE_REQUIRE(updatedRuntimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].value == "0.25");
+  GRAPPLE_REQUIRE(updatedRuntimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[2].value == "1.5");
   const auto runtimeDiagnosticsQuery = runtimeWorkspace.value().query(project::InspectRuntimeDiagnosticsQuery{});
   GRAPPLE_REQUIRE(runtimeDiagnosticsQuery);
   const auto* runtimeDiagnostics = std::get_if<project::RuntimeInspectDiagnosticsResult>(&runtimeDiagnosticsQuery.value());
   GRAPPLE_REQUIRE(runtimeDiagnostics != nullptr);
-  GRAPPLE_REQUIRE(runtimeDiagnostics->revision == foundation::RevisionId{"rev_4"});
+  GRAPPLE_REQUIRE(runtimeDiagnostics->revision == foundation::RevisionId{"rev_5"});
   GRAPPLE_REQUIRE(runtimeDiagnostics->diagnostics.empty());
   const auto runtimeRefresh = runtimeWorkspace.value().preview().refreshFromProject();
   GRAPPLE_REQUIRE(runtimeRefresh);
@@ -650,6 +658,8 @@ int main() {
   GRAPPLE_REQUIRE(runtimeFrame.value().frame.cameras[0].cameraNodeId == runtimeCameraNodeId);
   GRAPPLE_REQUIRE(runtimeFrame.value().frame.cameras[0].transform.position.x == 0.25);
   GRAPPLE_REQUIRE(runtimeFrame.value().frame.cameras[0].transform.position.y == 0.0);
+  GRAPPLE_REQUIRE(runtimeFrame.value().frame.cameras[0].transform.scale.x == 1.5);
+  GRAPPLE_REQUIRE(runtimeFrame.value().frame.cameras[0].transform.scale.y == 1.5);
   const auto runtimeExportPrepare = runtimeWorkspace.value().exportSession().prepareFromProject();
   GRAPPLE_REQUIRE(runtimeExportPrepare);
   const auto runtimeExport = runtimeWorkspace.value().exportSession().render(render::ExportSettings{

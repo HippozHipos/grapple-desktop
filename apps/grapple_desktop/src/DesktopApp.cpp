@@ -329,6 +329,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     window.setStewardIntent("Shift the camera right with editable controls.");
     window.clickStewardCreateCameraEffect();
     window.setSelectedTargetNumericEffectParam(grapple::runtime::builtin_effect::PositionXParam, 0.25);
+    window.setSelectedTargetNumericEffectParam(grapple::runtime::builtin_effect::ZoomParam, 1.5);
     const std::string inspector = window.inspectorContents();
     const auto viewModel = workspace.value().project().buildViewModel();
     if (!viewModel) {
@@ -337,8 +338,9 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     }
     std::cout << "revision=" << viewModel.value().project.revision.value() << '\n';
     std::cout << "inspector=" << inspector << '\n';
-    return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_7"} &&
-           inspector.find("Position X (position_x)=0.25") != std::string::npos
+    return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_8"} &&
+           inspector.find("Position X (position_x)=0.25") != std::string::npos &&
+           inspector.find("Zoom (zoom)=1.5") != std::string::npos
       ? 0
       : 1;
   }
