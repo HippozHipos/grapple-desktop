@@ -7,6 +7,7 @@ add_library(grapple_app
   src/NativeEffectSession.cpp
   src/NativeExportSession.cpp
   src/NativeMediaFrameSource.cpp
+  src/NativeMediaImport.cpp
   src/NativeProjectCommandWriter.cpp
   src/NativePreviewSession.cpp
   src/NativeProjectSession.cpp

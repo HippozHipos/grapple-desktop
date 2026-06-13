@@ -1,5 +1,6 @@
 #include <grapple/app/NativeExportSession.hpp>
 #include <grapple/app/NativeEffectSession.hpp>
+#include <grapple/app/NativeMediaImport.hpp>
 #include <grapple/app/NativePreviewSession.hpp>
 #include <grapple/app/NativeProjectCommandWriter.hpp>
 #include <grapple/app/NativeProjectSession.hpp>
@@ -19,6 +20,7 @@
 #include <TestAssert.hpp>
 
 #include <chrono>
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -46,6 +48,53 @@ std::filesystem::path writeTinyPpm(const std::string& stem) {
     40, 50, 60
   };
   output.write(reinterpret_cast<const char*>(pixels), sizeof(pixels));
+  return path;
+}
+
+void writeLittleEndianU16(std::ostream& output, std::uint16_t value) {
+  const unsigned char bytes[] = {
+    static_cast<unsigned char>(value & 0xffU),
+    static_cast<unsigned char>((value >> 8U) & 0xffU)
+  };
+  output.write(reinterpret_cast<const char*>(bytes), sizeof(bytes));
+}
+
+void writeLittleEndianU32(std::ostream& output, std::uint32_t value) {
+  const unsigned char bytes[] = {
+    static_cast<unsigned char>(value & 0xffU),
+    static_cast<unsigned char>((value >> 8U) & 0xffU),
+    static_cast<unsigned char>((value >> 16U) & 0xffU),
+    static_cast<unsigned char>((value >> 24U) & 0xffU)
+  };
+  output.write(reinterpret_cast<const char*>(bytes), sizeof(bytes));
+}
+
+std::filesystem::path writeTinyWav(const std::string& stem) {
+  const std::filesystem::path path =
+    std::filesystem::temp_directory_path() /
+    (stem + "_" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".wav");
+  constexpr std::uint16_t channelCount = 1;
+  constexpr std::uint32_t sampleRate = 8000;
+  constexpr std::uint16_t bitsPerSample = 16;
+  constexpr std::uint32_t frameCount = 8000;
+  constexpr std::uint32_t dataBytes = frameCount * channelCount * (bitsPerSample / 8U);
+
+  std::ofstream output{path, std::ios::binary | std::ios::trunc};
+  output.write("RIFF", 4);
+  writeLittleEndianU32(output, 36U + dataBytes);
+  output.write("WAVE", 4);
+  output.write("fmt ", 4);
+  writeLittleEndianU32(output, 16);
+  writeLittleEndianU16(output, 1);
+  writeLittleEndianU16(output, channelCount);
+  writeLittleEndianU32(output, sampleRate);
+  writeLittleEndianU32(output, sampleRate * channelCount * (bitsPerSample / 8U));
+  writeLittleEndianU16(output, channelCount * (bitsPerSample / 8U));
+  writeLittleEndianU16(output, bitsPerSample);
+  output.write("data", 4);
+  writeLittleEndianU32(output, dataBytes);
+  std::string samples(dataBytes, '\0');
+  output.write(samples.data(), static_cast<std::streamsize>(samples.size()));
   return path;
 }
 
@@ -133,6 +182,35 @@ int main() {
 
   const auto initial = session.snapshot();
   GRAPPLE_REQUIRE(initial);
+
+  const std::filesystem::path inspectedImagePath = writeTinyPpm("grapple_native_inspect_image");
+  const auto inspectedImage = app::inspectNativeMediaAsset(
+    foundation::AssetId{"asset_inspected_image"},
+    foundation::FilePath{inspectedImagePath.string()}
+  );
+  GRAPPLE_REQUIRE(inspectedImage);
+  GRAPPLE_REQUIRE(inspectedImage.value().id == foundation::AssetId{"asset_inspected_image"});
+  GRAPPLE_REQUIRE(inspectedImage.value().metadata.mediaType == asset::AssetMediaType::Image);
+  GRAPPLE_REQUIRE(inspectedImage.value().metadata.sourcePath == foundation::FilePath{inspectedImagePath.string()});
+  GRAPPLE_REQUIRE(!inspectedImage.value().metadata.duration.has_value());
+  GRAPPLE_REQUIRE(inspectedImage.value().metadata.dimensions.has_value());
+  GRAPPLE_REQUIRE((inspectedImage.value().metadata.dimensions.value() == foundation::Resolution{2, 1}));
+
+  const std::filesystem::path inspectedAudioPath = writeTinyWav("grapple_native_inspect_audio");
+  const auto inspectedAudio = app::inspectNativeMediaAsset(
+    foundation::AssetId{"asset_inspected_audio"},
+    foundation::FilePath{inspectedAudioPath.string()}
+  );
+  GRAPPLE_REQUIRE(inspectedAudio);
+  GRAPPLE_REQUIRE(inspectedAudio.value().id == foundation::AssetId{"asset_inspected_audio"});
+  GRAPPLE_REQUIRE(inspectedAudio.value().metadata.mediaType == asset::AssetMediaType::Audio);
+  GRAPPLE_REQUIRE(inspectedAudio.value().metadata.sourcePath == foundation::FilePath{inspectedAudioPath.string()});
+  GRAPPLE_REQUIRE(inspectedAudio.value().metadata.duration.has_value());
+  GRAPPLE_REQUIRE(inspectedAudio.value().metadata.duration.value() == foundation::TimeSeconds{1.0});
+  GRAPPLE_REQUIRE(!inspectedAudio.value().metadata.dimensions.has_value());
+
+  std::filesystem::remove(inspectedImagePath);
+  std::filesystem::remove(inspectedAudioPath);
 
   app::NativeProjectCommandWriter writer{session};
   const foundation::NodeId compositionNodeId = writer.nextNodeId("composition");
