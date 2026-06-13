@@ -129,6 +129,10 @@ int main() {
   GRAPPLE_REQUIRE(commandServiceSession.packageState().head->lastSnapshotId == foundation::SnapshotId{"snap_cmd_agent_create_composition_1"});
   GRAPPLE_REQUIRE(commandServiceSession.packageState().snapshots.records().size() == 1);
 
+  const auto beforeReadQueries = session.snapshot();
+  GRAPPLE_REQUIRE(beforeReadQueries);
+  const std::size_t commandCountBeforeReadQueries = session.packageState().commandLog.records().size();
+  const std::size_t snapshotCountBeforeReadQueries = session.packageState().snapshots.records().size();
   const auto snapshotQuery = session.query(project::GetProjectSnapshotQuery{});
   GRAPPLE_REQUIRE(snapshotQuery);
   const auto* snapshotResult = std::get_if<project::ProjectSnapshotResult>(&snapshotQuery.value());
@@ -164,6 +168,12 @@ int main() {
   GRAPPLE_REQUIRE(renderPlanInspectResult->cameras.empty());
   GRAPPLE_REQUIRE(renderPlanInspectResult->effectGraphs.empty());
   GRAPPLE_REQUIRE(renderPlanInspectResult->diagnosticCount == 0);
+  const auto afterReadQueries = session.snapshot();
+  GRAPPLE_REQUIRE(afterReadQueries);
+  GRAPPLE_REQUIRE(afterReadQueries.value().revision == beforeReadQueries.value().revision);
+  GRAPPLE_REQUIRE(afterReadQueries.value().canonicalHash == beforeReadQueries.value().canonicalHash);
+  GRAPPLE_REQUIRE(session.packageState().commandLog.records().size() == commandCountBeforeReadQueries);
+  GRAPPLE_REQUIRE(session.packageState().snapshots.records().size() == snapshotCountBeforeReadQueries);
 
   const auto viewModel = session.buildViewModel();
   GRAPPLE_REQUIRE(viewModel);
