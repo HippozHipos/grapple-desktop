@@ -810,6 +810,9 @@ public:
     ) {
       setEffectNumericParam(effectNodeId, paramName, value);
     });
+    effectParams_->setDeleteHandler([this](grapple::foundation::NodeId effectNodeId) {
+      deleteEffect(effectNodeId);
+    });
 
     log_ = new QTextEdit;
     log_->setObjectName("log");
@@ -956,6 +959,8 @@ public:
         background: #10141d; color: #e8f4ff; border: 1px solid #343b4a; border-radius: 8px; padding: 8px 10px;
       }
       QPushButton:hover { background: #79ddea; }
+      QPushButton#effectParamDelete { background: #3a4658; color: #f4d4d4; }
+      QPushButton#effectParamDelete:hover { background: #5a3841; }
     )");
 
     refreshViewModel();
@@ -1408,6 +1413,38 @@ public:
     setEffectNumericParam(targetEdge->sourceNodeId, paramName, value);
   }
 
+  void deleteSelectedTargetEffect() {
+    if (!selectedNodeId_.has_value()) {
+      appendError(grapple::foundation::Error{"desktop.selection_missing", "Delete Effect requires a selected timeline target."});
+      return;
+    }
+
+    const auto snapshot = workspace_.project().snapshot();
+    if (!snapshot) {
+      appendError(snapshot.error());
+      return;
+    }
+
+    const grapple::graph::GraphEdge* targetEdge = nullptr;
+    for (const grapple::graph::GraphEdge& edge : snapshot.value().graph.edges()) {
+      if (edge.enabled &&
+          edge.kind == grapple::graph::EdgeKind::Targets &&
+          edge.targetNodeId == selectedNodeId_.value()) {
+        if (targetEdge != nullptr) {
+          appendError(grapple::foundation::Error{"desktop.effect_target_ambiguous", "Selected target has multiple attached effects; delete a specific effect from the parameters panel."});
+          return;
+        }
+        targetEdge = &edge;
+      }
+    }
+    if (targetEdge == nullptr) {
+      appendError(grapple::foundation::Error{"desktop.effect_target_missing", "Selected target has no attached effect."});
+      return;
+    }
+
+    deleteEffect(targetEdge->sourceNodeId);
+  }
+
   void setEffectNumericParam(
     const grapple::foundation::NodeId& effectNodeId,
     const std::string& paramName,
@@ -1427,6 +1464,21 @@ public:
     refreshViewModel();
     refreshPreview();
     log_->append(QString{"Updated effect parameter at %1"}.arg(qString(updated.value().snapshot.revision.value())));
+  }
+
+  void deleteEffect(const grapple::foundation::NodeId& effectNodeId) {
+    const auto deleted = workspace_.effects().deleteEffect(
+      effectNodeId,
+      userSource()
+    );
+    if (!deleted) {
+      appendError(deleted.error());
+      return;
+    }
+
+    refreshViewModel();
+    refreshPreview();
+    log_->append(QString{"Deleted effect at %1"}.arg(qString(deleted.value().snapshot.revision.value())));
   }
 
   void runExport() {
@@ -1613,6 +1665,7 @@ int main(int argc, char* argv[]) {
   bool moveClipSmoke = false;
   bool addEffectSmoke = false;
   bool setEffectParamSmoke = false;
+  bool deleteEffectSmoke = false;
   bool deleteSmoke = false;
   bool playbackSmoke = false;
   bool openPackageSmoke = false;
@@ -1644,6 +1697,8 @@ int main(int argc, char* argv[]) {
       addEffectSmoke = true;
     } else if (argument == "--set-effect-param-smoke") {
       setEffectParamSmoke = true;
+    } else if (argument == "--delete-effect-smoke") {
+      deleteEffectSmoke = true;
     } else if (argument == "--delete-smoke") {
       deleteSmoke = true;
     } else if (argument == "--playback-smoke") {
@@ -1655,7 +1710,7 @@ int main(int argc, char* argv[]) {
     } else if (argument == "--screenshot" && index + 1 < argc) {
       screenshotPath = argv[++index];
     } else {
-      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --select-camera-smoke, --steward-smoke, --import-smoke, --add-video-smoke, --move-clip-smoke, --add-effect-smoke, --set-effect-param-smoke, --delete-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, or --screenshot <path>.\n";
+      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --select-camera-smoke, --steward-smoke, --import-smoke, --add-video-smoke, --move-clip-smoke, --add-effect-smoke, --set-effect-param-smoke, --delete-effect-smoke, --delete-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, or --screenshot <path>.\n";
       return 1;
     }
   }
@@ -1856,6 +1911,29 @@ int main(int argc, char* argv[]) {
     std::cout << "inspector=" << inspector << '\n';
     return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_7"} &&
            inspector.find("Position X (position_x)=0.25") != std::string::npos
+      ? 0
+      : 1;
+  }
+
+  if (deleteEffectSmoke) {
+    window.show();
+    app.processEvents();
+    window.clickFirstTimelineCamera();
+    window.setStewardIntent("Add then remove an editable camera transform.");
+    window.clickStewardCreateCameraEffect();
+    window.deleteSelectedTargetEffect();
+    const std::string inspector = window.inspectorContents();
+    const auto viewModel = workspace.value().project().buildViewModel();
+    if (!viewModel) {
+      printError(viewModel.error());
+      return 1;
+    }
+    std::cout << "revision=" << viewModel.value().project.revision.value() << '\n';
+    std::cout << "effectGraphs=" << viewModel.value().timeline.effectGraphs.size() << '\n';
+    std::cout << "inspector=" << inspector << '\n';
+    return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_7"} &&
+           viewModel.value().timeline.effectGraphs.empty() &&
+           inspector.find("Effects: none") != std::string::npos
       ? 0
       : 1;
   }

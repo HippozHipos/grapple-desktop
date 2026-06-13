@@ -19,6 +19,10 @@ public:
     double value,
     project::CommandSource source
   );
+  foundation::Result<storage::ProjectPackageSessionResult> deleteEffect(
+    foundation::NodeId effectNodeId,
+    project::CommandSource source
+  );
 
 private:
   NativeProjectSession& project_;

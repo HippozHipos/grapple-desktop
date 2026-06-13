@@ -132,6 +132,8 @@ foundation::Result<void> ProjectController::applyPayload(const ProjectCommand& p
         return handleUpdateCamera(typedCommand);
       } else if constexpr (std::is_same_v<Command, CreateEffectCommand>) {
         return handleCreateEffect(typedCommand);
+      } else if constexpr (std::is_same_v<Command, DeleteEffectCommand>) {
+        return handleDeleteEffect(typedCommand);
       } else if constexpr (std::is_same_v<Command, ConnectNodesCommand>) {
         return handleConnectNodes(typedCommand);
       } else if constexpr (std::is_same_v<Command, DisconnectNodesCommand>) {
@@ -318,6 +320,15 @@ foundation::Result<void> ProjectController::handleCreateEffect(const CreateEffec
     command.order,
     true
   });
+}
+
+foundation::Result<void> ProjectController::handleDeleteEffect(const DeleteEffectCommand& command) {
+  const graph::GraphNode* effect = document_.graph.findNode(command.nodeId);
+  if (effect == nullptr || effect->kind != graph::NodeKind::Effect) {
+    return foundation::Error{"project.effect_missing", "Effect deletion requires an existing effect node."};
+  }
+
+  return document_.graph.removeNode(command.nodeId);
 }
 
 foundation::Result<void> ProjectController::handleConnectNodes(const ConnectNodesCommand& command) {

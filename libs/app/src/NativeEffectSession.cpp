@@ -56,4 +56,14 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeEffectSession::se
   );
 }
 
+foundation::Result<storage::ProjectPackageSessionResult> NativeEffectSession::deleteEffect(
+  foundation::NodeId effectNodeId,
+  project::CommandSource source
+) {
+  return commandWriter_.apply(
+    project::DeleteEffectCommand{std::move(effectNodeId)},
+    std::move(source)
+  );
+}
+
 } // namespace grapple::app

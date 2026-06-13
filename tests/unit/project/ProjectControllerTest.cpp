@@ -7,6 +7,8 @@
 
 #include <TestAssert.hpp>
 
+#include <algorithm>
+
 namespace {
 
 grapple::project::ProjectCommandEnvelope makeCreateComposition(
@@ -54,6 +56,7 @@ int main() {
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::CreateCamera) == "project.create_camera");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::UpdateCamera) == "project.update_camera");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::CreateEffect) == "project.create_effect");
+  GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::DeleteEffect) == "project.delete_effect");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::ConnectNodes) == "project.connect_nodes");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::DisconnectNodes) == "project.disconnect_nodes");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::SetEffectParams) == "project.set_effect_params");
@@ -705,6 +708,46 @@ int main() {
   GRAPPLE_REQUIRE(roundTrippedEffect->params.values[0].control.numeric->max == 1.0);
   GRAPPLE_REQUIRE(roundTrippedEffect->params.values[0].control.numeric->step == 0.01);
   GRAPPLE_REQUIRE(roundTrippedEffect->activeRange.end == foundation::TimeSeconds{1.0});
+  const project::ProjectCommandEnvelope deleteEffect{
+    foundation::CommandId{"cmd_delete_track_effect"},
+    foundation::ProjectId{"proj_effect"},
+    afterTrackEffect.value().revision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::DeleteEffectCommand{foundation::NodeId{"node_track_effect"}}
+  };
+  GRAPPLE_REQUIRE(project::commandKind(deleteEffect.payload) == project::CommandKind::DeleteEffect);
+  GRAPPLE_REQUIRE(project::serializeCanonicalCommandPayload(deleteEffect.payload) == "{\"nodeId\":\"node_track_effect\"}");
+  const auto deleteEffectResult = effectProject.apply(deleteEffect);
+  GRAPPLE_REQUIRE(deleteEffectResult);
+  const auto afterEffectDelete = effectProject.snapshot();
+  GRAPPLE_REQUIRE(afterEffectDelete);
+  GRAPPLE_REQUIRE(!afterEffectDelete.value().graph.hasNode(foundation::NodeId{"node_track_effect"}));
+  const auto removedTargetEdge = std::find_if(
+    afterEffectDelete.value().graph.edges().begin(),
+    afterEffectDelete.value().graph.edges().end(),
+    [](const graph::GraphEdge& edge) {
+      return edge.id == foundation::EdgeId{"edge_track_effect_target"};
+    }
+  );
+  GRAPPLE_REQUIRE(removedTargetEdge == afterEffectDelete.value().graph.edges().end());
+  const auto deleteMissingEffect = effectProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_delete_missing_effect"},
+    foundation::ProjectId{"proj_effect"},
+    afterEffectDelete.value().revision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::DeleteEffectCommand{foundation::NodeId{"node_missing_effect"}}
+  });
+  GRAPPLE_REQUIRE(!deleteMissingEffect);
+  GRAPPLE_REQUIRE(deleteMissingEffect.error().code == "project.effect_missing");
+  const auto deleteNonEffect = effectProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_delete_non_effect"},
+    foundation::ProjectId{"proj_effect"},
+    afterEffectDelete.value().revision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::DeleteEffectCommand{foundation::NodeId{"node_effect_track"}}
+  });
+  GRAPPLE_REQUIRE(!deleteNonEffect);
+  GRAPPLE_REQUIRE(deleteNonEffect.error().code == "project.effect_missing");
 
   const auto graphQuery = controller.query(project::GetGraphQuery{});
   GRAPPLE_REQUIRE(graphQuery);

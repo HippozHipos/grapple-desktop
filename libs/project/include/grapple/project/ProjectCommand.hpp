@@ -23,6 +23,7 @@ enum class CommandKind {
   CreateCamera,
   UpdateCamera,
   CreateEffect,
+  DeleteEffect,
   ConnectNodes,
   DisconnectNodes,
   SetEffectParams,
@@ -99,6 +100,10 @@ struct CreateEffectCommand {
   std::int64_t order = 0;
 };
 
+struct DeleteEffectCommand {
+  foundation::NodeId nodeId;
+};
+
 struct ConnectNodesCommand {
   foundation::EdgeId edgeId;
   foundation::NodeId sourceNodeId;
@@ -132,6 +137,7 @@ using ProjectCommand = std::variant<
   CreateCameraCommand,
   UpdateCameraCommand,
   CreateEffectCommand,
+  DeleteEffectCommand,
   ConnectNodesCommand,
   DisconnectNodesCommand,
   SetEffectParamsCommand,

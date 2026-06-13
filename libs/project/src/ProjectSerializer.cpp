@@ -120,6 +120,8 @@ std::string serializeCanonicalCommandPayload(const ProjectCommand& command) {
         stream << ',';
         foundation::writeJsonStringProperty(stream, "targetPort", typedCommand.targetPort.value);
         stream << ",\"order\":" << typedCommand.order;
+      } else if constexpr (std::is_same_v<Command, DeleteEffectCommand>) {
+        writeIdProperty(stream, "nodeId", typedCommand.nodeId.value());
       } else if constexpr (std::is_same_v<Command, ConnectNodesCommand>) {
         writeIdProperty(stream, "edgeId", typedCommand.edgeId.value());
         stream << ',';

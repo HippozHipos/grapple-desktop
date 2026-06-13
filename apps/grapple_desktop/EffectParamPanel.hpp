@@ -15,10 +15,12 @@ namespace grapple::desktop {
 class EffectParamPanel final : public QWidget {
 public:
   using ApplyHandler = std::function<void(foundation::NodeId, std::string, double)>;
+  using DeleteHandler = std::function<void(foundation::NodeId)>;
 
   explicit EffectParamPanel(QWidget* parent = nullptr);
 
   void setApplyHandler(ApplyHandler handler);
+  void setDeleteHandler(DeleteHandler handler);
   void setSelection(
     const app::AppViewModel& viewModel,
     const std::optional<foundation::NodeId>& selectedNodeId
@@ -30,6 +32,7 @@ private:
 
   QVBoxLayout* layout_ = nullptr;
   ApplyHandler applyHandler_;
+  DeleteHandler deleteHandler_;
 };
 
 } // namespace grapple::desktop

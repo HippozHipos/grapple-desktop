@@ -30,6 +30,10 @@ void EffectParamPanel::setApplyHandler(ApplyHandler handler) {
   applyHandler_ = std::move(handler);
 }
 
+void EffectParamPanel::setDeleteHandler(DeleteHandler handler) {
+  deleteHandler_ = std::move(handler);
+}
+
 void EffectParamPanel::setSelection(
   const app::AppViewModel& viewModel,
   const std::optional<foundation::NodeId>& selectedNodeId
@@ -48,9 +52,24 @@ void EffectParamPanel::setSelection(
 
     for (const app::AppEffectRow& effect : graph.effects) {
       hasAttachedEffect = true;
+      auto* effectHeader = new QWidget;
+      auto* effectHeaderLayout = new QHBoxLayout{effectHeader};
+      effectHeaderLayout->setContentsMargins(0, 0, 0, 0);
+      effectHeaderLayout->setSpacing(8);
+
       auto* effectTitle = new QLabel{QString{"%1 Parameters"}.arg(qString(effect.displayName))};
       effectTitle->setObjectName("effectParamTitle");
-      layout_->addWidget(effectTitle);
+      auto* deleteEffect = new QPushButton{"Delete Effect"};
+      deleteEffect->setObjectName("effectParamDelete");
+      const foundation::NodeId effectNodeId = effect.sourceNodeId;
+      connect(deleteEffect, &QPushButton::clicked, this, [this, effectNodeId] {
+        if (deleteHandler_) {
+          deleteHandler_(effectNodeId);
+        }
+      });
+      effectHeaderLayout->addWidget(effectTitle, 1);
+      effectHeaderLayout->addWidget(deleteEffect);
+      layout_->addWidget(effectHeader);
 
       if (effect.params.empty()) {
         auto* empty = new QLabel{"This effect has no exposed parameters."};
@@ -105,11 +124,11 @@ void EffectParamPanel::setSelection(
 
         auto* apply = new QPushButton{"Apply"};
         apply->setObjectName("effectParamApply");
-        const foundation::NodeId effectNodeId = effect.sourceNodeId;
+        const foundation::NodeId parameterEffectNodeId = effect.sourceNodeId;
         const std::string paramName = param.name;
-        connect(apply, &QPushButton::clicked, this, [this, effectNodeId, paramName, editor] {
+        connect(apply, &QPushButton::clicked, this, [this, parameterEffectNodeId, paramName, editor] {
           if (applyHandler_) {
-            applyHandler_(effectNodeId, paramName, editor->value());
+            applyHandler_(parameterEffectNodeId, paramName, editor->value());
           }
         });
 

@@ -26,6 +26,8 @@ CommandKind commandKind(const ProjectCommand& command) {
         return CommandKind::UpdateCamera;
       } else if constexpr (std::is_same_v<Command, CreateEffectCommand>) {
         return CommandKind::CreateEffect;
+      } else if constexpr (std::is_same_v<Command, DeleteEffectCommand>) {
+        return CommandKind::DeleteEffect;
       } else if constexpr (std::is_same_v<Command, ConnectNodesCommand>) {
         return CommandKind::ConnectNodes;
       } else if constexpr (std::is_same_v<Command, DisconnectNodesCommand>) {

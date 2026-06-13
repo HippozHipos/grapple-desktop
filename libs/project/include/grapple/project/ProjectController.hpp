@@ -32,6 +32,7 @@ private:
   foundation::Result<void> handleCreateCamera(const CreateCameraCommand& command);
   foundation::Result<void> handleUpdateCamera(const UpdateCameraCommand& command);
   foundation::Result<void> handleCreateEffect(const CreateEffectCommand& command);
+  foundation::Result<void> handleDeleteEffect(const DeleteEffectCommand& command);
   foundation::Result<void> handleConnectNodes(const ConnectNodesCommand& command);
   foundation::Result<void> handleDisconnectNodes(const DisconnectNodesCommand& command);
   foundation::Result<void> handleSetEffectParams(const SetEffectParamsCommand& command);
