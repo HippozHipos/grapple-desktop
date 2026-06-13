@@ -169,6 +169,52 @@ int main() {
   GRAPPLE_REQUIRE(writeCurrentSnapshot.value().commandLogPath.value == (appPackageRoot / "history/commands.json").lexically_normal().string());
   GRAPPLE_REQUIRE(writeCurrentSnapshot.value().eventLogPath.value == (appPackageRoot / "history/events.json").lexically_normal().string());
 
+  app::NativeProjectSession restoreSession{
+    foundation::ProjectId{"proj_app_restore"},
+    "Restore App Project",
+    storage::ProjectPackage{
+      foundation::ProjectId{"proj_app_restore"},
+      foundation::FilePath{"restore-app.grapple"},
+      1
+    }
+  };
+  app::NativeProjectCommandWriter restoreWriter{restoreSession};
+  const foundation::NodeId restoreCompositionNodeId = restoreWriter.nextNodeId("composition");
+  const auto restoreComposition = restoreWriter.apply(
+    project::CreateCompositionCommand{restoreCompositionNodeId, "Restore Main"},
+    userSource()
+  );
+  GRAPPLE_REQUIRE(restoreComposition);
+  const foundation::NodeId restoreTrackNodeId = restoreWriter.nextNodeId("track");
+  const auto restoreTrack = restoreWriter.apply(
+    project::CreateTrackCommand{
+      restoreTrackNodeId,
+      restoreCompositionNodeId,
+      restoreWriter.nextEdgeId("contains track"),
+      "Temporary Track"
+    },
+    userSource()
+  );
+  GRAPPLE_REQUIRE(restoreTrack);
+  GRAPPLE_REQUIRE(restoreSession.packageState().snapshotDocuments.size() == 2);
+  const auto restoredRevision = restoreWriter.restoreCommittedRevision(
+    foundation::RevisionId{"rev_1"},
+    userSource(),
+    std::optional<std::string>{"restore composition only"}
+  );
+  GRAPPLE_REQUIRE(restoredRevision);
+  GRAPPLE_REQUIRE(restoredRevision.value().commandResult.beforeRevision == foundation::RevisionId{"rev_2"});
+  GRAPPLE_REQUIRE(restoredRevision.value().commandResult.afterRevision == foundation::RevisionId{"rev_3"});
+  GRAPPLE_REQUIRE(restoredRevision.value().snapshot.revision == foundation::RevisionId{"rev_3"});
+  GRAPPLE_REQUIRE(restoredRevision.value().snapshot.graph.nodes().size() == 1);
+  GRAPPLE_REQUIRE(restoredRevision.value().snapshot.graph.edges().empty());
+  GRAPPLE_REQUIRE(restoreSession.packageState().commandLog.records().size() == 3);
+  GRAPPLE_REQUIRE(restoreSession.packageState().commandLog.records().back().serializedName == "project.restore_snapshot");
+  GRAPPLE_REQUIRE(restoreSession.packageState().snapshots.records().size() == 3);
+  GRAPPLE_REQUIRE(restoreSession.packageState().snapshots.records().back().label == std::optional<std::string>{"restore composition only"});
+  GRAPPLE_REQUIRE(restoreSession.packageState().snapshotDocuments.size() == 3);
+  GRAPPLE_REQUIRE(restoreSession.packageState().snapshotDocuments.back().revision == foundation::RevisionId{"rev_3"});
+
   app::NativeProjectSession assetSession{
     foundation::ProjectId{"proj_app_assets"},
     "Asset App Project",

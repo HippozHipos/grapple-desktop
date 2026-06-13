@@ -120,6 +120,9 @@ int main() {
   GRAPPLE_REQUIRE(store.state().eventLog.records()[1].id == foundation::EventId{"event_cmd_1_1"});
   GRAPPLE_REQUIRE(store.state().eventLog.records()[1].serializedName == "project.changed");
   GRAPPLE_REQUIRE(store.state().snapshots.records().size() == 1);
+  GRAPPLE_REQUIRE(store.state().snapshotDocuments.size() == 1);
+  GRAPPLE_REQUIRE(store.state().snapshotDocuments[0].revision == foundation::RevisionId{"rev_1"});
+  GRAPPLE_REQUIRE(project::serializeCanonicalProjectSnapshot(store.state().snapshotDocuments[0]) == project::serializeCanonicalProjectSnapshot(committedSnapshot.value()));
   GRAPPLE_REQUIRE(store.state().head.has_value());
   GRAPPLE_REQUIRE(store.state().head->currentRevision == foundation::RevisionId{"rev_1"});
   GRAPPLE_REQUIRE(store.state().head->lastCommandId == foundation::CommandId{"cmd_1"});
@@ -242,6 +245,8 @@ int main() {
   GRAPPLE_REQUIRE(project::serializeCanonicalProjectSnapshot(openedSnapshot.value()) == snapshotContents.str());
   GRAPPLE_REQUIRE(openedSession.value().packageState().commandLog.records().size() == 1);
   GRAPPLE_REQUIRE(openedSession.value().packageState().eventLog.records().size() == 2);
+  GRAPPLE_REQUIRE(openedSession.value().packageState().snapshotDocuments.size() == 1);
+  GRAPPLE_REQUIRE(project::serializeCanonicalProjectSnapshot(openedSession.value().packageState().snapshotDocuments[0]) == snapshotContents.str());
   GRAPPLE_REQUIRE(openedSession.value().packageState().head.has_value());
   GRAPPLE_REQUIRE(openedSession.value().packageState().head->currentRevision == foundation::RevisionId{"rev_1"});
   const auto openedTrack = openedSession.value().applyAndCommit(

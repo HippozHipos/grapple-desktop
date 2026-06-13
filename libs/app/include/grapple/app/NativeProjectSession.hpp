@@ -37,6 +37,9 @@ public:
   [[nodiscard]] foundation::Result<projection::BuildTimelineIRResult> buildTimelineIR() const;
   [[nodiscard]] foundation::Result<projection::BuildRenderPlanResult> buildRenderPlan() const;
   [[nodiscard]] foundation::Result<NativePackageWriteResult> writePackage() const;
+  [[nodiscard]] const project::ProjectSnapshot* findCommittedSnapshot(
+    foundation::RevisionId revision
+  ) const noexcept;
   [[nodiscard]] const storage::ProjectPackageState& packageState() const noexcept;
 
 private:

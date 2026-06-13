@@ -3,7 +3,7 @@
 namespace grapple::storage {
 
 ProjectPackageStore::ProjectPackageStore(ProjectPackage package)
-  : state_{std::move(package), std::nullopt, {}, {}, {}, std::nullopt} {}
+  : state_{std::move(package), std::nullopt, {}, {}, {}, {}, std::nullopt} {}
 
 ProjectPackageStore::ProjectPackageStore(ProjectPackageState state)
   : state_{std::move(state)} {}
@@ -67,6 +67,7 @@ foundation::Result<void> ProjectPackageStore::commit(const AtomicProjectCommit& 
     if (!snapshotAppend) {
       return snapshotAppend;
     }
+    next.snapshotDocuments.push_back(commit.projectSnapshot);
     lastSnapshotId = commit.snapshot->id;
   } else if (next.head.has_value()) {
     lastSnapshotId = next.head->lastSnapshotId;

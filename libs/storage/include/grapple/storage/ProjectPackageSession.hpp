@@ -28,6 +28,9 @@ public:
   );
 
   [[nodiscard]] foundation::Result<project::ProjectSnapshot> snapshot() const;
+  [[nodiscard]] const project::ProjectSnapshot* findCommittedSnapshot(
+    foundation::RevisionId revision
+  ) const noexcept;
   [[nodiscard]] const ProjectPackageState& packageState() const noexcept;
 
 private:

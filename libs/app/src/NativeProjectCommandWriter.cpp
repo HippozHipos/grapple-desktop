@@ -1,5 +1,7 @@
 #include <grapple/app/NativeProjectCommandWriter.hpp>
 
+#include <grapple/history/SnapshotRecord.hpp>
+
 #include <chrono>
 #include <cctype>
 #include <utility>
@@ -66,6 +68,42 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeProjectCommandWri
     storage::ProjectCommitRecordOptions{
       std::chrono::system_clock::now(),
       std::move(snapshot)
+    }
+  );
+}
+
+foundation::Result<storage::ProjectPackageSessionResult> NativeProjectCommandWriter::restoreCommittedRevision(
+  foundation::RevisionId revision,
+  project::CommandSource source,
+  std::optional<std::string> snapshotLabel
+) {
+  const project::ProjectSnapshot* snapshot = session_.findCommittedSnapshot(revision);
+  if (snapshot == nullptr) {
+    return foundation::Error{
+      "app.committed_snapshot_missing",
+      "Committed snapshot document not found for revision " + revision.value() + "."
+    };
+  }
+
+  const history::SnapshotRecord* snapshotRecord = session_.packageState().snapshots.findByRevision(revision);
+  if (snapshotRecord == nullptr) {
+    return foundation::Error{
+      "app.committed_snapshot_record_missing",
+      "Committed snapshot record not found for revision " + revision.value() + "."
+    };
+  }
+
+  foundation::SnapshotId restoredSnapshotId = nextSnapshotId("restore_" + revision.value());
+  return apply(
+    project::RestoreSnapshotCommand{
+      snapshotRecord->id,
+      *snapshot
+    },
+    std::move(source),
+    storage::SnapshotCommitRecord{
+      restoredSnapshotId,
+      foundation::FilePath{"snapshots/" + restoredSnapshotId.value() + ".json"},
+      std::move(snapshotLabel)
     }
   );
 }

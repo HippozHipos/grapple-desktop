@@ -23,6 +23,7 @@ struct AtomicProjectCommit {
 struct ProjectPackageState {
   ProjectPackage package;
   std::optional<project::ProjectSnapshot> projectSnapshot;
+  std::vector<project::ProjectSnapshot> snapshotDocuments;
   history::CommandLogStore commandLog;
   history::EventLogStore eventLog;
   history::SnapshotStore snapshots;

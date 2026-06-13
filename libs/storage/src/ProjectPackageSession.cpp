@@ -3,6 +3,7 @@
 #include <grapple/storage/ProjectPackageReader.hpp>
 
 #include <chrono>
+#include <algorithm>
 #include <utility>
 
 namespace grapple::storage {
@@ -34,6 +35,7 @@ foundation::Result<ProjectPackageSession> ProjectPackageSession::open(ProjectPac
   ProjectPackageState state;
   state.package = std::move(package);
   state.projectSnapshot = latestSnapshot.value().snapshot;
+  state.snapshotDocuments.push_back(latestSnapshot.value().snapshot);
   state.commandLog = historyLogs.value().commandLog;
   state.eventLog = historyLogs.value().eventLog;
 
@@ -102,6 +104,20 @@ foundation::Result<ProjectPackageSessionResult> ProjectPackageSession::applyAndC
 
 foundation::Result<project::ProjectSnapshot> ProjectPackageSession::snapshot() const {
   return controller_.snapshot();
+}
+
+const project::ProjectSnapshot* ProjectPackageSession::findCommittedSnapshot(
+  foundation::RevisionId revision
+) const noexcept {
+  const std::vector<project::ProjectSnapshot>& snapshots = store_.state().snapshotDocuments;
+  const auto iterator = std::find_if(snapshots.begin(), snapshots.end(), [&](const project::ProjectSnapshot& snapshot) {
+    return snapshot.revision == revision;
+  });
+
+  if (iterator == snapshots.end()) {
+    return nullptr;
+  }
+  return &*iterator;
 }
 
 const ProjectPackageState& ProjectPackageSession::packageState() const noexcept {

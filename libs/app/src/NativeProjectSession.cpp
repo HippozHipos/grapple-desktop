@@ -421,6 +421,12 @@ foundation::Result<NativePackageWriteResult> NativeProjectSession::writePackage(
   };
 }
 
+const project::ProjectSnapshot* NativeProjectSession::findCommittedSnapshot(
+  foundation::RevisionId revision
+) const noexcept {
+  return session_.findCommittedSnapshot(revision);
+}
+
 const storage::ProjectPackageState& NativeProjectSession::packageState() const noexcept {
   return session_.packageState();
 }

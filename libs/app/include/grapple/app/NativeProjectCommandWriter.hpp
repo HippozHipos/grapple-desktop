@@ -25,6 +25,11 @@ public:
     project::CommandSource source,
     std::optional<storage::SnapshotCommitRecord> snapshot = std::nullopt
   );
+  foundation::Result<storage::ProjectPackageSessionResult> restoreCommittedRevision(
+    foundation::RevisionId revision,
+    project::CommandSource source,
+    std::optional<std::string> snapshotLabel = std::nullopt
+  );
 
 private:
   [[nodiscard]] foundation::CommandId nextCommandId();
