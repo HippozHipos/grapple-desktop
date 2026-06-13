@@ -109,6 +109,20 @@ int main() {
   GRAPPLE_REQUIRE(renderPlan.value().plan.revision == foundation::RevisionId{"rev_1"});
   GRAPPLE_REQUIRE(renderPlan.value().plan.effectGraphs.empty());
 
+  const auto renderPlanQuery = session.query(project::InspectRenderPlanQuery{});
+  GRAPPLE_REQUIRE(renderPlanQuery);
+  const auto* renderPlanInspectResult = std::get_if<project::RenderPlanInspectResult>(&renderPlanQuery.value());
+  GRAPPLE_REQUIRE(renderPlanInspectResult != nullptr);
+  GRAPPLE_REQUIRE(renderPlanInspectResult->projectId == foundation::ProjectId{"proj_app"});
+  GRAPPLE_REQUIRE(renderPlanInspectResult->revision == foundation::RevisionId{"rev_1"});
+  GRAPPLE_REQUIRE(renderPlanInspectResult->duration == foundation::TimeSeconds{0.0});
+  GRAPPLE_REQUIRE(renderPlanInspectResult->assetCount == 0);
+  GRAPPLE_REQUIRE(renderPlanInspectResult->layers.empty());
+  GRAPPLE_REQUIRE(renderPlanInspectResult->clips.empty());
+  GRAPPLE_REQUIRE(renderPlanInspectResult->cameras.empty());
+  GRAPPLE_REQUIRE(renderPlanInspectResult->effectGraphs.empty());
+  GRAPPLE_REQUIRE(renderPlanInspectResult->diagnosticCount == 0);
+
   const auto viewModel = session.buildViewModel();
   GRAPPLE_REQUIRE(viewModel);
   GRAPPLE_REQUIRE(viewModel.value().project.projectId == foundation::ProjectId{"proj_app"});

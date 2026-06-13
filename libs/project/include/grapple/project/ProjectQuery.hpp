@@ -7,6 +7,7 @@
 #include <grapple/project/ProjectSnapshot.hpp>
 #include <grapple/timeline/Payloads.hpp>
 
+#include <cstddef>
 #include <string>
 #include <variant>
 #include <vector>
@@ -16,6 +17,7 @@ namespace grapple::project {
 struct GetProjectSnapshotQuery {};
 struct GetGraphQuery {};
 struct InspectCompositionsQuery {};
+struct InspectRenderPlanQuery {};
 
 struct CompositionClipSummary {
   foundation::NodeId nodeId;
@@ -55,10 +57,48 @@ struct CompositionSummary {
   std::vector<CompositionEffectSummary> effects;
 };
 
+struct RenderPlanLayerSummary {
+  foundation::NodeId nodeId;
+  std::string name;
+};
+
+struct RenderPlanClipSummary {
+  foundation::NodeId nodeId;
+  foundation::NodeId trackNodeId;
+  foundation::AssetId assetId;
+  timeline::ClipKind kind = timeline::ClipKind::Video;
+  foundation::TimeRange timelineRange;
+};
+
+struct RenderPlanCameraSummary {
+  foundation::NodeId nodeId;
+  std::string name;
+};
+
+struct RenderPlanEffectGraphSummary {
+  foundation::GraphId graphId;
+  foundation::NodeId targetNodeId;
+  std::size_t nodeCount = 0;
+  std::size_t edgeCount = 0;
+};
+
+struct RenderPlanInspectResult {
+  foundation::ProjectId projectId;
+  foundation::RevisionId revision;
+  foundation::TimeSeconds duration;
+  std::size_t assetCount = 0;
+  std::vector<RenderPlanLayerSummary> layers;
+  std::vector<RenderPlanClipSummary> clips;
+  std::vector<RenderPlanCameraSummary> cameras;
+  std::vector<RenderPlanEffectGraphSummary> effectGraphs;
+  std::size_t diagnosticCount = 0;
+};
+
 using ProjectQuery = std::variant<
   GetProjectSnapshotQuery,
   GetGraphQuery,
-  InspectCompositionsQuery
+  InspectCompositionsQuery,
+  InspectRenderPlanQuery
 >;
 
 struct ProjectSnapshotResult {
@@ -77,7 +117,8 @@ struct CompositionInspectResult {
 using ProjectQueryResult = std::variant<
   ProjectSnapshotResult,
   GraphResult,
-  CompositionInspectResult
+  CompositionInspectResult,
+  RenderPlanInspectResult
 >;
 
 class IProjectQueryService {

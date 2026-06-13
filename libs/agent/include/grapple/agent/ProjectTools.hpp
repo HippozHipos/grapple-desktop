@@ -16,6 +16,7 @@ AgentTool makeEffectCreateNodeTool();
 AgentTool makeEffectUpdateParamsTool();
 AgentTool makeEffectConnectPortsTool();
 AgentTool makeEffectDisconnectPortsTool();
+AgentTool makeRenderPlanInspectTool();
 AgentTool makeNoteCreateTool();
 AgentTool makeNoteUpdateTool();
 

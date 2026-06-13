@@ -8,6 +8,8 @@
 
 #include <TestAssert.hpp>
 
+#include <type_traits>
+
 namespace {
 
 class TestModelService final : public grapple::model::IModelService {
@@ -29,6 +31,75 @@ public:
   ) override {
     return grapple::model::SegmentationResponse{request.modelId, ""};
   }
+};
+
+class TestAgentQueryService final : public grapple::project::IProjectQueryService {
+public:
+  explicit TestAgentQueryService(const grapple::project::ProjectController& project)
+    : project_{project} {}
+
+  grapple::foundation::Result<grapple::project::ProjectQueryResult> query(
+    const grapple::project::ProjectQuery& query
+  ) const override {
+    return std::visit(
+      [&](const auto& typedQuery) -> grapple::foundation::Result<grapple::project::ProjectQueryResult> {
+        using Query = std::decay_t<decltype(typedQuery)>;
+        if constexpr (std::is_same_v<Query, grapple::project::InspectRenderPlanQuery>) {
+          auto snapshot = project_.snapshot();
+          if (!snapshot) {
+            return snapshot.error();
+          }
+          return grapple::project::ProjectQueryResult{
+            grapple::project::RenderPlanInspectResult{
+              snapshot.value().info.id,
+              snapshot.value().revision,
+              grapple::foundation::TimeSeconds{5.0},
+              snapshot.value().assets.assets().size(),
+              {
+                grapple::project::RenderPlanLayerSummary{
+                  grapple::foundation::NodeId{"node_agent_track_rev_7"},
+                  "Agent Track"
+                }
+              },
+              {
+                grapple::project::RenderPlanClipSummary{
+                  grapple::foundation::NodeId{"node_agent_clip_rev_8"},
+                  grapple::foundation::NodeId{"node_agent_track_rev_7"},
+                  grapple::foundation::AssetId{"asset_video"},
+                  grapple::timeline::ClipKind::Video,
+                  grapple::foundation::TimeRange{
+                    grapple::foundation::TimeSeconds{3.0},
+                    grapple::foundation::TimeSeconds{5.0}
+                  }
+                }
+              },
+              {
+                grapple::project::RenderPlanCameraSummary{
+                  grapple::foundation::NodeId{"node_camera"},
+                  "Camera"
+                }
+              },
+              {
+                grapple::project::RenderPlanEffectGraphSummary{
+                  grapple::foundation::GraphId{"effect_graph_node_camera"},
+                  grapple::foundation::NodeId{"node_camera"},
+                  1,
+                  1
+                }
+              },
+              0
+            }
+          };
+        } else {
+          return project_.query(typedQuery);
+        }
+      },
+      query
+    );
+  }
+
+private:
+  const grapple::project::ProjectController& project_;
 };
 
 } // namespace
@@ -61,11 +132,13 @@ int main() {
   GRAPPLE_REQUIRE(registeredConnectPorts);
   const auto registeredDisconnectPorts = registry.registerTool(agent::makeEffectDisconnectPortsTool());
   GRAPPLE_REQUIRE(registeredDisconnectPorts);
+  const auto registeredRenderPlanInspect = registry.registerTool(agent::makeRenderPlanInspectTool());
+  GRAPPLE_REQUIRE(registeredRenderPlanInspect);
   const auto registeredCreateNote = registry.registerTool(agent::makeNoteCreateTool());
   GRAPPLE_REQUIRE(registeredCreateNote);
   const auto registeredUpdateNote = registry.registerTool(agent::makeNoteUpdateTool());
   GRAPPLE_REQUIRE(registeredUpdateNote);
-  GRAPPLE_REQUIRE(registry.tools().size() == 14);
+  GRAPPLE_REQUIRE(registry.tools().size() == 15);
   GRAPPLE_REQUIRE(registry.findBySerializedId("project.inspect") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("asset.list") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("asset.import") != nullptr);
@@ -78,6 +151,7 @@ int main() {
   GRAPPLE_REQUIRE(registry.findBySerializedId("effect.update_params") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("effect.connect_ports") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("effect.disconnect_ports") != nullptr);
+  GRAPPLE_REQUIRE(registry.findBySerializedId("render_plan.inspect") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("project.create_effect") == nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("note.create") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("note.update") != nullptr);
@@ -145,6 +219,10 @@ int main() {
   GRAPPLE_REQUIRE(registeredDisconnectPortsTool->schema.find("\"edgeId\"") != std::string::npos);
   GRAPPLE_REQUIRE(registeredDisconnectPortsTool->schema.find("\"sourceNodeId\"") == std::string::npos);
   GRAPPLE_REQUIRE(registeredDisconnectPortsTool->schema.find("\"commandId\"") == std::string::npos);
+  const agent::AgentTool* registeredRenderPlanInspectTool = registry.findBySerializedId("render_plan.inspect");
+  GRAPPLE_REQUIRE(registeredRenderPlanInspectTool != nullptr);
+  GRAPPLE_REQUIRE(registeredRenderPlanInspectTool->schema.find("\"additionalProperties\": false") != std::string::npos);
+  GRAPPLE_REQUIRE(registeredRenderPlanInspectTool->schema.find("\"commandId\"") == std::string::npos);
 
   const auto duplicate = registry.registerTool(agent::makeProjectInspectTool());
   GRAPPLE_REQUIRE(!duplicate);
@@ -169,7 +247,8 @@ int main() {
   GRAPPLE_REQUIRE(afterCommandSnapshot);
 
   TestModelService models;
-  agent::AgentToolContext context{project, project, models};
+  TestAgentQueryService queries{project};
+  agent::AgentToolContext context{project, queries, models};
 
   const agent::AgentTool* inspect = registry.findBySerializedId("project.inspect");
   GRAPPLE_REQUIRE(inspect != nullptr);
@@ -736,6 +815,31 @@ int main() {
   GRAPPLE_REQUIRE(inspectCompositionResult.value().payload.find("\"effects\":[{\"nodeId\":\"node_agent_effect_rev_3\"") != std::string::npos);
   GRAPPLE_REQUIRE(inspectCompositionResult.value().payload.find("\"targetNodeId\":\"node_camera\"") != std::string::npos);
   GRAPPLE_REQUIRE(inspectCompositionResult.value().payload.find("\"commandId\"") == std::string::npos);
+
+  const agent::AgentTool* inspectRenderPlan = registry.findBySerializedId("render_plan.inspect");
+  GRAPPLE_REQUIRE(inspectRenderPlan != nullptr);
+  const auto inspectRenderPlanResult = inspectRenderPlan->handler(
+    agent::ToolCall{
+      foundation::ToolId{"tool_render_plan_inspect"},
+      foundation::RunId{"run_1"},
+      foundation::ProjectId{"proj_agent"},
+      disconnectPortsResult.value().observedRevision,
+      ""
+    },
+    context
+  );
+  GRAPPLE_REQUIRE(inspectRenderPlanResult);
+  GRAPPLE_REQUIRE(inspectRenderPlanResult.value().status == agent::ToolResultStatus::Succeeded);
+  GRAPPLE_REQUIRE(inspectRenderPlanResult.value().observedRevision == foundation::RevisionId{"rev_13"});
+  GRAPPLE_REQUIRE(inspectRenderPlanResult.value().payload.find("\"projectId\":\"proj_agent\"") != std::string::npos);
+  GRAPPLE_REQUIRE(inspectRenderPlanResult.value().payload.find("\"revision\":\"rev_13\"") != std::string::npos);
+  GRAPPLE_REQUIRE(inspectRenderPlanResult.value().payload.find("\"assetCount\":1") != std::string::npos);
+  GRAPPLE_REQUIRE(inspectRenderPlanResult.value().payload.find("\"layers\":[{\"nodeId\":\"node_agent_track_rev_7\"") != std::string::npos);
+  GRAPPLE_REQUIRE(inspectRenderPlanResult.value().payload.find("\"clips\":[{\"nodeId\":\"node_agent_clip_rev_8\"") != std::string::npos);
+  GRAPPLE_REQUIRE(inspectRenderPlanResult.value().payload.find("\"cameras\":[{\"nodeId\":\"node_camera\"") != std::string::npos);
+  GRAPPLE_REQUIRE(inspectRenderPlanResult.value().payload.find("\"effectGraphs\":[{\"graphId\":\"effect_graph_node_camera\"") != std::string::npos);
+  GRAPPLE_REQUIRE(inspectRenderPlanResult.value().payload.find("\"diagnosticCount\":0") != std::string::npos);
+  GRAPPLE_REQUIRE(inspectRenderPlanResult.value().payload.find("\"commandId\"") == std::string::npos);
 
   return 0;
 }

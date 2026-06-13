@@ -257,6 +257,12 @@ constexpr const char EffectDisconnectPortsSchema[] = R"json({
   }
 })json";
 
+constexpr const char RenderPlanInspectSchema[] = R"json({
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+})json";
+
 constexpr const char NoteCreateSchema[] = R"json({
   "type": "object",
   "additionalProperties": false,
@@ -724,6 +730,78 @@ void writeCompositionJson(std::ostream& stream, const project::CompositionSummar
     writeCompositionEffectJson(stream, composition.effects[index]);
   }
   stream << "]}";
+}
+
+void writeRenderPlanLayerJson(std::ostream& stream, const project::RenderPlanLayerSummary& layer) {
+  stream << '{'
+         << "\"nodeId\":" << foundation::jsonQuoted(layer.nodeId.value())
+         << ",\"name\":" << foundation::jsonQuoted(layer.name)
+         << '}';
+}
+
+void writeRenderPlanClipJson(std::ostream& stream, const project::RenderPlanClipSummary& clip) {
+  stream << '{'
+         << "\"nodeId\":" << foundation::jsonQuoted(clip.nodeId.value())
+         << ",\"trackNodeId\":" << foundation::jsonQuoted(clip.trackNodeId.value())
+         << ",\"assetId\":" << foundation::jsonQuoted(clip.assetId.value())
+         << ",\"kind\":" << foundation::jsonQuoted(clipKindText(clip.kind))
+         << ",\"timelineRange\":{\"start\":" << clip.timelineRange.start.value
+         << ",\"end\":" << clip.timelineRange.end.value
+         << "}}";
+}
+
+void writeRenderPlanCameraJson(std::ostream& stream, const project::RenderPlanCameraSummary& camera) {
+  stream << '{'
+         << "\"nodeId\":" << foundation::jsonQuoted(camera.nodeId.value())
+         << ",\"name\":" << foundation::jsonQuoted(camera.name)
+         << '}';
+}
+
+void writeRenderPlanEffectGraphJson(std::ostream& stream, const project::RenderPlanEffectGraphSummary& effectGraph) {
+  stream << '{'
+         << "\"graphId\":" << foundation::jsonQuoted(effectGraph.graphId.value())
+         << ",\"targetNodeId\":" << foundation::jsonQuoted(effectGraph.targetNodeId.value())
+         << ",\"nodeCount\":" << effectGraph.nodeCount
+         << ",\"edgeCount\":" << effectGraph.edgeCount
+         << '}';
+}
+
+void writeRenderPlanInspectJson(std::ostream& stream, const project::RenderPlanInspectResult& result) {
+  stream << '{'
+         << "\"projectId\":" << foundation::jsonQuoted(result.projectId.value())
+         << ",\"revision\":" << foundation::jsonQuoted(result.revision.value())
+         << ",\"duration\":" << result.duration.value
+         << ",\"assetCount\":" << result.assetCount
+         << ",\"layers\":[";
+  for (std::size_t index = 0; index < result.layers.size(); ++index) {
+    if (index != 0) {
+      stream << ',';
+    }
+    writeRenderPlanLayerJson(stream, result.layers[index]);
+  }
+  stream << "],\"clips\":[";
+  for (std::size_t index = 0; index < result.clips.size(); ++index) {
+    if (index != 0) {
+      stream << ',';
+    }
+    writeRenderPlanClipJson(stream, result.clips[index]);
+  }
+  stream << "],\"cameras\":[";
+  for (std::size_t index = 0; index < result.cameras.size(); ++index) {
+    if (index != 0) {
+      stream << ',';
+    }
+    writeRenderPlanCameraJson(stream, result.cameras[index]);
+  }
+  stream << "],\"effectGraphs\":[";
+  for (std::size_t index = 0; index < result.effectGraphs.size(); ++index) {
+    if (index != 0) {
+      stream << ',';
+    }
+    writeRenderPlanEffectGraphJson(stream, result.effectGraphs[index]);
+  }
+  stream << "],\"diagnosticCount\":" << result.diagnosticCount
+         << '}';
 }
 
 } // namespace
@@ -1550,6 +1628,39 @@ AgentTool makeEffectDisconnectPortsTool() {
         call.toolId,
         ToolResultStatus::Succeeded,
         command.value().afterRevision,
+        payload.str(),
+        {}
+      };
+    }
+  };
+}
+
+AgentTool makeRenderPlanInspectTool() {
+  return AgentTool{
+    foundation::ToolId{"tool_render_plan_inspect"},
+    "render_plan.inspect",
+    "Inspect RenderPlan",
+    "Returns the current RenderPlan summary through Project Query APIs.",
+    RenderPlanInspectSchema,
+    [](const ToolCall& call, AgentToolContext& context) -> foundation::Result<ToolResult> {
+      auto query = context.queries.query(project::InspectRenderPlanQuery{});
+      if (!query) {
+        return query.error();
+      }
+      const auto* renderPlanResult = std::get_if<project::RenderPlanInspectResult>(&query.value());
+      if (renderPlanResult == nullptr) {
+        return foundation::Error{
+          "agent.render_plan_inspect_result_missing",
+          "RenderPlan inspect query returned the wrong result type."
+        };
+      }
+
+      std::ostringstream payload;
+      writeRenderPlanInspectJson(payload, *renderPlanResult);
+      return ToolResult{
+        call.toolId,
+        ToolResultStatus::Succeeded,
+        renderPlanResult->revision,
         payload.str(),
         {}
       };

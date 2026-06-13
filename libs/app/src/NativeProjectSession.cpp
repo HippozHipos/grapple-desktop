@@ -90,6 +90,55 @@ std::optional<std::string> snapshotLabelForRevision(
   return snapshot->label;
 }
 
+project::RenderPlanInspectResult inspectRenderPlan(const projection::RenderPlan& plan) {
+  project::RenderPlanInspectResult result{
+    plan.projectId,
+    plan.revision,
+    plan.duration,
+    plan.assets.size(),
+    {},
+    {},
+    {},
+    {},
+    plan.diagnostics.size()
+  };
+
+  for (const projection::RenderLayer& layer : plan.layers) {
+    result.layers.push_back(project::RenderPlanLayerSummary{
+      layer.sourceNodeId,
+      layer.name
+    });
+  }
+
+  for (const projection::RenderClip& clip : plan.clips) {
+    result.clips.push_back(project::RenderPlanClipSummary{
+      clip.sourceNodeId,
+      clip.trackNodeId,
+      clip.payload.assetId,
+      clip.payload.kind,
+      clip.payload.timelineRange
+    });
+  }
+
+  for (const projection::RenderCamera& camera : plan.cameras) {
+    result.cameras.push_back(project::RenderPlanCameraSummary{
+      camera.sourceNodeId,
+      camera.name
+    });
+  }
+
+  for (const projection::RenderEffectGraph& effectGraph : plan.effectGraphs) {
+    result.effectGraphs.push_back(project::RenderPlanEffectGraphSummary{
+      effectGraph.id,
+      effectGraph.targetNodeId,
+      effectGraph.nodes.size(),
+      effectGraph.edges.size()
+    });
+  }
+
+  return result;
+}
+
 } // namespace
 
 NativeProjectSession::NativeProjectSession(
@@ -145,6 +194,13 @@ foundation::Result<project::ProjectQueryResult> NativeProjectSession::query(cons
           return result.error();
         }
         return project::ProjectQueryResult{result.value()};
+      } else if constexpr (std::is_same_v<Query, project::InspectRenderPlanQuery>) {
+        const projection::ProjectionQueryService projectionQueries{*this};
+        auto result = projectionQueries.buildCurrentRenderPlan();
+        if (!result) {
+          return result.error();
+        }
+        return project::ProjectQueryResult{inspectRenderPlan(result.value().plan)};
       }
     },
     query
