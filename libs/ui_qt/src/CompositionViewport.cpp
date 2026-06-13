@@ -145,10 +145,6 @@ void CompositionViewport::drawCamera(QPainter& painter, const app::AppCameraRow&
   painter.setBrush(Qt::NoBrush);
   painter.drawRect(cameraRect);
 
-  painter.setPen(QPen{QColor{"#6be7f5"}, isSelected ? 2.0 : 1.0});
-  painter.drawLine(QPointF{cameraRect.center().x(), cameraRect.top()}, QPointF{cameraRect.center().x(), cameraRect.bottom()});
-  painter.drawLine(QPointF{cameraRect.left(), cameraRect.center().y()}, QPointF{cameraRect.right(), cameraRect.center().y()});
-
   painter.setBrush(QColor{"#0d1822"});
   painter.setPen(QPen{QColor{"#d8f3ff"}, 1});
   const QRectF icon{-13.0, -10.0, 26.0, 20.0};
