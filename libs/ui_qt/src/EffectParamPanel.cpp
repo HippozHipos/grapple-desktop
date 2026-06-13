@@ -40,7 +40,7 @@ void EffectParamPanel::setSelection(
 ) {
   clearControls();
   if (!selectedNodeId.has_value()) {
-    addMessage("Select a timeline item to edit its agent-authored controls.");
+    addMessage("Select a camera or clip to tune its editable controls.");
     return;
   }
 
@@ -138,7 +138,7 @@ void EffectParamPanel::setSelection(
   }
 
   if (!hasAttachedEffect) {
-    addMessage("No effects are attached to the selected timeline item.");
+    addMessage("No editable controls yet. Ask Steward to create an edit for this selection.");
   }
   layout_->addStretch(1);
 }

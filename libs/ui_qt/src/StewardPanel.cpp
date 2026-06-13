@@ -110,7 +110,7 @@ StewardPanel::StewardPanel(QWidget* parent)
   intent_->setCursorPosition(0);
   layout->addWidget(intent_);
 
-  createCameraEffectButton_ = new QPushButton{"Apply Camera Edit"};
+  createCameraEffectButton_ = new QPushButton{"Create Editable Camera Controls"};
   createCameraEffectButton_->setObjectName("stewardCreateCameraEffect");
   layout->addWidget(createCameraEffectButton_);
   connect(createCameraEffectButton_, &QPushButton::clicked, this, [this] {
@@ -136,6 +136,11 @@ void StewardPanel::setViewModel(const app::AppViewModel& viewModel, const agent:
     "Steward",
     "Current request",
     qString(intent()),
+    "",
+    "Loop",
+    "1. Create an editable graph change",
+    "2. Preview the evaluated result",
+    "3. Tune exposed parameters without rerunning Steward",
     "",
     "Project state",
     QString{"%1 clips | %2 cameras | %3 editable effects"}
