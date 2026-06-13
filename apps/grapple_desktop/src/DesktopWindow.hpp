@@ -50,6 +50,8 @@ public:
   void addSelectedVideoToTimeline();
   void deleteSelectedClip();
   void moveSelectedClip(foundation::TimeSeconds delta);
+  void undoLastEdit();
+  void redoLastEdit();
   void setSelectedTargetNumericEffectParam(const std::string& paramName, double value);
   void deleteSelectedTargetEffect();
   void openPackageRoot(const foundation::FilePath& rootPath);

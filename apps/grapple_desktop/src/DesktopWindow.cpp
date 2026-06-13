@@ -366,6 +366,8 @@ public:
     auto* addTrackButton = new QPushButton{"Add Track"};
     auto* moveClipButton = new QPushButton{"Move Clip +1s"};
     auto* deleteClipButton = new QPushButton{"Delete Clip"};
+    auto* undoButton = new QPushButton{"Undo"};
+    auto* redoButton = new QPushButton{"Redo"};
     auto* exportButton = new QPushButton{"Export Smoke"};
     auto* saveButton = new QPushButton{"Save Package"};
     auto* productTitle = new QLabel{"Grapple"};
@@ -394,6 +396,8 @@ public:
     actionRow->addWidget(stepForwardButton);
     actionRow->addWidget(moveClipButton);
     actionRow->addWidget(deleteClipButton);
+    actionRow->addWidget(undoButton);
+    actionRow->addWidget(redoButton);
     actionRow->addWidget(exportButton);
     actionRow->addWidget(saveButton);
 
@@ -442,6 +446,8 @@ public:
     connect(seekStartButton, &QPushButton::clicked, this, [this] { seekTo(grapple::foundation::TimeSeconds{0.0}); });
     connect(stepBackButton, &QPushButton::clicked, this, [this] { stepPlayhead(-1.0); });
     connect(stepForwardButton, &QPushButton::clicked, this, [this] { stepPlayhead(1.0); });
+    connect(undoButton, &QPushButton::clicked, this, [this] { undoLastEdit(); });
+    connect(redoButton, &QPushButton::clicked, this, [this] { redoLastEdit(); });
     connect(importVideoButton, &QPushButton::clicked, this, [this] { chooseAndImportVideo(); });
     connect(addMediaButton, &QPushButton::clicked, this, [this] { addSelectedVideoToTimeline(); });
     connect(openPackageButton, &QPushButton::clicked, this, [this] { chooseAndOpenPackage(); });
@@ -882,6 +888,38 @@ public:
     log_->append(QString{"Moved clip at %1"}.arg(qString(moved.value().snapshot.revision.value())));
   }
 
+  void undoLastEdit() {
+    const auto undone = workspace_.commandWriter().undoLastCommittedCommand(
+      userSource(),
+      std::optional<std::string>{"undo"}
+    );
+    if (!undone) {
+      appendError(undone.error());
+      return;
+    }
+
+    selectedNodeId_ = std::nullopt;
+    selectedAssetId_ = std::nullopt;
+    refreshViewModel();
+    refreshPreview();
+    log_->append(QString{"Undo created %1"}.arg(qString(undone.value().snapshot.revision.value())));
+  }
+
+  void redoLastEdit() {
+    const auto redone = workspace_.commandWriter().redoLastUndoneCommand(
+      userSource(),
+      std::optional<std::string>{"redo"}
+    );
+    if (!redone) {
+      appendError(redone.error());
+      return;
+    }
+
+    refreshViewModel();
+    refreshPreview();
+    log_->append(QString{"Redo created %1"}.arg(qString(redone.value().snapshot.revision.value())));
+  }
+
   void addEffectToSelectedTarget(std::string intent) {
     if (!selectedNodeId_.has_value()) {
       appendError(grapple::foundation::Error{"desktop.selection_missing", "Add Effect requires a selected camera."});
@@ -1273,6 +1311,14 @@ void DesktopWindow::deleteSelectedClip() {
 
 void DesktopWindow::moveSelectedClip(foundation::TimeSeconds delta) {
   impl_->moveSelectedClip(delta);
+}
+
+void DesktopWindow::undoLastEdit() {
+  impl_->undoLastEdit();
+}
+
+void DesktopWindow::redoLastEdit() {
+  impl_->redoLastEdit();
 }
 
 void DesktopWindow::setSelectedTargetNumericEffectParam(const std::string& paramName, double value) {

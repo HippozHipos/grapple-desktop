@@ -91,6 +91,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   bool importSmoke = false;
   bool addVideoSmoke = false;
   bool moveClipSmoke = false;
+  bool undoRedoSmoke = false;
   bool addEffectSmoke = false;
   bool setEffectParamSmoke = false;
   bool deleteEffectSmoke = false;
@@ -121,6 +122,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       addVideoSmoke = true;
     } else if (argument == "--move-clip-smoke") {
       moveClipSmoke = true;
+    } else if (argument == "--undo-redo-smoke") {
+      undoRedoSmoke = true;
     } else if (argument == "--add-effect-smoke") {
       addEffectSmoke = true;
     } else if (argument == "--set-effect-param-smoke") {
@@ -138,7 +141,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     } else if (argument == "--screenshot" && index + 1 < argc) {
       screenshotPath = argv[++index];
     } else {
-      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --select-camera-smoke, --steward-smoke, --import-smoke, --add-video-smoke, --move-clip-smoke, --add-effect-smoke, --set-effect-param-smoke, --delete-effect-smoke, --delete-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, or --screenshot <path>.\n";
+      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --select-camera-smoke, --steward-smoke, --import-smoke, --add-video-smoke, --move-clip-smoke, --undo-redo-smoke, --add-effect-smoke, --set-effect-param-smoke, --delete-effect-smoke, --delete-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, or --screenshot <path>.\n";
       return 1;
     }
   }
@@ -318,6 +321,41 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     return clip.timelineRange.start == grapple::foundation::TimeSeconds{1.0} &&
            clip.timelineRange.end == grapple::foundation::TimeSeconds{11.0} &&
            viewModel.value().timeline.duration == grapple::foundation::TimeSeconds{11.0}
+      ? 0
+      : 1;
+  }
+
+  if (undoRedoSmoke) {
+    window.addTrack();
+    auto afterAdd = workspace.value().project().buildViewModel();
+    if (!afterAdd) {
+      printError(afterAdd.error());
+      return 1;
+    }
+    window.undoLastEdit();
+    auto afterUndo = workspace.value().project().buildViewModel();
+    if (!afterUndo) {
+      printError(afterUndo.error());
+      return 1;
+    }
+    window.redoLastEdit();
+    auto afterRedo = workspace.value().project().buildViewModel();
+    if (!afterRedo) {
+      printError(afterRedo.error());
+      return 1;
+    }
+    std::cout << "afterAddRevision=" << afterAdd.value().project.revision.value() << '\n';
+    std::cout << "afterAddLayers=" << afterAdd.value().timeline.layers.size() << '\n';
+    std::cout << "afterUndoRevision=" << afterUndo.value().project.revision.value() << '\n';
+    std::cout << "afterUndoLayers=" << afterUndo.value().timeline.layers.size() << '\n';
+    std::cout << "afterRedoRevision=" << afterRedo.value().project.revision.value() << '\n';
+    std::cout << "afterRedoLayers=" << afterRedo.value().timeline.layers.size() << '\n';
+    return afterAdd.value().project.revision == grapple::foundation::RevisionId{"rev_6"} &&
+           afterAdd.value().timeline.layers.size() == 2 &&
+           afterUndo.value().project.revision == grapple::foundation::RevisionId{"rev_7"} &&
+           afterUndo.value().timeline.layers.size() == 1 &&
+           afterRedo.value().project.revision == grapple::foundation::RevisionId{"rev_8"} &&
+           afterRedo.value().timeline.layers.size() == 2
       ? 0
       : 1;
   }
