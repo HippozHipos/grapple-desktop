@@ -60,15 +60,25 @@ QString timeText(grapple::foundation::TimeSeconds time) {
 }
 
 QString summaryText(const grapple::app::AppViewModel& viewModel) {
-  return QString{
-    "Project\n%1\nDuration: %2s\nMedia: %3 assets, %4 clips\nCameras: %5\nEditable effects: %6"
+  QStringList lines{
+    "Project",
+    qString(viewModel.project.name),
+    QString{"Duration: %1s"}.arg(viewModel.timeline.duration.value, 0, 'f', 2),
+    QString{"Media: %1 assets, %2 clips"}.arg(viewModel.assets.count).arg(viewModel.timeline.clips.size()),
+    QString{"Cameras: %1"}.arg(viewModel.timeline.cameras.size()),
+    QString{"Editable effects: %1"}.arg(viewModel.timeline.effectGraphs.size()),
+    QString{"Notes: %1"}.arg(viewModel.notes.rows.size())
+  };
+
+  if (!viewModel.notes.rows.empty()) {
+    lines << "";
+    lines << "Notes";
+    for (const grapple::app::AppNoteRow& note : viewModel.notes.rows) {
+      lines << QString{"- %1"}.arg(qString(note.title));
+    }
   }
-    .arg(qString(viewModel.project.name))
-    .arg(viewModel.timeline.duration.value, 0, 'f', 2)
-    .arg(viewModel.assets.count)
-    .arg(viewModel.timeline.clips.size())
-    .arg(viewModel.timeline.cameras.size())
-    .arg(viewModel.timeline.effectGraphs.size());
+
+  return lines.join('\n');
 }
 
 QString inspectorText(

@@ -259,6 +259,15 @@ foundation::Result<AppViewModel> NativeProjectSession::buildViewModel() const {
           payload->name
         });
       }
+    } else if (node.kind == graph::NodeKind::Note) {
+      const auto* payload = std::get_if<timeline::NotePayload>(&node.payload);
+      if (payload != nullptr) {
+        viewModel.notes.rows.push_back(AppNoteRow{
+          node.id,
+          payload->title,
+          payload->markdown
+        });
+      }
     }
   }
 

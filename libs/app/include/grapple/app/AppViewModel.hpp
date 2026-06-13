@@ -34,6 +34,16 @@ struct AppStewardView {
   std::vector<AppStewardEditRow> edits;
 };
 
+struct AppNoteRow {
+  foundation::NodeId sourceNodeId;
+  std::string title;
+  std::string markdown;
+};
+
+struct AppNotesView {
+  std::vector<AppNoteRow> rows;
+};
+
 struct AppCompositionRow {
   foundation::NodeId sourceNodeId;
   std::string name;
@@ -121,6 +131,7 @@ struct AppTimelineView {
 struct AppViewModel {
   AppProjectSummary project;
   AppStewardView steward;
+  AppNotesView notes;
   AppAssetSummary assets;
   AppTimelineView timeline;
 };

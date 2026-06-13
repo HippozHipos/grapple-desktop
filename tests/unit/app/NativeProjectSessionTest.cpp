@@ -1145,6 +1145,31 @@ int main() {
   GRAPPLE_REQUIRE(reopenedStewardConversationAfterSecondRun.runs[1].toolCalls[0].toolCallId == foundation::ToolId{"tool_steward_camera_transform_2"});
   std::filesystem::remove_all(stewardPackageRoot);
 
+  app::NativeProjectSession noteSession{
+    foundation::ProjectId{"proj_app_notes"},
+    "Notes App Project",
+    storage::ProjectPackage{
+      foundation::ProjectId{"proj_app_notes"},
+      foundation::FilePath{"notes-app.grapple"},
+      1
+    }
+  };
+  app::NativeProjectCommandWriter noteWriter{noteSession};
+  const auto note = noteWriter.apply(
+    project::CreateNoteCommand{
+      noteWriter.nextNodeId("note"),
+      timeline::NotePayload{"Camera rationale", "Keep the camera offset exposed as a parameter."}
+    },
+    userSource()
+  );
+  GRAPPLE_REQUIRE(note);
+  const auto noteViewModel = noteSession.buildViewModel();
+  GRAPPLE_REQUIRE(noteViewModel);
+  GRAPPLE_REQUIRE(noteViewModel.value().notes.rows.size() == 1);
+  GRAPPLE_REQUIRE(noteViewModel.value().notes.rows[0].sourceNodeId == foundation::NodeId{"node_note_1"});
+  GRAPPLE_REQUIRE(noteViewModel.value().notes.rows[0].title == "Camera rationale");
+  GRAPPLE_REQUIRE(noteViewModel.value().notes.rows[0].markdown == "Keep the camera offset exposed as a parameter.");
+
   const auto firstCommandId = session.packageState().commandLog.records()[0].id;
   const auto duplicate = session.applyAndCommit(
     project::ProjectCommandEnvelope{
