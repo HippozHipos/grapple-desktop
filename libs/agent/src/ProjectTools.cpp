@@ -198,6 +198,29 @@ constexpr const char EffectUpdateParamsSchema[] = R"json({
   }
 })json";
 
+constexpr const char EffectConnectPortsSchema[] = R"json({
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["edgeId", "sourceNodeId", "sourcePort", "targetNodeId", "targetPort"],
+  "properties": {
+    "edgeId": {"type": "string"},
+    "sourceNodeId": {"type": "string"},
+    "sourcePort": {"type": "string"},
+    "targetNodeId": {"type": "string"},
+    "targetPort": {"type": "string"},
+    "order": {"type": "integer"}
+  }
+})json";
+
+constexpr const char EffectDisconnectPortsSchema[] = R"json({
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["edgeId"],
+  "properties": {
+    "edgeId": {"type": "string"}
+  }
+})json";
+
 constexpr const char NoteCreateSchema[] = R"json({
   "type": "object",
   "additionalProperties": false,
@@ -267,6 +290,17 @@ foundation::Result<double> requiredDoubleMember(const Json::Value& object, const
     return argumentError(path + "." + key, "Expected number.");
   }
   return value.value().asDouble();
+}
+
+foundation::Result<std::int64_t> requiredInt64Member(const Json::Value& object, const char* key, const std::string& path) {
+  auto value = requiredMember(object, key, path);
+  if (!value) {
+    return value.error();
+  }
+  if (!value.value().isInt64()) {
+    return argumentError(path + "." + key, "Expected integer.");
+  }
+  return value.value().asInt64();
 }
 
 foundation::Result<Json::Value> requiredArrayMember(const Json::Value& object, const char* key, const std::string& path) {
@@ -1036,6 +1070,126 @@ AgentTool makeEffectUpdateParamsTool() {
       payload << '{'
               << "\"commandId\":" << foundation::jsonQuoted(commandId.value())
               << ",\"effectNodeId\":" << foundation::jsonQuoted(effectNodeId.value())
+              << ",\"revision\":" << foundation::jsonQuoted(command.value().afterRevision.value())
+              << '}';
+      return ToolResult{
+        call.toolId,
+        ToolResultStatus::Succeeded,
+        command.value().afterRevision,
+        payload.str(),
+        {}
+      };
+    }
+  };
+}
+
+AgentTool makeEffectConnectPortsTool() {
+  return AgentTool{
+    foundation::ToolId{"tool_effect_connect_ports"},
+    "effect.connect_ports",
+    "Connect Effect Ports",
+    "Connects explicit graph ports through Project Core.",
+    EffectConnectPortsSchema,
+    [](const ToolCall& call, AgentToolContext& context) -> foundation::Result<ToolResult> {
+      auto arguments = parseArguments(call.arguments);
+      if (!arguments) {
+        return arguments.error();
+      }
+      auto edgeId = requiredStringMember(arguments.value(), "edgeId", "$");
+      if (!edgeId) {
+        return edgeId.error();
+      }
+      auto sourceNodeId = requiredStringMember(arguments.value(), "sourceNodeId", "$");
+      if (!sourceNodeId) {
+        return sourceNodeId.error();
+      }
+      auto sourcePort = requiredStringMember(arguments.value(), "sourcePort", "$");
+      if (!sourcePort) {
+        return sourcePort.error();
+      }
+      auto targetNodeId = requiredStringMember(arguments.value(), "targetNodeId", "$");
+      if (!targetNodeId) {
+        return targetNodeId.error();
+      }
+      auto targetPort = requiredStringMember(arguments.value(), "targetPort", "$");
+      if (!targetPort) {
+        return targetPort.error();
+      }
+
+      std::int64_t order = 0;
+      if (arguments.value().isMember("order")) {
+        auto parsedOrder = requiredInt64Member(arguments.value(), "order", "$");
+        if (!parsedOrder) {
+          return parsedOrder.error();
+        }
+        order = parsedOrder.value();
+      }
+
+      auto command = context.commands.apply(project::ProjectCommandEnvelope{
+        foundation::CommandId{"cmd_agent_connect_ports_" + edgeId.value()},
+        call.projectId,
+        call.expectedRevision,
+        project::CommandSource{project::CommandSourceKind::Agent, call.runId, "agent"},
+        project::ConnectPortsCommand{
+          foundation::EdgeId{edgeId.value()},
+          foundation::NodeId{sourceNodeId.value()},
+          graph::PortName{sourcePort.value()},
+          foundation::NodeId{targetNodeId.value()},
+          graph::PortName{targetPort.value()},
+          order
+        }
+      });
+      if (!command) {
+        return command.error();
+      }
+
+      std::ostringstream payload;
+      payload << '{'
+              << "\"edgeId\":" << foundation::jsonQuoted(edgeId.value())
+              << ",\"revision\":" << foundation::jsonQuoted(command.value().afterRevision.value())
+              << '}';
+      return ToolResult{
+        call.toolId,
+        ToolResultStatus::Succeeded,
+        command.value().afterRevision,
+        payload.str(),
+        {}
+      };
+    }
+  };
+}
+
+AgentTool makeEffectDisconnectPortsTool() {
+  return AgentTool{
+    foundation::ToolId{"tool_effect_disconnect_ports"},
+    "effect.disconnect_ports",
+    "Disconnect Effect Ports",
+    "Disconnects a graph port edge through Project Core.",
+    EffectDisconnectPortsSchema,
+    [](const ToolCall& call, AgentToolContext& context) -> foundation::Result<ToolResult> {
+      auto arguments = parseArguments(call.arguments);
+      if (!arguments) {
+        return arguments.error();
+      }
+      auto edgeId = requiredStringMember(arguments.value(), "edgeId", "$");
+      if (!edgeId) {
+        return edgeId.error();
+      }
+
+      auto command = context.commands.apply(project::ProjectCommandEnvelope{
+        foundation::CommandId{"cmd_agent_disconnect_ports_" + edgeId.value()},
+        call.projectId,
+        call.expectedRevision,
+        project::CommandSource{project::CommandSourceKind::Agent, call.runId, "agent"},
+        project::DisconnectPortsCommand{foundation::EdgeId{edgeId.value()}}
+      });
+      if (!command) {
+        return command.error();
+      }
+
+      std::ostringstream payload;
+      payload << '{'
+              << "\"edgeId\":" << foundation::jsonQuoted(edgeId.value())
               << ",\"revision\":" << foundation::jsonQuoted(command.value().afterRevision.value())
               << '}';
       return ToolResult{

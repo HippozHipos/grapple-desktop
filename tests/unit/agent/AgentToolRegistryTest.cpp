@@ -53,11 +53,15 @@ int main() {
   GRAPPLE_REQUIRE(registeredCreateEffect);
   const auto registeredUpdateEffectParams = registry.registerTool(agent::makeEffectUpdateParamsTool());
   GRAPPLE_REQUIRE(registeredUpdateEffectParams);
+  const auto registeredConnectPorts = registry.registerTool(agent::makeEffectConnectPortsTool());
+  GRAPPLE_REQUIRE(registeredConnectPorts);
+  const auto registeredDisconnectPorts = registry.registerTool(agent::makeEffectDisconnectPortsTool());
+  GRAPPLE_REQUIRE(registeredDisconnectPorts);
   const auto registeredCreateNote = registry.registerTool(agent::makeNoteCreateTool());
   GRAPPLE_REQUIRE(registeredCreateNote);
   const auto registeredUpdateNote = registry.registerTool(agent::makeNoteUpdateTool());
   GRAPPLE_REQUIRE(registeredUpdateNote);
-  GRAPPLE_REQUIRE(registry.tools().size() == 10);
+  GRAPPLE_REQUIRE(registry.tools().size() == 12);
   GRAPPLE_REQUIRE(registry.findBySerializedId("project.inspect") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("asset.list") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("timeline.create_track") != nullptr);
@@ -66,6 +70,8 @@ int main() {
   GRAPPLE_REQUIRE(registry.findBySerializedId("timeline.trim_clip") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("effect.create_node") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("effect.update_params") != nullptr);
+  GRAPPLE_REQUIRE(registry.findBySerializedId("effect.connect_ports") != nullptr);
+  GRAPPLE_REQUIRE(registry.findBySerializedId("effect.disconnect_ports") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("project.create_effect") == nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("note.create") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("note.update") != nullptr);
@@ -108,6 +114,20 @@ int main() {
   GRAPPLE_REQUIRE(registeredUpdateEffectParamsTool->schema.find("\"params\"") != std::string::npos);
   GRAPPLE_REQUIRE(registeredUpdateEffectParamsTool->schema.find("\"numeric\"") != std::string::npos);
   GRAPPLE_REQUIRE(registeredUpdateEffectParamsTool->schema.find("\"commandId\"") == std::string::npos);
+  const agent::AgentTool* registeredConnectPortsTool = registry.findBySerializedId("effect.connect_ports");
+  GRAPPLE_REQUIRE(registeredConnectPortsTool != nullptr);
+  GRAPPLE_REQUIRE(registeredConnectPortsTool->schema.find("\"edgeId\"") != std::string::npos);
+  GRAPPLE_REQUIRE(registeredConnectPortsTool->schema.find("\"sourceNodeId\"") != std::string::npos);
+  GRAPPLE_REQUIRE(registeredConnectPortsTool->schema.find("\"sourcePort\"") != std::string::npos);
+  GRAPPLE_REQUIRE(registeredConnectPortsTool->schema.find("\"targetNodeId\"") != std::string::npos);
+  GRAPPLE_REQUIRE(registeredConnectPortsTool->schema.find("\"targetPort\"") != std::string::npos);
+  GRAPPLE_REQUIRE(registeredConnectPortsTool->schema.find("\"type\": \"integer\"") != std::string::npos);
+  GRAPPLE_REQUIRE(registeredConnectPortsTool->schema.find("\"commandId\"") == std::string::npos);
+  const agent::AgentTool* registeredDisconnectPortsTool = registry.findBySerializedId("effect.disconnect_ports");
+  GRAPPLE_REQUIRE(registeredDisconnectPortsTool != nullptr);
+  GRAPPLE_REQUIRE(registeredDisconnectPortsTool->schema.find("\"edgeId\"") != std::string::npos);
+  GRAPPLE_REQUIRE(registeredDisconnectPortsTool->schema.find("\"sourceNodeId\"") == std::string::npos);
+  GRAPPLE_REQUIRE(registeredDisconnectPortsTool->schema.find("\"commandId\"") == std::string::npos);
 
   const auto duplicate = registry.registerTool(agent::makeProjectInspectTool());
   GRAPPLE_REQUIRE(!duplicate);
@@ -605,6 +625,72 @@ int main() {
   GRAPPLE_REQUIRE(updatedEffectPayload->params.values[0].control.label == "Target X");
   GRAPPLE_REQUIRE(updatedEffectPayload->params.values[0].control.numeric.has_value());
   GRAPPLE_REQUIRE(updatedEffectPayload->params.values[0].control.numeric->step == 0.01);
+
+  const agent::AgentTool* connectPorts = registry.findBySerializedId("effect.connect_ports");
+  GRAPPLE_REQUIRE(connectPorts != nullptr);
+  const auto connectPortsResult = connectPorts->handler(
+    agent::ToolCall{
+      foundation::ToolId{"tool_effect_connect_ports"},
+      foundation::RunId{"run_1"},
+      foundation::ProjectId{"proj_agent"},
+      updateEffectParamsResult.value().observedRevision,
+      R"({
+        "edgeId": "edge_agent_effect_ports",
+        "sourceNodeId": "node_agent_effect_rev_3",
+        "sourcePort": "camera_transform",
+        "targetNodeId": "node_camera",
+        "targetPort": "camera_transform_input",
+        "order": 4
+      })"
+    },
+    context
+  );
+  GRAPPLE_REQUIRE(connectPortsResult);
+  GRAPPLE_REQUIRE(connectPortsResult.value().status == agent::ToolResultStatus::Succeeded);
+  GRAPPLE_REQUIRE(connectPortsResult.value().observedRevision == foundation::RevisionId{"rev_12"});
+  GRAPPLE_REQUIRE(connectPortsResult.value().payload == "{\"edgeId\":\"edge_agent_effect_ports\",\"revision\":\"rev_12\"}");
+
+  const auto afterConnectPortsSnapshot = project.snapshot();
+  GRAPPLE_REQUIRE(afterConnectPortsSnapshot);
+  const graph::GraphEdge* connectedPortsEdge = nullptr;
+  for (const graph::GraphEdge& edge : afterConnectPortsSnapshot.value().graph.edges()) {
+    if (edge.id == foundation::EdgeId{"edge_agent_effect_ports"}) {
+      connectedPortsEdge = &edge;
+      break;
+    }
+  }
+  GRAPPLE_REQUIRE(connectedPortsEdge != nullptr);
+  GRAPPLE_REQUIRE(connectedPortsEdge->kind == graph::EdgeKind::Connects);
+  GRAPPLE_REQUIRE(connectedPortsEdge->sourceNodeId == foundation::NodeId{"node_agent_effect_rev_3"});
+  GRAPPLE_REQUIRE(connectedPortsEdge->sourcePort == graph::PortName{"camera_transform"});
+  GRAPPLE_REQUIRE(connectedPortsEdge->targetNodeId == foundation::NodeId{"node_camera"});
+  GRAPPLE_REQUIRE(connectedPortsEdge->targetPort == graph::PortName{"camera_transform_input"});
+  GRAPPLE_REQUIRE(connectedPortsEdge->order == 4);
+
+  const agent::AgentTool* disconnectPorts = registry.findBySerializedId("effect.disconnect_ports");
+  GRAPPLE_REQUIRE(disconnectPorts != nullptr);
+  const auto disconnectPortsResult = disconnectPorts->handler(
+    agent::ToolCall{
+      foundation::ToolId{"tool_effect_disconnect_ports"},
+      foundation::RunId{"run_1"},
+      foundation::ProjectId{"proj_agent"},
+      connectPortsResult.value().observedRevision,
+      R"({
+        "edgeId": "edge_agent_effect_ports"
+      })"
+    },
+    context
+  );
+  GRAPPLE_REQUIRE(disconnectPortsResult);
+  GRAPPLE_REQUIRE(disconnectPortsResult.value().status == agent::ToolResultStatus::Succeeded);
+  GRAPPLE_REQUIRE(disconnectPortsResult.value().observedRevision == foundation::RevisionId{"rev_13"});
+  GRAPPLE_REQUIRE(disconnectPortsResult.value().payload == "{\"edgeId\":\"edge_agent_effect_ports\",\"revision\":\"rev_13\"}");
+
+  const auto afterDisconnectPortsSnapshot = project.snapshot();
+  GRAPPLE_REQUIRE(afterDisconnectPortsSnapshot);
+  for (const graph::GraphEdge& edge : afterDisconnectPortsSnapshot.value().graph.edges()) {
+    GRAPPLE_REQUIRE(edge.id != foundation::EdgeId{"edge_agent_effect_ports"});
+  }
 
   return 0;
 }
