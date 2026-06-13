@@ -134,16 +134,17 @@ void StewardPanel::setCreateCameraEffectHandler(CreateCameraEffectHandler handle
 void StewardPanel::setViewModel(const app::AppViewModel& viewModel, const agent::AgentConversationState& conversationState) {
   QStringList lines{
     "Steward",
-    "Bet: prompt -> editable graph",
-    QString{"Intent: %1"}.arg(qString(intent())),
-    "Action: selected camera -> editable Camera Transform",
-    QString{"%1 | %2 clips | %3 cameras | %4 effects"}
+    "Current request",
+    qString(intent()),
+    "",
+    "Project state",
+    QString{"%1 | %2 clips | %3 cameras | %4 editable effects"}
       .arg(qString(viewModel.project.revision.value()))
       .arg(viewModel.timeline.clips.size())
       .arg(viewModel.timeline.cameras.size())
       .arg(viewModel.timeline.effectGraphs.size()),
     "",
-    "Editable agent outputs"
+    "Editable controls"
   };
 
   bool hasEditableEffect = false;
@@ -155,7 +156,7 @@ void StewardPanel::setViewModel(const app::AppViewModel& viewModel, const agent:
       }
 
       hasEditableEffect = true;
-      lines << QString{"- %1 / %2"}
+      lines << QString{"- %1 on %2"}
         .arg(qString(effect.displayName))
         .arg(targetNameFor(viewModel, graph.targetNodeId));
       lines << QString{"  %1"}.arg(controls.join(", "));
@@ -163,11 +164,11 @@ void StewardPanel::setViewModel(const app::AppViewModel& viewModel, const agent:
   }
 
   if (!hasEditableEffect) {
-    lines << "- none yet";
+    lines << "- no editable controls yet";
   }
 
   lines << "";
-  lines << "Agent conversation";
+  lines << "Recent Steward runs";
   if (conversationState.runs.empty()) {
     lines << "- no runs yet";
   } else {
@@ -184,9 +185,7 @@ void StewardPanel::setViewModel(const app::AppViewModel& viewModel, const agent:
           .arg(qString(message.content));
       }
       for (const agent::AgentConversationToolCall& toolCall : run->toolCalls) {
-        lines << QString{"  tool %1 -> %2"}
-          .arg(qString(toolCall.toolSerializedId))
-          .arg(toolStatusText(toolCall.status));
+        lines << QString{"  project edit -> %1"}.arg(toolStatusText(toolCall.status));
       }
       for (const agent::AgentConversationDiagnostic& diagnostic : run->diagnostics) {
         lines << QString{"  diagnostic [%1] %2: %3"}
@@ -208,9 +207,9 @@ void StewardPanel::setViewModel(const app::AppViewModel& viewModel, const agent:
   }
 
   lines << "";
-  lines << "Steward edits";
+  lines << "Applied edits";
   if (viewModel.steward.edits.empty()) {
-    lines << "- none yet";
+    lines << "- no applied edits yet";
   } else {
     for (auto edit = viewModel.steward.edits.rbegin(); edit != viewModel.steward.edits.rend(); ++edit) {
       lines << QString{"- %1 @ %2"}

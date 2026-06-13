@@ -218,11 +218,12 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     if (selectedNodeId.has_value()) {
       std::cout << "selected=" << selectedNodeId->value() << '\n';
     }
-    return steward.find("Bet: prompt -> editable graph") != std::string::npos &&
-           steward.find("Intent: Center the subject with an editable camera transform.") != std::string::npos &&
-           steward.find("Action: selected camera -> editable Camera Transform") != std::string::npos &&
-           steward.find("Steward edits") != std::string::npos &&
-           steward.find("- none yet") != std::string::npos &&
+    return steward.find("Current request") != std::string::npos &&
+           steward.find("Center the subject with an editable camera transform.") != std::string::npos &&
+           steward.find("Editable controls") != std::string::npos &&
+           steward.find("- no editable controls yet") != std::string::npos &&
+           steward.find("Applied edits") != std::string::npos &&
+           steward.find("- no applied edits yet") != std::string::npos &&
            selectedNodeId.has_value() &&
            selectedNodeId.value() == grapple::foundation::NodeId{"node_camera_4"}
       ? 0
@@ -416,8 +417,9 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            steward.find("Position X=0 [-1..1 step 0.01]") != std::string::npos &&
            steward.find("Position Y=0 [-1..1 step 0.01]") != std::string::npos &&
            steward.find("Zoom=1 [0.25..4 step 0.01]") != std::string::npos &&
-           steward.find("tool steward.create_camera_transform -> succeeded") != std::string::npos &&
-           steward.find("tool steward.create_camera_transform -> failed") != std::string::npos &&
+           steward.find("Recent Steward runs") != std::string::npos &&
+           steward.find("project edit -> succeeded") != std::string::npos &&
+           steward.find("project edit -> failed") != std::string::npos &&
            steward.find("Center the walking subject with exposed controls. @ rev_6") != std::string::npos &&
            logText.find("steward.camera_transform_exists") != std::string::npos &&
            logText.find("runtime.effect_runtime_missing") == std::string::npos
