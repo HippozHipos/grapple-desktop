@@ -51,7 +51,7 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeEffectSession::se
 
   param->value = value;
   return commandWriter_.apply(
-    project::SetEffectParamsCommand{effectNode->id, std::move(params)},
+    project::UpdateEffectParamsCommand{effectNode->id, std::move(params)},
     std::move(source)
   );
 }

@@ -37,7 +37,7 @@ private:
   foundation::Result<void> handleDeleteEffect(const DeleteEffectCommand& command);
   foundation::Result<void> handleConnectNodes(const ConnectNodesCommand& command);
   foundation::Result<void> handleDisconnectNodes(const DisconnectNodesCommand& command);
-  foundation::Result<void> handleSetEffectParams(const SetEffectParamsCommand& command);
+  foundation::Result<void> handleUpdateEffectParams(const UpdateEffectParamsCommand& command);
   foundation::Result<void> handleCreateNote(const CreateNoteCommand& command);
   foundation::Result<void> handleUpdateNote(const UpdateNoteCommand& command);
   foundation::Result<void> handleRestoreSnapshot(const RestoreSnapshotCommand& command);

@@ -36,8 +36,8 @@ CommandKind commandKind(const ProjectCommand& command) {
         return CommandKind::ConnectNodes;
       } else if constexpr (std::is_same_v<Command, DisconnectNodesCommand>) {
         return CommandKind::DisconnectNodes;
-      } else if constexpr (std::is_same_v<Command, SetEffectParamsCommand>) {
-        return CommandKind::SetEffectParams;
+      } else if constexpr (std::is_same_v<Command, UpdateEffectParamsCommand>) {
+        return CommandKind::UpdateEffectParams;
       } else if constexpr (std::is_same_v<Command, CreateNoteCommand>) {
         return CommandKind::CreateNote;
       } else if constexpr (std::is_same_v<Command, UpdateNoteCommand>) {

@@ -333,27 +333,27 @@ int main() {
     projection::serializeCanonicalRenderPlan(reorderedPlan)
   );
 
-  const project::ProjectCommandEnvelope setEffectParams{
-    foundation::CommandId{"cmd_set_effect_params"},
+  const project::ProjectCommandEnvelope updateEffectParams{
+    foundation::CommandId{"cmd_update_effect_params"},
     foundation::ProjectId{"proj_projection"},
     createEffect.value().afterRevision,
     project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
-    project::SetEffectParamsCommand{
+    project::UpdateEffectParamsCommand{
       foundation::NodeId{"node_effect"},
       timeline::ParamSet{
         {timeline::Param{"target_x", 0.5}, timeline::Param{"subject_height", 0.8}}
       }
     }
   };
-  GRAPPLE_REQUIRE(project::commandKind(setEffectParams.payload) == project::CommandKind::SetEffectParams);
+  GRAPPLE_REQUIRE(project::commandKind(updateEffectParams.payload) == project::CommandKind::UpdateEffectParams);
   GRAPPLE_REQUIRE(
-    project::serializeCanonicalCommandPayload(setEffectParams.payload) ==
+    project::serializeCanonicalCommandPayload(updateEffectParams.payload) ==
     "{\"effectNodeId\":\"node_effect\",\"params\":[{\"name\":\"subject_height\",\"value\":0.80000000000000004},{\"name\":\"target_x\",\"value\":0.5}]}"
   );
 
-  const auto setEffectParamsResult = controller.apply(setEffectParams);
-  GRAPPLE_REQUIRE(setEffectParamsResult);
-  GRAPPLE_REQUIRE(setEffectParamsResult.value().afterRevision == foundation::RevisionId{"rev_6"});
+  const auto updateEffectParamsResult = controller.apply(updateEffectParams);
+  GRAPPLE_REQUIRE(updateEffectParamsResult);
+  GRAPPLE_REQUIRE(updateEffectParamsResult.value().afterRevision == foundation::RevisionId{"rev_6"});
 
   const auto updatedSnapshot = controller.snapshot();
   GRAPPLE_REQUIRE(updatedSnapshot);

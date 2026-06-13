@@ -142,8 +142,8 @@ foundation::Result<void> ProjectController::applyPayload(const ProjectCommand& p
         return handleConnectNodes(typedCommand);
       } else if constexpr (std::is_same_v<Command, DisconnectNodesCommand>) {
         return handleDisconnectNodes(typedCommand);
-      } else if constexpr (std::is_same_v<Command, SetEffectParamsCommand>) {
-        return handleSetEffectParams(typedCommand);
+      } else if constexpr (std::is_same_v<Command, UpdateEffectParamsCommand>) {
+        return handleUpdateEffectParams(typedCommand);
       } else if constexpr (std::is_same_v<Command, CreateNoteCommand>) {
         return handleCreateNote(typedCommand);
       } else if constexpr (std::is_same_v<Command, UpdateNoteCommand>) {
@@ -402,7 +402,7 @@ foundation::Result<void> ProjectController::handleDisconnectNodes(const Disconne
   return document_.graph.removeEdge(command.edgeId);
 }
 
-foundation::Result<void> ProjectController::handleSetEffectParams(const SetEffectParamsCommand& command) {
+foundation::Result<void> ProjectController::handleUpdateEffectParams(const UpdateEffectParamsCommand& command) {
   const graph::GraphNode* effect = document_.graph.findNode(command.effectNodeId);
   if (effect == nullptr || effect->kind != graph::NodeKind::Effect) {
     return foundation::Error{"project.effect_missing", "Effect params can only be set on an existing effect node."};

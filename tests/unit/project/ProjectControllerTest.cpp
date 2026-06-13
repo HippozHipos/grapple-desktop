@@ -61,7 +61,7 @@ int main() {
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::DeleteEffect) == "project.delete_effect");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::ConnectNodes) == "project.connect_nodes");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::DisconnectNodes) == "project.disconnect_nodes");
-  GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::SetEffectParams) == "project.set_effect_params");
+  GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::UpdateEffectParams) == "project.update_effect_params");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::CreateNote) == "project.create_note");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::UpdateNote) == "project.update_note");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::RestoreSnapshot) == "project.restore_snapshot");
