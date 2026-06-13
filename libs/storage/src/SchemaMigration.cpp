@@ -5,6 +5,7 @@
 #include <json/json.h>
 
 #include <chrono>
+#include <initializer_list>
 #include <memory>
 #include <sstream>
 #include <utility>
@@ -62,6 +63,31 @@ foundation::Result<Json::Value> requiredMember(const Json::Value& object, const 
   return object[key];
 }
 
+foundation::Result<void> requireOnlyMembers(
+  const Json::Value& object,
+  std::initializer_list<std::string> allowed,
+  const std::string& path
+) {
+  if (!object.isObject()) {
+    return parseError(path, "Expected object.");
+  }
+
+  for (const std::string& key : object.getMemberNames()) {
+    bool found = false;
+    for (const std::string& allowedKey : allowed) {
+      if (key == allowedKey) {
+        found = true;
+        break;
+      }
+    }
+    if (!found) {
+      return parseError(path + "." + key, "Unexpected serialized field.");
+    }
+  }
+
+  return {};
+}
+
 foundation::Result<std::string> requiredStringMember(const Json::Value& object, const char* key, const std::string& path) {
   auto value = requiredMember(object, key, path);
   if (!value) {
@@ -96,6 +122,15 @@ foundation::Result<std::int64_t> requiredInt64Member(const Json::Value& object, 
 }
 
 foundation::Result<SchemaMigrationRecord> parseRecord(const Json::Value& object, const std::string& path) {
+  auto members = requireOnlyMembers(
+    object,
+    {"operationName", "fromSchemaVersion", "toSchemaVersion", "appliedAtMs"},
+    path
+  );
+  if (!members) {
+    return members.error();
+  }
+
   auto operationName = requiredStringMember(object, "operationName", path);
   if (!operationName) {
     return operationName.error();

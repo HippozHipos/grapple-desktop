@@ -456,6 +456,10 @@ int main() {
   const auto invalidParsedMigrationLog = storage::deserializeCanonicalSchemaMigrationLog(R"([{"operationName":"","fromSchemaVersion":1,"toSchemaVersion":2,"appliedAtMs":123456}])");
   GRAPPLE_REQUIRE(!invalidParsedMigrationLog);
   GRAPPLE_REQUIRE(invalidParsedMigrationLog.error().code == "storage.schema_migration_json_invalid");
+  const auto migrationLogWithExtraField = storage::deserializeCanonicalSchemaMigrationLog(R"([{"operationName":"storage.extra","fromSchemaVersion":1,"toSchemaVersion":2,"appliedAtMs":123456,"extra":true}])");
+  GRAPPLE_REQUIRE(!migrationLogWithExtraField);
+  GRAPPLE_REQUIRE(migrationLogWithExtraField.error().code == "storage.schema_migration_json_invalid");
+  GRAPPLE_REQUIRE(migrationLogWithExtraField.error().message.find("Unexpected serialized field") != std::string::npos);
 
   storage::ProjectPackageSession session{
     project::createEmptyProject(foundation::ProjectId{"proj_session"}, "Session Project"),
