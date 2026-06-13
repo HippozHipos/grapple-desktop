@@ -2,6 +2,7 @@
 #include <grapple/project/ProjectCommandNames.hpp>
 #include <grapple/project/ProjectEventNames.hpp>
 #include <grapple/project/ProjectSerializer.hpp>
+#include <grapple/timeline/Payloads.hpp>
 #include <grapple/history/HistorySerializer.hpp>
 #include <grapple/storage/ProjectCommitBuilder.hpp>
 #include <grapple/storage/ProjectPackageManifest.hpp>
@@ -316,6 +317,68 @@ int main() {
   GRAPPLE_REQUIRE(openedTrack);
   GRAPPLE_REQUIRE(openedTrack.value().snapshot.revision == foundation::RevisionId{"rev_2"});
   GRAPPLE_REQUIRE(openedSession.value().packageState().commandLog.records().size() == 2);
+
+  project::ProjectSnapshot invalidSnapshot = committedSnapshot.value();
+  GRAPPLE_REQUIRE(invalidSnapshot.graph.addNode(graph::GraphNode{
+    foundation::NodeId{"node_invalid_track"},
+    graph::NodeKind::Track,
+    timeline::TrackPayload{"Invalid Track"},
+    true
+  }));
+  GRAPPLE_REQUIRE(invalidSnapshot.graph.addNode(graph::GraphNode{
+    foundation::NodeId{"node_invalid_clip"},
+    graph::NodeKind::Clip,
+    timeline::ClipPayload{
+      timeline::ClipKind::Video,
+      foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}},
+      foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}},
+      1.0,
+      foundation::AssetId{"asset_missing_clip"},
+      timeline::Transform{}
+    },
+    true
+  }));
+  GRAPPLE_REQUIRE(invalidSnapshot.graph.addEdge(graph::GraphEdge{
+    foundation::EdgeId{"edge_invalid_track_contains_clip"},
+    graph::EdgeKind::Contains,
+    foundation::NodeId{"node_invalid_track"},
+    graph::PortName{},
+    foundation::NodeId{"node_invalid_clip"},
+    graph::PortName{},
+    0,
+    true
+  }));
+  invalidSnapshot.canonicalHash = project::hashProjectSnapshot(invalidSnapshot);
+  storage::ProjectPackageManifest invalidManifest = manifest.value();
+  invalidManifest.latestSnapshot->canonicalHash = invalidSnapshot.canonicalHash;
+  const auto writtenInvalidSnapshot = packageWriter.writeSnapshot(storage::ProjectSnapshotWriteRequest{
+    diskPackage,
+    invalidSnapshot,
+    storage::SnapshotCommitRecord{
+      foundation::SnapshotId{"snap_1"},
+      foundation::FilePath{"snapshots/rev_1.json"},
+      std::optional<std::string>{"first"}
+    }
+  });
+  GRAPPLE_REQUIRE(writtenInvalidSnapshot);
+  const auto writtenInvalidManifest = packageWriter.writeManifest(invalidManifest, diskPackage);
+  GRAPPLE_REQUIRE(writtenInvalidManifest);
+  const auto invalidOpen = storage::ProjectPackageSession::open(diskPackage);
+  GRAPPLE_REQUIRE(!invalidOpen);
+  GRAPPLE_REQUIRE(invalidOpen.error().code == "project.snapshot_clip_asset_missing");
+
+  const auto restoredSnapshot = packageWriter.writeSnapshot(storage::ProjectSnapshotWriteRequest{
+    diskPackage,
+    committedSnapshot.value(),
+    storage::SnapshotCommitRecord{
+      foundation::SnapshotId{"snap_1"},
+      foundation::FilePath{"snapshots/rev_1.json"},
+      std::optional<std::string>{"first"}
+    }
+  });
+  GRAPPLE_REQUIRE(restoredSnapshot);
+  const auto restoredManifest = packageWriter.writeManifest(manifest.value(), diskPackage);
+  GRAPPLE_REQUIRE(restoredManifest);
 
   storage::ProjectPackageManifest wrongProjectManifest = manifest.value();
   wrongProjectManifest.projectId = foundation::ProjectId{"proj_other"};

@@ -2,6 +2,7 @@
 
 #include <grapple/asset/AssetCatalog.hpp>
 #include <grapple/foundation/Hash.hpp>
+#include <grapple/foundation/Result.hpp>
 #include <grapple/foundation/StrongId.hpp>
 #include <grapple/graph/GraphDocument.hpp>
 #include <grapple/project/ProjectDocument.hpp>
@@ -24,5 +25,6 @@ struct ProjectSnapshot {
 
 [[nodiscard]] ProjectSnapshot makeProjectSnapshot(const ProjectDocument& document);
 [[nodiscard]] ProjectDocument makeProjectDocument(const ProjectSnapshot& snapshot);
+[[nodiscard]] foundation::Result<void> validateProjectSnapshotReferences(const ProjectSnapshot& snapshot);
 
 } // namespace grapple::project

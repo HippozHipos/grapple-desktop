@@ -68,6 +68,10 @@ foundation::Result<void> validateLatestSnapshot(
   if (!(snapshot.canonicalHash == snapshotManifest.canonicalHash)) {
     return foundation::Error{"storage.package_snapshot_hash_mismatch", "Latest snapshot hash must match manifest."};
   }
+  auto references = project::validateProjectSnapshotReferences(snapshot);
+  if (!references) {
+    return references.error();
+  }
   return {};
 }
 

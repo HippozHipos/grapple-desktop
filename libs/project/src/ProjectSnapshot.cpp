@@ -1,6 +1,9 @@
 #include <grapple/project/ProjectSnapshot.hpp>
 
 #include <grapple/project/ProjectSerializer.hpp>
+#include <grapple/timeline/Payloads.hpp>
+
+#include <variant>
 
 namespace grapple::project {
 
@@ -27,6 +30,22 @@ ProjectDocument makeProjectDocument(const ProjectSnapshot& snapshot) {
     snapshot.assets,
     snapshot.graph
   };
+}
+
+foundation::Result<void> validateProjectSnapshotReferences(const ProjectSnapshot& snapshot) {
+  for (const graph::GraphNode& node : snapshot.graph.nodes()) {
+    if (node.kind != graph::NodeKind::Clip) {
+      continue;
+    }
+    const auto* payload = std::get_if<timeline::ClipPayload>(&node.payload);
+    if (payload == nullptr) {
+      return foundation::Error{"project.snapshot_clip_payload_invalid", "Snapshot clip nodes must carry clip payloads."};
+    }
+    if (snapshot.assets.find(payload->assetId) == nullptr) {
+      return foundation::Error{"project.snapshot_clip_asset_missing", "Snapshot clip assets must exist in the snapshot asset catalog."};
+    }
+  }
+  return {};
 }
 
 } // namespace grapple::project
