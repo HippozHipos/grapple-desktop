@@ -337,7 +337,7 @@ int main() {
       foundation::RunId{"run_1"},
       foundation::ProjectId{"proj_agent"},
       command.value().afterRevision,
-      ""
+      "{}"
     },
     context
   );
@@ -353,6 +353,20 @@ int main() {
   GRAPPLE_REQUIRE(commands.applyCount() == 0);
   GRAPPLE_REQUIRE(queries.totalQueryCount() == 1);
   GRAPPLE_REQUIRE(queries.snapshotQueryCount() == 1);
+
+  const auto inspectWithUnexpectedArgument = inspect->handler(
+    agent::ToolCall{
+      foundation::ToolId{"tool_project_inspect"},
+      foundation::RunId{"run_1"},
+      foundation::ProjectId{"proj_agent"},
+      command.value().afterRevision,
+      R"({"unused": true})"
+    },
+    context
+  );
+  GRAPPLE_REQUIRE(!inspectWithUnexpectedArgument);
+  GRAPPLE_REQUIRE(inspectWithUnexpectedArgument.error().code == "agent.tool_arguments_invalid");
+  GRAPPLE_REQUIRE(inspectWithUnexpectedArgument.error().message.find("Unexpected tool argument") != std::string::npos);
 
   const auto camera = project.apply(project::ProjectCommandEnvelope{
     foundation::CommandId{"cmd_camera"},
@@ -430,6 +444,41 @@ int main() {
   GRAPPLE_REQUIRE(!unlabeledEffectResult);
   GRAPPLE_REQUIRE(unlabeledEffectResult.error().code == "agent.tool_arguments_invalid");
   GRAPPLE_REQUIRE(unlabeledEffectResult.error().message.find("$.params[0].label") != std::string::npos);
+  GRAPPLE_REQUIRE(commands.applyCount() == 0);
+
+  const auto effectWithUnexpectedNestedArgument = createEffect->handler(
+    agent::ToolCall{
+      foundation::ToolId{"tool_effect_create_node"},
+      foundation::RunId{"run_1"},
+      foundation::ProjectId{"proj_agent"},
+      camera.value().afterRevision,
+      R"({
+        "targetNodeId": "node_camera",
+        "displayName": "Extra Effect",
+        "implementationKind": "python",
+        "language": "python",
+        "entrypoint": "prepare",
+        "source": "def prepare(ctx):\n  return {}\n",
+        "sourcePort": "camera_transform",
+        "targetPort": "input",
+        "inputPorts": ["frame"],
+        "outputPorts": ["camera_transform"],
+        "activeRange": {"start": 0, "end": 10, "unused": true},
+        "params": [
+          {
+            "name": "target_x",
+            "label": "Target X",
+            "value": 0.5,
+            "numeric": {"min": 0, "max": 1}
+          }
+        ]
+      })"
+    },
+    context
+  );
+  GRAPPLE_REQUIRE(!effectWithUnexpectedNestedArgument);
+  GRAPPLE_REQUIRE(effectWithUnexpectedNestedArgument.error().code == "agent.tool_arguments_invalid");
+  GRAPPLE_REQUIRE(effectWithUnexpectedNestedArgument.error().message.find("Unexpected tool argument") != std::string::npos);
   GRAPPLE_REQUIRE(commands.applyCount() == 0);
 
   const auto createEffectResult = createEffect->handler(
@@ -615,7 +664,7 @@ int main() {
       foundation::RunId{"run_1"},
       foundation::ProjectId{"proj_agent"},
       importAssetResult.value().observedRevision,
-      ""
+      "{}"
     },
     context
   );
@@ -898,7 +947,7 @@ int main() {
       foundation::RunId{"run_1"},
       foundation::ProjectId{"proj_agent"},
       disconnectPortsResult.value().observedRevision,
-      ""
+      "{}"
     },
     context
   );
@@ -922,7 +971,7 @@ int main() {
       foundation::RunId{"run_1"},
       foundation::ProjectId{"proj_agent"},
       disconnectPortsResult.value().observedRevision,
-      ""
+      "{}"
     },
     context
   );
@@ -947,7 +996,7 @@ int main() {
       foundation::RunId{"run_1"},
       foundation::ProjectId{"proj_agent"},
       disconnectPortsResult.value().observedRevision,
-      ""
+      "{}"
     },
     context
   );

@@ -9,6 +9,7 @@
 
 #include <cstdint>
 #include <cstdlib>
+#include <initializer_list>
 #include <memory>
 #include <optional>
 #include <sstream>
@@ -45,6 +46,7 @@ constexpr const char AssetImportSchema[] = R"json({
     "duration": {"type": "number"},
     "dimensions": {
       "type": "object",
+      "additionalProperties": false,
       "required": ["width", "height"],
       "properties": {
         "width": {"type": "integer"},
@@ -53,6 +55,7 @@ constexpr const char AssetImportSchema[] = R"json({
     },
     "frameRate": {
       "type": "object",
+      "additionalProperties": false,
       "required": ["numerator", "denominator"],
       "properties": {
         "numerator": {"type": "integer"},
@@ -88,6 +91,7 @@ constexpr const char TimelineCreateClipSchema[] = R"json({
     "kind": {"enum": ["video", "audio", "image"]},
     "timelineRange": {
       "type": "object",
+      "additionalProperties": false,
       "required": ["start", "end"],
       "properties": {
         "start": {"type": "number"},
@@ -96,6 +100,7 @@ constexpr const char TimelineCreateClipSchema[] = R"json({
     },
     "sourceRange": {
       "type": "object",
+      "additionalProperties": false,
       "required": ["start", "end"],
       "properties": {
         "start": {"type": "number"},
@@ -124,6 +129,7 @@ constexpr const char TimelineTrimClipSchema[] = R"json({
     "clipNodeId": {"type": "string"},
     "timelineRange": {
       "type": "object",
+      "additionalProperties": false,
       "required": ["start", "end"],
       "properties": {
         "start": {"type": "number"},
@@ -132,6 +138,7 @@ constexpr const char TimelineTrimClipSchema[] = R"json({
     },
     "sourceRange": {
       "type": "object",
+      "additionalProperties": false,
       "required": ["start", "end"],
       "properties": {
         "start": {"type": "number"},
@@ -171,6 +178,7 @@ constexpr const char EffectCreateNodeSchema[] = R"json({
     "outputPorts": {"type": "array", "items": {"type": "string"}},
     "activeRange": {
       "type": "object",
+      "additionalProperties": false,
       "required": ["start", "end"],
       "properties": {
         "start": {"type": "number"},
@@ -182,6 +190,7 @@ constexpr const char EffectCreateNodeSchema[] = R"json({
       "minItems": 1,
       "items": {
         "type": "object",
+        "additionalProperties": false,
         "required": ["name", "label", "value"],
         "properties": {
           "name": {"type": "string"},
@@ -196,6 +205,7 @@ constexpr const char EffectCreateNodeSchema[] = R"json({
           },
           "numeric": {
             "type": "object",
+            "additionalProperties": false,
             "required": ["min", "max"],
             "properties": {
               "min": {"type": "number"},
@@ -315,6 +325,31 @@ foundation::Result<Json::Value> requiredMember(const Json::Value& object, const 
   return object[key];
 }
 
+foundation::Result<void> requireOnlyMembers(
+  const Json::Value& object,
+  std::initializer_list<std::string_view> allowed,
+  const std::string& path
+) {
+  if (!object.isObject()) {
+    return argumentError(path, "Expected object.");
+  }
+
+  for (const std::string& member : object.getMemberNames()) {
+    bool expected = false;
+    for (std::string_view allowedMember : allowed) {
+      if (member == allowedMember) {
+        expected = true;
+        break;
+      }
+    }
+    if (!expected) {
+      return argumentError(path + "." + member, "Unexpected tool argument.");
+    }
+  }
+
+  return {};
+}
+
 foundation::Result<std::string> requiredStringMember(const Json::Value& object, const char* key, const std::string& path) {
   auto value = requiredMember(object, key, path);
   if (!value) {
@@ -387,6 +422,10 @@ foundation::Result<std::optional<foundation::Resolution>> optionalResolutionMemb
   if (!object[key].isObject()) {
     return argumentError(path + "." + key, "Expected object.");
   }
+  auto members = requireOnlyMembers(object[key], {"width", "height"}, path + "." + key);
+  if (!members) {
+    return members.error();
+  }
   auto width = requiredInt64Member(object[key], "width", path + "." + key);
   if (!width) {
     return width.error();
@@ -411,6 +450,10 @@ foundation::Result<std::optional<foundation::FrameRate>> optionalFrameRateMember
   }
   if (!object[key].isObject()) {
     return argumentError(path + "." + key, "Expected object.");
+  }
+  auto members = requireOnlyMembers(object[key], {"numerator", "denominator"}, path + "." + key);
+  if (!members) {
+    return members.error();
   }
   auto numerator = requiredInt64Member(object[key], "numerator", path + "." + key);
   if (!numerator) {
@@ -440,6 +483,10 @@ foundation::Result<Json::Value> requiredArrayMember(const Json::Value& object, c
 foundation::Result<foundation::TimeRange> parseTimeRange(const Json::Value& object, const std::string& path) {
   if (!object.isObject()) {
     return argumentError(path, "Expected time range object.");
+  }
+  auto members = requireOnlyMembers(object, {"start", "end"}, path);
+  if (!members) {
+    return members.error();
   }
   auto start = requiredDoubleMember(object, "start", path);
   if (!start) {
@@ -505,6 +552,23 @@ foundation::Result<timeline::ParamValue> parseParamValue(const Json::Value& valu
     return argumentError(path, "Expected parameter scalar or typed object.");
   }
 
+  if (value.isMember("width") || value.isMember("height")) {
+    auto members = requireOnlyMembers(value, {"x", "y", "width", "height"}, path);
+    if (!members) {
+      return members.error();
+    }
+  } else if (value.isMember("z")) {
+    auto members = requireOnlyMembers(value, {"x", "y", "z"}, path);
+    if (!members) {
+      return members.error();
+    }
+  } else {
+    auto members = requireOnlyMembers(value, {"x", "y"}, path);
+    if (!members) {
+      return members.error();
+    }
+  }
+
   auto x = requiredDoubleMember(value, "x", path);
   if (!x) {
     return x.error();
@@ -551,6 +615,10 @@ foundation::Result<timeline::ParamSet> parseParamSet(const Json::Value& array, c
     if (!array[index].isObject()) {
       return argumentError(itemPath, "Expected parameter object.");
     }
+    auto members = requireOnlyMembers(array[index], {"name", "label", "value", "numeric"}, itemPath);
+    if (!members) {
+      return members.error();
+    }
     auto name = requiredStringMember(array[index], "name", itemPath);
     if (!name) {
       return name.error();
@@ -576,6 +644,10 @@ foundation::Result<timeline::ParamSet> parseParamSet(const Json::Value& array, c
       const Json::Value& numericObject = array[index]["numeric"];
       if (!numericObject.isObject()) {
         return argumentError(itemPath + ".numeric", "Expected numeric control object.");
+      }
+      auto numericMembers = requireOnlyMembers(numericObject, {"min", "max", "step"}, itemPath + ".numeric");
+      if (!numericMembers) {
+        return numericMembers.error();
       }
       auto min = requiredDoubleMember(numericObject, "min", itemPath + ".numeric");
       if (!min) {
@@ -904,6 +976,14 @@ AgentTool makeProjectInspectTool() {
     "Returns the current project revision and graph counts.",
     ProjectInspectSchema,
     [](const ToolCall& call, AgentToolContext& context) -> foundation::Result<ToolResult> {
+      auto arguments = parseArguments(call.arguments);
+      if (!arguments) {
+        return arguments.error();
+      }
+      auto members = requireOnlyMembers(arguments.value(), {}, "$");
+      if (!members) {
+        return members.error();
+      }
       auto snapshot = readProjectSnapshot(context, "Project inspect");
       if (!snapshot) {
         return snapshot.error();
@@ -939,6 +1019,14 @@ AgentTool makeAssetListTool() {
     "Lists project assets from the canonical project snapshot.",
     AssetListSchema,
     [](const ToolCall& call, AgentToolContext& context) -> foundation::Result<ToolResult> {
+      auto arguments = parseArguments(call.arguments);
+      if (!arguments) {
+        return arguments.error();
+      }
+      auto members = requireOnlyMembers(arguments.value(), {}, "$");
+      if (!members) {
+        return members.error();
+      }
       auto snapshot = readProjectSnapshot(context, "Asset list");
       if (!snapshot) {
         return snapshot.error();
@@ -979,6 +1067,14 @@ AgentTool makeAssetImportTool() {
       auto arguments = parseArguments(call.arguments);
       if (!arguments) {
         return arguments.error();
+      }
+      auto members = requireOnlyMembers(
+        arguments.value(),
+        {"assetId", "name", "mediaType", "sourcePath", "thumbnailPath", "duration", "dimensions", "frameRate"},
+        "$"
+      );
+      if (!members) {
+        return members.error();
       }
       auto assetId = requiredStringMember(arguments.value(), "assetId", "$");
       if (!assetId) {
@@ -1074,6 +1170,14 @@ AgentTool makeCompositionInspectTool() {
     "Returns authored composition membership through Project Core.",
     CompositionInspectSchema,
     [](const ToolCall& call, AgentToolContext& context) -> foundation::Result<ToolResult> {
+      auto arguments = parseArguments(call.arguments);
+      if (!arguments) {
+        return arguments.error();
+      }
+      auto members = requireOnlyMembers(arguments.value(), {}, "$");
+      if (!members) {
+        return members.error();
+      }
       auto query = context.queries.query(project::InspectCompositionsQuery{});
       if (!query) {
         return query.error();
@@ -1120,6 +1224,10 @@ AgentTool makeTimelineCreateTrackTool() {
       auto arguments = parseArguments(call.arguments);
       if (!arguments) {
         return arguments.error();
+      }
+      auto members = requireOnlyMembers(arguments.value(), {"compositionNodeId", "name"}, "$");
+      if (!members) {
+        return members.error();
       }
       auto compositionNodeId = requiredStringMember(arguments.value(), "compositionNodeId", "$");
       if (!compositionNodeId) {
@@ -1186,6 +1294,14 @@ AgentTool makeTimelineCreateClipTool() {
       auto arguments = parseArguments(call.arguments);
       if (!arguments) {
         return arguments.error();
+      }
+      auto members = requireOnlyMembers(
+        arguments.value(),
+        {"trackNodeId", "assetId", "kind", "timelineRange", "sourceRange", "playbackRate"},
+        "$"
+      );
+      if (!members) {
+        return members.error();
       }
       auto trackNodeId = requiredStringMember(arguments.value(), "trackNodeId", "$");
       if (!trackNodeId) {
@@ -1289,6 +1405,10 @@ AgentTool makeTimelineMoveClipTool() {
       if (!arguments) {
         return arguments.error();
       }
+      auto members = requireOnlyMembers(arguments.value(), {"clipNodeId", "newStart"}, "$");
+      if (!members) {
+        return members.error();
+      }
       auto clipNodeId = requiredStringMember(arguments.value(), "clipNodeId", "$");
       if (!clipNodeId) {
         return clipNodeId.error();
@@ -1348,6 +1468,10 @@ AgentTool makeTimelineTrimClipTool() {
       auto arguments = parseArguments(call.arguments);
       if (!arguments) {
         return arguments.error();
+      }
+      auto members = requireOnlyMembers(arguments.value(), {"clipNodeId", "timelineRange", "sourceRange"}, "$");
+      if (!members) {
+        return members.error();
       }
       auto clipNodeId = requiredStringMember(arguments.value(), "clipNodeId", "$");
       if (!clipNodeId) {
@@ -1420,6 +1544,27 @@ AgentTool makeEffectCreateNodeTool() {
       auto arguments = parseArguments(call.arguments);
       if (!arguments) {
         return arguments.error();
+      }
+      auto members = requireOnlyMembers(
+        arguments.value(),
+        {
+          "targetNodeId",
+          "displayName",
+          "implementationKind",
+          "language",
+          "entrypoint",
+          "source",
+          "sourcePort",
+          "targetPort",
+          "inputPorts",
+          "outputPorts",
+          "activeRange",
+          "params"
+        },
+        "$"
+      );
+      if (!members) {
+        return members.error();
       }
 
       auto snapshot = readProjectSnapshot(context, "Create effect");
@@ -1554,6 +1699,10 @@ AgentTool makeEffectUpdateParamValueTool() {
       if (!arguments) {
         return arguments.error();
       }
+      auto members = requireOnlyMembers(arguments.value(), {"effectNodeId", "paramName", "value"}, "$");
+      if (!members) {
+        return members.error();
+      }
       auto effectNodeId = requiredStringMember(arguments.value(), "effectNodeId", "$");
       if (!effectNodeId) {
         return effectNodeId.error();
@@ -1622,6 +1771,14 @@ AgentTool makeEffectConnectPortsTool() {
       auto arguments = parseArguments(call.arguments);
       if (!arguments) {
         return arguments.error();
+      }
+      auto members = requireOnlyMembers(
+        arguments.value(),
+        {"edgeId", "sourceNodeId", "sourcePort", "targetNodeId", "targetPort", "order"},
+        "$"
+      );
+      if (!members) {
+        return members.error();
       }
       auto edgeId = requiredStringMember(arguments.value(), "edgeId", "$");
       if (!edgeId) {
@@ -1699,6 +1856,10 @@ AgentTool makeEffectDisconnectPortsTool() {
       if (!arguments) {
         return arguments.error();
       }
+      auto members = requireOnlyMembers(arguments.value(), {"edgeId"}, "$");
+      if (!members) {
+        return members.error();
+      }
       auto edgeId = requiredStringMember(arguments.value(), "edgeId", "$");
       if (!edgeId) {
         return edgeId.error();
@@ -1739,6 +1900,14 @@ AgentTool makeRenderPlanInspectTool() {
     "Returns the current RenderPlan summary through Project Query APIs.",
     RenderPlanInspectSchema,
     [](const ToolCall& call, AgentToolContext& context) -> foundation::Result<ToolResult> {
+      auto arguments = parseArguments(call.arguments);
+      if (!arguments) {
+        return arguments.error();
+      }
+      auto members = requireOnlyMembers(arguments.value(), {}, "$");
+      if (!members) {
+        return members.error();
+      }
       auto query = context.queries.query(project::InspectRenderPlanQuery{});
       if (!query) {
         return query.error();
@@ -1772,6 +1941,14 @@ AgentTool makeRuntimeInspectDiagnosticsTool() {
     "Returns current runtime diagnostic summaries through Project Query APIs.",
     RuntimeInspectDiagnosticsSchema,
     [](const ToolCall& call, AgentToolContext& context) -> foundation::Result<ToolResult> {
+      auto arguments = parseArguments(call.arguments);
+      if (!arguments) {
+        return arguments.error();
+      }
+      auto members = requireOnlyMembers(arguments.value(), {}, "$");
+      if (!members) {
+        return members.error();
+      }
       auto query = context.queries.query(project::InspectRuntimeDiagnosticsQuery{});
       if (!query) {
         return query.error();
@@ -1808,6 +1985,10 @@ AgentTool makeNoteCreateTool() {
       auto arguments = parseArguments(call.arguments);
       if (!arguments) {
         return arguments.error();
+      }
+      auto members = requireOnlyMembers(arguments.value(), {"title", "markdown"}, "$");
+      if (!members) {
+        return members.error();
       }
       auto title = requiredStringMember(arguments.value(), "title", "$");
       if (!title) {
@@ -1868,6 +2049,10 @@ AgentTool makeNoteUpdateTool() {
       auto arguments = parseArguments(call.arguments);
       if (!arguments) {
         return arguments.error();
+      }
+      auto members = requireOnlyMembers(arguments.value(), {"nodeId", "title", "markdown"}, "$");
+      if (!members) {
+        return members.error();
       }
       auto nodeId = requiredStringMember(arguments.value(), "nodeId", "$");
       if (!nodeId) {
