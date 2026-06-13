@@ -5,10 +5,12 @@
 #include <json/json.h>
 
 #include <chrono>
+#include <initializer_list>
 #include <memory>
 #include <optional>
 #include <sstream>
 #include <string>
+#include <string_view>
 
 namespace grapple::history {
 
@@ -58,6 +60,31 @@ foundation::Result<Json::Value> requiredMember(const Json::Value& object, const 
   return object[key];
 }
 
+foundation::Result<void> requireOnlyMembers(
+  const Json::Value& object,
+  std::initializer_list<std::string_view> allowed,
+  const std::string& path
+) {
+  if (!object.isObject()) {
+    return parseError(path, "Expected object.");
+  }
+
+  for (const std::string& member : object.getMemberNames()) {
+    bool expected = false;
+    for (std::string_view allowedMember : allowed) {
+      if (member == allowedMember) {
+        expected = true;
+        break;
+      }
+    }
+    if (!expected) {
+      return parseError(path + "." + member, "Unexpected serialized field.");
+    }
+  }
+
+  return {};
+}
+
 foundation::Result<std::string> requiredStringMember(const Json::Value& object, const char* key, const std::string& path) {
   auto value = requiredMember(object, key, path);
   if (!value) {
@@ -65,6 +92,9 @@ foundation::Result<std::string> requiredStringMember(const Json::Value& object, 
   }
   if (!value.value().isString()) {
     return parseError(path + "." + key, "Expected string.");
+  }
+  if (value.value().asString().empty()) {
+    return parseError(path + "." + key, "Expected non-empty string.");
   }
   return value.value().asString();
 }
@@ -95,10 +125,32 @@ foundation::Result<std::optional<foundation::RunId>> optionalRunIdMember(
   if (!value.value().isString()) {
     return parseError(path + "." + key, "Expected string or null.");
   }
+  if (value.value().asString().empty()) {
+    return parseError(path + "." + key, "Expected non-empty string or null.");
+  }
   return std::optional<foundation::RunId>{foundation::RunId{value.value().asString()}};
 }
 
 foundation::Result<CommandRecord> parseCommandRecord(const Json::Value& object, const std::string& path) {
+  auto members = requireOnlyMembers(
+    object,
+    {
+      "id",
+      "projectId",
+      "beforeRevision",
+      "afterRevision",
+      "serializedName",
+      "serializedPayload",
+      "sourceKind",
+      "sourceRunId",
+      "sourceActorName",
+      "createdAtMs"
+    },
+    path
+  );
+  if (!members) {
+    return members.error();
+  }
   auto id = requiredStringMember(object, "id", path);
   if (!id) {
     return id.error();
@@ -155,6 +207,14 @@ foundation::Result<CommandRecord> parseCommandRecord(const Json::Value& object, 
 }
 
 foundation::Result<EventRecord> parseEventRecord(const Json::Value& object, const std::string& path) {
+  auto members = requireOnlyMembers(
+    object,
+    {"id", "projectId", "revision", "serializedName", "serializedPayload", "createdAtMs"},
+    path
+  );
+  if (!members) {
+    return members.error();
+  }
   auto id = requiredStringMember(object, "id", path);
   if (!id) {
     return id.error();

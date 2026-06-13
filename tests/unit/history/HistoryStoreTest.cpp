@@ -35,6 +35,18 @@ int main() {
   const auto parsedCommandLog = history::deserializeCanonicalCommandLog(serializedCommandLog);
   GRAPPLE_REQUIRE(parsedCommandLog);
   GRAPPLE_REQUIRE(history::serializeCanonicalCommandLog(parsedCommandLog.value()) == serializedCommandLog);
+  const auto commandLogWithExtraField = history::deserializeCanonicalCommandLog(
+    R"([{"id":"cmd_extra","projectId":"proj_history","beforeRevision":"rev_0","afterRevision":"rev_1","serializedName":"project.create_composition","serializedPayload":"{}","sourceKind":"agent","sourceRunId":"run_1","sourceActorName":"test-agent","createdAtMs":1000,"metadata":{}}])"
+  );
+  GRAPPLE_REQUIRE(!commandLogWithExtraField);
+  GRAPPLE_REQUIRE(commandLogWithExtraField.error().code == "history.log_json_invalid");
+  GRAPPLE_REQUIRE(commandLogWithExtraField.error().message.find("Unexpected serialized field") != std::string::npos);
+  const auto commandLogWithEmptyRunId = history::deserializeCanonicalCommandLog(
+    R"([{"id":"cmd_empty_run","projectId":"proj_history","beforeRevision":"rev_0","afterRevision":"rev_1","serializedName":"project.create_composition","serializedPayload":"{}","sourceKind":"agent","sourceRunId":"","sourceActorName":"test-agent","createdAtMs":1000}])"
+  );
+  GRAPPLE_REQUIRE(!commandLogWithEmptyRunId);
+  GRAPPLE_REQUIRE(commandLogWithEmptyRunId.error().code == "history.log_json_invalid");
+  GRAPPLE_REQUIRE(commandLogWithEmptyRunId.error().message.find("non-empty") != std::string::npos);
 
   const auto duplicateCommand = commandLog.append(commandLog.records().front());
   GRAPPLE_REQUIRE(!duplicateCommand);
@@ -56,6 +68,18 @@ int main() {
   const auto parsedEventLog = history::deserializeCanonicalEventLog(serializedEventLog);
   GRAPPLE_REQUIRE(parsedEventLog);
   GRAPPLE_REQUIRE(history::serializeCanonicalEventLog(parsedEventLog.value()) == serializedEventLog);
+  const auto eventLogWithExtraField = history::deserializeCanonicalEventLog(
+    R"([{"id":"event_extra","projectId":"proj_history","revision":"rev_1","serializedName":"project.command_applied","serializedPayload":"{}","createdAtMs":1000,"metadata":{}}])"
+  );
+  GRAPPLE_REQUIRE(!eventLogWithExtraField);
+  GRAPPLE_REQUIRE(eventLogWithExtraField.error().code == "history.log_json_invalid");
+  GRAPPLE_REQUIRE(eventLogWithExtraField.error().message.find("Unexpected serialized field") != std::string::npos);
+  const auto eventLogWithEmptyName = history::deserializeCanonicalEventLog(
+    R"([{"id":"event_empty_name","projectId":"proj_history","revision":"rev_1","serializedName":"","serializedPayload":"{}","createdAtMs":1000}])"
+  );
+  GRAPPLE_REQUIRE(!eventLogWithEmptyName);
+  GRAPPLE_REQUIRE(eventLogWithEmptyName.error().code == "history.log_json_invalid");
+  GRAPPLE_REQUIRE(eventLogWithEmptyName.error().message.find("non-empty") != std::string::npos);
 
   history::SnapshotStore snapshots;
   const auto snapshotAppend = snapshots.append(history::SnapshotRecord{
