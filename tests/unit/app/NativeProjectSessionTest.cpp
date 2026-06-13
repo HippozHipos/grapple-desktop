@@ -770,12 +770,22 @@ int main() {
   GRAPPLE_REQUIRE(updatedRuntimeEffectViewModel);
   GRAPPLE_REQUIRE(updatedRuntimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].value == "0.25");
   GRAPPLE_REQUIRE(updatedRuntimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[2].value == "1.5");
+  const auto runtimeDiagnosticsSnapshotBefore = runtimeWorkspace.value().project().snapshot();
+  GRAPPLE_REQUIRE(runtimeDiagnosticsSnapshotBefore);
+  const std::string serializedRuntimeDiagnosticsSnapshotBefore =
+    project::serializeCanonicalProjectSnapshot(runtimeDiagnosticsSnapshotBefore.value());
   const auto runtimeDiagnosticsQuery = runtimeWorkspace.value().query(project::InspectRuntimeDiagnosticsQuery{});
   GRAPPLE_REQUIRE(runtimeDiagnosticsQuery);
   const auto* runtimeDiagnostics = std::get_if<project::RuntimeInspectDiagnosticsResult>(&runtimeDiagnosticsQuery.value());
   GRAPPLE_REQUIRE(runtimeDiagnostics != nullptr);
   GRAPPLE_REQUIRE(runtimeDiagnostics->revision == foundation::RevisionId{"rev_5"});
   GRAPPLE_REQUIRE(runtimeDiagnostics->diagnostics.empty());
+  const auto runtimeDiagnosticsSnapshotAfter = runtimeWorkspace.value().project().snapshot();
+  GRAPPLE_REQUIRE(runtimeDiagnosticsSnapshotAfter);
+  GRAPPLE_REQUIRE(
+    project::serializeCanonicalProjectSnapshot(runtimeDiagnosticsSnapshotAfter.value()) ==
+    serializedRuntimeDiagnosticsSnapshotBefore
+  );
   CountingCameraTransformRuntime countedPreviewRuntime;
   app::NativePreviewSession countedPreview{
     runtimeWorkspace.value().project(),
