@@ -59,8 +59,8 @@ int main() {
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::UpdateCamera) == "project.update_camera");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::CreateEffect) == "project.create_effect");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::DeleteEffect) == "project.delete_effect");
-  GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::ConnectNodes) == "project.connect_nodes");
-  GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::DisconnectNodes) == "project.disconnect_nodes");
+  GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::ConnectPorts) == "project.connect_ports");
+  GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::DisconnectPorts) == "project.disconnect_ports");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::UpdateEffectParams) == "project.update_effect_params");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::CreateNote) == "project.create_note");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::UpdateNote) == "project.update_note");
@@ -233,13 +233,13 @@ int main() {
   });
   GRAPPLE_REQUIRE(connectionTrack);
 
-  const project::ProjectCommandEnvelope connectNodes{
-    foundation::CommandId{"cmd_connect_nodes"},
+  const project::ProjectCommandEnvelope connectPorts{
+    foundation::CommandId{"cmd_connect_ports"},
     foundation::ProjectId{"proj_connection"},
     connectionTrack.value().afterRevision,
     project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
-    project::ConnectNodesCommand{
-      foundation::EdgeId{"edge_connect_nodes"},
+    project::ConnectPortsCommand{
+      foundation::EdgeId{"edge_connect_ports"},
       foundation::NodeId{"node_connection_composition"},
       graph::PortName{"output"},
       foundation::NodeId{"node_connection_track"},
@@ -247,29 +247,29 @@ int main() {
       2
     }
   };
-  GRAPPLE_REQUIRE(project::commandKind(connectNodes.payload) == project::CommandKind::ConnectNodes);
+  GRAPPLE_REQUIRE(project::commandKind(connectPorts.payload) == project::CommandKind::ConnectPorts);
   GRAPPLE_REQUIRE(
-    project::serializeCanonicalCommandPayload(connectNodes.payload) ==
-    "{\"edgeId\":\"edge_connect_nodes\",\"sourceNodeId\":\"node_connection_composition\",\"sourcePort\":\"output\",\"targetNodeId\":\"node_connection_track\",\"targetPort\":\"input\",\"order\":2}"
+    project::serializeCanonicalCommandPayload(connectPorts.payload) ==
+    "{\"edgeId\":\"edge_connect_ports\",\"sourceNodeId\":\"node_connection_composition\",\"sourcePort\":\"output\",\"targetNodeId\":\"node_connection_track\",\"targetPort\":\"input\",\"order\":2}"
   );
-  const auto connectNodesResult = connectionProject.apply(connectNodes);
-  GRAPPLE_REQUIRE(connectNodesResult);
-  GRAPPLE_REQUIRE(connectNodesResult.value().afterRevision == foundation::RevisionId{"rev_3"});
+  const auto connectPortsResult = connectionProject.apply(connectPorts);
+  GRAPPLE_REQUIRE(connectPortsResult);
+  GRAPPLE_REQUIRE(connectPortsResult.value().afterRevision == foundation::RevisionId{"rev_3"});
   const auto connectionSnapshot = connectionProject.snapshot();
   GRAPPLE_REQUIRE(connectionSnapshot);
   GRAPPLE_REQUIRE(connectionSnapshot.value().graph.edges().size() == 2);
-  const project::ProjectCommandEnvelope disconnectNodes{
-    foundation::CommandId{"cmd_disconnect_nodes"},
+  const project::ProjectCommandEnvelope disconnectPorts{
+    foundation::CommandId{"cmd_disconnect_ports"},
     foundation::ProjectId{"proj_connection"},
     connectionSnapshot.value().revision,
     project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
-    project::DisconnectNodesCommand{foundation::EdgeId{"edge_connect_nodes"}}
+    project::DisconnectPortsCommand{foundation::EdgeId{"edge_connect_ports"}}
   };
-  GRAPPLE_REQUIRE(project::commandKind(disconnectNodes.payload) == project::CommandKind::DisconnectNodes);
-  GRAPPLE_REQUIRE(project::serializeCanonicalCommandPayload(disconnectNodes.payload) == "{\"edgeId\":\"edge_connect_nodes\"}");
-  const auto disconnectNodesResult = connectionProject.apply(disconnectNodes);
-  GRAPPLE_REQUIRE(disconnectNodesResult);
-  GRAPPLE_REQUIRE(disconnectNodesResult.value().afterRevision == foundation::RevisionId{"rev_4"});
+  GRAPPLE_REQUIRE(project::commandKind(disconnectPorts.payload) == project::CommandKind::DisconnectPorts);
+  GRAPPLE_REQUIRE(project::serializeCanonicalCommandPayload(disconnectPorts.payload) == "{\"edgeId\":\"edge_connect_ports\"}");
+  const auto disconnectPortsResult = connectionProject.apply(disconnectPorts);
+  GRAPPLE_REQUIRE(disconnectPortsResult);
+  GRAPPLE_REQUIRE(disconnectPortsResult.value().afterRevision == foundation::RevisionId{"rev_4"});
   const auto afterDisconnect = connectionProject.snapshot();
   GRAPPLE_REQUIRE(afterDisconnect);
   GRAPPLE_REQUIRE(afterDisconnect.value().graph.edges().size() == 1);
@@ -279,7 +279,7 @@ int main() {
     foundation::ProjectId{"proj_connection"},
     afterDisconnect.value().revision,
     project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
-    project::DisconnectNodesCommand{foundation::EdgeId{"edge_connect_nodes"}}
+    project::DisconnectPortsCommand{foundation::EdgeId{"edge_connect_ports"}}
   });
   GRAPPLE_REQUIRE(!disconnectMissing);
   GRAPPLE_REQUIRE(disconnectMissing.error().code == "graph.edge_missing");

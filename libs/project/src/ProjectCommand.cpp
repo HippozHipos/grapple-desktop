@@ -32,10 +32,10 @@ CommandKind commandKind(const ProjectCommand& command) {
         return CommandKind::CreateEffect;
       } else if constexpr (std::is_same_v<Command, DeleteEffectCommand>) {
         return CommandKind::DeleteEffect;
-      } else if constexpr (std::is_same_v<Command, ConnectNodesCommand>) {
-        return CommandKind::ConnectNodes;
-      } else if constexpr (std::is_same_v<Command, DisconnectNodesCommand>) {
-        return CommandKind::DisconnectNodes;
+      } else if constexpr (std::is_same_v<Command, ConnectPortsCommand>) {
+        return CommandKind::ConnectPorts;
+      } else if constexpr (std::is_same_v<Command, DisconnectPortsCommand>) {
+        return CommandKind::DisconnectPorts;
       } else if constexpr (std::is_same_v<Command, UpdateEffectParamsCommand>) {
         return CommandKind::UpdateEffectParams;
       } else if constexpr (std::is_same_v<Command, CreateNoteCommand>) {

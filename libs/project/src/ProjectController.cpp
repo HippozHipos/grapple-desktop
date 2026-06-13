@@ -138,10 +138,10 @@ foundation::Result<void> ProjectController::applyPayload(const ProjectCommand& p
         return handleCreateEffect(typedCommand);
       } else if constexpr (std::is_same_v<Command, DeleteEffectCommand>) {
         return handleDeleteEffect(typedCommand);
-      } else if constexpr (std::is_same_v<Command, ConnectNodesCommand>) {
-        return handleConnectNodes(typedCommand);
-      } else if constexpr (std::is_same_v<Command, DisconnectNodesCommand>) {
-        return handleDisconnectNodes(typedCommand);
+      } else if constexpr (std::is_same_v<Command, ConnectPortsCommand>) {
+        return handleConnectPorts(typedCommand);
+      } else if constexpr (std::is_same_v<Command, DisconnectPortsCommand>) {
+        return handleDisconnectPorts(typedCommand);
       } else if constexpr (std::is_same_v<Command, UpdateEffectParamsCommand>) {
         return handleUpdateEffectParams(typedCommand);
       } else if constexpr (std::is_same_v<Command, CreateNoteCommand>) {
@@ -385,7 +385,7 @@ foundation::Result<void> ProjectController::handleDeleteEffect(const DeleteEffec
   return document_.graph.removeNode(command.nodeId);
 }
 
-foundation::Result<void> ProjectController::handleConnectNodes(const ConnectNodesCommand& command) {
+foundation::Result<void> ProjectController::handleConnectPorts(const ConnectPortsCommand& command) {
   return document_.graph.addEdge(graph::GraphEdge{
     command.edgeId,
     graph::EdgeKind::Connects,
@@ -398,7 +398,7 @@ foundation::Result<void> ProjectController::handleConnectNodes(const ConnectNode
   });
 }
 
-foundation::Result<void> ProjectController::handleDisconnectNodes(const DisconnectNodesCommand& command) {
+foundation::Result<void> ProjectController::handleDisconnectPorts(const DisconnectPortsCommand& command) {
   return document_.graph.removeEdge(command.edgeId);
 }
 

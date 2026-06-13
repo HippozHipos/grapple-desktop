@@ -30,10 +30,10 @@ std::string_view serializedCommandName(CommandKind kind) {
       return "project.create_effect";
     case CommandKind::DeleteEffect:
       return "project.delete_effect";
-    case CommandKind::ConnectNodes:
-      return "project.connect_nodes";
-    case CommandKind::DisconnectNodes:
-      return "project.disconnect_nodes";
+    case CommandKind::ConnectPorts:
+      return "project.connect_ports";
+    case CommandKind::DisconnectPorts:
+      return "project.disconnect_ports";
     case CommandKind::UpdateEffectParams:
       return "project.update_effect_params";
     case CommandKind::CreateNote:

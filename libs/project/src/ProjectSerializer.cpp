@@ -141,7 +141,7 @@ std::string serializeCanonicalCommandPayload(const ProjectCommand& command) {
         stream << ",\"order\":" << typedCommand.order;
       } else if constexpr (std::is_same_v<Command, DeleteEffectCommand>) {
         writeIdProperty(stream, "nodeId", typedCommand.nodeId.value());
-      } else if constexpr (std::is_same_v<Command, ConnectNodesCommand>) {
+      } else if constexpr (std::is_same_v<Command, ConnectPortsCommand>) {
         writeIdProperty(stream, "edgeId", typedCommand.edgeId.value());
         stream << ',';
         writeIdProperty(stream, "sourceNodeId", typedCommand.sourceNodeId.value());
@@ -152,7 +152,7 @@ std::string serializeCanonicalCommandPayload(const ProjectCommand& command) {
         stream << ',';
         foundation::writeJsonStringProperty(stream, "targetPort", typedCommand.targetPort.value);
         stream << ",\"order\":" << typedCommand.order;
-      } else if constexpr (std::is_same_v<Command, DisconnectNodesCommand>) {
+      } else if constexpr (std::is_same_v<Command, DisconnectPortsCommand>) {
         writeIdProperty(stream, "edgeId", typedCommand.edgeId.value());
       } else if constexpr (std::is_same_v<Command, UpdateEffectParamsCommand>) {
         writeIdProperty(stream, "effectNodeId", typedCommand.effectNodeId.value());
