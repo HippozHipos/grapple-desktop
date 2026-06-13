@@ -18,12 +18,20 @@ struct RuntimeAssetDependency {
   friend bool operator==(const RuntimeAssetDependency&, const RuntimeAssetDependency&) = default;
 };
 
+struct RuntimeModelDependency {
+  foundation::ModelId modelId;
+  foundation::Hash256 versionHash;
+
+  friend bool operator==(const RuntimeModelDependency&, const RuntimeModelDependency&) = default;
+};
+
 struct RuntimeDependencyNode {
   RuntimeDependencyId id;
   foundation::NodeId renderNodeId;
   foundation::Hash256 implementationHash;
   foundation::Hash256 paramsHash;
   std::vector<RuntimeAssetDependency> assetDependencies;
+  std::vector<RuntimeModelDependency> modelDependencies;
   std::vector<RuntimeDependencyId> inputDependencies;
   foundation::TimeRange activeRange;
 };

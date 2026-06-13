@@ -39,6 +39,10 @@ void appendNodeFingerprint(
   for (const RuntimeAssetDependency& asset : node.assetDependencies) {
     stream << asset.assetId.value() << ':' << asset.versionHash.toHex() << ';';
   }
+  stream << "]|models[";
+  for (const RuntimeModelDependency& model : node.modelDependencies) {
+    stream << model.modelId.value() << ':' << model.versionHash.toHex() << ';';
+  }
   stream << "]|inputs[";
   for (RuntimeDependencyId inputDependency : node.inputDependencies) {
     const RuntimeDependencyNode* inputNode = findNode(graph, inputDependency);
@@ -58,6 +62,7 @@ bool operator==(const RuntimeCacheKey& left, const RuntimeCacheKey& right) {
          left.paramsHash == right.paramsHash &&
          left.inputsHash == right.inputsHash &&
          left.assetDependencies == right.assetDependencies &&
+         left.modelDependencies == right.modelDependencies &&
          left.range == right.range &&
          left.runtimeVersion == right.runtimeVersion;
 }
@@ -88,6 +93,7 @@ RuntimeCacheKey runtimeCacheKeyForDependency(
     node.paramsHash,
     hashRuntimeCacheInputs(graph, node),
     node.assetDependencies,
+    node.modelDependencies,
     node.activeRange,
     std::string{runtimeVersion}
   };

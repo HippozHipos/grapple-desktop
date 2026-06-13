@@ -357,6 +357,30 @@ grapple::projection::RenderPlan makeEffectChainPlanWithAssetVersion(std::string 
   return plan;
 }
 
+grapple::projection::RenderPlan makeEffectChainPlanWithModelVersion(std::string modelVersion) {
+  grapple::projection::RenderPlan plan = makeEffectChainPlan(0.1);
+  plan.effectGraphs[0].nodes[0].payload.modelDependencies.push_back(grapple::timeline::EffectModelDependency{
+    grapple::foundation::ModelId{"model_segmenter"},
+    grapple::foundation::stableHash(modelVersion)
+  });
+  return plan;
+}
+
+grapple::projection::RenderPlan makeEffectChainPlanWithUnsortedModels() {
+  grapple::projection::RenderPlan plan = makeEffectChainPlan(0.1);
+  plan.effectGraphs[0].nodes[0].payload.modelDependencies = {
+    grapple::timeline::EffectModelDependency{
+      grapple::foundation::ModelId{"model_z"},
+      grapple::foundation::stableHash("model_z_v1")
+    },
+    grapple::timeline::EffectModelDependency{
+      grapple::foundation::ModelId{"model_a"},
+      grapple::foundation::stableHash("model_a_v1")
+    }
+  };
+  return plan;
+}
+
 grapple::projection::RenderPlan makeOutOfOrderEffectChainPlan(double effectAParam) {
   grapple::projection::RenderPlan plan = makeClipPlan(1.0);
   plan.effectGraphs.push_back(grapple::projection::RenderEffectGraph{
@@ -485,6 +509,7 @@ int main() {
   GRAPPLE_REQUIRE(clipCacheKey.nodeId == foundation::NodeId{"node_clip"});
   GRAPPLE_REQUIRE(clipCacheKey.assetDependencies.size() == 1);
   GRAPPLE_REQUIRE(clipCacheKey.assetDependencies[0].assetId == foundation::AssetId{"asset_video"});
+  GRAPPLE_REQUIRE(clipCacheKey.modelDependencies.empty());
   GRAPPLE_REQUIRE(!(firstClip.planHash == renamedLayerClip.planHash));
   GRAPPLE_REQUIRE(runtime::runtimeCacheKeyForDependency(firstClip, firstClip.nodes[0], "runtime_v1") ==
                   runtime::runtimeCacheKeyForDependency(renamedLayerClip, renamedLayerClip.nodes[0], "runtime_v1"));
@@ -552,6 +577,31 @@ int main() {
   GRAPPLE_REQUIRE(downstreamAssetVersionInvalidation.invalidatedDependencies[1] == runtime::RuntimeDependencyId{"dep_node_effect_a"});
   GRAPPLE_REQUIRE(downstreamAssetVersionInvalidation.invalidatedDependencies[2] == runtime::RuntimeDependencyId{"dep_node_effect_b"});
   GRAPPLE_REQUIRE(downstreamAssetVersionInvalidation.invalidatedDependencies[3] == runtime::RuntimeDependencyId{"dep_node_effect_c"});
+  const runtime::RuntimeDependencyGraph modelEffectChain = planner.build(makeEffectChainPlanWithModelVersion("segmenter_v1"));
+  const runtime::RuntimeCacheKey modelEffectCacheKey = runtime::runtimeCacheKeyForDependency(
+    modelEffectChain,
+    modelEffectChain.nodes[1],
+    "runtime_v1"
+  );
+  GRAPPLE_REQUIRE(modelEffectChain.nodes[1].modelDependencies.size() == 1);
+  GRAPPLE_REQUIRE(modelEffectChain.nodes[1].modelDependencies[0].modelId == foundation::ModelId{"model_segmenter"});
+  GRAPPLE_REQUIRE(modelEffectCacheKey.modelDependencies.size() == 1);
+  GRAPPLE_REQUIRE(modelEffectCacheKey.modelDependencies[0].versionHash == foundation::stableHash("segmenter_v1"));
+  const runtime::RuntimeDependencyGraph unsortedModelEffectChain = planner.build(makeEffectChainPlanWithUnsortedModels());
+  GRAPPLE_REQUIRE(unsortedModelEffectChain.nodes[1].modelDependencies.size() == 2);
+  GRAPPLE_REQUIRE(unsortedModelEffectChain.nodes[1].modelDependencies[0].modelId == foundation::ModelId{"model_a"});
+  GRAPPLE_REQUIRE(unsortedModelEffectChain.nodes[1].modelDependencies[1].modelId == foundation::ModelId{"model_z"});
+  const runtime::RuntimeInvalidationResult modelVersionInvalidation = planner.diff(runtime::RuntimeInvalidationRequest{
+    modelEffectChain,
+    makeEffectChainPlanWithModelVersion("segmenter_v2"),
+    "runtime_v1"
+  });
+  GRAPPLE_REQUIRE(modelVersionInvalidation.invalidatedDependencies.size() == 2);
+  GRAPPLE_REQUIRE(modelVersionInvalidation.invalidatedDependencies[0] == runtime::RuntimeDependencyId{"dep_node_effect_a"});
+  GRAPPLE_REQUIRE(modelVersionInvalidation.invalidatedDependencies[1] == runtime::RuntimeDependencyId{"dep_node_effect_b"});
+  GRAPPLE_REQUIRE(modelVersionInvalidation.invalidatedCacheKeys.size() == 2);
+  GRAPPLE_REQUIRE(modelVersionInvalidation.invalidatedCacheKeys[0].modelDependencies[0].versionHash ==
+                  foundation::stableHash("segmenter_v1"));
   const runtime::RuntimeInvalidationResult removedDependencyInvalidation = planner.diff(runtime::RuntimeInvalidationRequest{
     firstClip,
     makePlan("Video"),
@@ -723,6 +773,7 @@ int main() {
         foundation::stableHash("asset_v1")
       }
     },
+    {},
     foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}},
     "runtime_v1"
   };
@@ -732,6 +783,7 @@ int main() {
     foundation::stableHash("implementation"),
     foundation::stableHash("params"),
     foundation::stableHash("inputs"),
+    {},
     {},
     foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}},
     "runtime_v1"
@@ -764,6 +816,7 @@ int main() {
     foundation::stableHash("implementation"),
     foundation::stableHash("params"),
     foundation::stableHash("inputs"),
+    {},
     {},
     foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}},
     "runtime_v1"

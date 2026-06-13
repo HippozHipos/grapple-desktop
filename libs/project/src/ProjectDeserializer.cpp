@@ -541,6 +541,37 @@ foundation::Result<timeline::EffectPortSet> parsePortSet(const Json::Value& obje
   return ports;
 }
 
+foundation::Result<std::vector<timeline::EffectModelDependency>> parseModelDependencies(
+  const Json::Value& array,
+  const std::string& path
+) {
+  if (!array.isArray()) {
+    return parseError(path, "Expected model dependency array.");
+  }
+
+  std::vector<timeline::EffectModelDependency> modelDependencies;
+  for (Json::ArrayIndex index = 0; index < array.size(); ++index) {
+    const std::string itemPath = path + "[" + std::to_string(index) + "]";
+    auto modelId = requiredStringMember(array[index], "modelId", itemPath);
+    if (!modelId) {
+      return modelId.error();
+    }
+    auto versionHashHex = requiredStringMember(array[index], "versionHash", itemPath);
+    if (!versionHashHex) {
+      return versionHashHex.error();
+    }
+    auto versionHash = parseHash(versionHashHex.value(), itemPath + ".versionHash");
+    if (!versionHash) {
+      return versionHash.error();
+    }
+    modelDependencies.push_back(timeline::EffectModelDependency{
+      foundation::ModelId{modelId.value()},
+      versionHash.value()
+    });
+  }
+  return modelDependencies;
+}
+
 foundation::Result<asset::Asset> parseAsset(const Json::Value& object, const std::string& path) {
   auto id = requiredStringMember(object, "id", path);
   if (!id) {
@@ -749,6 +780,14 @@ foundation::Result<timeline::EffectPayload> parseEffectPayload(const Json::Value
   if (!activeRange) {
     return activeRange.error();
   }
+  auto modelDependenciesArray = requiredArrayMember(object, "modelDependencies", path);
+  if (!modelDependenciesArray) {
+    return modelDependenciesArray.error();
+  }
+  auto modelDependencies = parseModelDependencies(modelDependenciesArray.value(), path + ".modelDependencies");
+  if (!modelDependencies) {
+    return modelDependencies.error();
+  }
   return timeline::EffectPayload{
     displayName.value(),
     timeline::EffectImplementation{
@@ -764,7 +803,8 @@ foundation::Result<timeline::EffectPayload> parseEffectPayload(const Json::Value
     },
     ports.value(),
     params.value(),
-    activeRange.value()
+    activeRange.value(),
+    modelDependencies.value()
   };
 }
 

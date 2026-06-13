@@ -4,6 +4,7 @@
 #include <grapple/projection/RenderPlanSerializer.hpp>
 #include <grapple/runtime/RuntimeCache.hpp>
 
+#include <algorithm>
 #include <optional>
 #include <utility>
 
@@ -78,6 +79,27 @@ std::vector<RuntimeAssetDependency> assetDependenciesForEffect(
   return dependencies;
 }
 
+std::vector<RuntimeModelDependency> modelDependenciesForEffect(
+  const projection::RenderEffectNode& effectNode
+) {
+  std::vector<RuntimeModelDependency> dependencies;
+  dependencies.reserve(effectNode.payload.modelDependencies.size());
+  for (const timeline::EffectModelDependency& modelDependency : effectNode.payload.modelDependencies) {
+    dependencies.push_back(RuntimeModelDependency{
+      modelDependency.modelId,
+      modelDependency.versionHash
+    });
+  }
+  std::sort(
+    dependencies.begin(),
+    dependencies.end(),
+    [](const RuntimeModelDependency& left, const RuntimeModelDependency& right) {
+      return left.modelId < right.modelId;
+    }
+  );
+  return dependencies;
+}
+
 RuntimeDependencyNode* findDependencyNode(
   std::vector<RuntimeDependencyNode>& nodes,
   RuntimeDependencyId dependencyId
@@ -134,6 +156,7 @@ bool dependencyNodeChanged(
          !(previous.implementationHash == next.implementationHash) ||
          !(previous.paramsHash == next.paramsHash) ||
          previous.assetDependencies != next.assetDependencies ||
+         previous.modelDependencies != next.modelDependencies ||
          previous.inputDependencies != next.inputDependencies ||
          previous.activeRange != next.activeRange;
 }
@@ -158,6 +181,7 @@ RuntimeDependencyGraph RuntimeDependencyPlanner::build(const projection::RenderP
       projection::hashRenderClipParams(clip),
       assetDependenciesForClip(plan, clip),
       {},
+      {},
       clip.payload.timelineRange
     });
     dependencies.push_back(RenderNodeDependency{clip.sourceNodeId, dependencyId});
@@ -170,6 +194,7 @@ RuntimeDependencyGraph RuntimeDependencyPlanner::build(const projection::RenderP
       camera.sourceNodeId,
       projection::hashRenderCameraImplementation(),
       projection::hashRenderCameraParams(camera),
+      {},
       {},
       {},
       foundation::TimeRange{foundation::TimeSeconds{0.0}, plan.duration}
@@ -186,6 +211,7 @@ RuntimeDependencyGraph RuntimeDependencyPlanner::build(const projection::RenderP
         projection::hashRenderEffectImplementation(effectNode),
         projection::hashRenderEffectParams(effectNode),
         assetDependenciesForEffect(plan, effectNode),
+        modelDependenciesForEffect(effectNode),
         {},
         effectNode.payload.activeRange
       });

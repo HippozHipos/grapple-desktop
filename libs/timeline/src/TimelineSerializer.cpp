@@ -101,6 +101,26 @@ void writeEffectParamsBody(std::ostringstream& stream, const EffectPayload& payl
   }
   stream << "]},\"params\":" << serializeCanonicalParamSet(payload.params);
   stream << ",\"activeRange\":" << serializeCanonicalTimeRange(payload.activeRange);
+  std::vector<EffectModelDependency> modelDependencies = payload.modelDependencies;
+  std::sort(
+    modelDependencies.begin(),
+    modelDependencies.end(),
+    [](const EffectModelDependency& left, const EffectModelDependency& right) {
+      return left.modelId < right.modelId;
+    }
+  );
+  stream << ",\"modelDependencies\":[";
+  for (std::size_t index = 0; index < modelDependencies.size(); ++index) {
+    if (index != 0) {
+      stream << ',';
+    }
+    stream << '{';
+    foundation::writeJsonStringProperty(stream, "modelId", modelDependencies[index].modelId.value());
+    stream << ',';
+    foundation::writeJsonStringProperty(stream, "versionHash", modelDependencies[index].versionHash.toHex());
+    stream << '}';
+  }
+  stream << ']';
 }
 
 } // namespace

@@ -20,6 +20,7 @@ struct RuntimeCacheKey {
   foundation::Hash256 paramsHash;
   foundation::Hash256 inputsHash;
   std::vector<RuntimeAssetDependency> assetDependencies;
+  std::vector<RuntimeModelDependency> modelDependencies;
   foundation::TimeRange range;
   std::string runtimeVersion;
 };

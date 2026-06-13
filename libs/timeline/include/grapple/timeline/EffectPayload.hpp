@@ -32,6 +32,13 @@ struct EffectSource {
   friend bool operator==(const EffectSource&, const EffectSource&) = default;
 };
 
+struct EffectModelDependency {
+  foundation::ModelId modelId;
+  foundation::Hash256 versionHash;
+
+  friend bool operator==(const EffectModelDependency&, const EffectModelDependency&) = default;
+};
+
 struct EffectImplementation {
   EffectImplementationKind kind = EffectImplementationKind::Builtin;
   std::string entrypoint;
@@ -89,6 +96,7 @@ struct EffectPayload {
   EffectPortSet ports;
   ParamSet params;
   foundation::TimeRange activeRange;
+  std::vector<EffectModelDependency> modelDependencies;
 
   friend bool operator==(const EffectPayload&, const EffectPayload&) = default;
 };
