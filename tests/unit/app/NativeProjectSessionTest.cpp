@@ -320,6 +320,19 @@ int main() {
   auto cacheWorkspace = app::NativeWorkspaceSession::fromProject(std::move(cacheProject));
   GRAPPLE_REQUIRE(cacheWorkspace);
   GRAPPLE_REQUIRE(cacheWorkspace.value().cachedMediaFrameCount() == 0);
+  const auto exportOnlyPrepare = cacheWorkspace.value().exportSession().prepareFromProject();
+  GRAPPLE_REQUIRE(exportOnlyPrepare);
+  const auto exportOnlyResult = cacheWorkspace.value().exportSession().render(render::ExportSettings{
+    foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}},
+    foundation::FrameRate{1, 1},
+    foundation::Resolution{2, 1},
+    render::Codec{"test"},
+    render::RenderQuality::Final,
+    foundation::FilePath{"/tmp/cache-export.mov"}
+  });
+  GRAPPLE_REQUIRE(exportOnlyResult);
+  GRAPPLE_REQUIRE(exportOnlyResult.value().framesEvaluated == 1);
+  GRAPPLE_REQUIRE(cacheWorkspace.value().cachedMediaFrameCount() == 1);
   const auto cacheRefresh = cacheWorkspace.value().preview().refreshFromProject();
   GRAPPLE_REQUIRE(cacheRefresh);
   const auto firstCachedFrame = cacheWorkspace.value().preview().renderFrame(render::RenderFrameRequest{
@@ -328,13 +341,13 @@ int main() {
   });
   GRAPPLE_REQUIRE(firstCachedFrame);
   GRAPPLE_REQUIRE(firstCachedFrame.value().frame.image.has_value());
-  GRAPPLE_REQUIRE(cacheWorkspace.value().cachedMediaFrameCount() == 1);
+  GRAPPLE_REQUIRE(cacheWorkspace.value().cachedMediaFrameCount() == 2);
   const auto secondCachedFrame = cacheWorkspace.value().preview().renderFrame(render::RenderFrameRequest{
     foundation::TimeSeconds{0.0},
     render::RenderQuality::Draft
   });
   GRAPPLE_REQUIRE(secondCachedFrame);
-  GRAPPLE_REQUIRE(cacheWorkspace.value().cachedMediaFrameCount() == 1);
+  GRAPPLE_REQUIRE(cacheWorkspace.value().cachedMediaFrameCount() == 2);
   std::filesystem::remove(cacheImagePath);
 
   app::NativeProjectSession effectSession{

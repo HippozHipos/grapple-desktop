@@ -84,7 +84,7 @@ struct NativeWorkspaceSession::State {
       cachedMediaReader{mediaReader, frameCache},
       frameSource{cachedMediaReader},
       preview{project, frameSource, {&builtinEffectRuntime}},
-      exportSession{project, {&builtinEffectRuntime}} {}
+      exportSession{project, frameSource, {&builtinEffectRuntime}} {}
 
   NativeProjectSession project;
   NativeProjectCommandWriter commandWriter;

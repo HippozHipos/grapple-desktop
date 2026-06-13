@@ -15,6 +15,15 @@ NativeExportSession::NativeExportSession(
     core_{runtime_},
     final_{core_} {}
 
+NativeExportSession::NativeExportSession(
+  NativeProjectSession& project,
+  render::IRenderFrameSource& frameSource,
+  std::vector<runtime::IEffectRuntime*> effectRuntimes
+) : project_{project},
+    runtime_{std::move(effectRuntimes)},
+    core_{runtime_, frameSource},
+    final_{core_} {}
+
 foundation::Result<NativeExportPrepareResult> NativeExportSession::prepareFromProject() {
   auto planResult = project_.buildRenderPlan();
   if (!planResult) {

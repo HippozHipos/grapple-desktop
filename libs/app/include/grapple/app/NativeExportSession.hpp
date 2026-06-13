@@ -21,6 +21,11 @@ class NativeExportSession {
 public:
   explicit NativeExportSession(NativeProjectSession& project);
   NativeExportSession(NativeProjectSession& project, std::vector<runtime::IEffectRuntime*> effectRuntimes);
+  NativeExportSession(
+    NativeProjectSession& project,
+    render::IRenderFrameSource& frameSource,
+    std::vector<runtime::IEffectRuntime*> effectRuntimes
+  );
 
   foundation::Result<NativeExportPrepareResult> prepareFromProject();
   foundation::Result<render::FinalRenderResult> render(render::ExportSettings settings);
