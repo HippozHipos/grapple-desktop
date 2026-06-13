@@ -32,6 +32,13 @@ if grep -RInE '(Preview|Final)(GraphInterpreter|PlanInterpreter|RuntimeEvaluator
   exit 1
 fi
 
+if grep -RInE 'runtime::RuntimeEvaluator|render::LocalRenderCore core_' \
+  "$root/libs/app/include/grapple/app/NativePreviewSession.hpp" \
+  "$root/libs/app/include/grapple/app/NativeExportSession.hpp" 2>/dev/null; then
+  echo "Architecture guard failed: app preview/export sessions must use the workspace-owned render core." >&2
+  exit 1
+fi
+
 check_no_matches \
   "project must not depend on downstream or infrastructure modules." \
   '#include <grapple/(projection|runtime|render|model|agent|storage|media|jobs)/' \
