@@ -21,6 +21,7 @@
 #include <QGridLayout>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QListView>
 #include <QListWidget>
 #include <QListWidgetItem>
 #include <QMainWindow>
@@ -295,6 +296,11 @@ public:
     mediaBin_ = new QListWidget;
     mediaBin_->setObjectName("mediaBin");
     mediaBin_->setSelectionMode(QAbstractItemView::SingleSelection);
+    mediaBin_->setFlow(QListView::LeftToRight);
+    mediaBin_->setWrapping(false);
+    mediaBin_->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    mediaBin_->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    mediaBin_->setMaximumHeight(82);
 
     previewFrame_ = new QFrame;
     previewFrame_->setObjectName("previewFrame");
@@ -395,6 +401,10 @@ public:
     actionRow->addWidget(seekStartButton);
     actionRow->addWidget(stepBackButton);
     actionRow->addWidget(stepForwardButton);
+    actionRow->addWidget(importVideoButton);
+    actionRow->addWidget(addMediaButton);
+    actionRow->addWidget(openPackageButton);
+    actionRow->addWidget(addTrackButton);
     actionRow->addWidget(moveClipButton);
     actionRow->addWidget(deleteClipButton);
     actionRow->addWidget(undoButton);
@@ -402,21 +412,15 @@ public:
     actionRow->addWidget(exportButton);
     actionRow->addWidget(saveButton);
 
-    auto* leftPanel = new QWidget;
-    leftPanel->setObjectName("assetPanel");
-    leftPanel->setMinimumWidth(240);
-    auto* leftLayout = new QVBoxLayout{leftPanel};
-    leftLayout->setContentsMargins(0, 0, 0, 0);
-    leftLayout->setSpacing(12);
+    auto* assetStrip = new QWidget;
+    assetStrip->setObjectName("assetStrip");
+    auto* assetStripLayout = new QHBoxLayout{assetStrip};
+    assetStripLayout->setContentsMargins(10, 8, 10, 8);
+    assetStripLayout->setSpacing(10);
     auto* assetTitle = new QLabel{"Assets"};
     assetTitle->setObjectName("panelTitle");
-    leftLayout->addWidget(assetTitle);
-    leftLayout->addWidget(mediaBin_, 1);
-    leftLayout->addWidget(importVideoButton);
-    leftLayout->addWidget(addMediaButton);
-    leftLayout->addWidget(openPackageButton);
-    leftLayout->addWidget(addTrackButton);
-    leftLayout->addWidget(summary_);
+    assetStripLayout->addWidget(assetTitle);
+    assetStripLayout->addWidget(mediaBin_, 1);
 
     auto* sidePanel = new QWidget;
     sidePanel->setObjectName("sidePanel");
@@ -426,19 +430,20 @@ public:
     sideLayout->addWidget(steward_, 2);
     sideLayout->addWidget(inspector_, 1);
     sideLayout->addWidget(effectParams_);
+    sideLayout->addWidget(summary_);
     sideLayout->addWidget(log_, 1);
 
-    layout->addWidget(actions, 0, 0, 1, 3);
-    layout->addWidget(leftPanel, 1, 0, 1, 1);
-    layout->addWidget(studioPanel, 1, 1, 1, 1);
-    layout->addWidget(sidePanel, 1, 2, 1, 1);
-    layout->addWidget(timeline_, 2, 0, 1, 3);
-    layout->setColumnStretch(0, 2);
-    layout->setColumnStretch(1, 5);
-    layout->setColumnStretch(2, 2);
+    layout->addWidget(actions, 0, 0, 1, 2);
+    layout->addWidget(studioPanel, 1, 0, 1, 1);
+    layout->addWidget(sidePanel, 1, 1, 1, 1);
+    layout->addWidget(assetStrip, 2, 0, 1, 2);
+    layout->addWidget(timeline_, 3, 0, 1, 2);
+    layout->setColumnStretch(0, 5);
+    layout->setColumnStretch(1, 2);
     layout->setRowStretch(0, 0);
     layout->setRowStretch(1, 5);
-    layout->setRowStretch(2, 2);
+    layout->setRowStretch(2, 0);
+    layout->setRowStretch(3, 2);
     setCentralWidget(root);
 
     connect(refreshButton, &QPushButton::clicked, this, [this] { refreshPreview(); });
@@ -465,10 +470,10 @@ public:
     setStyleSheet(R"(
       QMainWindow { background: #15171c; color: #e9edf5; }
       QWidget { background: #15171c; color: #e9edf5; font-family: "DejaVu Sans"; font-size: 14px; }
-      QLabel#summary, QListWidget#mediaBin, QTextEdit#timeline, QTextEdit#inspector, QWidget#effectParams, QTextEdit#log, QWidget#actions {
+      QLabel#summary, QListWidget#mediaBin, QTextEdit#timeline, QTextEdit#inspector, QWidget#effectParams, QTextEdit#log, QWidget#actions, QWidget#assetStrip {
         background: #20242d; border: 1px solid #343b4a; border-radius: 10px; padding: 12px;
       }
-      QWidget#assetPanel, QWidget#sidePanel { background: transparent; }
+      QWidget#sidePanel { background: transparent; }
       QWidget#stewardPanel, QTextEdit#stewardText {
         background: #20242d; border: 1px solid #343b4a; border-radius: 10px; color: #eaf3ff;
       }
