@@ -4,6 +4,7 @@
 #include <grapple/foundation/Result.hpp>
 #include <grapple/foundation/StrongId.hpp>
 #include <grapple/storage/ProjectPackageSession.hpp>
+#include <grapple/timeline/EffectPayload.hpp>
 
 #include <string>
 
@@ -17,6 +18,18 @@ public:
     foundation::NodeId effectNodeId,
     std::string paramName,
     double value,
+    project::CommandSource source
+  );
+  foundation::Result<storage::ProjectPackageSessionResult> upsertParamKeyframe(
+    foundation::NodeId effectNodeId,
+    std::string paramName,
+    timeline::Param::Keyframe keyframe,
+    project::CommandSource source
+  );
+  foundation::Result<storage::ProjectPackageSessionResult> deleteParamKeyframe(
+    foundation::NodeId effectNodeId,
+    std::string paramName,
+    foundation::KeyframeId keyframeId,
     project::CommandSource source
   );
   foundation::Result<storage::ProjectPackageSessionResult> deleteEffect(

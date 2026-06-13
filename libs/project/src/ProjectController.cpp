@@ -5,6 +5,7 @@
 #include <grapple/timeline/EffectPayload.hpp>
 #include <grapple/timeline/Payloads.hpp>
 
+#include <algorithm>
 #include <string>
 #include <variant>
 
@@ -14,6 +15,10 @@ namespace {
 
 foundation::RevisionId makeRevisionId(std::int64_t revisionNumber) {
   return foundation::RevisionId{"rev_" + std::to_string(revisionNumber)};
+}
+
+bool sameParamValueType(const timeline::ParamValue& left, const timeline::ParamValue& right) {
+  return left.index() == right.index();
 }
 
 } // namespace
@@ -144,6 +149,10 @@ foundation::Result<void> ProjectController::applyPayload(const ProjectCommand& p
         return handleDisconnectPorts(typedCommand);
       } else if constexpr (std::is_same_v<Command, UpdateEffectParamsCommand>) {
         return handleUpdateEffectParams(typedCommand);
+      } else if constexpr (std::is_same_v<Command, UpsertEffectParamKeyframeCommand>) {
+        return handleUpsertEffectParamKeyframe(typedCommand);
+      } else if constexpr (std::is_same_v<Command, DeleteEffectParamKeyframeCommand>) {
+        return handleDeleteEffectParamKeyframe(typedCommand);
       } else if constexpr (std::is_same_v<Command, CreateNoteCommand>) {
         return handleCreateNote(typedCommand);
       } else if constexpr (std::is_same_v<Command, UpdateNoteCommand>) {
@@ -431,6 +440,77 @@ foundation::Result<void> ProjectController::handleUpdateEffectParams(const Updat
 
   timeline::EffectPayload updated = *payload;
   updated.params = command.params;
+  return document_.graph.replaceNodePayload(command.effectNodeId, std::move(updated));
+}
+
+foundation::Result<void> ProjectController::handleUpsertEffectParamKeyframe(
+  const UpsertEffectParamKeyframeCommand& command
+) {
+  const graph::GraphNode* effect = document_.graph.findNode(command.effectNodeId);
+  if (effect == nullptr || effect->kind != graph::NodeKind::Effect) {
+    return foundation::Error{"project.effect_missing", "Effect keyframes can only be set on an existing effect node."};
+  }
+
+  const auto* payload = std::get_if<timeline::EffectPayload>(&effect->payload);
+  if (payload == nullptr) {
+    return foundation::Error{"project.effect_payload_invalid", "Effect node must carry an effect payload."};
+  }
+  if (command.keyframe.time.value < 0.0) {
+    return foundation::Error{"project.effect_keyframe_time_invalid", "Effect keyframe time cannot be negative."};
+  }
+
+  timeline::EffectPayload updated = *payload;
+  auto param = std::find_if(updated.params.values.begin(), updated.params.values.end(), [&](const timeline::Param& current) {
+    return current.name == command.paramName;
+  });
+  if (param == updated.params.values.end()) {
+    return foundation::Error{"project.effect_param_missing", "Effect keyframe command requires an existing effect parameter."};
+  }
+  if (!sameParamValueType(param->value, command.keyframe.value)) {
+    return foundation::Error{"project.effect_keyframe_value_type_mismatch", "Effect keyframe value must match the parameter value type."};
+  }
+
+  auto existingKeyframe = std::find_if(param->keyframes.begin(), param->keyframes.end(), [&](const timeline::Param::Keyframe& current) {
+    return current.id == command.keyframe.id;
+  });
+  if (existingKeyframe == param->keyframes.end()) {
+    param->keyframes.push_back(command.keyframe);
+  } else {
+    *existingKeyframe = command.keyframe;
+  }
+
+  return document_.graph.replaceNodePayload(command.effectNodeId, std::move(updated));
+}
+
+foundation::Result<void> ProjectController::handleDeleteEffectParamKeyframe(
+  const DeleteEffectParamKeyframeCommand& command
+) {
+  const graph::GraphNode* effect = document_.graph.findNode(command.effectNodeId);
+  if (effect == nullptr || effect->kind != graph::NodeKind::Effect) {
+    return foundation::Error{"project.effect_missing", "Effect keyframes can only be deleted on an existing effect node."};
+  }
+
+  const auto* payload = std::get_if<timeline::EffectPayload>(&effect->payload);
+  if (payload == nullptr) {
+    return foundation::Error{"project.effect_payload_invalid", "Effect node must carry an effect payload."};
+  }
+
+  timeline::EffectPayload updated = *payload;
+  auto param = std::find_if(updated.params.values.begin(), updated.params.values.end(), [&](const timeline::Param& current) {
+    return current.name == command.paramName;
+  });
+  if (param == updated.params.values.end()) {
+    return foundation::Error{"project.effect_param_missing", "Effect keyframe command requires an existing effect parameter."};
+  }
+
+  auto keyframe = std::find_if(param->keyframes.begin(), param->keyframes.end(), [&](const timeline::Param::Keyframe& current) {
+    return current.id == command.keyframeId;
+  });
+  if (keyframe == param->keyframes.end()) {
+    return foundation::Error{"project.effect_keyframe_missing", "Effect keyframe delete requires an existing keyframe."};
+  }
+  param->keyframes.erase(keyframe);
+
   return document_.graph.replaceNodePayload(command.effectNodeId, std::move(updated));
 }
 

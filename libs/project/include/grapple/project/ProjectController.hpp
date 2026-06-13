@@ -38,6 +38,8 @@ private:
   foundation::Result<void> handleConnectPorts(const ConnectPortsCommand& command);
   foundation::Result<void> handleDisconnectPorts(const DisconnectPortsCommand& command);
   foundation::Result<void> handleUpdateEffectParams(const UpdateEffectParamsCommand& command);
+  foundation::Result<void> handleUpsertEffectParamKeyframe(const UpsertEffectParamKeyframeCommand& command);
+  foundation::Result<void> handleDeleteEffectParamKeyframe(const DeleteEffectParamKeyframeCommand& command);
   foundation::Result<void> handleCreateNote(const CreateNoteCommand& command);
   foundation::Result<void> handleUpdateNote(const UpdateNoteCommand& command);
   foundation::Result<void> handleRestoreSnapshot(const RestoreSnapshotCommand& command);

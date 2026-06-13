@@ -69,6 +69,8 @@ int main() {
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::ConnectPorts) == "project.connect_ports");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::DisconnectPorts) == "project.disconnect_ports");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::UpdateEffectParams) == "project.update_effect_params");
+  GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::UpsertEffectParamKeyframe) == "project.upsert_effect_param_keyframe");
+  GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::DeleteEffectParamKeyframe) == "project.delete_effect_param_keyframe");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::CreateNote) == "project.create_note");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::UpdateNote) == "project.update_note");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::RestoreSnapshot) == "project.restore_snapshot");
@@ -94,6 +96,8 @@ int main() {
     project::serializedCommandName(project::CommandKind::ConnectPorts),
     project::serializedCommandName(project::CommandKind::DisconnectPorts),
     project::serializedCommandName(project::CommandKind::UpdateEffectParams),
+    project::serializedCommandName(project::CommandKind::UpsertEffectParamKeyframe),
+    project::serializedCommandName(project::CommandKind::DeleteEffectParamKeyframe),
     project::serializedCommandName(project::CommandKind::CreateNote),
     project::serializedCommandName(project::CommandKind::UpdateNote),
     project::serializedCommandName(project::CommandKind::RestoreSnapshot)
@@ -930,10 +934,134 @@ int main() {
   GRAPPLE_REQUIRE(roundTrippedEffect->params.values[0].keyframes[0].time == foundation::TimeSeconds{0.5});
   GRAPPLE_REQUIRE(std::get<double>(roundTrippedEffect->params.values[0].keyframes[0].value) == 0.75);
   GRAPPLE_REQUIRE(roundTrippedEffect->activeRange.end == foundation::TimeSeconds{1.0});
+
+  const project::ProjectCommandEnvelope upsertEffectKeyframe{
+    foundation::CommandId{"cmd_upsert_effect_keyframe"},
+    foundation::ProjectId{"proj_effect"},
+    afterTrackEffect.value().revision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::UpsertEffectParamKeyframeCommand{
+      foundation::NodeId{"node_track_effect"},
+      "smoothing",
+      timeline::Param::Keyframe{
+        foundation::KeyframeId{"key_smoothing_2"},
+        foundation::TimeSeconds{0.75},
+        0.5
+      }
+    }
+  };
+  GRAPPLE_REQUIRE(project::commandKind(upsertEffectKeyframe.payload) == project::CommandKind::UpsertEffectParamKeyframe);
+  GRAPPLE_REQUIRE(
+    project::serializeCanonicalCommandPayload(upsertEffectKeyframe.payload) ==
+    "{\"effectNodeId\":\"node_track_effect\",\"paramName\":\"smoothing\",\"keyframe\":{\"id\":\"key_smoothing_2\",\"time\":0.75,\"value\":0.5}}"
+  );
+  const auto parsedUpsertEffectKeyframe = project::deserializeCanonicalCommandPayload(
+    project::serializedCommandName(project::CommandKind::UpsertEffectParamKeyframe),
+    project::serializeCanonicalCommandPayload(upsertEffectKeyframe.payload)
+  );
+  GRAPPLE_REQUIRE(parsedUpsertEffectKeyframe);
+  GRAPPLE_REQUIRE(project::commandKind(parsedUpsertEffectKeyframe.value()) == project::CommandKind::UpsertEffectParamKeyframe);
+  GRAPPLE_REQUIRE(project::serializeCanonicalCommandPayload(parsedUpsertEffectKeyframe.value()) == project::serializeCanonicalCommandPayload(upsertEffectKeyframe.payload));
+  const auto upsertEffectKeyframeResult = effectProject.apply(upsertEffectKeyframe);
+  GRAPPLE_REQUIRE(upsertEffectKeyframeResult);
+  const auto afterKeyframeUpsert = effectProject.snapshot();
+  GRAPPLE_REQUIRE(afterKeyframeUpsert);
+  const graph::GraphNode* keyframedEffectNode = afterKeyframeUpsert.value().graph.findNode(foundation::NodeId{"node_track_effect"});
+  GRAPPLE_REQUIRE(keyframedEffectNode != nullptr);
+  const auto* keyframedEffect = std::get_if<timeline::EffectPayload>(&keyframedEffectNode->payload);
+  GRAPPLE_REQUIRE(keyframedEffect != nullptr);
+  GRAPPLE_REQUIRE(keyframedEffect->params.values[0].keyframes.size() == 2);
+
+  const auto replaceEffectKeyframe = effectProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_replace_effect_keyframe"},
+    foundation::ProjectId{"proj_effect"},
+    afterKeyframeUpsert.value().revision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::UpsertEffectParamKeyframeCommand{
+      foundation::NodeId{"node_track_effect"},
+      "smoothing",
+      timeline::Param::Keyframe{
+        foundation::KeyframeId{"key_smoothing_2"},
+        foundation::TimeSeconds{0.9},
+        0.6
+      }
+    }
+  });
+  GRAPPLE_REQUIRE(replaceEffectKeyframe);
+  const auto afterKeyframeReplace = effectProject.snapshot();
+  GRAPPLE_REQUIRE(afterKeyframeReplace);
+  const graph::GraphNode* replacedKeyframeEffectNode = afterKeyframeReplace.value().graph.findNode(foundation::NodeId{"node_track_effect"});
+  GRAPPLE_REQUIRE(replacedKeyframeEffectNode != nullptr);
+  const auto* replacedKeyframeEffect = std::get_if<timeline::EffectPayload>(&replacedKeyframeEffectNode->payload);
+  GRAPPLE_REQUIRE(replacedKeyframeEffect != nullptr);
+  GRAPPLE_REQUIRE(replacedKeyframeEffect->params.values[0].keyframes.size() == 2);
+  const auto replacedKeyframe = std::find_if(
+    replacedKeyframeEffect->params.values[0].keyframes.begin(),
+    replacedKeyframeEffect->params.values[0].keyframes.end(),
+    [](const timeline::Param::Keyframe& keyframe) {
+      return keyframe.id == foundation::KeyframeId{"key_smoothing_2"};
+    }
+  );
+  GRAPPLE_REQUIRE(replacedKeyframe != replacedKeyframeEffect->params.values[0].keyframes.end());
+  GRAPPLE_REQUIRE(replacedKeyframe->time == foundation::TimeSeconds{0.9});
+  GRAPPLE_REQUIRE(std::get<double>(replacedKeyframe->value) == 0.6);
+
+  const auto mismatchedKeyframeValue = effectProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_mismatched_effect_keyframe"},
+    foundation::ProjectId{"proj_effect"},
+    afterKeyframeReplace.value().revision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::UpsertEffectParamKeyframeCommand{
+      foundation::NodeId{"node_track_effect"},
+      "smoothing",
+      timeline::Param::Keyframe{
+        foundation::KeyframeId{"key_smoothing_bad"},
+        foundation::TimeSeconds{0.9},
+        true
+      }
+    }
+  });
+  GRAPPLE_REQUIRE(!mismatchedKeyframeValue);
+  GRAPPLE_REQUIRE(mismatchedKeyframeValue.error().code == "project.effect_keyframe_value_type_mismatch");
+
+  const project::ProjectCommandEnvelope deleteEffectKeyframe{
+    foundation::CommandId{"cmd_delete_effect_keyframe"},
+    foundation::ProjectId{"proj_effect"},
+    afterKeyframeReplace.value().revision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::DeleteEffectParamKeyframeCommand{
+      foundation::NodeId{"node_track_effect"},
+      "smoothing",
+      foundation::KeyframeId{"key_smoothing_2"}
+    }
+  };
+  GRAPPLE_REQUIRE(project::commandKind(deleteEffectKeyframe.payload) == project::CommandKind::DeleteEffectParamKeyframe);
+  GRAPPLE_REQUIRE(
+    project::serializeCanonicalCommandPayload(deleteEffectKeyframe.payload) ==
+    "{\"effectNodeId\":\"node_track_effect\",\"paramName\":\"smoothing\",\"keyframeId\":\"key_smoothing_2\"}"
+  );
+  const auto parsedDeleteEffectKeyframe = project::deserializeCanonicalCommandPayload(
+    project::serializedCommandName(project::CommandKind::DeleteEffectParamKeyframe),
+    project::serializeCanonicalCommandPayload(deleteEffectKeyframe.payload)
+  );
+  GRAPPLE_REQUIRE(parsedDeleteEffectKeyframe);
+  GRAPPLE_REQUIRE(project::commandKind(parsedDeleteEffectKeyframe.value()) == project::CommandKind::DeleteEffectParamKeyframe);
+  GRAPPLE_REQUIRE(project::serializeCanonicalCommandPayload(parsedDeleteEffectKeyframe.value()) == project::serializeCanonicalCommandPayload(deleteEffectKeyframe.payload));
+  const auto deleteEffectKeyframeResult = effectProject.apply(deleteEffectKeyframe);
+  GRAPPLE_REQUIRE(deleteEffectKeyframeResult);
+  const auto afterKeyframeDelete = effectProject.snapshot();
+  GRAPPLE_REQUIRE(afterKeyframeDelete);
+  const graph::GraphNode* deletedKeyframeEffectNode = afterKeyframeDelete.value().graph.findNode(foundation::NodeId{"node_track_effect"});
+  GRAPPLE_REQUIRE(deletedKeyframeEffectNode != nullptr);
+  const auto* deletedKeyframeEffect = std::get_if<timeline::EffectPayload>(&deletedKeyframeEffectNode->payload);
+  GRAPPLE_REQUIRE(deletedKeyframeEffect != nullptr);
+  GRAPPLE_REQUIRE(deletedKeyframeEffect->params.values[0].keyframes.size() == 1);
+  GRAPPLE_REQUIRE(deletedKeyframeEffect->params.values[0].keyframes[0].id == foundation::KeyframeId{"key_smoothing_1"});
+
   const project::ProjectCommandEnvelope deleteEffect{
     foundation::CommandId{"cmd_delete_track_effect"},
     foundation::ProjectId{"proj_effect"},
-    afterTrackEffect.value().revision,
+    afterKeyframeDelete.value().revision,
     project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
     project::DeleteEffectCommand{foundation::NodeId{"node_track_effect"}}
   };

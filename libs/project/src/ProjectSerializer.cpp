@@ -157,6 +157,17 @@ std::string serializeCanonicalCommandPayload(const ProjectCommand& command) {
       } else if constexpr (std::is_same_v<Command, UpdateEffectParamsCommand>) {
         writeIdProperty(stream, "effectNodeId", typedCommand.effectNodeId.value());
         stream << ",\"params\":" << timeline::serializeCanonicalParamSet(typedCommand.params);
+      } else if constexpr (std::is_same_v<Command, UpsertEffectParamKeyframeCommand>) {
+        writeIdProperty(stream, "effectNodeId", typedCommand.effectNodeId.value());
+        stream << ',';
+        foundation::writeJsonStringProperty(stream, "paramName", typedCommand.paramName);
+        stream << ",\"keyframe\":" << timeline::serializeCanonicalParamKeyframe(typedCommand.keyframe);
+      } else if constexpr (std::is_same_v<Command, DeleteEffectParamKeyframeCommand>) {
+        writeIdProperty(stream, "effectNodeId", typedCommand.effectNodeId.value());
+        stream << ',';
+        foundation::writeJsonStringProperty(stream, "paramName", typedCommand.paramName);
+        stream << ',';
+        writeIdProperty(stream, "keyframeId", typedCommand.keyframeId.value());
       } else if constexpr (std::is_same_v<Command, CreateNoteCommand>) {
         writeNoteCommandPayload(stream, typedCommand.nodeId, typedCommand.payload);
       } else if constexpr (std::is_same_v<Command, UpdateNoteCommand>) {

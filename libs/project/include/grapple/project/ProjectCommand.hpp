@@ -30,6 +30,8 @@ enum class CommandKind {
   ConnectPorts,
   DisconnectPorts,
   UpdateEffectParams,
+  UpsertEffectParamKeyframe,
+  DeleteEffectParamKeyframe,
   CreateNote,
   UpdateNote,
   RestoreSnapshot
@@ -138,6 +140,18 @@ struct UpdateEffectParamsCommand {
   timeline::ParamSet params;
 };
 
+struct UpsertEffectParamKeyframeCommand {
+  foundation::NodeId effectNodeId;
+  std::string paramName;
+  timeline::Param::Keyframe keyframe;
+};
+
+struct DeleteEffectParamKeyframeCommand {
+  foundation::NodeId effectNodeId;
+  std::string paramName;
+  foundation::KeyframeId keyframeId;
+};
+
 struct CreateNoteCommand {
   foundation::NodeId nodeId;
   timeline::NotePayload payload;
@@ -169,6 +183,8 @@ using ProjectCommand = std::variant<
   ConnectPortsCommand,
   DisconnectPortsCommand,
   UpdateEffectParamsCommand,
+  UpsertEffectParamKeyframeCommand,
+  DeleteEffectParamKeyframeCommand,
   CreateNoteCommand,
   UpdateNoteCommand,
   RestoreSnapshotCommand

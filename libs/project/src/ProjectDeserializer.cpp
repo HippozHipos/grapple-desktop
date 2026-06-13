@@ -449,6 +449,33 @@ foundation::Result<timeline::ParamValue> parseParamValue(const Json::Value& valu
   return timeline::ParamValue{vec2.value()};
 }
 
+foundation::Result<timeline::Param::Keyframe> parseParamKeyframe(const Json::Value& object, const std::string& path) {
+  if (!object.isObject()) {
+    return parseError(path, "Expected keyframe object.");
+  }
+  auto keyframeId = requiredStringMember(object, "id", path);
+  if (!keyframeId) {
+    return keyframeId.error();
+  }
+  auto time = requiredDoubleMember(object, "time", path);
+  if (!time) {
+    return time.error();
+  }
+  auto keyframeValue = requiredMember(object, "value", path);
+  if (!keyframeValue) {
+    return keyframeValue.error();
+  }
+  auto parsedKeyframeValue = parseParamValue(keyframeValue.value(), path + ".value");
+  if (!parsedKeyframeValue) {
+    return parsedKeyframeValue.error();
+  }
+  return timeline::Param::Keyframe{
+    foundation::KeyframeId{keyframeId.value()},
+    foundation::TimeSeconds{time.value()},
+    parsedKeyframeValue.value()
+  };
+}
+
 foundation::Result<timeline::ParamSet> parseParamSet(const Json::Value& array, const std::string& path) {
   if (!array.isArray()) {
     return parseError(path, "Expected parameter array.");
@@ -518,30 +545,11 @@ foundation::Result<timeline::ParamSet> parseParamSet(const Json::Value& array, c
     keyframes.reserve(keyframesArray.value().size());
     for (Json::ArrayIndex keyframeIndex = 0; keyframeIndex < keyframesArray.value().size(); ++keyframeIndex) {
       const std::string keyframePath = itemPath + ".keyframes[" + std::to_string(keyframeIndex) + "]";
-      if (!keyframesArray.value()[keyframeIndex].isObject()) {
-        return parseError(keyframePath, "Expected keyframe object.");
+      auto keyframe = parseParamKeyframe(keyframesArray.value()[keyframeIndex], keyframePath);
+      if (!keyframe) {
+        return keyframe.error();
       }
-      auto keyframeId = requiredStringMember(keyframesArray.value()[keyframeIndex], "id", keyframePath);
-      if (!keyframeId) {
-        return keyframeId.error();
-      }
-      auto time = requiredDoubleMember(keyframesArray.value()[keyframeIndex], "time", keyframePath);
-      if (!time) {
-        return time.error();
-      }
-      auto keyframeValue = requiredMember(keyframesArray.value()[keyframeIndex], "value", keyframePath);
-      if (!keyframeValue) {
-        return keyframeValue.error();
-      }
-      auto parsedKeyframeValue = parseParamValue(keyframeValue.value(), keyframePath + ".value");
-      if (!parsedKeyframeValue) {
-        return parsedKeyframeValue.error();
-      }
-      keyframes.push_back(timeline::Param::Keyframe{
-        foundation::KeyframeId{keyframeId.value()},
-        foundation::TimeSeconds{time.value()},
-        parsedKeyframeValue.value()
-      });
+      keyframes.push_back(keyframe.value());
     }
 
     params.values.push_back(timeline::Param{name.value(), paramValue.value(), control, std::move(keyframes)});
@@ -1359,6 +1367,48 @@ foundation::Result<ProjectCommand> deserializeCanonicalCommandPayload(
       return params.error();
     }
     return ProjectCommand{UpdateEffectParamsCommand{foundation::NodeId{effectNodeId.value()}, params.value()}};
+  }
+  if (serializedName == "project.upsert_effect_param_keyframe") {
+    auto effectNodeId = requiredStringMember(root.value(), "effectNodeId", "$");
+    if (!effectNodeId) {
+      return effectNodeId.error();
+    }
+    auto paramName = requiredStringMember(root.value(), "paramName", "$");
+    if (!paramName) {
+      return paramName.error();
+    }
+    auto keyframeObject = requiredObjectMember(root.value(), "keyframe", "$");
+    if (!keyframeObject) {
+      return keyframeObject.error();
+    }
+    auto keyframe = parseParamKeyframe(keyframeObject.value(), "$.keyframe");
+    if (!keyframe) {
+      return keyframe.error();
+    }
+    return ProjectCommand{UpsertEffectParamKeyframeCommand{
+      foundation::NodeId{effectNodeId.value()},
+      paramName.value(),
+      keyframe.value()
+    }};
+  }
+  if (serializedName == "project.delete_effect_param_keyframe") {
+    auto effectNodeId = requiredStringMember(root.value(), "effectNodeId", "$");
+    if (!effectNodeId) {
+      return effectNodeId.error();
+    }
+    auto paramName = requiredStringMember(root.value(), "paramName", "$");
+    if (!paramName) {
+      return paramName.error();
+    }
+    auto keyframeId = requiredStringMember(root.value(), "keyframeId", "$");
+    if (!keyframeId) {
+      return keyframeId.error();
+    }
+    return ProjectCommand{DeleteEffectParamKeyframeCommand{
+      foundation::NodeId{effectNodeId.value()},
+      paramName.value(),
+      foundation::KeyframeId{keyframeId.value()}
+    }};
   }
   if (serializedName == "project.create_note" || serializedName == "project.update_note") {
     auto nodeId = requiredStringMember(root.value(), "nodeId", "$");

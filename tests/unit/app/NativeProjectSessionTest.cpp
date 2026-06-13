@@ -1,4 +1,5 @@
 #include <grapple/app/NativeExportSession.hpp>
+#include <grapple/app/NativeEffectSession.hpp>
 #include <grapple/app/NativePreviewSession.hpp>
 #include <grapple/app/NativeProjectCommandWriter.hpp>
 #include <grapple/app/NativeProjectSession.hpp>
@@ -551,9 +552,10 @@ int main() {
     userSource()
   );
   GRAPPLE_REQUIRE(effectCamera);
+  const foundation::NodeId effectNodeId = effectWriter.nextNodeId("effect");
   const auto effectCommand = effectWriter.apply(
     project::CreateEffectCommand{
-      effectWriter.nextNodeId("effect"),
+      effectNodeId,
       effectCameraNodeId,
       effectWriter.nextEdgeId("effect targets camera"),
       timeline::EffectPayload{
@@ -613,6 +615,35 @@ int main() {
   GRAPPLE_REQUIRE(effectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].numericMin == 0.0);
   GRAPPLE_REQUIRE(effectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].numericMax == 1.0);
   GRAPPLE_REQUIRE(effectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].numericStep == 0.01);
+  GRAPPLE_REQUIRE(effectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].keyframes.empty());
+  app::NativeEffectSession effectEdits{effectSession, effectWriter};
+  const auto appKeyframeUpsert = effectEdits.upsertParamKeyframe(
+    effectNodeId,
+    "target_x",
+    timeline::Param::Keyframe{
+      foundation::KeyframeId{"key_app_target_x"},
+      foundation::TimeSeconds{1.25},
+      0.8
+    },
+    userSource()
+  );
+  GRAPPLE_REQUIRE(appKeyframeUpsert);
+  const auto keyframedEffectViewModel = effectSession.buildViewModel();
+  GRAPPLE_REQUIRE(keyframedEffectViewModel);
+  GRAPPLE_REQUIRE(keyframedEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].keyframes.size() == 1);
+  GRAPPLE_REQUIRE(keyframedEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].keyframes[0].keyframeId == foundation::KeyframeId{"key_app_target_x"});
+  GRAPPLE_REQUIRE(keyframedEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].keyframes[0].time == foundation::TimeSeconds{1.25});
+  GRAPPLE_REQUIRE(keyframedEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].keyframes[0].value == "0.8");
+  const auto appKeyframeDelete = effectEdits.deleteParamKeyframe(
+    effectNodeId,
+    "target_x",
+    foundation::KeyframeId{"key_app_target_x"},
+    userSource()
+  );
+  GRAPPLE_REQUIRE(appKeyframeDelete);
+  const auto unkeyframedEffectViewModel = effectSession.buildViewModel();
+  GRAPPLE_REQUIRE(unkeyframedEffectViewModel);
+  GRAPPLE_REQUIRE(unkeyframedEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].keyframes.empty());
 
   app::NativeProjectSession runtimeProject{
     foundation::ProjectId{"proj_app_runtime"},

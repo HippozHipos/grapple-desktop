@@ -317,13 +317,23 @@ foundation::Result<AppViewModel> NativeProjectSession::buildViewModel() const {
       std::vector<AppEffectParamRow> params;
       params.reserve(effect.payload.params.values.size());
       for (const timeline::Param& param : effect.payload.params.values) {
+        std::vector<AppEffectParamRow::Keyframe> keyframes;
+        keyframes.reserve(param.keyframes.size());
+        for (const timeline::Param::Keyframe& keyframe : param.keyframes) {
+          keyframes.push_back(AppEffectParamRow::Keyframe{
+            keyframe.id,
+            keyframe.time,
+            paramValueText(keyframe.value)
+          });
+        }
         params.push_back(AppEffectParamRow{
           param.name,
           param.control.label,
           paramValueText(param.value),
           param.control.numeric.has_value() ? std::optional<double>{param.control.numeric->min} : std::nullopt,
           param.control.numeric.has_value() ? std::optional<double>{param.control.numeric->max} : std::nullopt,
-          param.control.numeric.has_value() ? param.control.numeric->step : std::nullopt
+          param.control.numeric.has_value() ? param.control.numeric->step : std::nullopt,
+          std::move(keyframes)
         });
       }
 

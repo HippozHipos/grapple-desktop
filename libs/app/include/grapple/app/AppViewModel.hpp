@@ -73,12 +73,19 @@ struct AppCameraRow {
 };
 
 struct AppEffectParamRow {
+  struct Keyframe {
+    foundation::KeyframeId keyframeId;
+    foundation::TimeSeconds time;
+    std::string value;
+  };
+
   std::string name;
   std::string label;
   std::string value;
   std::optional<double> numericMin;
   std::optional<double> numericMax;
   std::optional<double> numericStep;
+  std::vector<Keyframe> keyframes;
 };
 
 struct AppEffectRow {
