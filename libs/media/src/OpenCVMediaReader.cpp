@@ -6,6 +6,7 @@
 
 #include <cstddef>
 #include <string>
+#include <unordered_map>
 #include <utility>
 
 namespace grapple::media {
@@ -64,9 +65,9 @@ foundation::Result<MediaFrame> imageFrame(
 foundation::Result<MediaFrame> videoFrame(
   const MediaSource& source,
   foundation::TimeSeconds time,
-  MediaQuality quality
+  MediaQuality quality,
+  cv::VideoCapture& capture
 ) {
-  cv::VideoCapture capture{source.path.value};
   if (!capture.isOpened()) {
     return foundation::Error{"media.video_open_failed", "Could not open video source " + source.path.value + "."};
   }
@@ -95,15 +96,41 @@ foundation::Result<MediaFrame> videoFrame(
 
 } // namespace
 
+struct OpenCVMediaReader::Impl {
+  explicit Impl(const MediaSourceCatalog& sourceCatalog)
+    : sources{sourceCatalog} {}
+
+  foundation::Result<cv::VideoCapture*> videoCaptureFor(const MediaSource& source) {
+    auto [iterator, inserted] = videoCaptures.try_emplace(source.assetId.value());
+    cv::VideoCapture& capture = iterator->second;
+    if (inserted || !capture.isOpened()) {
+      capture.open(source.path.value);
+    }
+    if (!capture.isOpened()) {
+      return foundation::Error{"media.video_open_failed", "Could not open video source " + source.path.value + "."};
+    }
+    return &capture;
+  }
+
+  const MediaSourceCatalog& sources;
+  std::unordered_map<std::string, cv::VideoCapture> videoCaptures;
+};
+
 OpenCVMediaReader::OpenCVMediaReader(const MediaSourceCatalog& sources)
-  : sources_{sources} {}
+  : impl_{std::make_unique<Impl>(sources)} {}
+
+OpenCVMediaReader::~OpenCVMediaReader() = default;
+
+OpenCVMediaReader::OpenCVMediaReader(OpenCVMediaReader&&) noexcept = default;
+
+OpenCVMediaReader& OpenCVMediaReader::operator=(OpenCVMediaReader&&) noexcept = default;
 
 foundation::Result<MediaFrame> OpenCVMediaReader::frameAt(
   foundation::AssetId assetId,
   foundation::TimeSeconds time,
   MediaQuality quality
 ) {
-  const MediaSource* source = sources_.find(assetId);
+  const MediaSource* source = impl_->sources.find(assetId);
   if (source == nullptr) {
     return foundation::Error{"media.source_missing", "Media source is not registered for asset " + assetId.value() + "."};
   }
@@ -112,7 +139,11 @@ foundation::Result<MediaFrame> OpenCVMediaReader::frameAt(
     return imageFrame(*source, time, quality);
   }
 
-  return videoFrame(*source, time, quality);
+  auto capture = impl_->videoCaptureFor(*source);
+  if (!capture) {
+    return capture.error();
+  }
+  return videoFrame(*source, time, quality, *capture.value());
 }
 
 foundation::Result<AudioBuffer> OpenCVMediaReader::audioRange(

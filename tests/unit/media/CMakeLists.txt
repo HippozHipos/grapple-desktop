@@ -1,4 +1,4 @@
-find_package(OpenCV REQUIRED COMPONENTS core imgcodecs)
+find_package(OpenCV REQUIRED COMPONENTS core imgcodecs videoio)
 
 add_executable(grapple_media_frame_cache_tests
   FrameCacheTest.cpp
