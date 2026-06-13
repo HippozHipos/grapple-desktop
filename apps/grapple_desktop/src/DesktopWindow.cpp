@@ -45,15 +45,112 @@
 #include <cstdlib>
 #include <cstdint>
 #include <filesystem>
+#include <fstream>
 #include <iomanip>
 #include <optional>
 #include <sstream>
+#include <string_view>
 #include <utility>
 #include <vector>
 
 namespace {
 
 constexpr double DefaultImageClipDurationSeconds = 5.0;
+
+std::optional<std::uint32_t> readLittleEndianU32(std::istream& input) {
+  unsigned char bytes[4]{};
+  input.read(reinterpret_cast<char*>(bytes), sizeof(bytes));
+  if (!input) {
+    return std::nullopt;
+  }
+  return static_cast<std::uint32_t>(bytes[0]) |
+         (static_cast<std::uint32_t>(bytes[1]) << 8U) |
+         (static_cast<std::uint32_t>(bytes[2]) << 16U) |
+         (static_cast<std::uint32_t>(bytes[3]) << 24U);
+}
+
+std::optional<std::uint16_t> readLittleEndianU16(std::istream& input) {
+  unsigned char bytes[2]{};
+  input.read(reinterpret_cast<char*>(bytes), sizeof(bytes));
+  if (!input) {
+    return std::nullopt;
+  }
+  return static_cast<std::uint16_t>(bytes[0]) |
+         static_cast<std::uint16_t>(static_cast<std::uint16_t>(bytes[1]) << 8U);
+}
+
+std::optional<grapple::foundation::TimeSeconds> readWavDuration(
+  const grapple::foundation::FilePath& path
+) {
+  std::ifstream input{path.value, std::ios::binary};
+  if (!input) {
+    return std::nullopt;
+  }
+
+  char riff[4]{};
+  char wave[4]{};
+  input.read(riff, sizeof(riff));
+  const auto riffSize = readLittleEndianU32(input);
+  input.read(wave, sizeof(wave));
+  if (!riffSize.has_value() || std::string_view{riff, 4} != "RIFF" || std::string_view{wave, 4} != "WAVE") {
+    return std::nullopt;
+  }
+
+  std::optional<std::uint16_t> channels;
+  std::optional<std::uint32_t> sampleRate;
+  std::optional<std::uint16_t> bitsPerSample;
+  std::optional<std::uint32_t> dataBytes;
+
+  while (input) {
+    char chunkId[4]{};
+    input.read(chunkId, sizeof(chunkId));
+    if (!input) {
+      break;
+    }
+    const auto chunkSize = readLittleEndianU32(input);
+    if (!chunkSize.has_value()) {
+      return std::nullopt;
+    }
+
+    const std::string_view chunk{chunkId, 4};
+    if (chunk == "fmt " && chunkSize.value() >= 16U) {
+      const auto audioFormat = readLittleEndianU16(input);
+      channels = readLittleEndianU16(input);
+      sampleRate = readLittleEndianU32(input);
+      input.seekg(6, std::ios::cur);
+      bitsPerSample = readLittleEndianU16(input);
+      if (!audioFormat.has_value() || audioFormat.value() != 1U || !channels.has_value() || !sampleRate.has_value() || !bitsPerSample.has_value()) {
+        return std::nullopt;
+      }
+      const std::uint32_t remaining = chunkSize.value() - 16U;
+      if (remaining > 0U) {
+        input.seekg(static_cast<std::streamoff>(remaining), std::ios::cur);
+      }
+    } else if (chunk == "data") {
+      dataBytes = chunkSize.value();
+      input.seekg(static_cast<std::streamoff>(chunkSize.value()), std::ios::cur);
+    } else {
+      input.seekg(static_cast<std::streamoff>(chunkSize.value()), std::ios::cur);
+    }
+
+    if ((chunkSize.value() % 2U) == 1U) {
+      input.seekg(1, std::ios::cur);
+    }
+  }
+
+  if (!channels.has_value() || !sampleRate.has_value() || !bitsPerSample.has_value() || !dataBytes.has_value()) {
+    return std::nullopt;
+  }
+  const std::uint32_t bytesPerSampleFrame = static_cast<std::uint32_t>(channels.value()) *
+                                            (static_cast<std::uint32_t>(bitsPerSample.value()) / 8U);
+  if (bytesPerSampleFrame == 0U || sampleRate.value() == 0U) {
+    return std::nullopt;
+  }
+  return grapple::foundation::TimeSeconds{
+    static_cast<double>(dataBytes.value()) /
+      static_cast<double>(bytesPerSampleFrame * sampleRate.value())
+  };
+}
 
 QString qString(const std::string& value) {
   return QString::fromStdString(value);
@@ -70,7 +167,7 @@ QString summaryText(const grapple::app::AppViewModel& viewModel) {
     "Project",
     qString(viewModel.project.name),
     QString{"Duration: %1s"}.arg(viewModel.timeline.duration.value, 0, 'f', 2),
-    QString{"Media: %1 assets, %2 clips"}.arg(viewModel.assets.count).arg(viewModel.timeline.clips.size()),
+    QString{"Media: %1 assets, %2 clips"}.arg(viewModel.assets.count).arg(viewModel.timeline.clips.size() + viewModel.timeline.audioClips.size()),
     QString{"Cameras: %1"}.arg(viewModel.timeline.cameras.size()),
     QString{"Editable effects: %1"}.arg(viewModel.timeline.effectCount),
     QString{"Notes: %1"}.arg(viewModel.notes.rows.size())
@@ -349,7 +446,7 @@ grapple::foundation::Result<grapple::asset::Asset> inspectAudioAsset(
       grapple::asset::AssetMediaType::Audio,
       path,
       std::nullopt,
-      std::nullopt,
+      readWavDuration(path),
       std::nullopt,
       std::nullopt
     }
@@ -377,16 +474,31 @@ grapple::foundation::Result<grapple::asset::Asset> inspectMediaAsset(
   std::abort();
 }
 
-grapple::foundation::Result<grapple::timeline::ClipKind> visualClipKindForMediaTypeName(
+grapple::foundation::Result<grapple::timeline::ClipKind> clipKindForMediaTypeName(
   const std::string& mediaType
 ) {
   if (mediaType == "video") {
     return grapple::timeline::ClipKind::Video;
   }
+  if (mediaType == "audio") {
+    return grapple::timeline::ClipKind::Audio;
+  }
   if (mediaType == "image") {
     return grapple::timeline::ClipKind::Image;
   }
-  return grapple::foundation::Error{"desktop.asset_not_visual", "Add To Timeline requires a video or image asset."};
+  return grapple::foundation::Error{"desktop.asset_media_type_unknown", "Selected media asset has an unknown media type."};
+}
+
+grapple::timeline::TrackKind trackKindForClipKind(grapple::timeline::ClipKind clipKind) {
+  switch (clipKind) {
+    case grapple::timeline::ClipKind::Video:
+    case grapple::timeline::ClipKind::Image:
+      return grapple::timeline::TrackKind::Visual;
+    case grapple::timeline::ClipKind::Audio:
+      return grapple::timeline::TrackKind::Audio;
+  }
+
+  std::abort();
 }
 
 grapple::foundation::Result<grapple::foundation::TimeSeconds> timelineDurationForAsset(
@@ -907,7 +1019,8 @@ public:
         workspace_.commandWriter().nextNodeId("track"),
         compositionNodeId.value(),
         workspace_.commandWriter().nextEdgeId("contains_track"),
-        "Video " + std::to_string(trackNumber)
+        "Video " + std::to_string(trackNumber),
+        grapple::timeline::TrackKind::Visual
       },
       userSource()
     );
@@ -1018,11 +1131,12 @@ public:
       appendError(grapple::foundation::Error{"desktop.asset_selection_stale", "Selected media asset is not in the current project."});
       return;
     }
-    auto clipKind = visualClipKindForMediaTypeName(selectedAsset->mediaType);
+    auto clipKind = clipKindForMediaTypeName(selectedAsset->mediaType);
     if (!clipKind) {
       appendError(clipKind.error());
       return;
     }
+    const grapple::timeline::TrackKind trackKind = trackKindForClipKind(clipKind.value());
     auto duration = timelineDurationForAsset(*selectedAsset);
     if (!duration) {
       appendError(duration.error());
@@ -1044,13 +1158,21 @@ public:
       return;
     }
 
-    if (viewModel.value().timeline.layers.empty()) {
+    const auto matchingTracks = [&]() -> const std::vector<grapple::app::AppLayerRow>& {
+      return trackKind == grapple::timeline::TrackKind::Audio
+        ? viewModel.value().timeline.audioTracks
+        : viewModel.value().timeline.layers;
+    };
+
+    if (matchingTracks().empty()) {
+      const std::string trackName = trackKind == grapple::timeline::TrackKind::Audio ? "Audio" : "Video";
       const auto track = workspace_.commandWriter().apply(
         grapple::project::CreateTrackCommand{
           workspace_.commandWriter().nextNodeId("track"),
           compositionNodeId.value(),
           workspace_.commandWriter().nextEdgeId("contains_track"),
-          "Video"
+          trackName,
+          trackKind
         },
         userSource()
       );
@@ -1065,7 +1187,7 @@ public:
       }
     }
 
-    if (viewModel.value().timeline.cameras.empty()) {
+    if (trackKind == grapple::timeline::TrackKind::Visual && viewModel.value().timeline.cameras.empty()) {
       const auto camera = workspace_.commandWriter().apply(
         grapple::project::CreateCameraCommand{
           workspace_.commandWriter().nextNodeId("camera"),
@@ -1090,11 +1212,20 @@ public:
       }
     }
 
+    const std::vector<grapple::app::AppLayerRow>& targetTracks = matchingTracks();
+    if (targetTracks.empty()) {
+      appendError(grapple::foundation::Error{"desktop.track_missing_after_create", "Add To Timeline could not find the target track after creating it."});
+      return;
+    }
+
     const grapple::foundation::NodeId clipNodeId = workspace_.commandWriter().nextNodeId("clip");
+    const std::int64_t clipOrder = trackKind == grapple::timeline::TrackKind::Audio
+      ? static_cast<std::int64_t>(viewModel.value().timeline.audioClips.size())
+      : static_cast<std::int64_t>(viewModel.value().timeline.clips.size());
     const auto clip = workspace_.commandWriter().apply(
       grapple::project::CreateClipCommand{
         clipNodeId,
-        viewModel.value().timeline.layers.front().sourceNodeId,
+        targetTracks.front().sourceNodeId,
         workspace_.commandWriter().nextEdgeId("contains_clip"),
         grapple::timeline::ClipPayload{
           clipKind.value(),
@@ -1110,7 +1241,7 @@ public:
           assetId,
           grapple::timeline::Transform{}
         },
-        static_cast<std::int64_t>(viewModel.value().timeline.clips.size())
+        clipOrder
       },
       userSource()
     );

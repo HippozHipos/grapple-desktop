@@ -19,11 +19,12 @@ namespace grapple::app {
 
 namespace {
 
+template <typename Clip>
 std::size_t countClipsForLayer(
-  const std::vector<projection::RenderClip>& clips,
+  const std::vector<Clip>& clips,
   const foundation::NodeId& layerNodeId
 ) {
-  return static_cast<std::size_t>(std::count_if(clips.begin(), clips.end(), [&](const projection::RenderClip& clip) {
+  return static_cast<std::size_t>(std::count_if(clips.begin(), clips.end(), [&](const Clip& clip) {
     return clip.trackNodeId == layerNodeId;
   }));
 }
@@ -315,12 +316,36 @@ foundation::Result<AppViewModel> NativeProjectSession::buildViewModel() const {
     });
   }
 
+  for (const projection::RenderAudioTrack& track : plan.audioTracks) {
+    viewModel.timeline.audioTracks.push_back(AppLayerRow{
+      track.sourceNodeId,
+      track.name,
+      countClipsForLayer(plan.audioClips, track.sourceNodeId)
+    });
+  }
+
   for (const projection::RenderClip& clip : plan.clips) {
     auto assetName = assetNameFor(snapshot.assets, clip.payload.assetId);
     if (!assetName) {
       return assetName.error();
     }
     viewModel.timeline.clips.push_back(AppClipRow{
+      clip.sourceNodeId,
+      clip.trackNodeId,
+      clip.payload.assetId,
+      assetName.value(),
+      clipKindName(clip.payload.kind),
+      clip.payload.timelineRange,
+      clip.payload.transform
+    });
+  }
+
+  for (const projection::RenderAudioClip& clip : plan.audioClips) {
+    auto assetName = assetNameFor(snapshot.assets, clip.payload.assetId);
+    if (!assetName) {
+      return assetName.error();
+    }
+    viewModel.timeline.audioClips.push_back(AppClipRow{
       clip.sourceNodeId,
       clip.trackNodeId,
       clip.payload.assetId,

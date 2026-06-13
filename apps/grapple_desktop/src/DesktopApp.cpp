@@ -14,6 +14,7 @@
 #include <QString>
 
 #include <algorithm>
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -46,7 +47,43 @@ grapple::foundation::Result<void> writeDummyAudioFile(const std::filesystem::pat
   if (!output) {
     return grapple::foundation::Error{"desktop.test_audio_write_failed", "Could not write test audio file."};
   }
-  output << "Grapple audio import smoke";
+  const auto writeU16 = [&](std::uint16_t value) {
+    const unsigned char bytes[] = {
+      static_cast<unsigned char>(value & 0xffU),
+      static_cast<unsigned char>((value >> 8U) & 0xffU)
+    };
+    output.write(reinterpret_cast<const char*>(bytes), sizeof(bytes));
+  };
+  const auto writeU32 = [&](std::uint32_t value) {
+    const unsigned char bytes[] = {
+      static_cast<unsigned char>(value & 0xffU),
+      static_cast<unsigned char>((value >> 8U) & 0xffU),
+      static_cast<unsigned char>((value >> 16U) & 0xffU),
+      static_cast<unsigned char>((value >> 24U) & 0xffU)
+    };
+    output.write(reinterpret_cast<const char*>(bytes), sizeof(bytes));
+  };
+
+  constexpr std::uint16_t channels = 1;
+  constexpr std::uint32_t sampleRate = 8000;
+  constexpr std::uint16_t bitsPerSample = 16;
+  constexpr std::uint32_t dataBytes = sampleRate * channels * (bitsPerSample / 8U);
+  output.write("RIFF", 4);
+  writeU32(36U + dataBytes);
+  output.write("WAVE", 4);
+  output.write("fmt ", 4);
+  writeU32(16U);
+  writeU16(1U);
+  writeU16(channels);
+  writeU32(sampleRate);
+  writeU32(sampleRate * channels * (bitsPerSample / 8U));
+  writeU16(channels * (bitsPerSample / 8U));
+  writeU16(bitsPerSample);
+  output.write("data", 4);
+  writeU32(dataBytes);
+  for (std::uint32_t index = 0; index < dataBytes / 2U; ++index) {
+    writeU16(0U);
+  }
   return {};
 }
 
@@ -357,6 +394,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     window.importMediaFile(grapple::foundation::FilePath{imagePath.string()});
     window.addSelectedMediaToTimeline();
     window.importMediaFile(grapple::foundation::FilePath{audioPath.string()});
+    window.addSelectedMediaToTimeline();
     const auto viewModel = workspace.value().project().buildViewModel();
     if (!viewModel) {
       printError(viewModel.error());
@@ -388,6 +426,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "imageSources=" << imageSources << '\n';
     std::cout << "audioSources=" << audioSources << '\n';
     std::cout << "clips=" << viewModel.value().timeline.clips.size() << '\n';
+    std::cout << "audioTracks=" << viewModel.value().timeline.audioTracks.size() << '\n';
+    std::cout << "audioClips=" << viewModel.value().timeline.audioClips.size() << '\n';
     std::cout << "duration=" << viewModel.value().timeline.duration.value << '\n';
 
     std::filesystem::remove(imagePath);
@@ -399,7 +439,10 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            audioSources == 1 &&
            viewModel.value().timeline.clips.size() == 1 &&
            viewModel.value().timeline.clips.front().kind == "image" &&
-           viewModel.value().timeline.duration.value == 5.0
+           viewModel.value().timeline.audioTracks.size() == 1 &&
+           viewModel.value().timeline.audioClips.size() == 1 &&
+           viewModel.value().timeline.audioClips.front().kind == "audio" &&
+           viewModel.value().timeline.duration.value == 6.0
       ? 0
       : 1;
   }

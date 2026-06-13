@@ -125,7 +125,9 @@ struct AppTimelineView {
   foundation::TimeSeconds duration;
   std::vector<AppCompositionRow> compositions;
   std::vector<AppLayerRow> layers;
+  std::vector<AppLayerRow> audioTracks;
   std::vector<AppClipRow> clips;
+  std::vector<AppClipRow> audioClips;
   std::vector<AppCameraRow> cameras;
   std::vector<AppEffectGraphRow> effectGraphs;
   std::size_t effectCount = 0;

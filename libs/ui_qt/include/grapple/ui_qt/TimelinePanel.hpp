@@ -10,7 +10,9 @@
 #include <cstddef>
 #include <functional>
 #include <optional>
+#include <vector>
 
+class QColor;
 class QMouseEvent;
 class QPaintEvent;
 class QPainter;
@@ -44,7 +46,16 @@ private:
 
   static int clipX(foundation::TimeSeconds time, int left, int trackWidth, double duration);
   static QString elidedText(QPainter& painter, const QString& text, int width);
-  void drawLayerRow(QPainter& painter, const app::AppViewModel& viewModel, const app::AppLayerRow& layer, const QRect& row, int left) const;
+  void drawLayerRow(
+    QPainter& painter,
+    const app::AppLayerRow& layer,
+    const std::vector<app::AppClipRow>& clips,
+    const QRect& row,
+    int left,
+    const QColor& rowColor,
+    const QColor& borderColor,
+    const QColor& clipColor
+  ) const;
   void drawCameraRow(QPainter& painter, const app::AppViewModel& viewModel, const QRect& row, int left) const;
   void drawPlayhead(QPainter& painter, int left, int trackWidth, double duration) const;
 

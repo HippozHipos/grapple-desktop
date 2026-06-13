@@ -88,7 +88,30 @@ void TimelinePanel::paintEvent(QPaintEvent* event) {
 
   int y = rulerHeight;
   for (const app::AppLayerRow& layer : viewModel.timeline.layers) {
-    drawLayerRow(painter, viewModel, layer, QRect{0, y, width(), rowHeight}, left);
+    drawLayerRow(
+      painter,
+      layer,
+      viewModel.timeline.clips,
+      QRect{0, y, width(), rowHeight},
+      left,
+      QColor{"#242936"},
+      QColor{"#3b4556"},
+      QColor{"#36466e"}
+    );
+    y += rowHeight;
+  }
+
+  for (const app::AppLayerRow& track : viewModel.timeline.audioTracks) {
+    drawLayerRow(
+      painter,
+      track,
+      viewModel.timeline.audioClips,
+      QRect{0, y, width(), rowHeight},
+      left,
+      QColor{"#242d2b"},
+      QColor{"#3c544d"},
+      QColor{"#2f5d54"}
+    );
     y += rowHeight;
   }
 
@@ -171,7 +194,22 @@ std::optional<foundation::NodeId> TimelinePanel::nodeAt(const QPoint& point) con
     return std::nullopt;
   }
 
-  if (row == static_cast<int>(viewModel_->timeline.layers.size()) && !viewModel_->timeline.cameras.empty()) {
+  const int firstAudioRow = static_cast<int>(viewModel_->timeline.layers.size());
+  const int firstCameraRow = firstAudioRow + static_cast<int>(viewModel_->timeline.audioTracks.size());
+  if (row >= firstAudioRow && row < firstCameraRow) {
+    const app::AppLayerRow& track = viewModel_->timeline.audioTracks[static_cast<std::size_t>(row - firstAudioRow)];
+    for (const app::AppClipRow& clip : viewModel_->timeline.audioClips) {
+      if (clip.trackNodeId != track.sourceNodeId) {
+        continue;
+      }
+      if (clipRectFor(row, clip).contains(point)) {
+        return clip.sourceNodeId;
+      }
+    }
+    return std::nullopt;
+  }
+
+  if (row == firstCameraRow && !viewModel_->timeline.cameras.empty()) {
     for (std::size_t index = 0; index < viewModel_->timeline.cameras.size(); ++index) {
       if (cameraRectFor(row, index, viewModel_->timeline.cameras.size()).contains(point)) {
         return viewModel_->timeline.cameras[index].sourceNodeId;
@@ -214,25 +252,28 @@ QString TimelinePanel::elidedText(QPainter& painter, const QString& text, int wi
 
 void TimelinePanel::drawLayerRow(
   QPainter& painter,
-  const app::AppViewModel& viewModel,
   const app::AppLayerRow& layer,
+  const std::vector<app::AppClipRow>& clips,
   const QRect& row,
-  int left
+  int left,
+  const QColor& rowColor,
+  const QColor& borderColor,
+  const QColor& clipColor
 ) const {
-  painter.fillRect(row, QColor{"#242936"});
-  painter.setPen(QColor{"#3b4556"});
+  painter.fillRect(row, rowColor);
+  painter.setPen(borderColor);
   painter.drawLine(0, row.bottom(), width(), row.bottom());
   painter.setPen(QColor{"#dbe7f7"});
   painter.drawText(QRect{16, row.top(), left - 28, row.height()}, Qt::AlignVCenter | Qt::AlignLeft, qString(layer.name));
 
-  for (const app::AppClipRow& clip : viewModel.timeline.clips) {
+  for (const app::AppClipRow& clip : clips) {
     if (clip.trackNodeId != layer.sourceNodeId) {
       continue;
     }
     const QRect clipRect = clipRectFor((row.top() - rulerHeight()) / rowHeight(), clip);
     const bool selected = selectedNodeId_.has_value() && clip.sourceNodeId == selectedNodeId_.value();
     painter.setPen(selected ? QPen{QColor{"#ffffff"}, 3} : QPen{QColor{"#b9c7f0"}, 1});
-    painter.setBrush(QColor{"#36466e"});
+    painter.setBrush(clipColor);
     painter.drawRoundedRect(clipRect, 6, 6);
     painter.setPen(QColor{"#eef4ff"});
     painter.drawText(clipRect.adjusted(10, 0, -8, 0), Qt::AlignVCenter | Qt::AlignLeft, elidedText(painter, qString(clip.assetName), clipRect.width() - 18));
