@@ -1,3 +1,5 @@
+find_package(OpenCV REQUIRED COMPONENTS core imgproc videoio)
+
 add_library(grapple_app
   src/NativeEffectSession.cpp
   src/NativeExportSession.cpp
@@ -26,4 +28,11 @@ target_link_libraries(grapple_app
     Grapple::Render
     Grapple::Runtime
     Grapple::Storage
+  PRIVATE
+    ${OpenCV_LIBS}
+)
+
+target_include_directories(grapple_app
+  PRIVATE
+    ${OpenCV_INCLUDE_DIRS}
 )

@@ -13,9 +13,6 @@
 #include <QPixmap>
 #include <QString>
 
-#include <opencv2/core.hpp>
-#include <opencv2/videoio.hpp>
-
 #include <algorithm>
 #include <filesystem>
 #include <iostream>
@@ -28,41 +25,6 @@ namespace {
 void printError(const grapple::foundation::Error& error) {
   std::cerr << error.code << ": " << error.message << '\n';
 }
-
-grapple::foundation::Result<void> ensureDemoVideoFile(const grapple::foundation::FilePath& path) {
-  constexpr int width = 320;
-  constexpr int height = 180;
-  constexpr int frameCount = 300;
-  const std::filesystem::path videoPath{path.value};
-  std::filesystem::create_directories(videoPath.parent_path());
-
-  cv::VideoWriter writer{
-    path.value,
-    cv::VideoWriter::fourcc('M', 'J', 'P', 'G'),
-    30.0,
-    cv::Size{width, height}
-  };
-  if (!writer.isOpened()) {
-    return grapple::foundation::Error{"desktop.demo_video_open_failed", "Could not create demo video " + path.value + "."};
-  }
-
-  for (int frame = 0; frame < frameCount; ++frame) {
-    cv::Mat image(height, width, CV_8UC3);
-    for (int y = 0; y < height; ++y) {
-      for (int x = 0; x < width; ++x) {
-        image.at<cv::Vec3b>(y, x) = cv::Vec3b{
-          static_cast<unsigned char>((180 + frame * 2) % 255),
-          static_cast<unsigned char>((y * 2 + 80) % 255),
-          static_cast<unsigned char>((x + frame * 4) % 255)
-        };
-      }
-    }
-    writer.write(image);
-  }
-
-  return {};
-}
-
 
 grapple::foundation::Result<void> populateDemo(grapple::app::NativeProjectSession& session, bool savePackage) {
   return grapple::demo::populateWalkingWomanDemo(
@@ -156,7 +118,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       1
     }
   };
-  const auto demoVideo = ensureDemoVideoFile(grapple::foundation::FilePath{"/tmp/grapple-native-demo/walking-woman.avi"});
+  const auto demoVideo = grapple::demo::ensureWalkingWomanDemoVideo();
   if (!demoVideo) {
     printError(demoVideo.error());
     return 1;

@@ -4,6 +4,11 @@
 #include <grapple/asset/Asset.hpp>
 #include <grapple/timeline/Payloads.hpp>
 
+#include <opencv2/core.hpp>
+#include <opencv2/videoio.hpp>
+
+#include <filesystem>
+
 namespace grapple::demo {
 
 namespace {
@@ -25,6 +30,41 @@ project::CommandSource userSource() {
 }
 
 } // namespace
+
+foundation::Result<void> ensureWalkingWomanDemoVideo() {
+  constexpr int width = 320;
+  constexpr int height = 180;
+  constexpr int frameCount = 300;
+  const foundation::FilePath path{"/tmp/grapple-native-demo/walking-woman.avi"};
+  const std::filesystem::path videoPath{path.value};
+  std::filesystem::create_directories(videoPath.parent_path());
+
+  cv::VideoWriter writer{
+    path.value,
+    cv::VideoWriter::fourcc('M', 'J', 'P', 'G'),
+    30.0,
+    cv::Size{width, height}
+  };
+  if (!writer.isOpened()) {
+    return foundation::Error{"demo.video_open_failed", "Could not create demo video " + path.value + "."};
+  }
+
+  for (int frame = 0; frame < frameCount; ++frame) {
+    cv::Mat image(height, width, CV_8UC3);
+    for (int y = 0; y < height; ++y) {
+      for (int x = 0; x < width; ++x) {
+        image.at<cv::Vec3b>(y, x) = cv::Vec3b{
+          static_cast<unsigned char>((180 + frame * 2) % 255),
+          static_cast<unsigned char>((y * 2 + 80) % 255),
+          static_cast<unsigned char>((x + frame * 4) % 255)
+        };
+      }
+    }
+    writer.write(image);
+  }
+
+  return {};
+}
 
 foundation::Result<void> populateWalkingWomanDemo(
   app::NativeProjectSession& session,

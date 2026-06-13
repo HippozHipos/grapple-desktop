@@ -1,11 +1,12 @@
 #include <DemoProject.hpp>
 
-#include <grapple/app/NativeExportSession.hpp>
 #include <grapple/app/NativeProjectSession.hpp>
 #include <grapple/app/NativePreviewSession.hpp>
+#include <grapple/app/NativeWorkspaceSession.hpp>
 #include <grapple/projection/RenderPlanSerializer.hpp>
 #include <grapple/storage/ProjectCommitBuilder.hpp>
 
+#include <filesystem>
 #include <iostream>
 #include <optional>
 #include <string>
@@ -84,6 +85,12 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
+  const auto demoVideo = demo::ensureWalkingWomanDemoVideo();
+  if (!demoVideo) {
+    printError(demoVideo.error());
+    return 1;
+  }
+
   const auto renderPlan = session.buildRenderPlan();
   if (!renderPlan) {
     printError(renderPlan.error());
@@ -128,23 +135,32 @@ int main(int argc, char* argv[]) {
   }
 
   if (runExportSmoke) {
-    app::NativeExportSession exportSession{session};
-    const auto prepare = exportSession.prepareFromProject();
+    auto workspace = app::NativeWorkspaceSession::fromProject(std::move(session));
+    if (!workspace) {
+      printError(workspace.error());
+      return 1;
+    }
+    const auto prepare = workspace.value().exportSession().prepareFromProject();
     if (!prepare) {
       printError(prepare.error());
       return 1;
     }
 
-    const auto result = exportSession.render(render::ExportSettings{
+    const auto result = workspace.value().exportSession().renderToVideo(render::ExportSettings{
       foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}},
       foundation::FrameRate{2, 1},
       foundation::Resolution{1920, 1080},
       render::Codec{"test"},
       render::RenderQuality::Final,
-      foundation::FilePath{"/tmp/grapple-cli-export.mov"}
+      foundation::FilePath{"/tmp/grapple-cli-export.avi"}
     });
     if (!result) {
       printError(result.error());
+      return 1;
+    }
+    if (!std::filesystem::exists(result.value().outputPath.value) ||
+        std::filesystem::file_size(result.value().outputPath.value) == 0) {
+      std::cerr << "Export did not write a video artifact.\n";
       return 1;
     }
 

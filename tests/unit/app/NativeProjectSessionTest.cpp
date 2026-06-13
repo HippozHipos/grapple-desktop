@@ -390,6 +390,22 @@ int main() {
   GRAPPLE_REQUIRE(exportOnlyResult);
   GRAPPLE_REQUIRE(exportOnlyResult.value().framesEvaluated == 1);
   GRAPPLE_REQUIRE(cacheWorkspace.value().cachedMediaFrameCount() == 1);
+  const std::filesystem::path videoExportPath =
+    std::filesystem::temp_directory_path() /
+    ("grapple_native_video_export_" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".avi");
+  const auto videoExport = cacheWorkspace.value().exportSession().renderToVideo(render::ExportSettings{
+    foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}},
+    foundation::FrameRate{1, 1},
+    foundation::Resolution{16, 16},
+    render::Codec{"test"},
+    render::RenderQuality::Final,
+    foundation::FilePath{videoExportPath.string()}
+  });
+  GRAPPLE_REQUIRE(videoExport);
+  GRAPPLE_REQUIRE(videoExport.value().framesEvaluated == 1);
+  GRAPPLE_REQUIRE(std::filesystem::exists(videoExportPath));
+  GRAPPLE_REQUIRE(std::filesystem::file_size(videoExportPath) > 0);
+  std::filesystem::remove(videoExportPath);
   const auto cacheRefresh = cacheWorkspace.value().preview().refreshFromProject();
   GRAPPLE_REQUIRE(cacheRefresh);
   const auto firstCachedFrame = cacheWorkspace.value().preview().renderFrame(render::RenderFrameRequest{

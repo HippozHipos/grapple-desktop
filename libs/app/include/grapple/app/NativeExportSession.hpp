@@ -29,6 +29,7 @@ public:
 
   foundation::Result<NativeExportPrepareResult> prepareFromProject();
   foundation::Result<render::FinalRenderResult> render(render::ExportSettings settings);
+  foundation::Result<render::FinalRenderResult> renderToVideo(render::ExportSettings settings);
   [[nodiscard]] render::FinalRenderShellState state() const noexcept;
 
 private:

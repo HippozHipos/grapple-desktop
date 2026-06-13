@@ -1,3 +1,5 @@
+find_package(OpenCV REQUIRED COMPONENTS core videoio)
+
 add_library(grapple_demo_project
   DemoProject.cpp
 )
@@ -12,4 +14,11 @@ target_include_directories(grapple_demo_project
 target_link_libraries(grapple_demo_project
   PUBLIC
     Grapple::App
+  PRIVATE
+    ${OpenCV_LIBS}
+)
+
+target_include_directories(grapple_demo_project
+  PRIVATE
+    ${OpenCV_INCLUDE_DIRS}
 )

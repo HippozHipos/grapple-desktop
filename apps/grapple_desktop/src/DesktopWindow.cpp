@@ -1052,13 +1052,13 @@ public:
       appendError(prepare.error());
       return;
     }
-    const auto result = workspace_.exportSession().render(grapple::render::ExportSettings{
+    const auto result = workspace_.exportSession().renderToVideo(grapple::render::ExportSettings{
       grapple::foundation::TimeRange{grapple::foundation::TimeSeconds{0.0}, grapple::foundation::TimeSeconds{1.0}},
       grapple::foundation::FrameRate{2, 1},
       grapple::foundation::Resolution{1920, 1080},
       grapple::render::Codec{"test"},
       grapple::render::RenderQuality::Final,
-      grapple::foundation::FilePath{"/tmp/grapple-desktop-export.mov"}
+      grapple::foundation::FilePath{"/tmp/grapple-desktop-export.avi"}
     });
     if (!result) {
       appendError(result.error());

@@ -8,6 +8,8 @@
 
 namespace grapple::demo {
 
+foundation::Result<void> ensureWalkingWomanDemoVideo();
+
 foundation::Result<void> populateWalkingWomanDemo(
   app::NativeProjectSession& session,
   std::optional<storage::SnapshotCommitRecord> headSnapshot
