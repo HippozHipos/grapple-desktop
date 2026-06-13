@@ -62,6 +62,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   bool openPackageSmoke = false;
   bool editSaveSmoke = false;
   std::optional<std::string> screenshotPath;
+  std::optional<std::string> effectScreenshotPath;
   for (int index = 1; index < argc; ++index) {
     const std::string argument{argv[index]};
     if (argument == "--smoke") {
@@ -102,8 +103,10 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       editSaveSmoke = true;
     } else if (argument == "--screenshot" && index + 1 < argc) {
       screenshotPath = argv[++index];
+    } else if (argument == "--effect-screenshot" && index + 1 < argc) {
+      effectScreenshotPath = argv[++index];
     } else {
-      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --select-camera-smoke, --steward-smoke, --import-smoke, --add-video-smoke, --move-clip-smoke, --undo-redo-smoke, --add-effect-smoke, --set-effect-param-smoke, --delete-effect-smoke, --delete-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, or --screenshot <path>.\n";
+      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --select-camera-smoke, --steward-smoke, --import-smoke, --add-video-smoke, --move-clip-smoke, --undo-redo-smoke, --add-effect-smoke, --set-effect-param-smoke, --delete-effect-smoke, --delete-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, --screenshot <path>, or --effect-screenshot <path>.\n";
       return 1;
     }
   }
@@ -509,6 +512,23 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     const QPixmap pixmap = window.grab();
     if (!pixmap.save(QString::fromStdString(*screenshotPath))) {
       std::cerr << "Could not write screenshot: " << *screenshotPath << '\n';
+      return 1;
+    }
+    return 0;
+  }
+
+  if (effectScreenshotPath.has_value()) {
+    window.show();
+    app.processEvents();
+    window.clickFirstTimelineCamera();
+    window.setStewardIntent("Center the subject with editable camera controls.");
+    window.clickStewardCreateCameraEffect();
+    window.setSelectedTargetNumericEffectParam(grapple::runtime::builtin_effect::PositionXParam, 0.25);
+    window.setSelectedTargetNumericEffectParam(grapple::runtime::builtin_effect::ZoomParam, 1.5);
+    app.processEvents();
+    const QPixmap pixmap = window.grab();
+    if (!pixmap.save(QString::fromStdString(*effectScreenshotPath))) {
+      std::cerr << "Could not write effect screenshot: " << *effectScreenshotPath << '\n';
       return 1;
     }
     return 0;

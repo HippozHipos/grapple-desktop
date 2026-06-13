@@ -302,7 +302,7 @@ public:
     previewFrame_->setObjectName("previewFrame");
     previewFrame_->setMinimumSize(620, 420);
     auto* previewLayout = new QVBoxLayout{previewFrame_};
-    previewTitle_ = new QLabel{"Preview"};
+    previewTitle_ = new QLabel{"Preview - evaluated RenderPlan"};
     previewTitle_->setObjectName("panelTitle");
     previewSurface_ = new grapple::ui::PreviewSurface;
     previewLayout->addWidget(previewTitle_);
@@ -312,7 +312,7 @@ public:
     viewportFrame_->setObjectName("viewportFrame");
     viewportFrame_->setMinimumSize(420, 420);
     auto* viewportLayout = new QVBoxLayout{viewportFrame_};
-    viewportTitle_ = new QLabel{"Viewport"};
+    viewportTitle_ = new QLabel{"Viewport - evaluated composition"};
     viewportTitle_->setObjectName("panelTitle");
     compositionViewport_ = new grapple::ui::CompositionViewport;
     viewportLayout->addWidget(viewportTitle_);
