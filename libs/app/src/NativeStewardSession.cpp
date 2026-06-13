@@ -410,7 +410,7 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::c
     return registered.error();
   }
 
-  agent::AgentToolContext toolContext{commandWriter_, project_};
+  agent::AgentToolContext toolContext{commandWriter_, project_, commandWriter_};
   agent::AgentBridge bridge{registry, toolContext, events_, nextSequence_};
   auto dispatched = bridge.dispatchToolCall(agent::AgentToolDispatchRequest{
     runId.value(),

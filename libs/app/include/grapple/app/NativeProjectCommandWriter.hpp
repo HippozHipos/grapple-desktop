@@ -4,6 +4,7 @@
 #include <grapple/foundation/Result.hpp>
 #include <grapple/project/ProjectCommand.hpp>
 #include <grapple/project/ProjectCommandService.hpp>
+#include <grapple/project/ProjectIdAllocator.hpp>
 #include <grapple/storage/ProjectCommitBuilder.hpp>
 
 #include <cstdint>
@@ -12,13 +13,14 @@
 
 namespace grapple::app {
 
-class NativeProjectCommandWriter final : public project::IProjectCommandService {
+class NativeProjectCommandWriter final : public project::IProjectCommandService, public project::IProjectIdAllocator {
 public:
   explicit NativeProjectCommandWriter(NativeProjectSession& session);
 
-  [[nodiscard]] foundation::AssetId nextAssetId(const std::string& stem);
-  [[nodiscard]] foundation::NodeId nextNodeId(const std::string& stem);
-  [[nodiscard]] foundation::EdgeId nextEdgeId(const std::string& stem);
+  [[nodiscard]] foundation::CommandId nextCommandId(const std::string& stem) override;
+  [[nodiscard]] foundation::AssetId nextAssetId(const std::string& stem) override;
+  [[nodiscard]] foundation::NodeId nextNodeId(const std::string& stem) override;
+  [[nodiscard]] foundation::EdgeId nextEdgeId(const std::string& stem) override;
   [[nodiscard]] foundation::SnapshotId nextSnapshotId(const std::string& stem);
 
   foundation::Result<storage::ProjectPackageSessionResult> apply(
@@ -44,7 +46,6 @@ public:
   );
 
 private:
-  [[nodiscard]] foundation::CommandId nextCommandId();
   [[nodiscard]] static std::string sanitizeStem(const std::string& stem);
 
   NativeProjectSession& session_;

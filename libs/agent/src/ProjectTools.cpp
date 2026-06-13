@@ -1128,8 +1128,9 @@ AgentTool makeAssetImportTool() {
         parsedDuration = foundation::TimeSeconds{duration.value().value()};
       }
 
+      const foundation::CommandId commandId = context.ids.nextCommandId("import_asset");
       auto command = context.commands.apply(project::ProjectCommandEnvelope{
-        foundation::CommandId{"cmd_agent_import_asset_" + assetId.value()},
+        commandId,
         call.projectId,
         call.expectedRevision,
         project::CommandSource{project::CommandSourceKind::Agent, call.runId, "agent"},
@@ -1244,15 +1245,9 @@ AgentTool makeTimelineCreateTrackTool() {
         return name.error();
       }
 
-      auto snapshot = readProjectSnapshot(context, "Create track");
-      if (!snapshot) {
-        return snapshot.error();
-      }
-
-      const std::int64_t nextRevisionNumber = snapshot.value().revisionNumber + 1;
-      const foundation::CommandId commandId{"cmd_agent_create_track_rev_" + std::to_string(nextRevisionNumber)};
-      const foundation::NodeId trackNodeId{"node_agent_track_rev_" + std::to_string(nextRevisionNumber)};
-      const foundation::EdgeId containmentEdgeId{"edge_agent_track_contains_rev_" + std::to_string(nextRevisionNumber)};
+      const foundation::CommandId commandId = context.ids.nextCommandId("create_track");
+      const foundation::NodeId trackNodeId = context.ids.nextNodeId("track");
+      const foundation::EdgeId containmentEdgeId = context.ids.nextEdgeId("contains_track");
       auto command = context.commands.apply(project::ProjectCommandEnvelope{
         commandId,
         call.projectId,
@@ -1346,15 +1341,9 @@ AgentTool makeTimelineCreateClipTool() {
         return playbackRate.error();
       }
 
-      auto snapshot = readProjectSnapshot(context, "Create clip");
-      if (!snapshot) {
-        return snapshot.error();
-      }
-
-      const std::int64_t nextRevisionNumber = snapshot.value().revisionNumber + 1;
-      const foundation::CommandId commandId{"cmd_agent_create_clip_rev_" + std::to_string(nextRevisionNumber)};
-      const foundation::NodeId clipNodeId{"node_agent_clip_rev_" + std::to_string(nextRevisionNumber)};
-      const foundation::EdgeId containmentEdgeId{"edge_agent_clip_contains_rev_" + std::to_string(nextRevisionNumber)};
+      const foundation::CommandId commandId = context.ids.nextCommandId("create_clip");
+      const foundation::NodeId clipNodeId = context.ids.nextNodeId("clip");
+      const foundation::EdgeId containmentEdgeId = context.ids.nextEdgeId("contains_clip");
       auto command = context.commands.apply(project::ProjectCommandEnvelope{
         commandId,
         call.projectId,
@@ -1424,13 +1413,7 @@ AgentTool makeTimelineMoveClipTool() {
         return newStart.error();
       }
 
-      auto snapshot = readProjectSnapshot(context, "Move clip");
-      if (!snapshot) {
-        return snapshot.error();
-      }
-
-      const std::int64_t nextRevisionNumber = snapshot.value().revisionNumber + 1;
-      const foundation::CommandId commandId{"cmd_agent_move_clip_rev_" + std::to_string(nextRevisionNumber)};
+      const foundation::CommandId commandId = context.ids.nextCommandId("move_clip");
       auto command = context.commands.apply(project::ProjectCommandEnvelope{
         commandId,
         call.projectId,
@@ -1500,13 +1483,7 @@ AgentTool makeTimelineTrimClipTool() {
         return sourceRange.error();
       }
 
-      auto snapshot = readProjectSnapshot(context, "Trim clip");
-      if (!snapshot) {
-        return snapshot.error();
-      }
-
-      const std::int64_t nextRevisionNumber = snapshot.value().revisionNumber + 1;
-      const foundation::CommandId commandId{"cmd_agent_trim_clip_rev_" + std::to_string(nextRevisionNumber)};
+      const foundation::CommandId commandId = context.ids.nextCommandId("trim_clip");
       auto command = context.commands.apply(project::ProjectCommandEnvelope{
         commandId,
         call.projectId,
@@ -1573,15 +1550,6 @@ AgentTool makeEffectCreateNodeTool() {
         return members.error();
       }
 
-      auto snapshot = readProjectSnapshot(context, "Create effect");
-      if (!snapshot) {
-        return snapshot.error();
-      }
-      const std::int64_t nextRevisionNumber = snapshot.value().revisionNumber + 1;
-      const foundation::CommandId commandId{"cmd_agent_create_effect_rev_" + std::to_string(nextRevisionNumber)};
-      const foundation::NodeId effectNodeId{"node_agent_effect_rev_" + std::to_string(nextRevisionNumber)};
-      const foundation::EdgeId targetEdgeId{"edge_agent_effect_targets_rev_" + std::to_string(nextRevisionNumber)};
-
       auto targetNodeId = requiredStringMember(arguments.value(), "targetNodeId", "$");
       if (!targetNodeId) {
         return targetNodeId.error();
@@ -1639,6 +1607,9 @@ AgentTool makeEffectCreateNodeTool() {
         return params.error();
       }
 
+      const foundation::CommandId commandId = context.ids.nextCommandId("create_effect");
+      const foundation::NodeId effectNodeId = context.ids.nextNodeId("effect");
+      const foundation::EdgeId targetEdgeId = context.ids.nextEdgeId("effect_targets");
       auto command = context.commands.apply(project::ProjectCommandEnvelope{
         commandId,
         call.projectId,
@@ -1726,13 +1697,7 @@ AgentTool makeEffectUpdateParamValueTool() {
         return paramValue.error();
       }
 
-      auto snapshot = readProjectSnapshot(context, "Update effect param value");
-      if (!snapshot) {
-        return snapshot.error();
-      }
-
-      const std::int64_t nextRevisionNumber = snapshot.value().revisionNumber + 1;
-      const foundation::CommandId commandId{"cmd_agent_update_effect_param_value_rev_" + std::to_string(nextRevisionNumber)};
+      const foundation::CommandId commandId = context.ids.nextCommandId("update_effect_param_value");
       auto command = context.commands.apply(project::ProjectCommandEnvelope{
         commandId,
         call.projectId,
@@ -1816,8 +1781,9 @@ AgentTool makeEffectConnectPortsTool() {
         order = parsedOrder.value();
       }
 
+      const foundation::CommandId commandId = context.ids.nextCommandId("connect_ports");
       auto command = context.commands.apply(project::ProjectCommandEnvelope{
-        foundation::CommandId{"cmd_agent_connect_ports_" + edgeId.value()},
+        commandId,
         call.projectId,
         call.expectedRevision,
         project::CommandSource{project::CommandSourceKind::Agent, call.runId, "agent"},
@@ -1871,8 +1837,9 @@ AgentTool makeEffectDisconnectPortsTool() {
         return edgeId.error();
       }
 
+      const foundation::CommandId commandId = context.ids.nextCommandId("disconnect_ports");
       auto command = context.commands.apply(project::ProjectCommandEnvelope{
-        foundation::CommandId{"cmd_agent_disconnect_ports_" + edgeId.value()},
+        commandId,
         call.projectId,
         call.expectedRevision,
         project::CommandSource{project::CommandSourceKind::Agent, call.runId, "agent"},
@@ -2005,14 +1972,8 @@ AgentTool makeNoteCreateTool() {
         return markdown.error();
       }
 
-      auto snapshot = readProjectSnapshot(context, "Create note");
-      if (!snapshot) {
-        return snapshot.error();
-      }
-
-      const std::int64_t nextRevisionNumber = snapshot.value().revisionNumber + 1;
-      const foundation::CommandId commandId{"cmd_agent_create_note_rev_" + std::to_string(nextRevisionNumber)};
-      const foundation::NodeId noteNodeId{"node_agent_note_rev_" + std::to_string(nextRevisionNumber)};
+      const foundation::CommandId commandId = context.ids.nextCommandId("create_note");
+      const foundation::NodeId noteNodeId = context.ids.nextNodeId("note");
       auto command = context.commands.apply(project::ProjectCommandEnvelope{
         commandId,
         call.projectId,
@@ -2073,13 +2034,7 @@ AgentTool makeNoteUpdateTool() {
         return markdown.error();
       }
 
-      auto snapshot = readProjectSnapshot(context, "Update note");
-      if (!snapshot) {
-        return snapshot.error();
-      }
-
-      const std::int64_t nextRevisionNumber = snapshot.value().revisionNumber + 1;
-      const foundation::CommandId commandId{"cmd_agent_update_note_rev_" + std::to_string(nextRevisionNumber)};
+      const foundation::CommandId commandId = context.ids.nextCommandId("update_note");
       const foundation::NodeId noteNodeId{nodeId.value()};
       auto command = context.commands.apply(project::ProjectCommandEnvelope{
         commandId,

@@ -22,6 +22,25 @@ grapple::agent::AgentRunEvent runStartedEvent() {
   };
 }
 
+class TestProjectIdAllocator final : public grapple::project::IProjectIdAllocator {
+public:
+  grapple::foundation::CommandId nextCommandId(const std::string& stem) override {
+    return grapple::foundation::CommandId{"cmd_test_" + stem};
+  }
+
+  grapple::foundation::AssetId nextAssetId(const std::string& stem) override {
+    return grapple::foundation::AssetId{"asset_test_" + stem};
+  }
+
+  grapple::foundation::NodeId nextNodeId(const std::string& stem) override {
+    return grapple::foundation::NodeId{"node_test_" + stem};
+  }
+
+  grapple::foundation::EdgeId nextEdgeId(const std::string& stem) override {
+    return grapple::foundation::EdgeId{"edge_test_" + stem};
+  }
+};
+
 } // namespace
 
 int main() {
@@ -45,7 +64,8 @@ int main() {
   project::ProjectController project{
     project::createEmptyProject(foundation::ProjectId{"proj_bridge"}, "Bridge Project")
   };
-  agent::AgentToolContext context{project, project};
+  TestProjectIdAllocator ids;
+  agent::AgentToolContext context{project, project, ids};
   std::int64_t nextSequence = 1;
   agent::AgentBridge bridge{registry, context, log, nextSequence};
 
