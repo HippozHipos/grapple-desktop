@@ -52,6 +52,7 @@ struct RunIdTag;
 struct ToolIdTag;
 struct ModelIdTag;
 struct JobIdTag;
+struct KeyframeIdTag;
 
 using ProjectId = StrongId<ProjectIdTag>;
 using RevisionId = StrongId<RevisionIdTag>;
@@ -66,5 +67,6 @@ using RunId = StrongId<RunIdTag>;
 using ToolId = StrongId<ToolIdTag>;
 using ModelId = StrongId<ModelIdTag>;
 using JobId = StrongId<JobIdTag>;
+using KeyframeId = StrongId<KeyframeIdTag>;
 
 } // namespace grapple::foundation

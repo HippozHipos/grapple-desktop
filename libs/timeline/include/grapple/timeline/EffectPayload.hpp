@@ -61,6 +61,14 @@ struct EffectPortSet {
 };
 
 struct Param {
+  struct Keyframe {
+    foundation::KeyframeId id;
+    foundation::TimeSeconds time;
+    ParamValue value;
+
+    friend bool operator==(const Keyframe&, const Keyframe&) = default;
+  };
+
   std::string name;
   ParamValue value;
 
@@ -80,6 +88,7 @@ struct Param {
   };
 
   Control control;
+  std::vector<Keyframe> keyframes;
 
   friend bool operator==(const Param&, const Param&) = default;
 };

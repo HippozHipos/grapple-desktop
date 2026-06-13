@@ -56,7 +56,7 @@ int main() {
   GRAPPLE_REQUIRE(timeline::serializeCanonicalEffectPayload(effect).find("\"modelDependencies\":[{\"modelId\":\"model_segmenter\",\"versionHash\":\"") != std::string::npos);
   GRAPPLE_REQUIRE(timeline::serializeCanonicalParamSet(timeline::ParamSet{
     {timeline::Param{"target_x", 0.5}, timeline::Param{"enabled", true}}
-  }) == "[{\"name\":\"enabled\",\"value\":true},{\"name\":\"target_x\",\"value\":0.5}]");
+  }) == "[{\"name\":\"enabled\",\"value\":true,\"keyframes\":[]},{\"name\":\"target_x\",\"value\":0.5,\"keyframes\":[]}]");
   GRAPPLE_REQUIRE(timeline::serializeCanonicalParamSet(timeline::ParamSet{
     {timeline::Param{
       "smoothing",
@@ -64,9 +64,13 @@ int main() {
       timeline::Param::Control{
         "Smoothing",
         timeline::Param::NumericControl{0.0, 1.0, 0.01}
+      },
+      {
+        timeline::Param::Keyframe{foundation::KeyframeId{"key_smooth_2"}, foundation::TimeSeconds{2.0}, 0.75},
+        timeline::Param::Keyframe{foundation::KeyframeId{"key_smooth_1"}, foundation::TimeSeconds{1.0}, 0.5}
       }
     }}
-  }) == "[{\"name\":\"smoothing\",\"label\":\"Smoothing\",\"numeric\":{\"min\":0,\"max\":1,\"step\":0.01},\"value\":0.25}]");
+  }) == "[{\"name\":\"smoothing\",\"label\":\"Smoothing\",\"numeric\":{\"min\":0,\"max\":1,\"step\":0.01},\"value\":0.25,\"keyframes\":[{\"id\":\"key_smooth_1\",\"time\":1,\"value\":0.5},{\"id\":\"key_smooth_2\",\"time\":2,\"value\":0.75}]}]");
 
   return 0;
 }

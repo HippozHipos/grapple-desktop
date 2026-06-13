@@ -203,6 +203,26 @@ std::string serializeCanonicalParamSet(const ParamSet& params) {
       stream << '}';
     }
     stream << ",\"value\":" << serializeCanonicalParamValue(sortedParams[index].value);
+    std::vector<Param::Keyframe> sortedKeyframes = sortedParams[index].keyframes;
+    std::sort(sortedKeyframes.begin(), sortedKeyframes.end(), [](const Param::Keyframe& left, const Param::Keyframe& right) {
+      if (left.time != right.time) {
+        return left.time < right.time;
+      }
+      return left.id < right.id;
+    });
+    stream << ",\"keyframes\":[";
+    for (std::size_t keyframeIndex = 0; keyframeIndex < sortedKeyframes.size(); ++keyframeIndex) {
+      if (keyframeIndex != 0) {
+        stream << ',';
+      }
+      stream << '{';
+      foundation::writeJsonStringProperty(stream, "id", sortedKeyframes[keyframeIndex].id.value());
+      stream << ",\"time\":";
+      writeNumber(stream, sortedKeyframes[keyframeIndex].time.value);
+      stream << ",\"value\":" << serializeCanonicalParamValue(sortedKeyframes[keyframeIndex].value);
+      stream << '}';
+    }
+    stream << ']';
     stream << '}';
   }
   stream << ']';

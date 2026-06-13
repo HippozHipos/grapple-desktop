@@ -145,6 +145,13 @@ int main() {
         timeline::Param::Control{
           "Target X",
           timeline::Param::NumericControl{0.0, 1.0, 0.01}
+        },
+        {
+          timeline::Param::Keyframe{
+            foundation::KeyframeId{"key_target_x_1"},
+            foundation::TimeSeconds{1.0},
+            0.8
+          }
         }
       }}
     },
@@ -215,6 +222,10 @@ int main() {
   GRAPPLE_REQUIRE(planResult.value().plan.effectGraphs[0].nodes[0].payload.ports.inputs[0].name == "input_frame");
   GRAPPLE_REQUIRE(planResult.value().plan.effectGraphs[0].nodes[0].payload.ports.outputs[0].name == "camera_transform");
   GRAPPLE_REQUIRE(std::get<double>(planResult.value().plan.effectGraphs[0].nodes[0].payload.params.values[0].value) == 0.77);
+  GRAPPLE_REQUIRE(planResult.value().plan.effectGraphs[0].nodes[0].payload.params.values[0].keyframes.size() == 1);
+  GRAPPLE_REQUIRE(planResult.value().plan.effectGraphs[0].nodes[0].payload.params.values[0].keyframes[0].id == foundation::KeyframeId{"key_target_x_1"});
+  GRAPPLE_REQUIRE(planResult.value().plan.effectGraphs[0].nodes[0].payload.params.values[0].keyframes[0].time == foundation::TimeSeconds{1.0});
+  GRAPPLE_REQUIRE(std::get<double>(planResult.value().plan.effectGraphs[0].nodes[0].payload.params.values[0].keyframes[0].value) == 0.8);
   GRAPPLE_REQUIRE(planResult.value().plan.effectGraphs[0].nodes[0].payload.activeRange.end == foundation::TimeSeconds{10.0});
   GRAPPLE_REQUIRE(planResult.value().plan.effectGraphs[0].edges.size() == 1);
   GRAPPLE_REQUIRE(planResult.value().plan.effectGraphs[0].edges[0].sourceNodeId == foundation::NodeId{"node_effect"});
@@ -350,7 +361,7 @@ int main() {
   GRAPPLE_REQUIRE(project::commandKind(updateEffectParams.payload) == project::CommandKind::UpdateEffectParams);
   GRAPPLE_REQUIRE(
     project::serializeCanonicalCommandPayload(updateEffectParams.payload) ==
-    "{\"effectNodeId\":\"node_effect\",\"params\":[{\"name\":\"subject_height\",\"value\":0.80000000000000004},{\"name\":\"target_x\",\"value\":0.5}]}"
+    "{\"effectNodeId\":\"node_effect\",\"params\":[{\"name\":\"subject_height\",\"value\":0.80000000000000004,\"keyframes\":[]},{\"name\":\"target_x\",\"value\":0.5,\"keyframes\":[]}]}"
   );
 
   const auto updateEffectParamsResult = controller.apply(updateEffectParams);

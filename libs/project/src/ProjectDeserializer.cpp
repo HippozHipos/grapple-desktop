@@ -14,6 +14,8 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
+#include <vector>
 
 namespace grapple::project {
 
@@ -507,7 +509,42 @@ foundation::Result<timeline::ParamSet> parseParamSet(const Json::Value& array, c
       control.numeric = numeric;
     }
 
-    params.values.push_back(timeline::Param{name.value(), paramValue.value(), control});
+    auto keyframesArray = requiredArrayMember(array[index], "keyframes", itemPath);
+    if (!keyframesArray) {
+      return keyframesArray.error();
+    }
+
+    std::vector<timeline::Param::Keyframe> keyframes;
+    keyframes.reserve(keyframesArray.value().size());
+    for (Json::ArrayIndex keyframeIndex = 0; keyframeIndex < keyframesArray.value().size(); ++keyframeIndex) {
+      const std::string keyframePath = itemPath + ".keyframes[" + std::to_string(keyframeIndex) + "]";
+      if (!keyframesArray.value()[keyframeIndex].isObject()) {
+        return parseError(keyframePath, "Expected keyframe object.");
+      }
+      auto keyframeId = requiredStringMember(keyframesArray.value()[keyframeIndex], "id", keyframePath);
+      if (!keyframeId) {
+        return keyframeId.error();
+      }
+      auto time = requiredDoubleMember(keyframesArray.value()[keyframeIndex], "time", keyframePath);
+      if (!time) {
+        return time.error();
+      }
+      auto keyframeValue = requiredMember(keyframesArray.value()[keyframeIndex], "value", keyframePath);
+      if (!keyframeValue) {
+        return keyframeValue.error();
+      }
+      auto parsedKeyframeValue = parseParamValue(keyframeValue.value(), keyframePath + ".value");
+      if (!parsedKeyframeValue) {
+        return parsedKeyframeValue.error();
+      }
+      keyframes.push_back(timeline::Param::Keyframe{
+        foundation::KeyframeId{keyframeId.value()},
+        foundation::TimeSeconds{time.value()},
+        parsedKeyframeValue.value()
+      });
+    }
+
+    params.values.push_back(timeline::Param{name.value(), paramValue.value(), control, std::move(keyframes)});
   }
   return params;
 }

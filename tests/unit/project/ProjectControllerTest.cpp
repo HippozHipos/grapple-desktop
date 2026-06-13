@@ -767,6 +767,13 @@ int main() {
         timeline::Param::Control{
           "Smoothing",
           timeline::Param::NumericControl{0.0, 1.0, 0.01}
+        },
+        {
+          timeline::Param::Keyframe{
+            foundation::KeyframeId{"key_smoothing_1"},
+            foundation::TimeSeconds{0.5},
+            0.75
+          }
         }
       }}
     },
@@ -918,6 +925,10 @@ int main() {
   GRAPPLE_REQUIRE(roundTrippedEffect->params.values[0].control.numeric->min == 0.0);
   GRAPPLE_REQUIRE(roundTrippedEffect->params.values[0].control.numeric->max == 1.0);
   GRAPPLE_REQUIRE(roundTrippedEffect->params.values[0].control.numeric->step == 0.01);
+  GRAPPLE_REQUIRE(roundTrippedEffect->params.values[0].keyframes.size() == 1);
+  GRAPPLE_REQUIRE(roundTrippedEffect->params.values[0].keyframes[0].id == foundation::KeyframeId{"key_smoothing_1"});
+  GRAPPLE_REQUIRE(roundTrippedEffect->params.values[0].keyframes[0].time == foundation::TimeSeconds{0.5});
+  GRAPPLE_REQUIRE(std::get<double>(roundTrippedEffect->params.values[0].keyframes[0].value) == 0.75);
   GRAPPLE_REQUIRE(roundTrippedEffect->activeRange.end == foundation::TimeSeconds{1.0});
   const project::ProjectCommandEnvelope deleteEffect{
     foundation::CommandId{"cmd_delete_track_effect"},
