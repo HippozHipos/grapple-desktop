@@ -717,6 +717,9 @@ int main() {
   GRAPPLE_REQUIRE(exportPrepare.value().revision == foundation::RevisionId{"rev_1"});
   GRAPPLE_REQUIRE(exportSession.state().core.hasPlan);
   GRAPPLE_REQUIRE(exportSession.state().core.preparedPlanHash == exportPrepare.value().preparedPlanHash);
+  const auto projectBeforeExport = session.snapshot();
+  GRAPPLE_REQUIRE(projectBeforeExport);
+  GRAPPLE_REQUIRE(projectBeforeExport.value().revision == foundation::RevisionId{"rev_1"});
 
   const auto exportResult = exportSession.render(render::ExportSettings{
     foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}},
@@ -732,6 +735,22 @@ int main() {
   GRAPPLE_REQUIRE(exportResult.value().runtimeDiagnostics.empty());
   GRAPPLE_REQUIRE(exportResult.value().renderDiagnostics.empty());
   GRAPPLE_REQUIRE(exportSession.state().lastOutputPath->value == "/tmp/app-export.mov");
+  GRAPPLE_REQUIRE(exportSession.state().core.preparedPlanHash == exportPrepare.value().preparedPlanHash);
+
+  const auto changedExportResolution = exportSession.render(render::ExportSettings{
+    foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}},
+    foundation::FrameRate{2, 1},
+    foundation::Resolution{1280, 720},
+    render::Codec{"test"},
+    render::RenderQuality::Final,
+    foundation::FilePath{"/tmp/app-export-720.mov"}
+  });
+  GRAPPLE_REQUIRE(changedExportResolution);
+  GRAPPLE_REQUIRE(exportSession.state().core.preparedPlanHash == exportPrepare.value().preparedPlanHash);
+  GRAPPLE_REQUIRE((exportSession.state().lastSettings->resolution == foundation::Resolution{1280, 720}));
+  const auto projectAfterExport = session.snapshot();
+  GRAPPLE_REQUIRE(projectAfterExport);
+  GRAPPLE_REQUIRE(projectAfterExport.value().revision == foundation::RevisionId{"rev_1"});
 
   const auto savedInitial = savedSession.snapshot();
   GRAPPLE_REQUIRE(savedInitial);
