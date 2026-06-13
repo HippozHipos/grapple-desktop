@@ -22,6 +22,7 @@ add_test(
 add_test(NAME grapple_cli_smoke COMMAND grapple_cli)
 add_test(NAME grapple_cli_render_plan_json COMMAND grapple_cli --render-plan-json)
 add_test(NAME grapple_cli_preview_frame COMMAND grapple_cli --preview-frame)
+set_tests_properties(grapple_cli_preview_frame PROPERTIES PASS_REGULAR_EXPRESSION "audioClips=0")
 add_test(NAME grapple_cli_export_smoke COMMAND grapple_cli --export-smoke)
 add_test(NAME grapple_cli_save_package COMMAND grapple_cli --save-package)
 add_test(NAME grapple_cli_open_package_smoke COMMAND grapple_cli --open-package-smoke)

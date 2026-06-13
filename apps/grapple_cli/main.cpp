@@ -135,6 +135,19 @@ int main(int argc, char* argv[]) {
                 << mediaFrame.sourceTime.value
                 << '\n';
     }
+    std::cout << "audioClips=" << frame.value().frame.audioClips.size() << '\n';
+    for (const render::RenderedAudioClip& audioClip : frame.value().frame.audioClips) {
+      std::cout << "audioClip="
+                << audioClip.clipNodeId.value() << ','
+                << audioClip.trackNodeId.value() << ','
+                << audioClip.assetId.value() << ','
+                << audioClip.timelineRange.start.value << ','
+                << audioClip.timelineRange.end.value << ','
+                << audioClip.sourceRange.start.value << ','
+                << audioClip.sourceRange.end.value << ','
+                << audioClip.playbackRate
+                << '\n';
+    }
     return 0;
   }
 
