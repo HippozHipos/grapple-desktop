@@ -191,13 +191,26 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     window.show();
     app.processEvents();
     window.clickFirstTimelineClip();
+    window.clickStewardCreateCameraEffect();
     const auto selectedNodeId = window.selectedNodeId();
     if (!selectedNodeId.has_value()) {
       std::cerr << "No selected timeline node.\n";
       return 1;
     }
+    const std::string log = window.logContents();
+    const auto viewModel = workspace.value().project().buildViewModel();
+    if (!viewModel) {
+      printError(viewModel.error());
+      return 1;
+    }
     std::cout << "selected=" << selectedNodeId->value() << '\n';
-    return selectedNodeId.value() == grapple::foundation::NodeId{"node_clip_3"} ? 0 : 1;
+    std::cout << "runs=" << workspace.value().steward().conversationState().runs.size() << '\n';
+    return selectedNodeId.value() == grapple::foundation::NodeId{"node_clip_3"} &&
+           workspace.value().steward().conversationState().runs.empty() &&
+           viewModel.value().timeline.effectCount == 0 &&
+           log.find("steward.selected_node_not_camera") == std::string::npos
+      ? 0
+      : 1;
   }
 
   if (selectCameraSmoke) {

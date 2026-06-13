@@ -1256,12 +1256,17 @@ private:
       appendError(viewModel.error());
       return;
     }
-    updateInspector(viewModel.value());
+    updateSelectionPanels(viewModel.value());
   }
 
   void updateInspector(const grapple::app::AppViewModel& viewModel) {
     inspector_->setPlainText(inspectorText(viewModel, selectedNodeId_, selectedAssetId_));
     effectParams_->setSelection(viewModel, selectedNodeId_);
+  }
+
+  void updateSelectionPanels(const grapple::app::AppViewModel& viewModel) {
+    updateInspector(viewModel);
+    steward_->setViewModel(viewModel, workspace_.steward().conversationState(), selectedNodeId_);
   }
 
   void rebuildMediaBin(const grapple::app::AppViewModel& viewModel) {
@@ -1304,7 +1309,7 @@ private:
       appendError(viewModel.error());
       return;
     }
-    updateInspector(viewModel.value());
+    updateSelectionPanels(viewModel.value());
   }
 
   void chooseAndImportVideo() {
