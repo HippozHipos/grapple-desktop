@@ -4,7 +4,6 @@
 #include <grapple/asset/Asset.hpp>
 #include <grapple/foundation/Hash.hpp>
 #include <grapple/graph/GraphEdge.hpp>
-#include <grapple/graph/GraphNode.hpp>
 #include <grapple/media/MediaSource.hpp>
 #include <grapple/render/RenderDiagnostic.hpp>
 #include <grapple/runtime/RuntimeDiagnostic.hpp>
@@ -825,35 +824,29 @@ public:
       return;
     }
 
-    const auto snapshot = workspace_.project().snapshot();
-    if (!snapshot) {
-      appendError(snapshot.error());
+    const auto viewModel = workspace_.project().buildViewModel();
+    if (!viewModel) {
+      appendError(viewModel.error());
       return;
     }
 
-    const grapple::graph::GraphNode* node = snapshot.value().graph.findNode(selectedNodeId_.value());
-    if (node == nullptr || node->kind != grapple::graph::NodeKind::Clip) {
+    std::optional<grapple::foundation::TimeSeconds> currentStart;
+    for (const grapple::app::AppClipRow& clip : viewModel.value().timeline.clips) {
+      if (clip.sourceNodeId == selectedNodeId_.value()) {
+        currentStart = clip.timelineRange.start;
+        break;
+      }
+    }
+    if (!currentStart.has_value()) {
       appendError(grapple::foundation::Error{"desktop.selected_node_not_clip", "Move Clip only applies to selected clips."});
       return;
     }
 
-    const auto* payload = std::get_if<grapple::timeline::ClipPayload>(&node->payload);
-    if (payload == nullptr) {
-      appendError(grapple::foundation::Error{"desktop.clip_payload_invalid", "Selected clip node must carry a clip payload."});
-      return;
-    }
-
-    grapple::timeline::ClipPayload updatedPayload = *payload;
-    const grapple::foundation::TimeSeconds nextStart{updatedPayload.timelineRange.start.value + delta.value};
-    const grapple::foundation::TimeSeconds nextEnd{updatedPayload.timelineRange.end.value + delta.value};
-    if (nextStart.value < 0.0) {
-      appendError(grapple::foundation::Error{"desktop.clip_move_before_zero", "Move Clip would place the clip before timeline start."});
-      return;
-    }
-    updatedPayload.timelineRange = grapple::foundation::TimeRange{nextStart, nextEnd};
-
     const auto moved = workspace_.commandWriter().apply(
-      grapple::project::UpdateClipCommand{selectedNodeId_.value(), updatedPayload},
+      grapple::project::MoveClipCommand{
+        selectedNodeId_.value(),
+        grapple::foundation::TimeSeconds{currentStart->value + delta.value}
+      },
       userSource()
     );
     if (!moved) {
