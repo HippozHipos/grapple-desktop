@@ -101,6 +101,7 @@ void EffectParamPanel::setSelection(
           editor->setObjectName(QString{"effectParamEditor_%1"}.arg(qString(param.name)));
           editor->setRange(*param.numericMin, *param.numericMax);
           editor->setDecimals(4);
+          editor->setKeyboardTracking(false);
           if (param.numericStep.has_value()) {
             editor->setSingleStep(*param.numericStep);
           }
@@ -109,11 +110,11 @@ void EffectParamPanel::setSelection(
 
           const foundation::NodeId parameterEffectNodeId = effect.sourceNodeId;
           const std::string paramName = param.name;
-          connect(editor, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, [this, parameterEffectNodeId, paramName](double value) {
+          connect(editor, &QDoubleSpinBox::editingFinished, this, [this, editor, parameterEffectNodeId, paramName] {
             if (applyHandler_) {
-              applyHandler_(parameterEffectNodeId, paramName, timeline::ParamValue{value});
+              applyHandler_(parameterEffectNodeId, paramName, timeline::ParamValue{editor->value()});
             }
-          }, Qt::QueuedConnection);
+          });
 
           rowLayout->addWidget(label);
           rowLayout->addWidget(editor, 1);

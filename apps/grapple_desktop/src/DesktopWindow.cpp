@@ -1122,6 +1122,7 @@ public:
     }
 
     editor->setValue(value);
+    Q_EMIT editor->editingFinished();
     QApplication::processEvents();
   }
 
