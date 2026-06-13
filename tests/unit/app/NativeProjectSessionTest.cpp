@@ -197,23 +197,34 @@ int main() {
   );
   GRAPPLE_REQUIRE(restoreTrack);
   GRAPPLE_REQUIRE(restoreSession.packageState().snapshotDocuments.size() == 2);
-  const auto restoredRevision = restoreWriter.restoreCommittedRevision(
-    foundation::RevisionId{"rev_1"},
+  const auto undoRevision = restoreWriter.undoLastCommittedCommand(
     userSource(),
-    std::optional<std::string>{"restore composition only"}
+    std::optional<std::string>{"undo track creation"}
   );
-  GRAPPLE_REQUIRE(restoredRevision);
-  GRAPPLE_REQUIRE(restoredRevision.value().commandResult.beforeRevision == foundation::RevisionId{"rev_2"});
-  GRAPPLE_REQUIRE(restoredRevision.value().commandResult.afterRevision == foundation::RevisionId{"rev_3"});
-  GRAPPLE_REQUIRE(restoredRevision.value().snapshot.revision == foundation::RevisionId{"rev_3"});
-  GRAPPLE_REQUIRE(restoredRevision.value().snapshot.graph.nodes().size() == 1);
-  GRAPPLE_REQUIRE(restoredRevision.value().snapshot.graph.edges().empty());
+  GRAPPLE_REQUIRE(undoRevision);
+  GRAPPLE_REQUIRE(undoRevision.value().commandResult.beforeRevision == foundation::RevisionId{"rev_2"});
+  GRAPPLE_REQUIRE(undoRevision.value().commandResult.afterRevision == foundation::RevisionId{"rev_3"});
+  GRAPPLE_REQUIRE(undoRevision.value().snapshot.revision == foundation::RevisionId{"rev_3"});
+  GRAPPLE_REQUIRE(undoRevision.value().snapshot.graph.nodes().size() == 1);
+  GRAPPLE_REQUIRE(undoRevision.value().snapshot.graph.edges().empty());
   GRAPPLE_REQUIRE(restoreSession.packageState().commandLog.records().size() == 3);
   GRAPPLE_REQUIRE(restoreSession.packageState().commandLog.records().back().serializedName == "project.restore_snapshot");
   GRAPPLE_REQUIRE(restoreSession.packageState().snapshots.records().size() == 3);
-  GRAPPLE_REQUIRE(restoreSession.packageState().snapshots.records().back().label == std::optional<std::string>{"restore composition only"});
+  GRAPPLE_REQUIRE(restoreSession.packageState().snapshots.records().back().label == std::optional<std::string>{"undo track creation"});
   GRAPPLE_REQUIRE(restoreSession.packageState().snapshotDocuments.size() == 3);
   GRAPPLE_REQUIRE(restoreSession.packageState().snapshotDocuments.back().revision == foundation::RevisionId{"rev_3"});
+  const auto restoredTrackRevision = restoreWriter.restoreCommittedRevision(
+    foundation::RevisionId{"rev_2"},
+    userSource(),
+    std::optional<std::string>{"restore track creation"}
+  );
+  GRAPPLE_REQUIRE(restoredTrackRevision);
+  GRAPPLE_REQUIRE(restoredTrackRevision.value().commandResult.beforeRevision == foundation::RevisionId{"rev_3"});
+  GRAPPLE_REQUIRE(restoredTrackRevision.value().commandResult.afterRevision == foundation::RevisionId{"rev_4"});
+  GRAPPLE_REQUIRE(restoredTrackRevision.value().snapshot.graph.nodes().size() == 2);
+  GRAPPLE_REQUIRE(restoredTrackRevision.value().snapshot.graph.edges().size() == 1);
+  GRAPPLE_REQUIRE(restoreSession.packageState().commandLog.records().size() == 4);
+  GRAPPLE_REQUIRE(restoreSession.packageState().snapshotDocuments.size() == 4);
 
   app::NativeProjectSession assetSession{
     foundation::ProjectId{"proj_app_assets"},

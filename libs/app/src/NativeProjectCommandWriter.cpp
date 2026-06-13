@@ -1,7 +1,9 @@
 #include <grapple/app/NativeProjectCommandWriter.hpp>
 
+#include <grapple/history/CommandRecord.hpp>
 #include <grapple/history/SnapshotRecord.hpp>
 
+#include <algorithm>
 #include <chrono>
 #include <cctype>
 #include <utility>
@@ -105,6 +107,42 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeProjectCommandWri
       foundation::FilePath{"snapshots/" + restoredSnapshotId.value() + ".json"},
       std::move(snapshotLabel)
     }
+  );
+}
+
+foundation::Result<storage::ProjectPackageSessionResult> NativeProjectCommandWriter::undoLastCommittedCommand(
+  project::CommandSource source,
+  std::optional<std::string> snapshotLabel
+) {
+  const storage::ProjectPackageState& state = session_.packageState();
+  if (!state.head.has_value() || !state.head->lastCommandId.has_value()) {
+    return foundation::Error{
+      "app.undo_command_missing",
+      "Undo requires a committed command at the current project head."
+    };
+  }
+
+  const std::vector<history::CommandRecord>& records = state.commandLog.records();
+  const auto command = std::find_if(records.rbegin(), records.rend(), [&](const history::CommandRecord& record) {
+    return record.id == *state.head->lastCommandId;
+  });
+  if (command == records.rend()) {
+    return foundation::Error{
+      "app.undo_head_command_missing",
+      "Undo could not find the command record for the current project head."
+    };
+  }
+  if (command->afterRevision != state.head->currentRevision) {
+    return foundation::Error{
+      "app.undo_head_revision_mismatch",
+      "Undo command record does not match the current project head revision."
+    };
+  }
+
+  return restoreCommittedRevision(
+    command->beforeRevision,
+    std::move(source),
+    std::move(snapshotLabel)
   );
 }
 
