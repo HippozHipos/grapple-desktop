@@ -8,8 +8,9 @@
 int main() {
   using namespace grapple;
 
-  media::FrameCache cache{2};
-  GRAPPLE_REQUIRE(cache.capacity() == 2);
+  media::FrameCache cache{8};
+  GRAPPLE_REQUIRE(cache.maxBytes() == 8);
+  GRAPPLE_REQUIRE(cache.usedBytes() == 0);
   const media::FrameCacheKey key{
     foundation::AssetId{"asset_video"},
     foundation::TimeSeconds{1.25},
@@ -26,6 +27,7 @@ int main() {
   });
   GRAPPLE_REQUIRE(put);
   GRAPPLE_REQUIRE(cache.size() == 1);
+  GRAPPLE_REQUIRE(cache.usedBytes() == 4);
 
   const auto cached = cache.get(key);
   GRAPPLE_REQUIRE(cached.has_value());
@@ -69,6 +71,7 @@ int main() {
   });
   GRAPPLE_REQUIRE(putSecond);
   GRAPPLE_REQUIRE(cache.size() == 2);
+  GRAPPLE_REQUIRE(cache.usedBytes() == 8);
 
   const media::FrameCacheKey thirdKey{
     foundation::AssetId{"asset_video"},
@@ -85,6 +88,7 @@ int main() {
   });
   GRAPPLE_REQUIRE(putThird);
   GRAPPLE_REQUIRE(cache.size() == 2);
+  GRAPPLE_REQUIRE(cache.usedBytes() == 8);
   GRAPPLE_REQUIRE(!cache.get(key).has_value());
   GRAPPLE_REQUIRE(cache.get(secondKey).has_value());
   GRAPPLE_REQUIRE(cache.get(thirdKey).has_value());
@@ -102,6 +106,7 @@ int main() {
   GRAPPLE_REQUIRE(replacedSecond.has_value());
   GRAPPLE_REQUIRE(replacedSecond->frameRef == "frame_2_replaced");
   GRAPPLE_REQUIRE((replacedSecond->rgbaPixels == std::vector<std::uint8_t>{4, 4, 4, 4}));
+  GRAPPLE_REQUIRE(cache.usedBytes() == 8);
 
   media::FrameCache zeroCapacityCache{0};
   const auto zeroCapacityPut = zeroCapacityCache.put(key, media::MediaFrame{
@@ -112,8 +117,22 @@ int main() {
     "frame_1",
     {1, 2, 3, 4}
   });
-  GRAPPLE_REQUIRE(!zeroCapacityPut);
-  GRAPPLE_REQUIRE(zeroCapacityPut.error().code == "media.cache_capacity_empty");
+  GRAPPLE_REQUIRE(zeroCapacityPut);
+  GRAPPLE_REQUIRE(zeroCapacityCache.size() == 0);
+  GRAPPLE_REQUIRE(zeroCapacityCache.usedBytes() == 0);
+
+  media::FrameCache smallCache{2};
+  const auto oversizedPut = smallCache.put(key, media::MediaFrame{
+    foundation::AssetId{"asset_video"},
+    foundation::TimeSeconds{1.25},
+    foundation::Resolution{640, 360},
+    media::MediaQuality::Proxy,
+    "frame_1",
+    {1, 2, 3, 4}
+  });
+  GRAPPLE_REQUIRE(oversizedPut);
+  GRAPPLE_REQUIRE(smallCache.size() == 0);
+  GRAPPLE_REQUIRE(smallCache.usedBytes() == 0);
 
   return 0;
 }

@@ -20,6 +20,8 @@ namespace grapple::app {
 
 namespace {
 
+constexpr std::size_t MediaFrameCacheBytes = 256 * 1024 * 1024;
+
 media::MediaSourceKind sourceKindFor(asset::AssetMediaType mediaType) {
   return mediaType == asset::AssetMediaType::Image
     ? media::MediaSourceKind::Image
@@ -162,7 +164,7 @@ struct NativeWorkspaceSession::State {
       steward{project, commandWriter},
       mediaSources{std::move(mediaSourceCatalog)},
       mediaReader{mediaSources},
-      frameCache{8},
+      frameCache{MediaFrameCacheBytes},
       cachedMediaReader{mediaReader, frameCache},
       frameSource{cachedMediaReader},
       preview{project, frameSource, {&builtinEffectRuntime}},

@@ -18,15 +18,17 @@ struct FrameCacheKey {
 
 class FrameCache {
 public:
-  explicit FrameCache(std::size_t capacity);
+  explicit FrameCache(std::size_t maxBytes);
 
   foundation::Result<void> put(FrameCacheKey key, MediaFrame frame);
   [[nodiscard]] std::optional<MediaFrame> get(const FrameCacheKey& key);
   [[nodiscard]] std::size_t size() const noexcept;
-  [[nodiscard]] std::size_t capacity() const noexcept;
+  [[nodiscard]] std::size_t maxBytes() const noexcept;
+  [[nodiscard]] std::size_t usedBytes() const noexcept;
 
 private:
-  std::size_t capacity_;
+  std::size_t maxBytes_;
+  std::size_t usedBytes_ = 0;
   std::vector<std::pair<FrameCacheKey, MediaFrame>> frames_;
 };
 

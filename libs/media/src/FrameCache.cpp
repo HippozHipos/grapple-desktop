@@ -10,14 +10,18 @@ bool operator==(const FrameCacheKey& left, const FrameCacheKey& right) {
          left.quality == right.quality;
 }
 
-FrameCache::FrameCache(std::size_t capacity)
-  : capacity_{capacity} {}
+namespace {
+
+std::size_t frameBytes(const MediaFrame& frame) noexcept {
+  return frame.rgbaPixels.size();
+}
+
+} // namespace
+
+FrameCache::FrameCache(std::size_t maxBytes)
+  : maxBytes_{maxBytes} {}
 
 foundation::Result<void> FrameCache::put(FrameCacheKey key, MediaFrame frame) {
-  if (capacity_ == 0) {
-    return foundation::Error{"media.cache_capacity_empty", "Frame cache capacity must be greater than zero."};
-  }
-
   if (!key.assetId) {
     return foundation::Error{"media.cache_asset_id_empty", "Frame cache key asset id must not be empty."};
   }
@@ -31,16 +35,21 @@ foundation::Result<void> FrameCache::put(FrameCacheKey key, MediaFrame frame) {
   });
 
   if (existing != frames_.end()) {
-    const FrameCacheKey existingKey = existing->first;
+    usedBytes_ -= frameBytes(existing->second);
     frames_.erase(existing);
-    frames_.push_back(std::make_pair(existingKey, std::move(frame)));
+  }
+
+  const std::size_t bytes = frameBytes(frame);
+  if (maxBytes_ == 0 || bytes > maxBytes_) {
     return {};
   }
 
-  if (frames_.size() == capacity_) {
+  while (!frames_.empty() && usedBytes_ + bytes > maxBytes_) {
+    usedBytes_ -= frameBytes(frames_.front().second);
     frames_.erase(frames_.begin());
   }
 
+  usedBytes_ += bytes;
   frames_.push_back(std::make_pair(std::move(key), std::move(frame)));
   return {};
 }
@@ -65,8 +74,12 @@ std::size_t FrameCache::size() const noexcept {
   return frames_.size();
 }
 
-std::size_t FrameCache::capacity() const noexcept {
-  return capacity_;
+std::size_t FrameCache::maxBytes() const noexcept {
+  return maxBytes_;
+}
+
+std::size_t FrameCache::usedBytes() const noexcept {
+  return usedBytes_;
 }
 
 } // namespace grapple::media

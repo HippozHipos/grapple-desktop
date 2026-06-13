@@ -56,7 +56,7 @@ int main() {
   using namespace grapple;
 
   TestMediaReader source;
-  media::FrameCache frameCache{2};
+  media::FrameCache frameCache{8};
   media::CachingMediaReader reader{source, frameCache};
 
   const auto firstFrame = reader.frameAt(
@@ -109,13 +109,15 @@ int main() {
   TestMediaReader zeroCapacitySource;
   media::FrameCache zeroCapacityCache{0};
   media::CachingMediaReader zeroCapacityReader{zeroCapacitySource, zeroCapacityCache};
-  const auto failedCacheStore = zeroCapacityReader.frameAt(
+  const auto uncachedFrame = zeroCapacityReader.frameAt(
     foundation::AssetId{"asset_video"},
     foundation::TimeSeconds{1.0},
     media::MediaQuality::Proxy
   );
-  GRAPPLE_REQUIRE(!failedCacheStore);
-  GRAPPLE_REQUIRE(failedCacheStore.error().code == "media.cache_capacity_empty");
+  GRAPPLE_REQUIRE(uncachedFrame);
+  GRAPPLE_REQUIRE(uncachedFrame.value().frameRef == "source_frame_1");
+  GRAPPLE_REQUIRE(zeroCapacitySource.frameReads == 1);
+  GRAPPLE_REQUIRE(zeroCapacityCache.size() == 0);
 
   return 0;
 }
