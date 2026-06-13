@@ -41,7 +41,7 @@ int main() {
 
   auto mismatchedReplacementPayload = graph.replaceNodePayload(
     foundation::NodeId{"node_composition"},
-    timeline::TrackPayload{"Wrong replacement"}
+    timeline::TrackPayload{"Wrong replacement", timeline::TrackKind::Visual}
   );
   GRAPPLE_REQUIRE(!mismatchedReplacementPayload);
   GRAPPLE_REQUIRE(mismatchedReplacementPayload.error().code == "graph.node_payload_kind_mismatch");
@@ -74,7 +74,7 @@ int main() {
   auto addTrack = next.addNode(graph::GraphNode{
     foundation::NodeId{"node_track"},
     graph::NodeKind::Track,
-    timeline::TrackPayload{"Video"},
+    timeline::TrackPayload{"Video", timeline::TrackKind::Visual},
     true
   });
   GRAPPLE_REQUIRE(addTrack);
@@ -143,7 +143,7 @@ int main() {
   graph::GraphDocument changedNode = next;
   const auto changedTrackPayload = changedNode.replaceNodePayload(
     foundation::NodeId{"node_track"},
-    timeline::TrackPayload{"Renamed Video"}
+    timeline::TrackPayload{"Renamed Video", timeline::TrackKind::Visual}
   );
   GRAPPLE_REQUIRE(changedTrackPayload);
   const graph::GraphDiff changedNodeDiff = graph::diffGraphs(next, changedNode);
@@ -208,13 +208,13 @@ int main() {
   GRAPPLE_REQUIRE(unorderedNext.addNode(graph::GraphNode{
     foundation::NodeId{"node_z"},
     graph::NodeKind::Track,
-    timeline::TrackPayload{"Z"},
+    timeline::TrackPayload{"Z", timeline::TrackKind::Visual},
     true
   }));
   GRAPPLE_REQUIRE(unorderedNext.addNode(graph::GraphNode{
     foundation::NodeId{"node_a"},
     graph::NodeKind::Track,
-    timeline::TrackPayload{"A"},
+    timeline::TrackPayload{"A", timeline::TrackKind::Visual},
     true
   }));
 
@@ -227,7 +227,7 @@ int main() {
   GRAPPLE_REQUIRE(sameRecordsDifferentOrder.addNode(graph::GraphNode{
     foundation::NodeId{"node_track"},
     graph::NodeKind::Track,
-    timeline::TrackPayload{"Video"},
+    timeline::TrackPayload{"Video", timeline::TrackKind::Visual},
     true
   }));
   GRAPPLE_REQUIRE(sameRecordsDifferentOrder.addNode(graph::GraphNode{

@@ -309,7 +309,8 @@ int main() {
         foundation::NodeId{"node_opened_track"},
         foundation::NodeId{"node_composition"},
         foundation::EdgeId{"edge_opened_contains_track"},
-        "Opened Track"
+        "Opened Track",
+        timeline::TrackKind::Visual
       }
     },
     storage::ProjectCommitRecordOptions{std::chrono::system_clock::now(), std::nullopt}
@@ -322,7 +323,7 @@ int main() {
   GRAPPLE_REQUIRE(invalidSnapshot.graph.addNode(graph::GraphNode{
     foundation::NodeId{"node_invalid_track"},
     graph::NodeKind::Track,
-    timeline::TrackPayload{"Invalid Track"},
+    timeline::TrackPayload{"Invalid Track", timeline::TrackKind::Visual},
     true
   }));
   GRAPPLE_REQUIRE(invalidSnapshot.graph.addNode(graph::GraphNode{
@@ -597,7 +598,8 @@ int main() {
         foundation::NodeId{"node_session_track"},
         foundation::NodeId{"node_session_composition"},
         foundation::EdgeId{"edge_session_contains_track"},
-        "Video"
+        "Video",
+        timeline::TrackKind::Visual
       }
     },
     storage::ProjectCommitRecordOptions{

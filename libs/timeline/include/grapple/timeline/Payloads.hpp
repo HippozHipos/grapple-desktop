@@ -7,6 +7,7 @@
 
 #include <optional>
 #include <string>
+#include <utility>
 
 namespace grapple::timeline {
 
@@ -22,8 +23,11 @@ enum class TrackKind {
 };
 
 struct TrackPayload {
+  TrackPayload(std::string nameValue, TrackKind kindValue)
+    : name{std::move(nameValue)}, kind{kindValue} {}
+
   std::string name;
-  TrackKind kind = TrackKind::Visual;
+  TrackKind kind;
 
   friend bool operator==(const TrackPayload&, const TrackPayload&) = default;
 };

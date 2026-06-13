@@ -108,7 +108,8 @@ foundation::Result<void> populateStarterDemo(
       trackNodeId,
       compositionNodeId,
       writer.nextEdgeId("contains_track"),
-      "Video"
+      "Video",
+      timeline::TrackKind::Visual
     },
     userSource()
   );

@@ -163,7 +163,8 @@ int main() {
       foundation::NodeId{"node_track"},
       foundation::NodeId{"node_composition"},
       foundation::EdgeId{"edge_contains_track"},
-      "Video"
+      "Video",
+      timeline::TrackKind::Visual
     }
   });
   GRAPPLE_REQUIRE(track);

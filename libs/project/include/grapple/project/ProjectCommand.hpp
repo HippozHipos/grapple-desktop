@@ -12,6 +12,7 @@
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <utility>
 #include <variant>
 
 namespace grapple::project {
@@ -62,11 +63,26 @@ struct CreateCompositionCommand {
 };
 
 struct CreateTrackCommand {
+  CreateTrackCommand(
+    foundation::NodeId nodeIdValue,
+    foundation::NodeId compositionNodeIdValue,
+    foundation::EdgeId containmentEdgeIdValue,
+    std::string nameValue,
+    timeline::TrackKind kindValue,
+    std::int64_t orderValue = 0
+  )
+    : nodeId{std::move(nodeIdValue)},
+      compositionNodeId{std::move(compositionNodeIdValue)},
+      containmentEdgeId{std::move(containmentEdgeIdValue)},
+      name{std::move(nameValue)},
+      kind{kindValue},
+      order{orderValue} {}
+
   foundation::NodeId nodeId;
   foundation::NodeId compositionNodeId;
   foundation::EdgeId containmentEdgeId;
   std::string name;
-  timeline::TrackKind kind = timeline::TrackKind::Visual;
+  timeline::TrackKind kind;
   std::int64_t order = 0;
 };
 

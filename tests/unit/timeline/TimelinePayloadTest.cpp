@@ -9,8 +9,9 @@
 int main() {
   using namespace grapple;
 
-  const timeline::TrackPayload track{"Video"};
+  const timeline::TrackPayload track{"Video", timeline::TrackKind::Visual};
   GRAPPLE_REQUIRE(track.name == "Video");
+  GRAPPLE_REQUIRE(track.kind == timeline::TrackKind::Visual);
 
   const timeline::ClipPayload clip{
     timeline::ClipKind::Video,

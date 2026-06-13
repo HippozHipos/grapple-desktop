@@ -75,7 +75,8 @@ int main() {
       foundation::NodeId{"node_track"},
       foundation::NodeId{"node_composition"},
       foundation::EdgeId{"edge_contains_track"},
-      "Video"
+      "Video",
+      timeline::TrackKind::Visual
     }
   });
   GRAPPLE_REQUIRE(createTrack);
@@ -574,7 +575,7 @@ int main() {
   GRAPPLE_REQUIRE(disabledProjectionDocument.graph.addNode(graph::GraphNode{
     foundation::NodeId{"node_disabled_track"},
     graph::NodeKind::Track,
-    timeline::TrackPayload{"Video"},
+    timeline::TrackPayload{"Video", timeline::TrackKind::Visual},
     true
   }));
   GRAPPLE_REQUIRE(disabledProjectionDocument.graph.addNode(graph::GraphNode{

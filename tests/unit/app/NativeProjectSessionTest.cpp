@@ -365,7 +365,8 @@ int main() {
       restoreTrackNodeId,
       restoreCompositionNodeId,
       restoreWriter.nextEdgeId("contains track"),
-      "Temporary Track"
+      "Temporary Track",
+      timeline::TrackKind::Visual
     },
     userSource()
   );
@@ -450,7 +451,8 @@ int main() {
       assetTrackNodeId,
       assetCompositionNodeId,
       assetWriter.nextEdgeId("contains track"),
-      "Asset Track"
+      "Asset Track",
+      timeline::TrackKind::Visual
     },
     userSource()
   );
@@ -542,7 +544,8 @@ int main() {
       cacheTrackNodeId,
       cacheCompositionNodeId,
       cacheWriter.nextEdgeId("contains track"),
-      "Cache Track"
+      "Cache Track",
+      timeline::TrackKind::Visual
     },
     userSource()
   );
@@ -1201,7 +1204,8 @@ int main() {
       openedWriter.nextNodeId("opened track"),
       openedSavedViewModel.value().timeline.compositions[0].sourceNodeId,
       openedWriter.nextEdgeId("contains opened track"),
-      "Opened Track"
+      "Opened Track",
+      timeline::TrackKind::Visual
     },
     userSource()
   );
@@ -1224,7 +1228,8 @@ int main() {
       openedWorkspace.value().commandWriter().nextNodeId("workspace track"),
       workspaceViewModel.value().timeline.compositions[0].sourceNodeId,
       openedWorkspace.value().commandWriter().nextEdgeId("contains workspace track"),
-      "Workspace Track"
+      "Workspace Track",
+      timeline::TrackKind::Visual
     },
     userSource()
   );

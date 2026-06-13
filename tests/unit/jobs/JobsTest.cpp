@@ -58,7 +58,8 @@ int main() {
       foundation::NodeId{"node_track"},
       foundation::NodeId{"node_composition"},
       foundation::EdgeId{"edge_contains_track"},
-      "Video"
+      "Video",
+      timeline::TrackKind::Visual
     }
   });
   GRAPPLE_REQUIRE(enqueueTrack);
@@ -71,7 +72,8 @@ int main() {
       foundation::NodeId{"node_stale_track"},
       foundation::NodeId{"node_composition"},
       foundation::EdgeId{"edge_contains_stale_track"},
-      "Stale Video"
+      "Stale Video",
+      timeline::TrackKind::Visual
     }
   });
   GRAPPLE_REQUIRE(enqueueStaleTrack);

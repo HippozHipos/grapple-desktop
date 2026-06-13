@@ -164,7 +164,8 @@ int main() {
       foundation::NodeId{"node_track"},
       foundation::NodeId{"node_composition"},
       foundation::EdgeId{"edge_contains_track"},
-      "Video"
+      "Video",
+      timeline::TrackKind::Visual
     }
   };
   GRAPPLE_REQUIRE(project::commandKind(createTrack.payload) == project::CommandKind::CreateTrack);
@@ -340,7 +341,8 @@ int main() {
       foundation::NodeId{"node_connection_track"},
       foundation::NodeId{"node_connection_composition"},
       foundation::EdgeId{"edge_connection_contains_track"},
-      "Video"
+      "Video",
+      timeline::TrackKind::Visual
     }
   });
   GRAPPLE_REQUIRE(connectionTrack);
@@ -418,7 +420,8 @@ int main() {
       foundation::NodeId{"node_clip_track"},
       foundation::NodeId{"node_clip_composition"},
       foundation::EdgeId{"edge_clip_contains_track"},
-      "Video"
+      "Video",
+      timeline::TrackKind::Visual
     }
   });
   GRAPPLE_REQUIRE(clipTrack);
@@ -720,7 +723,8 @@ int main() {
       foundation::NodeId{"node_move_clip_track"},
       foundation::NodeId{"node_move_clip_composition"},
       foundation::EdgeId{"edge_move_clip_contains_track"},
-      "Video"
+      "Video",
+      timeline::TrackKind::Visual
     }
   });
   GRAPPLE_REQUIRE(moveClipTrack);
@@ -1023,7 +1027,8 @@ int main() {
       foundation::NodeId{"node_effect_track"},
       foundation::NodeId{"node_effect_composition"},
       foundation::EdgeId{"edge_effect_contains_track"},
-      "Video"
+      "Video",
+      timeline::TrackKind::Visual
     }
   });
   GRAPPLE_REQUIRE(effectTrack);
