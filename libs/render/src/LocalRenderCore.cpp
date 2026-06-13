@@ -201,6 +201,13 @@ std::optional<RenderedImage> applyCameraTransformToImage(
   return image;
 }
 
+foundation::Result<RenderFrameResult> renderSampleFrame(
+  runtime::RuntimeSample sample,
+  const runtime::PreparedRuntimePlan& prepared,
+  IRenderFrameSource* frameSource,
+  const RenderFrameRequest& request
+);
+
 foundation::Result<RenderFrameResult> renderPreparedFrame(
   runtime::RuntimeEvaluator& runtime,
   const runtime::PreparedRuntimePlan& prepared,
@@ -217,6 +224,20 @@ foundation::Result<RenderFrameResult> renderPreparedFrame(
   }
 
   runtime::RuntimeSample sample = std::move(sampleResult.value().sample);
+  return renderSampleFrame(
+    std::move(sample),
+    prepared,
+    frameSource,
+    request
+  );
+}
+
+foundation::Result<RenderFrameResult> renderSampleFrame(
+  runtime::RuntimeSample sample,
+  const runtime::PreparedRuntimePlan& prepared,
+  IRenderFrameSource* frameSource,
+  const RenderFrameRequest& request
+) {
   applyCameraTransformOutputs(
     sample,
     prepared.dependencyGraph.projectId,
@@ -289,24 +310,35 @@ foundation::Result<RenderRangeResult> LocalRenderCore::renderRange(const RenderR
     return foundation::Error{"render.plan_missing", "LocalRenderCore requires a loaded RenderPlan before rendering a range."};
   }
 
-  std::vector<runtime::RuntimeDiagnostic> diagnostics = prepared_.value().diagnostics;
-  const std::size_t preparedDiagnosticCount = prepared_.value().diagnostics.size();
-  const double framesPerSecond = request.frameRate.framesPerSecond();
-  const double duration = request.range.duration();
-  const auto frameCount = static_cast<std::size_t>(duration * framesPerSecond);
+  auto range = runtime_.evaluateRange(runtime::RuntimeRangeRequest{
+    prepared_.value(),
+    request.range,
+    request.frameRate,
+    runtimeQualityFor(request.quality)
+  });
+  if (!range) {
+    return range.error();
+  }
 
-  for (std::size_t frameIndex = 0; frameIndex < frameCount; ++frameIndex) {
-    const foundation::TimeSeconds time{
-      request.range.start.value + static_cast<double>(frameIndex) / framesPerSecond
-    };
-    auto frameResult = renderPreparedFrame(runtime_, prepared_.value(), frameSource_, RenderFrameRequest{
-      time,
-      request.quality
-    });
+  std::vector<runtime::RuntimeDiagnostic> diagnostics = range.value().diagnostics;
+  const std::size_t preparedDiagnosticCount = range.value().diagnostics.size();
+
+  for (runtime::RuntimeFrameResult& runtimeFrame : range.value().frames) {
+    const foundation::TimeSeconds frameTime = runtimeFrame.sample.time;
+    auto frameResult = renderSampleFrame(
+      std::move(runtimeFrame.sample),
+      prepared_.value(),
+      frameSource_,
+      RenderFrameRequest{
+        frameTime,
+        request.quality
+      }
+    );
     if (!frameResult) {
       return frameResult.error();
     }
 
+    const auto frameIndex = static_cast<std::size_t>(runtimeFrame.frame.value);
     if (request.sink != nullptr) {
       auto writeFrame = request.sink->writeFrame(frameIndex, frameResult.value());
       if (!writeFrame) {
@@ -324,7 +356,7 @@ foundation::Result<RenderRangeResult> LocalRenderCore::renderRange(const RenderR
   }
 
   return RenderRangeResult{
-    frameCount,
+    range.value().frames.size(),
     diagnostics,
     {}
   };
