@@ -1,6 +1,8 @@
 #pragma once
 
-#include <grapple/app/NativeWorkspaceSession.hpp>
+#include <grapple/foundation/FilePath.hpp>
+#include <grapple/foundation/StrongId.hpp>
+#include <grapple/foundation/Time.hpp>
 
 #include <QPixmap>
 
@@ -8,13 +10,17 @@
 #include <optional>
 #include <string>
 
+namespace grapple::app {
+class NativeWorkspaceSession;
+}
+
 namespace grapple::desktop {
 
 class DesktopWindowImpl;
 
 class DesktopWindow final {
 public:
-  explicit DesktopWindow(app::NativeWorkspaceSession& workspace);
+  explicit DesktopWindow(grapple::app::NativeWorkspaceSession& workspace);
   ~DesktopWindow();
 
   DesktopWindow(const DesktopWindow&) = delete;
