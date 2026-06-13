@@ -46,6 +46,16 @@ void writeRect(std::ostringstream& stream, const foundation::Rect& value) {
   stream << '}';
 }
 
+const char* trackKindName(TrackKind kind) {
+  switch (kind) {
+    case TrackKind::Visual:
+      return "visual";
+    case TrackKind::Audio:
+      return "audio";
+  }
+  std::abort();
+}
+
 const char* clipKindName(ClipKind kind) {
   switch (kind) {
     case ClipKind::Video:
@@ -131,6 +141,20 @@ std::string serializeCanonicalTimeRange(const foundation::TimeRange& range) {
   writeNumber(stream, range.start.value);
   stream << ",\"end\":";
   writeNumber(stream, range.end.value);
+  stream << '}';
+  return stream.str();
+}
+
+std::string serializedTrackKind(TrackKind kind) {
+  return trackKindName(kind);
+}
+
+std::string serializeCanonicalTrackPayload(const TrackPayload& payload) {
+  std::ostringstream stream;
+  stream << '{';
+  foundation::writeJsonStringProperty(stream, "name", payload.name);
+  stream << ',';
+  foundation::writeJsonStringProperty(stream, "kind", trackKindName(payload.kind));
   stream << '}';
   return stream.str();
 }

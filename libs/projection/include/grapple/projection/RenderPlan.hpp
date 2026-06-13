@@ -27,6 +27,11 @@ struct RenderLayer {
   std::string name;
 };
 
+struct RenderAudioTrack {
+  foundation::NodeId sourceNodeId;
+  std::string name;
+};
+
 struct RenderClip {
   foundation::NodeId sourceNodeId;
   foundation::NodeId trackNodeId;
@@ -74,6 +79,7 @@ struct RenderPlan {
   foundation::TimeSeconds duration;
   std::vector<RenderAsset> assets;
   std::vector<RenderLayer> layers;
+  std::vector<RenderAudioTrack> audioTracks;
   std::vector<RenderClip> clips;
   std::vector<RenderAudioClip> audioClips;
   std::vector<RenderCamera> cameras;

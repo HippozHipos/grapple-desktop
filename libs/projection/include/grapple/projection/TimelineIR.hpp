@@ -27,6 +27,11 @@ struct TimelineLayer {
   std::string name;
 };
 
+struct TimelineAudioTrack {
+  foundation::NodeId sourceNodeId;
+  std::string name;
+};
+
 struct TimelineClip {
   foundation::NodeId sourceNodeId;
   foundation::NodeId trackNodeId;
@@ -74,6 +79,7 @@ struct TimelineIR {
   foundation::TimeSeconds duration;
   std::vector<TimelineAsset> assets;
   std::vector<TimelineLayer> layers;
+  std::vector<TimelineAudioTrack> audioTracks;
   std::vector<TimelineClip> clips;
   std::vector<TimelineAudioClip> audioClips;
   std::vector<TimelineCamera> cameras;

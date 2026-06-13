@@ -259,6 +259,7 @@ grapple::projection::RenderPlan makeRenderPlan() {
         "Video"
       }
     },
+    {},
     {
       grapple::projection::RenderClip{
         grapple::foundation::NodeId{"node_clip"},

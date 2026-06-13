@@ -95,6 +95,8 @@ std::string serializeCanonicalCommandPayload(const ProjectCommand& command) {
         writeIdProperty(stream, "containmentEdgeId", typedCommand.containmentEdgeId.value());
         stream << ',';
         foundation::writeJsonStringProperty(stream, "name", typedCommand.name);
+        stream << ',';
+        foundation::writeJsonStringProperty(stream, "kind", timeline::serializedTrackKind(typedCommand.kind));
         stream << ",\"order\":" << typedCommand.order;
       } else if constexpr (std::is_same_v<Command, CreateClipCommand>) {
         writeIdProperty(stream, "nodeId", typedCommand.nodeId.value());

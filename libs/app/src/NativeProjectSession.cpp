@@ -102,6 +102,7 @@ project::RenderPlanInspectResult inspectRenderPlan(const projection::RenderPlan&
     {},
     {},
     {},
+    {},
     plan.diagnostics.size()
   };
 
@@ -109,6 +110,13 @@ project::RenderPlanInspectResult inspectRenderPlan(const projection::RenderPlan&
     result.layers.push_back(project::RenderPlanLayerSummary{
       layer.sourceNodeId,
       layer.name
+    });
+  }
+
+  for (const projection::RenderAudioTrack& track : plan.audioTracks) {
+    result.audioTracks.push_back(project::RenderPlanLayerSummary{
+      track.sourceNodeId,
+      track.name
     });
   }
 

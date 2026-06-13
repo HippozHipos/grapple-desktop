@@ -60,8 +60,7 @@ std::string serializePayload(const NodePayload& payload) {
         foundation::writeJsonStringProperty(stream, "name", typedPayload.name);
       } else if constexpr (std::is_same_v<Payload, timeline::TrackPayload>) {
         foundation::writeJsonStringProperty(stream, "type", "track");
-        stream << ',';
-        foundation::writeJsonStringProperty(stream, "name", typedPayload.name);
+        stream << ",\"payload\":" << timeline::serializeCanonicalTrackPayload(typedPayload);
       } else if constexpr (std::is_same_v<Payload, timeline::ClipPayload>) {
         foundation::writeJsonStringProperty(stream, "type", "clip");
         stream << ",\"payload\":" << timeline::serializeCanonicalClipPayload(typedPayload);

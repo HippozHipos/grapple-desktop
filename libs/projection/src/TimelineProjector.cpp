@@ -106,7 +106,11 @@ foundation::Result<BuildTimelineIRResult> TimelineProjector::buildTimelineIR(
         return foundation::Error{"projection.track_payload_invalid", "Track node must carry a track payload."};
       }
 
-      timeline.layers.push_back(TimelineLayer{node.id, payload->name});
+      if (payload->kind == timeline::TrackKind::Audio) {
+        timeline.audioTracks.push_back(TimelineAudioTrack{node.id, payload->name});
+      } else {
+        timeline.layers.push_back(TimelineLayer{node.id, payload->name});
+      }
     }
 
     if (node.kind == graph::NodeKind::Clip) {

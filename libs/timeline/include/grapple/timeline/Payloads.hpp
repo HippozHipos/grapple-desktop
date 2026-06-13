@@ -16,8 +16,14 @@ struct CompositionPayload {
   friend bool operator==(const CompositionPayload&, const CompositionPayload&) = default;
 };
 
+enum class TrackKind {
+  Visual,
+  Audio
+};
+
 struct TrackPayload {
   std::string name;
+  TrackKind kind = TrackKind::Visual;
 
   friend bool operator==(const TrackPayload&, const TrackPayload&) = default;
 };

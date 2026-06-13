@@ -65,6 +65,7 @@ public:
                   "Agent Track"
                 }
               },
+              {},
               {
                 grapple::project::RenderPlanClipSummary{
                   grapple::foundation::NodeId{"node_agent_clip_4"},
@@ -775,10 +776,11 @@ int main() {
       foundation::RunId{"run_1"},
       foundation::ProjectId{"proj_agent"},
       importAssetResult.value().observedRevision,
-      R"({
-        "compositionNodeId": "node_composition",
-        "name": "Agent Track"
-      })"
+    R"({
+      "compositionNodeId": "node_composition",
+      "name": "Agent Track",
+      "kind": "visual"
+    })"
     },
     context
   );
@@ -795,6 +797,7 @@ int main() {
   const auto* trackPayload = std::get_if<timeline::TrackPayload>(&trackNode->payload);
   GRAPPLE_REQUIRE(trackPayload != nullptr);
   GRAPPLE_REQUIRE(trackPayload->name == "Agent Track");
+  GRAPPLE_REQUIRE(trackPayload->kind == timeline::TrackKind::Visual);
   const graph::GraphEdge* trackEdge = nullptr;
   for (const graph::GraphEdge& edge : afterTrackSnapshot.value().graph.edges()) {
     if (edge.id == foundation::EdgeId{"edge_agent_contains_track_2"}) {

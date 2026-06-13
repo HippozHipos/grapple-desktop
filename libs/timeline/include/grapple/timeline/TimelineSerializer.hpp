@@ -11,6 +11,8 @@
 namespace grapple::timeline {
 
 std::string serializeCanonicalTimeRange(const foundation::TimeRange& range);
+std::string serializedTrackKind(TrackKind kind);
+std::string serializeCanonicalTrackPayload(const TrackPayload& payload);
 std::string serializeCanonicalTransform(const Transform& transform);
 std::string serializeCanonicalParamValue(const ParamValue& value);
 std::string serializeCanonicalParamKeyframe(const Param::Keyframe& keyframe);

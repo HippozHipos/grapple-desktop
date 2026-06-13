@@ -168,7 +168,10 @@ int main() {
     }
   };
   GRAPPLE_REQUIRE(project::commandKind(createTrack.payload) == project::CommandKind::CreateTrack);
-  GRAPPLE_REQUIRE(project::serializeCanonicalCommandPayload(createTrack.payload).find("\"containmentEdgeId\":\"edge_contains_track\"") != std::string::npos);
+  GRAPPLE_REQUIRE(
+    project::serializeCanonicalCommandPayload(createTrack.payload) ==
+    "{\"nodeId\":\"node_track\",\"compositionNodeId\":\"node_composition\",\"containmentEdgeId\":\"edge_contains_track\",\"name\":\"Video\",\"kind\":\"visual\",\"order\":0}"
+  );
   const auto parsedCreateTrackPayload = project::deserializeCanonicalCommandPayload(
     project::serializedCommandName(project::CommandKind::CreateTrack),
     project::serializeCanonicalCommandPayload(createTrack.payload)
@@ -178,7 +181,7 @@ int main() {
   GRAPPLE_REQUIRE(project::serializeCanonicalCommandPayload(parsedCreateTrackPayload.value()) == project::serializeCanonicalCommandPayload(createTrack.payload));
   const auto commandWithUnexpectedField = project::deserializeCanonicalCommandPayload(
     project::serializedCommandName(project::CommandKind::CreateTrack),
-    "{\"nodeId\":\"node_track\",\"compositionNodeId\":\"node_composition\",\"containmentEdgeId\":\"edge_contains_track\",\"name\":\"Video\",\"order\":0,\"metadata\":{}}"
+    "{\"nodeId\":\"node_track\",\"compositionNodeId\":\"node_composition\",\"containmentEdgeId\":\"edge_contains_track\",\"name\":\"Video\",\"kind\":\"visual\",\"order\":0,\"metadata\":{}}"
   );
   GRAPPLE_REQUIRE(!commandWithUnexpectedField);
   GRAPPLE_REQUIRE(commandWithUnexpectedField.error().message.find("Unexpected serialized field") != std::string::npos);
@@ -208,6 +211,7 @@ int main() {
   GRAPPLE_REQUIRE(compositionResult->compositions[0].tracks.size() == 1);
   GRAPPLE_REQUIRE(compositionResult->compositions[0].tracks[0].nodeId == foundation::NodeId{"node_track"});
   GRAPPLE_REQUIRE(compositionResult->compositions[0].tracks[0].name == "Video");
+  GRAPPLE_REQUIRE(compositionResult->compositions[0].tracks[0].kind == timeline::TrackKind::Visual);
 
   const project::ProjectCommandEnvelope restoreCompositionSnapshot{
     foundation::CommandId{"cmd_restore_snapshot"},
@@ -447,6 +451,27 @@ int main() {
     project::RegisterAssetCommand{makeVideoAsset(foundation::AssetId{"asset_clip"}, "Clip")}
   });
   GRAPPLE_REQUIRE(registerClipAsset);
+  const auto createClipWithMismatchedTrackKind = clipProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_create_clip_mismatched_track_kind"},
+    foundation::ProjectId{"proj_clip"},
+    registerClipAsset.value().afterRevision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::CreateClipCommand{
+      foundation::NodeId{"node_clip_mismatched_track_kind"},
+      foundation::NodeId{"node_clip_track"},
+      foundation::EdgeId{"edge_clip_contains_mismatched_track_kind"},
+      timeline::ClipPayload{
+        timeline::ClipKind::Audio,
+        foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{5.0}},
+        foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{5.0}},
+        1.0,
+        foundation::AssetId{"asset_clip"},
+        timeline::Transform{}
+      }
+    }
+  });
+  GRAPPLE_REQUIRE(!createClipWithMismatchedTrackKind);
+  GRAPPLE_REQUIRE(createClipWithMismatchedTrackKind.error().code == "project.clip_track_kind_mismatch");
   const auto createClipWithMismatchedAssetKind = clipProject.apply(project::ProjectCommandEnvelope{
     foundation::CommandId{"cmd_create_clip_mismatched_asset_kind"},
     foundation::ProjectId{"proj_clip"},
@@ -457,7 +482,7 @@ int main() {
       foundation::NodeId{"node_clip_track"},
       foundation::EdgeId{"edge_clip_contains_mismatched_asset_kind"},
       timeline::ClipPayload{
-        timeline::ClipKind::Audio,
+        timeline::ClipKind::Image,
         foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{5.0}},
         foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{5.0}},
         1.0,
@@ -542,7 +567,7 @@ int main() {
     project::UpdateClipCommand{
       foundation::NodeId{"node_clip"},
       timeline::ClipPayload{
-        timeline::ClipKind::Audio,
+        timeline::ClipKind::Image,
         foundation::TimeRange{foundation::TimeSeconds{2.0}, foundation::TimeSeconds{12.0}},
         foundation::TimeRange{foundation::TimeSeconds{1.0}, foundation::TimeSeconds{11.0}},
         0.5,
@@ -605,7 +630,7 @@ int main() {
   const auto replaceInvalidRestoredClipKindPayload = invalidRestoredClipKindSnapshot.graph.replaceNodePayload(
     foundation::NodeId{"node_clip"},
     timeline::ClipPayload{
-      timeline::ClipKind::Audio,
+      timeline::ClipKind::Image,
       foundation::TimeRange{foundation::TimeSeconds{2.0}, foundation::TimeSeconds{12.0}},
       foundation::TimeRange{foundation::TimeSeconds{1.0}, foundation::TimeSeconds{11.0}},
       0.5,

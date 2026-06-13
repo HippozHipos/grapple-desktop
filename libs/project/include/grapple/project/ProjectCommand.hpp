@@ -66,6 +66,7 @@ struct CreateTrackCommand {
   foundation::NodeId compositionNodeId;
   foundation::EdgeId containmentEdgeId;
   std::string name;
+  timeline::TrackKind kind = timeline::TrackKind::Visual;
   std::int64_t order = 0;
 };
 

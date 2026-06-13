@@ -43,7 +43,7 @@ foundation::Result<CompositionTrackSummary> inspectTrack(
     return foundation::Error{"project.track_payload_invalid", "Track node must carry a track payload."};
   }
 
-  CompositionTrackSummary track{node.id, payload->name, node.enabled, {}};
+  CompositionTrackSummary track{node.id, payload->name, payload->kind, node.enabled, {}};
   for (const graph::GraphEdge& edge : graph.edges()) {
     if (edge.kind != graph::EdgeKind::Contains || edge.sourceNodeId != node.id) {
       continue;

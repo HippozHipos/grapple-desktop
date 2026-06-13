@@ -5,8 +5,6 @@
 #include <grapple/project/ProjectSerializer.hpp>
 #include <grapple/timeline/Payloads.hpp>
 
-#include <variant>
-
 namespace grapple::project {
 
 ProjectSnapshot makeProjectSnapshot(const ProjectDocument& document) {
@@ -42,6 +40,30 @@ foundation::Result<void> validateProjectSnapshotReferences(const ProjectSnapshot
     const auto* payload = std::get_if<timeline::ClipPayload>(&node.payload);
     if (payload == nullptr) {
       return foundation::Error{"project.snapshot_clip_payload_invalid", "Snapshot clip nodes must carry clip payloads."};
+    }
+    auto trackPayload = invariant::requireContainingTrackPayload(
+      snapshot.graph,
+      node.id,
+      invariant::ContainingTrackPayloadErrors{
+        "project.snapshot_clip_track_missing",
+        "Snapshot clip nodes must be contained by a track.",
+        "project.snapshot_clip_track_invalid",
+        "Snapshot clip containment source must be a track.",
+        "project.snapshot_track_payload_invalid",
+        "Snapshot track nodes must carry track payloads."
+      }
+    );
+    if (!trackPayload) {
+      return trackPayload.error();
+    }
+    auto trackKind = invariant::requireClipMatchesTrackKind(
+      *payload,
+      *trackPayload.value(),
+      "project.snapshot_clip_track_kind_mismatch",
+      "Snapshot clip kind must match its containing track kind."
+    );
+    if (!trackKind) {
+      return trackKind.error();
     }
     const asset::Asset* asset = snapshot.assets.find(payload->assetId);
     if (asset == nullptr) {

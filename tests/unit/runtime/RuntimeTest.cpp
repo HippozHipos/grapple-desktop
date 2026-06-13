@@ -86,6 +86,7 @@ grapple::projection::RenderPlan makePlan(std::string layerName) {
     {},
     {},
     {},
+    {},
     {}
   };
 }

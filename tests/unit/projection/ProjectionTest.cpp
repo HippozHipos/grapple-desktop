@@ -206,6 +206,7 @@ int main() {
   GRAPPLE_REQUIRE(timelineResult.value().timeline.revision == foundation::RevisionId{"rev_6"});
   GRAPPLE_REQUIRE(timelineResult.value().timeline.duration == foundation::TimeSeconds{10.0});
   GRAPPLE_REQUIRE(timelineResult.value().timeline.layers.size() == 1);
+  GRAPPLE_REQUIRE(timelineResult.value().timeline.audioTracks.empty());
   GRAPPLE_REQUIRE(timelineResult.value().timeline.layers[0].sourceNodeId == foundation::NodeId{"node_track"});
   GRAPPLE_REQUIRE(timelineResult.value().timeline.clips.size() == 1);
   GRAPPLE_REQUIRE(timelineResult.value().timeline.audioClips.empty());
@@ -230,6 +231,7 @@ int main() {
   GRAPPLE_REQUIRE(planResult.value().plan.revision == foundation::RevisionId{"rev_6"});
   GRAPPLE_REQUIRE(planResult.value().plan.duration == foundation::TimeSeconds{10.0});
   GRAPPLE_REQUIRE(planResult.value().plan.layers.size() == 1);
+  GRAPPLE_REQUIRE(planResult.value().plan.audioTracks.empty());
   GRAPPLE_REQUIRE(planResult.value().plan.layers[0].sourceNodeId == foundation::NodeId{"node_track"});
   GRAPPLE_REQUIRE(planResult.value().plan.clips.size() == 1);
   GRAPPLE_REQUIRE(planResult.value().plan.audioClips.empty());
@@ -342,7 +344,8 @@ int main() {
       foundation::NodeId{"node_audio_track"},
       foundation::NodeId{"node_audio_composition"},
       foundation::EdgeId{"edge_audio_contains_track"},
-      "Audio"
+      "Audio",
+      timeline::TrackKind::Audio
     }
   });
   GRAPPLE_REQUIRE(audioTrack);
@@ -389,15 +392,22 @@ int main() {
   GRAPPLE_REQUIRE(audioSnapshot);
   const auto audioTimeline = projector.buildTimelineIR(projection::BuildTimelineIRRequest{audioSnapshot.value()});
   GRAPPLE_REQUIRE(audioTimeline);
+  GRAPPLE_REQUIRE(audioTimeline.value().timeline.layers.empty());
+  GRAPPLE_REQUIRE(audioTimeline.value().timeline.audioTracks.size() == 1);
+  GRAPPLE_REQUIRE(audioTimeline.value().timeline.audioTracks[0].sourceNodeId == foundation::NodeId{"node_audio_track"});
   GRAPPLE_REQUIRE(audioTimeline.value().timeline.clips.empty());
   GRAPPLE_REQUIRE(audioTimeline.value().timeline.audioClips.size() == 1);
   GRAPPLE_REQUIRE(audioTimeline.value().timeline.duration == foundation::TimeSeconds{4.0});
   const auto audioPlan = builder.buildRenderPlan(projection::BuildRenderPlanRequest{audioTimeline.value().timeline});
   GRAPPLE_REQUIRE(audioPlan);
+  GRAPPLE_REQUIRE(audioPlan.value().plan.layers.empty());
+  GRAPPLE_REQUIRE(audioPlan.value().plan.audioTracks.size() == 1);
+  GRAPPLE_REQUIRE(audioPlan.value().plan.audioTracks[0].sourceNodeId == foundation::NodeId{"node_audio_track"});
   GRAPPLE_REQUIRE(audioPlan.value().plan.clips.empty());
   GRAPPLE_REQUIRE(audioPlan.value().plan.audioClips.size() == 1);
   GRAPPLE_REQUIRE(audioPlan.value().plan.audioClips[0].payload.kind == timeline::ClipKind::Audio);
   const std::string audioPlanJson = projection::serializeCanonicalRenderPlan(audioPlan.value().plan);
+  GRAPPLE_REQUIRE(audioPlanJson.find("\"audioTracks\":[") != std::string::npos);
   GRAPPLE_REQUIRE(audioPlanJson.find("\"audioClips\":[") != std::string::npos);
   GRAPPLE_REQUIRE(audioPlanJson.find("\"assetId\":\"asset_projection_audio\"") != std::string::npos);
 

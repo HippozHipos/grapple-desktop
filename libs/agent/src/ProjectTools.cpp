@@ -74,10 +74,11 @@ constexpr const char CompositionInspectSchema[] = R"json({
 constexpr const char TimelineCreateTrackSchema[] = R"json({
   "type": "object",
   "additionalProperties": false,
-  "required": ["compositionNodeId", "name"],
+  "required": ["compositionNodeId", "name", "kind"],
   "properties": {
     "compositionNodeId": {"type": "string", "minLength": 1},
-    "name": {"type": "string", "minLength": 1}
+    "name": {"type": "string", "minLength": 1},
+    "kind": {"type": "string", "enum": ["visual", "audio"]}
   }
 })json";
 
@@ -528,6 +529,16 @@ foundation::Result<timeline::ClipKind> parseClipKind(const std::string& value, c
   return argumentError(path, "Expected video, audio, or image.");
 }
 
+foundation::Result<timeline::TrackKind> parseTrackKind(const std::string& value, const std::string& path) {
+  if (value == "visual") {
+    return timeline::TrackKind::Visual;
+  }
+  if (value == "audio") {
+    return timeline::TrackKind::Audio;
+  }
+  return argumentError(path, "Expected visual or audio.");
+}
+
 foundation::Result<asset::AssetMediaType> parseAssetMediaType(const std::string& value, const std::string& path) {
   if (value == "video") {
     return asset::AssetMediaType::Video;
@@ -758,6 +769,17 @@ const char* clipKindText(timeline::ClipKind kind) {
   return "unknown";
 }
 
+const char* trackKindText(timeline::TrackKind kind) {
+  switch (kind) {
+    case timeline::TrackKind::Visual:
+      return "visual";
+    case timeline::TrackKind::Audio:
+      return "audio";
+  }
+
+  return "unknown";
+}
+
 void writeAssetJson(std::ostream& stream, const asset::Asset& asset) {
   stream << '{'
          << "\"assetId\":" << foundation::jsonQuoted(asset.id.value())
@@ -801,6 +823,7 @@ void writeCompositionTrackJson(std::ostream& stream, const project::CompositionT
   stream << '{'
          << "\"nodeId\":" << foundation::jsonQuoted(track.nodeId.value())
          << ",\"name\":" << foundation::jsonQuoted(track.name)
+         << ",\"kind\":" << foundation::jsonQuoted(trackKindText(track.kind))
          << ",\"enabled\":" << (track.enabled ? "true" : "false")
          << ",\"clips\":[";
   for (std::size_t index = 0; index < track.clips.size(); ++index) {
@@ -904,6 +927,13 @@ void writeRenderPlanInspectJson(std::ostream& stream, const project::RenderPlanI
       stream << ',';
     }
     writeRenderPlanLayerJson(stream, result.layers[index]);
+  }
+  stream << "],\"audioTracks\":[";
+  for (std::size_t index = 0; index < result.audioTracks.size(); ++index) {
+    if (index != 0) {
+      stream << ',';
+    }
+    writeRenderPlanLayerJson(stream, result.audioTracks[index]);
   }
   stream << "],\"clips\":[";
   for (std::size_t index = 0; index < result.clips.size(); ++index) {
@@ -1239,7 +1269,7 @@ AgentTool makeTimelineCreateTrackTool() {
       if (!arguments) {
         return arguments.error();
       }
-      auto members = requireOnlyMembers(arguments.value(), {"compositionNodeId", "name"}, "$");
+      auto members = requireOnlyMembers(arguments.value(), {"compositionNodeId", "name", "kind"}, "$");
       if (!members) {
         return members.error();
       }
@@ -1250,6 +1280,14 @@ AgentTool makeTimelineCreateTrackTool() {
       auto name = requiredStringMember(arguments.value(), "name", "$");
       if (!name) {
         return name.error();
+      }
+      auto kindName = requiredStringMember(arguments.value(), "kind", "$");
+      if (!kindName) {
+        return kindName.error();
+      }
+      auto kind = parseTrackKind(kindName.value(), "$.kind");
+      if (!kind) {
+        return kind.error();
       }
 
       const foundation::CommandId commandId = context.ids.nextCommandId();
@@ -1265,6 +1303,7 @@ AgentTool makeTimelineCreateTrackTool() {
           foundation::NodeId{compositionNodeId.value()},
           containmentEdgeId,
           name.value(),
+          kind.value(),
           0
         }
       });

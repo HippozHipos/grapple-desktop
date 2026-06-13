@@ -33,6 +33,7 @@ struct CompositionClipSummary {
 struct CompositionTrackSummary {
   foundation::NodeId nodeId;
   std::string name;
+  timeline::TrackKind kind = timeline::TrackKind::Visual;
   bool enabled = true;
   std::vector<CompositionClipSummary> clips;
 };
@@ -90,6 +91,7 @@ struct RenderPlanInspectResult {
   foundation::TimeSeconds duration;
   std::size_t assetCount = 0;
   std::vector<RenderPlanLayerSummary> layers;
+  std::vector<RenderPlanLayerSummary> audioTracks;
   std::vector<RenderPlanClipSummary> clips;
   std::vector<RenderPlanClipSummary> audioClips;
   std::vector<RenderPlanCameraSummary> cameras;

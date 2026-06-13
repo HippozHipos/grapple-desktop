@@ -53,6 +53,11 @@ std::string serializeCanonicalRenderPlan(const RenderPlan& plan) {
     return left.sourceNodeId < right.sourceNodeId;
   });
 
+  std::vector<RenderAudioTrack> audioTracks = plan.audioTracks;
+  std::sort(audioTracks.begin(), audioTracks.end(), [](const RenderAudioTrack& left, const RenderAudioTrack& right) {
+    return left.sourceNodeId < right.sourceNodeId;
+  });
+
   std::vector<RenderClip> clips = plan.clips;
   std::sort(clips.begin(), clips.end(), [](const RenderClip& left, const RenderClip& right) {
     return left.sourceNodeId < right.sourceNodeId;
@@ -136,6 +141,18 @@ std::string serializeCanonicalRenderPlan(const RenderPlan& plan) {
     foundation::writeJsonStringProperty(stream, "sourceNodeId", layer.sourceNodeId.value());
     stream << ',';
     foundation::writeJsonStringProperty(stream, "name", layer.name);
+    stream << '}';
+  }
+  stream << "],\"audioTracks\":[";
+  for (std::size_t index = 0; index < audioTracks.size(); ++index) {
+    if (index != 0) {
+      stream << ',';
+    }
+    const RenderAudioTrack& track = audioTracks[index];
+    stream << '{';
+    foundation::writeJsonStringProperty(stream, "sourceNodeId", track.sourceNodeId.value());
+    stream << ',';
+    foundation::writeJsonStringProperty(stream, "name", track.name);
     stream << '}';
   }
   stream << "],\"clips\":[";

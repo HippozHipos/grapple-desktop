@@ -235,6 +235,16 @@ foundation::Result<timeline::ClipKind> parseClipKind(const std::string& value, c
   return parseError(path, "Unknown clip kind.");
 }
 
+foundation::Result<timeline::TrackKind> parseTrackKind(const std::string& value, const std::string& path) {
+  if (value == "visual") {
+    return timeline::TrackKind::Visual;
+  }
+  if (value == "audio") {
+    return timeline::TrackKind::Audio;
+  }
+  return parseError(path, "Unknown track kind.");
+}
+
 foundation::Result<timeline::EffectImplementationKind> parseEffectImplementationKind(const std::string& value, const std::string& path) {
   if (value == "builtin") {
     return timeline::EffectImplementationKind::Builtin;
@@ -1026,15 +1036,31 @@ foundation::Result<graph::NodePayload> parseNodePayload(
     return graph::NodePayload{timeline::CompositionPayload{name.value()}};
   }
   if (type.value() == "track") {
-    auto members = requireOnlyMembers(object, {"type", "name"}, path);
+    auto members = requireOnlyMembers(object, {"type", "payload"}, path);
     if (!members) {
       return members.error();
     }
-    auto name = requiredStringMember(object, "name", path);
+    auto payloadObject = requiredObjectMember(object, "payload", path);
+    if (!payloadObject) {
+      return payloadObject.error();
+    }
+    auto payloadMembers = requireOnlyMembers(payloadObject.value(), {"name", "kind"}, path + ".payload");
+    if (!payloadMembers) {
+      return payloadMembers.error();
+    }
+    auto name = requiredStringMember(payloadObject.value(), "name", path + ".payload");
     if (!name) {
       return name.error();
     }
-    return graph::NodePayload{timeline::TrackPayload{name.value()}};
+    auto kindName = requiredStringMember(payloadObject.value(), "kind", path + ".payload");
+    if (!kindName) {
+      return kindName.error();
+    }
+    auto kind = parseTrackKind(kindName.value(), path + ".payload.kind");
+    if (!kind) {
+      return kind.error();
+    }
+    return graph::NodePayload{timeline::TrackPayload{name.value(), kind.value()}};
   }
   if (type.value() == "clip") {
     auto members = requireOnlyMembers(object, {"type", "payload"}, path);
@@ -1311,7 +1337,7 @@ foundation::Result<ProjectCommand> deserializeCanonicalCommandPayload(
     return validatedCommand(ProjectCommand{CreateCompositionCommand{foundation::NodeId{nodeId.value()}, name.value()}});
   }
   if (serializedName == "project.create_track") {
-    auto members = requireOnlyMembers(root.value(), {"nodeId", "compositionNodeId", "containmentEdgeId", "name", "order"}, "$");
+    auto members = requireOnlyMembers(root.value(), {"nodeId", "compositionNodeId", "containmentEdgeId", "name", "kind", "order"}, "$");
     if (!members) {
       return members.error();
     }
@@ -1331,6 +1357,14 @@ foundation::Result<ProjectCommand> deserializeCanonicalCommandPayload(
     if (!name) {
       return name.error();
     }
+    auto kindName = requiredStringMember(root.value(), "kind", "$");
+    if (!kindName) {
+      return kindName.error();
+    }
+    auto kind = parseTrackKind(kindName.value(), "$.kind");
+    if (!kind) {
+      return kind.error();
+    }
     auto order = requiredInt64Member(root.value(), "order", "$");
     if (!order) {
       return order.error();
@@ -1340,6 +1374,7 @@ foundation::Result<ProjectCommand> deserializeCanonicalCommandPayload(
       foundation::NodeId{compositionNodeId.value()},
       foundation::EdgeId{containmentEdgeId.value()},
       name.value(),
+      kind.value(),
       order.value()
     }});
   }

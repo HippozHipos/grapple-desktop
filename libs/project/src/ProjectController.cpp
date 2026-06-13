@@ -260,7 +260,7 @@ foundation::Result<void> ProjectController::handleCreateTrack(const CreateTrackC
   auto nodeResult = document_.graph.addNode(graph::GraphNode{
     command.nodeId,
     graph::NodeKind::Track,
-    timeline::TrackPayload{command.name},
+    timeline::TrackPayload{command.name, command.kind},
     true
   });
   if (!nodeResult) {
@@ -283,6 +283,19 @@ foundation::Result<void> ProjectController::handleCreateClip(const CreateClipCom
   const graph::GraphNode* track = document_.graph.findNode(command.trackNodeId);
   if (track == nullptr || track->kind != graph::NodeKind::Track) {
     return foundation::Error{"project.track_missing", "Clip must be created inside an existing track."};
+  }
+  const auto* trackPayload = std::get_if<timeline::TrackPayload>(&track->payload);
+  if (trackPayload == nullptr) {
+    return foundation::Error{"project.track_payload_invalid", "Clip track must carry a track payload."};
+  }
+  auto trackKind = invariant::requireClipMatchesTrackKind(
+    command.payload,
+    *trackPayload,
+    "project.clip_track_kind_mismatch",
+    "Clip kind must match the containing track kind."
+  );
+  if (!trackKind) {
+    return trackKind.error();
   }
   const asset::Asset* asset = document_.assets.find(command.payload.assetId);
   if (asset == nullptr) {
@@ -324,6 +337,30 @@ foundation::Result<void> ProjectController::handleUpdateClip(const UpdateClipCom
   const graph::GraphNode* clip = document_.graph.findNode(command.nodeId);
   if (clip == nullptr || clip->kind != graph::NodeKind::Clip) {
     return foundation::Error{"project.clip_missing", "Clip updates require an existing clip node."};
+  }
+  auto trackPayload = invariant::requireContainingTrackPayload(
+    document_.graph,
+    command.nodeId,
+    invariant::ContainingTrackPayloadErrors{
+      "project.clip_track_missing",
+      "Clip must be contained by a track.",
+      "project.clip_track_invalid",
+      "Clip containment source must be a track.",
+      "project.clip_track_invalid",
+      "Track node must carry a track payload."
+    }
+  );
+  if (!trackPayload) {
+    return trackPayload.error();
+  }
+  auto trackKind = invariant::requireClipMatchesTrackKind(
+    command.payload,
+    *trackPayload.value(),
+    "project.clip_track_kind_mismatch",
+    "Clip kind must match the containing track kind."
+  );
+  if (!trackKind) {
+    return trackKind.error();
   }
   const asset::Asset* asset = document_.assets.find(command.payload.assetId);
   if (asset == nullptr) {
