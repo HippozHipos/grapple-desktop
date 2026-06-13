@@ -68,6 +68,16 @@ constexpr const char TimelineCreateClipSchema[] = R"json({
   }
 })json";
 
+constexpr const char TimelineMoveClipSchema[] = R"json({
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["clipNodeId", "newStart"],
+  "properties": {
+    "clipNodeId": {"type": "string"},
+    "newStart": {"type": "number"}
+  }
+})json";
+
 constexpr const char EffectCreateNodeSchema[] = R"json({
   "type": "object",
   "additionalProperties": false,
@@ -639,6 +649,66 @@ AgentTool makeTimelineCreateClipTool() {
               << ",\"containmentEdgeId\":" << foundation::jsonQuoted(containmentEdgeId.value())
               << ",\"trackNodeId\":" << foundation::jsonQuoted(trackNodeId.value())
               << ",\"assetId\":" << foundation::jsonQuoted(assetId.value())
+              << ",\"revision\":" << foundation::jsonQuoted(command.value().afterRevision.value())
+              << '}';
+      return ToolResult{
+        call.toolId,
+        ToolResultStatus::Succeeded,
+        command.value().afterRevision,
+        payload.str(),
+        {}
+      };
+    }
+  };
+}
+
+AgentTool makeTimelineMoveClipTool() {
+  return AgentTool{
+    foundation::ToolId{"tool_timeline_move_clip"},
+    "timeline.move_clip",
+    "Move Timeline Clip",
+    "Moves a clip to an explicit timeline start through Project Core.",
+    TimelineMoveClipSchema,
+    [](const ToolCall& call, AgentToolContext& context) -> foundation::Result<ToolResult> {
+      auto arguments = parseArguments(call.arguments);
+      if (!arguments) {
+        return arguments.error();
+      }
+      auto clipNodeId = requiredStringMember(arguments.value(), "clipNodeId", "$");
+      if (!clipNodeId) {
+        return clipNodeId.error();
+      }
+      auto newStart = requiredDoubleMember(arguments.value(), "newStart", "$");
+      if (!newStart) {
+        return newStart.error();
+      }
+
+      auto snapshot = readProjectSnapshot(context, "Move clip");
+      if (!snapshot) {
+        return snapshot.error();
+      }
+
+      const std::int64_t nextRevisionNumber = snapshot.value().revisionNumber + 1;
+      const foundation::CommandId commandId{"cmd_agent_move_clip_rev_" + std::to_string(nextRevisionNumber)};
+      auto command = context.commands.apply(project::ProjectCommandEnvelope{
+        commandId,
+        call.projectId,
+        call.expectedRevision,
+        project::CommandSource{project::CommandSourceKind::Agent, call.runId, "agent"},
+        project::MoveClipCommand{
+          foundation::NodeId{clipNodeId.value()},
+          foundation::TimeSeconds{newStart.value()}
+        }
+      });
+      if (!command) {
+        return command.error();
+      }
+
+      std::ostringstream payload;
+      payload << '{'
+              << "\"commandId\":" << foundation::jsonQuoted(commandId.value())
+              << ",\"clipNodeId\":" << foundation::jsonQuoted(clipNodeId.value())
+              << ",\"newStart\":" << newStart.value()
               << ",\"revision\":" << foundation::jsonQuoted(command.value().afterRevision.value())
               << '}';
       return ToolResult{
