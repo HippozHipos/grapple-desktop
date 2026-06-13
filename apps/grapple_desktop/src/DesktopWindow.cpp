@@ -786,13 +786,9 @@ public:
       return;
     }
 
-    const auto viewModel = workspace_.project().buildViewModel();
+    auto viewModel = workspace_.project().buildViewModel();
     if (!viewModel) {
       appendError(viewModel.error());
-      return;
-    }
-    if (viewModel.value().timeline.layers.empty()) {
-      appendError(grapple::foundation::Error{"desktop.track_missing", "Add To Timeline requires a timeline track."});
       return;
     }
 
@@ -816,10 +812,79 @@ public:
       return;
     }
 
+    const grapple::foundation::AssetId assetId = selectedAsset->assetId;
+    const std::string assetName = selectedAsset->name;
     const grapple::foundation::TimeSeconds duration = *selectedAsset->duration;
+
+    if (viewModel.value().timeline.compositions.empty()) {
+      const auto composition = workspace_.commandWriter().apply(
+        grapple::project::CreateCompositionCommand{
+          workspace_.commandWriter().nextNodeId("composition"),
+          "Main"
+        },
+        userSource()
+      );
+      if (!composition) {
+        appendError(composition.error());
+        return;
+      }
+      viewModel = workspace_.project().buildViewModel();
+      if (!viewModel) {
+        appendError(viewModel.error());
+        return;
+      }
+    }
+
+    if (viewModel.value().timeline.layers.empty()) {
+      const auto track = workspace_.commandWriter().apply(
+        grapple::project::CreateTrackCommand{
+          workspace_.commandWriter().nextNodeId("track"),
+          viewModel.value().timeline.compositions.front().sourceNodeId,
+          workspace_.commandWriter().nextEdgeId("contains_track"),
+          "Video"
+        },
+        userSource()
+      );
+      if (!track) {
+        appendError(track.error());
+        return;
+      }
+      viewModel = workspace_.project().buildViewModel();
+      if (!viewModel) {
+        appendError(viewModel.error());
+        return;
+      }
+    }
+
+    if (viewModel.value().timeline.cameras.empty()) {
+      const auto camera = workspace_.commandWriter().apply(
+        grapple::project::CreateCameraCommand{
+          workspace_.commandWriter().nextNodeId("camera"),
+          viewModel.value().timeline.compositions.front().sourceNodeId,
+          workspace_.commandWriter().nextEdgeId("contains_camera"),
+          grapple::timeline::CameraPayload{
+            "Camera",
+            grapple::timeline::Transform{},
+            grapple::timeline::CameraLens{35.0}
+          }
+        },
+        userSource()
+      );
+      if (!camera) {
+        appendError(camera.error());
+        return;
+      }
+      viewModel = workspace_.project().buildViewModel();
+      if (!viewModel) {
+        appendError(viewModel.error());
+        return;
+      }
+    }
+
+    const grapple::foundation::NodeId clipNodeId = workspace_.commandWriter().nextNodeId("clip");
     const auto clip = workspace_.commandWriter().apply(
       grapple::project::CreateClipCommand{
-        workspace_.commandWriter().nextNodeId("clip"),
+        clipNodeId,
         viewModel.value().timeline.layers.front().sourceNodeId,
         workspace_.commandWriter().nextEdgeId("contains_clip"),
         grapple::timeline::ClipPayload{
@@ -833,7 +898,7 @@ public:
             duration
           },
           1.0,
-          selectedAsset->assetId,
+          assetId,
           grapple::timeline::Transform{}
         },
         static_cast<std::int64_t>(viewModel.value().timeline.clips.size())
@@ -845,9 +910,11 @@ public:
       return;
     }
 
+    selectedNodeId_ = clipNodeId;
+    selectedAssetId_ = std::nullopt;
     refreshViewModel();
     refreshPreview();
-    log_->append(QString{"Added %1 to timeline"}.arg(qString(selectedAsset->name)));
+    log_->append(QString{"Added %1 to timeline"}.arg(qString(assetName)));
   }
 
   void deleteSelectedClip() {
