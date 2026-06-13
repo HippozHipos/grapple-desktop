@@ -43,6 +43,26 @@ int main() {
   GRAPPLE_REQUIRE(!duplicate);
   GRAPPLE_REQUIRE(duplicate.error().code == "model.id_duplicate");
 
+  const auto duplicateUiName = registry.registerModel(model::ModelRegistryEntry{
+    foundation::ModelId{"model_duplicate_ui_name"},
+    "Gemini 3.1 Pro",
+    "google",
+    "gemini-3.1-flash",
+    model::ModelCapabilitySet{true, false, false}
+  });
+  GRAPPLE_REQUIRE(!duplicateUiName);
+  GRAPPLE_REQUIRE(duplicateUiName.error().code == "model.ui_name_duplicate");
+
+  const auto duplicateProviderModel = registry.registerModel(model::ModelRegistryEntry{
+    foundation::ModelId{"model_duplicate_provider"},
+    "Gemini 3.1 Pro Duplicate Provider",
+    "google",
+    "gemini-3.1-pro",
+    model::ModelCapabilitySet{true, false, false}
+  });
+  GRAPPLE_REQUIRE(!duplicateProviderModel);
+  GRAPPLE_REQUIRE(duplicateProviderModel.error().code == "model.provider_model_duplicate");
+
   const auto missingProviderModel = registry.registerModel(model::ModelRegistryEntry{
     foundation::ModelId{"model_bad"},
     "Bad Model",
@@ -55,4 +75,3 @@ int main() {
 
   return 0;
 }
-

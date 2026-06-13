@@ -28,6 +28,21 @@ foundation::Result<void> ModelRegistry::registerModel(ModelRegistryEntry entry) 
     return foundation::Error{"model.id_duplicate", "Model id already exists."};
   }
 
+  const auto duplicateUiName = std::any_of(entries_.begin(), entries_.end(), [&](const ModelRegistryEntry& existing) {
+    return existing.uiName == entry.uiName;
+  });
+  if (duplicateUiName) {
+    return foundation::Error{"model.ui_name_duplicate", "Model UI name already exists."};
+  }
+
+  const auto duplicateProviderModel = std::any_of(entries_.begin(), entries_.end(), [&](const ModelRegistryEntry& existing) {
+    return existing.providerName == entry.providerName &&
+      existing.providerModelId == entry.providerModelId;
+  });
+  if (duplicateProviderModel) {
+    return foundation::Error{"model.provider_model_duplicate", "Provider model already exists."};
+  }
+
   entries_.push_back(std::move(entry));
   return {};
 }
@@ -49,4 +64,3 @@ const std::vector<ModelRegistryEntry>& ModelRegistry::entries() const noexcept {
 }
 
 } // namespace grapple::model
-
