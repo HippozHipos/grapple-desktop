@@ -13,6 +13,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 
 namespace grapple::project {
 
@@ -1018,6 +1019,352 @@ foundation::Result<ProjectSettings> parseSettings(const Json::Value& object, con
 }
 
 } // namespace
+
+foundation::Result<ProjectCommand> deserializeCanonicalCommandPayload(
+  std::string_view serializedName,
+  const std::string& json
+) {
+  auto root = parseJson(json);
+  if (!root) {
+    return root.error();
+  }
+
+  if (serializedName == "project.register_asset") {
+    auto assetObject = requiredObjectMember(root.value(), "asset", "$");
+    if (!assetObject) {
+      return assetObject.error();
+    }
+    auto asset = parseAsset(assetObject.value(), "$.asset");
+    if (!asset) {
+      return asset.error();
+    }
+    return ProjectCommand{RegisterAssetCommand{asset.value()}};
+  }
+  if (serializedName == "project.create_composition") {
+    auto nodeId = requiredStringMember(root.value(), "nodeId", "$");
+    if (!nodeId) {
+      return nodeId.error();
+    }
+    auto name = requiredStringMember(root.value(), "name", "$");
+    if (!name) {
+      return name.error();
+    }
+    return ProjectCommand{CreateCompositionCommand{foundation::NodeId{nodeId.value()}, name.value()}};
+  }
+  if (serializedName == "project.create_track") {
+    auto nodeId = requiredStringMember(root.value(), "nodeId", "$");
+    if (!nodeId) {
+      return nodeId.error();
+    }
+    auto compositionNodeId = requiredStringMember(root.value(), "compositionNodeId", "$");
+    if (!compositionNodeId) {
+      return compositionNodeId.error();
+    }
+    auto containmentEdgeId = requiredStringMember(root.value(), "containmentEdgeId", "$");
+    if (!containmentEdgeId) {
+      return containmentEdgeId.error();
+    }
+    auto name = requiredStringMember(root.value(), "name", "$");
+    if (!name) {
+      return name.error();
+    }
+    auto order = requiredInt64Member(root.value(), "order", "$");
+    if (!order) {
+      return order.error();
+    }
+    return ProjectCommand{CreateTrackCommand{
+      foundation::NodeId{nodeId.value()},
+      foundation::NodeId{compositionNodeId.value()},
+      foundation::EdgeId{containmentEdgeId.value()},
+      name.value(),
+      order.value()
+    }};
+  }
+  if (serializedName == "project.create_clip") {
+    auto nodeId = requiredStringMember(root.value(), "nodeId", "$");
+    if (!nodeId) {
+      return nodeId.error();
+    }
+    auto trackNodeId = requiredStringMember(root.value(), "trackNodeId", "$");
+    if (!trackNodeId) {
+      return trackNodeId.error();
+    }
+    auto containmentEdgeId = requiredStringMember(root.value(), "containmentEdgeId", "$");
+    if (!containmentEdgeId) {
+      return containmentEdgeId.error();
+    }
+    auto payloadObject = requiredObjectMember(root.value(), "payload", "$");
+    if (!payloadObject) {
+      return payloadObject.error();
+    }
+    auto payload = parseClipPayload(payloadObject.value(), "$.payload");
+    if (!payload) {
+      return payload.error();
+    }
+    auto order = requiredInt64Member(root.value(), "order", "$");
+    if (!order) {
+      return order.error();
+    }
+    return ProjectCommand{CreateClipCommand{
+      foundation::NodeId{nodeId.value()},
+      foundation::NodeId{trackNodeId.value()},
+      foundation::EdgeId{containmentEdgeId.value()},
+      payload.value(),
+      order.value()
+    }};
+  }
+  if (serializedName == "project.move_clip") {
+    auto nodeId = requiredStringMember(root.value(), "nodeId", "$");
+    if (!nodeId) {
+      return nodeId.error();
+    }
+    auto newStart = requiredDoubleMember(root.value(), "newStart", "$");
+    if (!newStart) {
+      return newStart.error();
+    }
+    return ProjectCommand{MoveClipCommand{foundation::NodeId{nodeId.value()}, foundation::TimeSeconds{newStart.value()}}};
+  }
+  if (serializedName == "project.trim_clip") {
+    auto nodeId = requiredStringMember(root.value(), "nodeId", "$");
+    if (!nodeId) {
+      return nodeId.error();
+    }
+    auto timelineRangeObject = requiredObjectMember(root.value(), "timelineRange", "$");
+    if (!timelineRangeObject) {
+      return timelineRangeObject.error();
+    }
+    auto timelineRange = parseTimeRange(timelineRangeObject.value(), "$.timelineRange");
+    if (!timelineRange) {
+      return timelineRange.error();
+    }
+    auto sourceRangeObject = requiredObjectMember(root.value(), "sourceRange", "$");
+    if (!sourceRangeObject) {
+      return sourceRangeObject.error();
+    }
+    auto sourceRange = parseTimeRange(sourceRangeObject.value(), "$.sourceRange");
+    if (!sourceRange) {
+      return sourceRange.error();
+    }
+    return ProjectCommand{TrimClipCommand{foundation::NodeId{nodeId.value()}, timelineRange.value(), sourceRange.value()}};
+  }
+  if (serializedName == "project.update_clip") {
+    auto nodeId = requiredStringMember(root.value(), "nodeId", "$");
+    if (!nodeId) {
+      return nodeId.error();
+    }
+    auto payloadObject = requiredObjectMember(root.value(), "payload", "$");
+    if (!payloadObject) {
+      return payloadObject.error();
+    }
+    auto payload = parseClipPayload(payloadObject.value(), "$.payload");
+    if (!payload) {
+      return payload.error();
+    }
+    return ProjectCommand{UpdateClipCommand{foundation::NodeId{nodeId.value()}, payload.value()}};
+  }
+  if (serializedName == "project.delete_clip") {
+    auto nodeId = requiredStringMember(root.value(), "nodeId", "$");
+    if (!nodeId) {
+      return nodeId.error();
+    }
+    return ProjectCommand{DeleteClipCommand{foundation::NodeId{nodeId.value()}}};
+  }
+  if (serializedName == "project.create_camera") {
+    auto nodeId = requiredStringMember(root.value(), "nodeId", "$");
+    if (!nodeId) {
+      return nodeId.error();
+    }
+    auto compositionNodeId = requiredStringMember(root.value(), "compositionNodeId", "$");
+    if (!compositionNodeId) {
+      return compositionNodeId.error();
+    }
+    auto containmentEdgeId = requiredStringMember(root.value(), "containmentEdgeId", "$");
+    if (!containmentEdgeId) {
+      return containmentEdgeId.error();
+    }
+    auto payloadObject = requiredObjectMember(root.value(), "payload", "$");
+    if (!payloadObject) {
+      return payloadObject.error();
+    }
+    auto payload = parseCameraPayload(payloadObject.value(), "$.payload");
+    if (!payload) {
+      return payload.error();
+    }
+    auto order = requiredInt64Member(root.value(), "order", "$");
+    if (!order) {
+      return order.error();
+    }
+    return ProjectCommand{CreateCameraCommand{
+      foundation::NodeId{nodeId.value()},
+      foundation::NodeId{compositionNodeId.value()},
+      foundation::EdgeId{containmentEdgeId.value()},
+      payload.value(),
+      order.value()
+    }};
+  }
+  if (serializedName == "project.update_camera") {
+    auto nodeId = requiredStringMember(root.value(), "nodeId", "$");
+    if (!nodeId) {
+      return nodeId.error();
+    }
+    auto payloadObject = requiredObjectMember(root.value(), "payload", "$");
+    if (!payloadObject) {
+      return payloadObject.error();
+    }
+    auto payload = parseCameraPayload(payloadObject.value(), "$.payload");
+    if (!payload) {
+      return payload.error();
+    }
+    return ProjectCommand{UpdateCameraCommand{foundation::NodeId{nodeId.value()}, payload.value()}};
+  }
+  if (serializedName == "project.create_effect") {
+    auto nodeId = requiredStringMember(root.value(), "nodeId", "$");
+    if (!nodeId) {
+      return nodeId.error();
+    }
+    auto targetNodeId = requiredStringMember(root.value(), "targetNodeId", "$");
+    if (!targetNodeId) {
+      return targetNodeId.error();
+    }
+    auto targetEdgeId = requiredStringMember(root.value(), "targetEdgeId", "$");
+    if (!targetEdgeId) {
+      return targetEdgeId.error();
+    }
+    auto payloadObject = requiredObjectMember(root.value(), "payload", "$");
+    if (!payloadObject) {
+      return payloadObject.error();
+    }
+    auto payload = parseEffectPayload(payloadObject.value(), "$.payload");
+    if (!payload) {
+      return payload.error();
+    }
+    auto sourcePort = requiredStringMember(root.value(), "sourcePort", "$");
+    if (!sourcePort) {
+      return sourcePort.error();
+    }
+    auto targetPort = requiredStringMember(root.value(), "targetPort", "$");
+    if (!targetPort) {
+      return targetPort.error();
+    }
+    auto order = requiredInt64Member(root.value(), "order", "$");
+    if (!order) {
+      return order.error();
+    }
+    return ProjectCommand{CreateEffectCommand{
+      foundation::NodeId{nodeId.value()},
+      foundation::NodeId{targetNodeId.value()},
+      foundation::EdgeId{targetEdgeId.value()},
+      payload.value(),
+      graph::PortName{sourcePort.value()},
+      graph::PortName{targetPort.value()},
+      order.value()
+    }};
+  }
+  if (serializedName == "project.delete_effect") {
+    auto nodeId = requiredStringMember(root.value(), "nodeId", "$");
+    if (!nodeId) {
+      return nodeId.error();
+    }
+    return ProjectCommand{DeleteEffectCommand{foundation::NodeId{nodeId.value()}}};
+  }
+  if (serializedName == "project.connect_ports") {
+    auto edgeId = requiredStringMember(root.value(), "edgeId", "$");
+    if (!edgeId) {
+      return edgeId.error();
+    }
+    auto sourceNodeId = requiredStringMember(root.value(), "sourceNodeId", "$");
+    if (!sourceNodeId) {
+      return sourceNodeId.error();
+    }
+    auto sourcePort = requiredStringMember(root.value(), "sourcePort", "$");
+    if (!sourcePort) {
+      return sourcePort.error();
+    }
+    auto targetNodeId = requiredStringMember(root.value(), "targetNodeId", "$");
+    if (!targetNodeId) {
+      return targetNodeId.error();
+    }
+    auto targetPort = requiredStringMember(root.value(), "targetPort", "$");
+    if (!targetPort) {
+      return targetPort.error();
+    }
+    auto order = requiredInt64Member(root.value(), "order", "$");
+    if (!order) {
+      return order.error();
+    }
+    return ProjectCommand{ConnectPortsCommand{
+      foundation::EdgeId{edgeId.value()},
+      foundation::NodeId{sourceNodeId.value()},
+      graph::PortName{sourcePort.value()},
+      foundation::NodeId{targetNodeId.value()},
+      graph::PortName{targetPort.value()},
+      order.value()
+    }};
+  }
+  if (serializedName == "project.disconnect_ports") {
+    auto edgeId = requiredStringMember(root.value(), "edgeId", "$");
+    if (!edgeId) {
+      return edgeId.error();
+    }
+    return ProjectCommand{DisconnectPortsCommand{foundation::EdgeId{edgeId.value()}}};
+  }
+  if (serializedName == "project.update_effect_params") {
+    auto effectNodeId = requiredStringMember(root.value(), "effectNodeId", "$");
+    if (!effectNodeId) {
+      return effectNodeId.error();
+    }
+    auto paramsArray = requiredArrayMember(root.value(), "params", "$");
+    if (!paramsArray) {
+      return paramsArray.error();
+    }
+    auto params = parseParamSet(paramsArray.value(), "$.params");
+    if (!params) {
+      return params.error();
+    }
+    return ProjectCommand{UpdateEffectParamsCommand{foundation::NodeId{effectNodeId.value()}, params.value()}};
+  }
+  if (serializedName == "project.create_note" || serializedName == "project.update_note") {
+    auto nodeId = requiredStringMember(root.value(), "nodeId", "$");
+    if (!nodeId) {
+      return nodeId.error();
+    }
+    auto title = requiredStringMember(root.value(), "title", "$");
+    if (!title) {
+      return title.error();
+    }
+    auto markdown = requiredStringMember(root.value(), "markdown", "$");
+    if (!markdown) {
+      return markdown.error();
+    }
+    timeline::NotePayload payload{title.value(), markdown.value()};
+    if (serializedName == "project.create_note") {
+      return ProjectCommand{CreateNoteCommand{foundation::NodeId{nodeId.value()}, payload}};
+    }
+    return ProjectCommand{UpdateNoteCommand{foundation::NodeId{nodeId.value()}, payload}};
+  }
+  if (serializedName == "project.restore_snapshot") {
+    auto snapshotId = requiredStringMember(root.value(), "snapshotId", "$");
+    if (!snapshotId) {
+      return snapshotId.error();
+    }
+    auto snapshotObject = requiredObjectMember(root.value(), "snapshot", "$");
+    if (!snapshotObject) {
+      return snapshotObject.error();
+    }
+    const Json::StreamWriterBuilder writerBuilder;
+    const std::string snapshotJson = Json::writeString(writerBuilder, snapshotObject.value());
+    auto snapshot = deserializeCanonicalProjectSnapshot(snapshotJson);
+    if (!snapshot) {
+      return snapshot.error();
+    }
+    return ProjectCommand{RestoreSnapshotCommand{foundation::SnapshotId{snapshotId.value()}, snapshot.value()}};
+  }
+
+  return foundation::Error{
+    "project.command_name_unknown",
+    "Unknown serialized command name " + std::string{serializedName} + "."
+  };
+}
 
 foundation::Result<ProjectSnapshot> deserializeCanonicalProjectSnapshot(const std::string& json) {
   auto root = parseJson(json);

@@ -107,6 +107,13 @@ int main() {
   };
   GRAPPLE_REQUIRE(project::commandKind(createTrack.payload) == project::CommandKind::CreateTrack);
   GRAPPLE_REQUIRE(project::serializeCanonicalCommandPayload(createTrack.payload).find("\"containmentEdgeId\":\"edge_contains_track\"") != std::string::npos);
+  const auto parsedCreateTrackPayload = project::deserializeCanonicalCommandPayload(
+    project::serializedCommandName(project::CommandKind::CreateTrack),
+    project::serializeCanonicalCommandPayload(createTrack.payload)
+  );
+  GRAPPLE_REQUIRE(parsedCreateTrackPayload);
+  GRAPPLE_REQUIRE(project::commandKind(parsedCreateTrackPayload.value()) == project::CommandKind::CreateTrack);
+  GRAPPLE_REQUIRE(project::serializeCanonicalCommandPayload(parsedCreateTrackPayload.value()) == project::serializeCanonicalCommandPayload(createTrack.payload));
 
   const auto trackResult = controller.apply(createTrack);
   GRAPPLE_REQUIRE(trackResult);

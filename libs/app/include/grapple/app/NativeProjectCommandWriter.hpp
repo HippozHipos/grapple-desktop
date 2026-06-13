@@ -34,6 +34,10 @@ public:
     project::CommandSource source,
     std::optional<std::string> snapshotLabel = std::nullopt
   );
+  foundation::Result<storage::ProjectPackageSessionResult> redoLastUndoneCommand(
+    project::CommandSource source,
+    std::optional<std::string> snapshotLabel = std::nullopt
+  );
 
 private:
   [[nodiscard]] foundation::CommandId nextCommandId();
