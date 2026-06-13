@@ -193,6 +193,53 @@ int main() {
   GRAPPLE_REQUIRE(assetViewModel.value().assets.rows[0].dimensions.has_value());
   GRAPPLE_REQUIRE(assetViewModel.value().assets.rows[0].dimensions->width == 1920);
   GRAPPLE_REQUIRE(assetViewModel.value().assets.rows[0].dimensions->height == 1080);
+  const foundation::NodeId assetCompositionNodeId = assetWriter.nextNodeId("composition");
+  const auto assetComposition = assetWriter.apply(
+    project::CreateCompositionCommand{assetCompositionNodeId, "Asset Main"},
+    userSource()
+  );
+  GRAPPLE_REQUIRE(assetComposition);
+  const foundation::NodeId assetTrackNodeId = assetWriter.nextNodeId("track");
+  const auto assetTrack = assetWriter.apply(
+    project::CreateTrackCommand{
+      assetTrackNodeId,
+      assetCompositionNodeId,
+      assetWriter.nextEdgeId("contains track"),
+      "Asset Track"
+    },
+    userSource()
+  );
+  GRAPPLE_REQUIRE(assetTrack);
+  const timeline::Transform clipTransform{
+    foundation::Vec2{0.2, -0.3},
+    foundation::Vec2{1.4, 0.8},
+    12.0,
+    0.75
+  };
+  const foundation::NodeId assetClipNodeId = assetWriter.nextNodeId("clip");
+  const auto assetClip = assetWriter.apply(
+    project::CreateClipCommand{
+      assetClipNodeId,
+      assetTrackNodeId,
+      assetWriter.nextEdgeId("contains clip"),
+      timeline::ClipPayload{
+        timeline::ClipKind::Video,
+        foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{3.0}},
+        foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{3.0}},
+        1.0,
+        foundation::AssetId{"asset_clip"},
+        clipTransform
+      },
+      0
+    },
+    userSource()
+  );
+  GRAPPLE_REQUIRE(assetClip);
+  const auto assetClipViewModel = assetSession.buildViewModel();
+  GRAPPLE_REQUIRE(assetClipViewModel);
+  GRAPPLE_REQUIRE(assetClipViewModel.value().timeline.clips.size() == 1);
+  GRAPPLE_REQUIRE(assetClipViewModel.value().timeline.clips[0].sourceNodeId == assetClipNodeId);
+  GRAPPLE_REQUIRE(assetClipViewModel.value().timeline.clips[0].transform == clipTransform);
 
   app::NativeProjectSession effectSession{
     foundation::ProjectId{"proj_app_effects"},
@@ -211,12 +258,18 @@ int main() {
   );
   GRAPPLE_REQUIRE(effectComposition);
   const foundation::NodeId effectCameraNodeId = effectWriter.nextNodeId("camera");
+  const timeline::Transform effectCameraTransform{
+    foundation::Vec2{0.4, 0.1},
+    foundation::Vec2{1.2, 1.1},
+    -5.0,
+    1.0
+  };
   const auto effectCamera = effectWriter.apply(
     project::CreateCameraCommand{
       effectCameraNodeId,
       effectCompositionNodeId,
       effectWriter.nextEdgeId("contains camera"),
-      timeline::CameraPayload{"Camera", timeline::Transform{}, timeline::CameraLens{35.0}}
+      timeline::CameraPayload{"Camera", effectCameraTransform, timeline::CameraLens{35.0}}
     },
     userSource()
   );
@@ -264,6 +317,9 @@ int main() {
   GRAPPLE_REQUIRE(effectCommand);
   const auto effectViewModel = effectSession.buildViewModel();
   GRAPPLE_REQUIRE(effectViewModel);
+  GRAPPLE_REQUIRE(effectViewModel.value().timeline.cameras.size() == 1);
+  GRAPPLE_REQUIRE(effectViewModel.value().timeline.cameras[0].sourceNodeId == effectCameraNodeId);
+  GRAPPLE_REQUIRE(effectViewModel.value().timeline.cameras[0].transform == effectCameraTransform);
   GRAPPLE_REQUIRE(effectViewModel.value().timeline.effectGraphs.size() == 1);
   GRAPPLE_REQUIRE(effectViewModel.value().timeline.effectGraphs[0].targetNodeId == effectCameraNodeId);
   GRAPPLE_REQUIRE(effectViewModel.value().timeline.effectGraphs[0].nodeCount == 1);
