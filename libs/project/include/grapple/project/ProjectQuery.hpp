@@ -91,6 +91,7 @@ struct RenderPlanInspectResult {
   std::size_t assetCount = 0;
   std::vector<RenderPlanLayerSummary> layers;
   std::vector<RenderPlanClipSummary> clips;
+  std::vector<RenderPlanClipSummary> audioClips;
   std::vector<RenderPlanCameraSummary> cameras;
   std::vector<RenderPlanEffectGraphSummary> effectGraphs;
   std::size_t diagnosticCount = 0;

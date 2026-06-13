@@ -33,6 +33,12 @@ struct RenderClip {
   timeline::ClipPayload payload;
 };
 
+struct RenderAudioClip {
+  foundation::NodeId sourceNodeId;
+  foundation::NodeId trackNodeId;
+  timeline::ClipPayload payload;
+};
+
 struct RenderCamera {
   foundation::NodeId sourceNodeId;
   std::string name;
@@ -69,6 +75,7 @@ struct RenderPlan {
   std::vector<RenderAsset> assets;
   std::vector<RenderLayer> layers;
   std::vector<RenderClip> clips;
+  std::vector<RenderAudioClip> audioClips;
   std::vector<RenderCamera> cameras;
   std::vector<RenderEffectGraph> effectGraphs;
   std::vector<ProjectionDiagnostic> diagnostics;

@@ -80,6 +80,26 @@ int main() {
   });
   GRAPPLE_REQUIRE(createTrack);
 
+  const auto registerClipAsset = controller.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_register_clip_asset"},
+    foundation::ProjectId{"proj_projection"},
+    createTrack.value().afterRevision,
+    project::CommandSource{project::CommandSourceKind::Importer, std::nullopt, "test"},
+    project::RegisterAssetCommand{asset::Asset{
+      foundation::AssetId{"asset_walking_woman"},
+      "Walking Woman",
+      asset::AssetMetadata{
+        asset::AssetMediaType::Video,
+        foundation::FilePath{"/media/walking-woman.mp4"},
+        std::nullopt,
+        foundation::TimeSeconds{10.0},
+        foundation::Resolution{1920, 1080},
+        foundation::FrameRate{30, 1}
+      }
+    }}
+  });
+  GRAPPLE_REQUIRE(registerClipAsset);
+
   const timeline::ClipPayload clipPayload{
     timeline::ClipKind::Video,
     foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{10.0}},
@@ -91,7 +111,7 @@ int main() {
   const auto createClip = controller.apply(project::ProjectCommandEnvelope{
     foundation::CommandId{"cmd_clip"},
     foundation::ProjectId{"proj_projection"},
-    createTrack.value().afterRevision,
+    registerClipAsset.value().afterRevision,
     project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
     project::CreateClipCommand{
       foundation::NodeId{"node_clip"},
@@ -183,11 +203,12 @@ int main() {
   });
   GRAPPLE_REQUIRE(timelineResult);
   GRAPPLE_REQUIRE(timelineResult.value().timeline.projectId == foundation::ProjectId{"proj_projection"});
-  GRAPPLE_REQUIRE(timelineResult.value().timeline.revision == foundation::RevisionId{"rev_5"});
+  GRAPPLE_REQUIRE(timelineResult.value().timeline.revision == foundation::RevisionId{"rev_6"});
   GRAPPLE_REQUIRE(timelineResult.value().timeline.duration == foundation::TimeSeconds{10.0});
   GRAPPLE_REQUIRE(timelineResult.value().timeline.layers.size() == 1);
   GRAPPLE_REQUIRE(timelineResult.value().timeline.layers[0].sourceNodeId == foundation::NodeId{"node_track"});
   GRAPPLE_REQUIRE(timelineResult.value().timeline.clips.size() == 1);
+  GRAPPLE_REQUIRE(timelineResult.value().timeline.audioClips.empty());
   GRAPPLE_REQUIRE(timelineResult.value().timeline.clips[0].sourceNodeId == foundation::NodeId{"node_clip"});
   GRAPPLE_REQUIRE(timelineResult.value().timeline.clips[0].trackNodeId == foundation::NodeId{"node_track"});
   GRAPPLE_REQUIRE(timelineResult.value().timeline.clips[0].payload.assetId == foundation::AssetId{"asset_walking_woman"});
@@ -206,11 +227,12 @@ int main() {
   });
   GRAPPLE_REQUIRE(planResult);
   GRAPPLE_REQUIRE(planResult.value().plan.projectId == foundation::ProjectId{"proj_projection"});
-  GRAPPLE_REQUIRE(planResult.value().plan.revision == foundation::RevisionId{"rev_5"});
+  GRAPPLE_REQUIRE(planResult.value().plan.revision == foundation::RevisionId{"rev_6"});
   GRAPPLE_REQUIRE(planResult.value().plan.duration == foundation::TimeSeconds{10.0});
   GRAPPLE_REQUIRE(planResult.value().plan.layers.size() == 1);
   GRAPPLE_REQUIRE(planResult.value().plan.layers[0].sourceNodeId == foundation::NodeId{"node_track"});
   GRAPPLE_REQUIRE(planResult.value().plan.clips.size() == 1);
+  GRAPPLE_REQUIRE(planResult.value().plan.audioClips.empty());
   GRAPPLE_REQUIRE(planResult.value().plan.clips[0].payload.timelineRange.end == foundation::TimeSeconds{10.0});
   GRAPPLE_REQUIRE(planResult.value().plan.cameras.size() == 1);
   GRAPPLE_REQUIRE(planResult.value().plan.effectGraphs.size() == 1);
@@ -298,6 +320,87 @@ int main() {
   GRAPPLE_REQUIRE(assetPlan.value().plan.assets[0].versionHash == foundation::stableHash(asset::serializeCanonicalAsset(projectionAsset)));
   GRAPPLE_REQUIRE(projection::serializeCanonicalRenderPlan(assetPlan.value().plan).find("\"assetId\":\"asset_projection_video\"") != std::string::npos);
 
+  project::ProjectController audioProjectionController{
+    project::createEmptyProject(foundation::ProjectId{"proj_projection_audio"}, "Projection Audio Test")
+  };
+  const auto audioInitial = audioProjectionController.snapshot();
+  GRAPPLE_REQUIRE(audioInitial);
+  const auto audioComposition = audioProjectionController.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_audio_composition"},
+    foundation::ProjectId{"proj_projection_audio"},
+    audioInitial.value().revision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::CreateCompositionCommand{foundation::NodeId{"node_audio_composition"}, "Audio Main"}
+  });
+  GRAPPLE_REQUIRE(audioComposition);
+  const auto audioTrack = audioProjectionController.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_audio_track"},
+    foundation::ProjectId{"proj_projection_audio"},
+    audioComposition.value().afterRevision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::CreateTrackCommand{
+      foundation::NodeId{"node_audio_track"},
+      foundation::NodeId{"node_audio_composition"},
+      foundation::EdgeId{"edge_audio_contains_track"},
+      "Audio"
+    }
+  });
+  GRAPPLE_REQUIRE(audioTrack);
+  const auto audioAsset = audioProjectionController.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_audio_asset"},
+    foundation::ProjectId{"proj_projection_audio"},
+    audioTrack.value().afterRevision,
+    project::CommandSource{project::CommandSourceKind::Importer, std::nullopt, "test"},
+    project::RegisterAssetCommand{asset::Asset{
+      foundation::AssetId{"asset_projection_audio"},
+      "Projection Audio",
+      asset::AssetMetadata{
+        asset::AssetMediaType::Audio,
+        foundation::FilePath{"/media/projection-audio.wav"},
+        std::nullopt,
+        foundation::TimeSeconds{3.0},
+        std::nullopt,
+        std::nullopt
+      }
+    }}
+  });
+  GRAPPLE_REQUIRE(audioAsset);
+  const auto audioClip = audioProjectionController.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_audio_clip"},
+    foundation::ProjectId{"proj_projection_audio"},
+    audioAsset.value().afterRevision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::CreateClipCommand{
+      foundation::NodeId{"node_audio_clip"},
+      foundation::NodeId{"node_audio_track"},
+      foundation::EdgeId{"edge_audio_contains_clip"},
+      timeline::ClipPayload{
+        timeline::ClipKind::Audio,
+        foundation::TimeRange{foundation::TimeSeconds{1.0}, foundation::TimeSeconds{4.0}},
+        foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{3.0}},
+        1.0,
+        foundation::AssetId{"asset_projection_audio"},
+        timeline::Transform{}
+      }
+    }
+  });
+  GRAPPLE_REQUIRE(audioClip);
+  const auto audioSnapshot = audioProjectionController.snapshot();
+  GRAPPLE_REQUIRE(audioSnapshot);
+  const auto audioTimeline = projector.buildTimelineIR(projection::BuildTimelineIRRequest{audioSnapshot.value()});
+  GRAPPLE_REQUIRE(audioTimeline);
+  GRAPPLE_REQUIRE(audioTimeline.value().timeline.clips.empty());
+  GRAPPLE_REQUIRE(audioTimeline.value().timeline.audioClips.size() == 1);
+  GRAPPLE_REQUIRE(audioTimeline.value().timeline.duration == foundation::TimeSeconds{4.0});
+  const auto audioPlan = builder.buildRenderPlan(projection::BuildRenderPlanRequest{audioTimeline.value().timeline});
+  GRAPPLE_REQUIRE(audioPlan);
+  GRAPPLE_REQUIRE(audioPlan.value().plan.clips.empty());
+  GRAPPLE_REQUIRE(audioPlan.value().plan.audioClips.size() == 1);
+  GRAPPLE_REQUIRE(audioPlan.value().plan.audioClips[0].payload.kind == timeline::ClipKind::Audio);
+  const std::string audioPlanJson = projection::serializeCanonicalRenderPlan(audioPlan.value().plan);
+  GRAPPLE_REQUIRE(audioPlanJson.find("\"audioClips\":[") != std::string::npos);
+  GRAPPLE_REQUIRE(audioPlanJson.find("\"assetId\":\"asset_projection_audio\"") != std::string::npos);
+
   projection::RenderPlan orderedPlan = planResult.value().plan;
   orderedPlan.layers.push_back(projection::RenderLayer{
     foundation::NodeId{"node_alpha_track"},
@@ -365,7 +468,7 @@ int main() {
 
   const auto updateEffectParamValueResult = controller.apply(updateEffectParamValue);
   GRAPPLE_REQUIRE(updateEffectParamValueResult);
-  GRAPPLE_REQUIRE(updateEffectParamValueResult.value().afterRevision == foundation::RevisionId{"rev_6"});
+  GRAPPLE_REQUIRE(updateEffectParamValueResult.value().afterRevision == foundation::RevisionId{"rev_7"});
 
   const auto updatedSnapshot = controller.snapshot();
   GRAPPLE_REQUIRE(updatedSnapshot);
@@ -377,7 +480,7 @@ int main() {
     updatedTimeline.value().timeline
   });
   GRAPPLE_REQUIRE(updatedPlan);
-  GRAPPLE_REQUIRE(updatedPlan.value().plan.revision == foundation::RevisionId{"rev_6"});
+  GRAPPLE_REQUIRE(updatedPlan.value().plan.revision == foundation::RevisionId{"rev_7"});
   GRAPPLE_REQUIRE(updatedPlan.value().plan.effectGraphs.size() == 1);
   GRAPPLE_REQUIRE(updatedPlan.value().plan.effectGraphs[0].nodes.size() == 1);
   GRAPPLE_REQUIRE(updatedPlan.value().plan.effectGraphs[0].nodes[0].payload.implementation.entrypoint == "prepare");

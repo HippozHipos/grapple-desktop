@@ -19,6 +19,7 @@ struct PreparedRuntimePlan {
   RuntimeDependencyGraph dependencyGraph;
   std::vector<projection::RenderLayer> layers;
   std::vector<projection::RenderClip> clips;
+  std::vector<projection::RenderAudioClip> audioClips;
   std::vector<projection::RenderCamera> cameras;
   std::vector<PreparedEffectNode> preparedEffects;
   std::vector<RuntimeDiagnostic> diagnostics;

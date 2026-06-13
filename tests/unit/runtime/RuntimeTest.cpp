@@ -84,6 +84,8 @@ grapple::projection::RenderPlan makePlan(std::string layerName) {
     },
     {},
     {},
+    {},
+    {},
     {}
   };
 }
@@ -118,6 +120,27 @@ grapple::projection::RenderPlan makeClipPlanWithAssetVersion(std::string assetVe
 grapple::projection::RenderPlan makeClipPlanWithLayerName(std::string layerName) {
   grapple::projection::RenderPlan plan = makeClipPlan(1.0);
   plan.layers[0].name = std::move(layerName);
+  return plan;
+}
+
+grapple::projection::RenderPlan makeAudioClipPlan() {
+  grapple::projection::RenderPlan plan = makePlan("Audio");
+  plan.assets.push_back(grapple::projection::RenderAsset{
+    grapple::foundation::AssetId{"asset_audio"},
+    grapple::foundation::stableHash("asset_audio_v1")
+  });
+  plan.audioClips.push_back(grapple::projection::RenderAudioClip{
+    grapple::foundation::NodeId{"node_audio_clip"},
+    grapple::foundation::NodeId{"node_track"},
+    grapple::timeline::ClipPayload{
+      grapple::timeline::ClipKind::Audio,
+      grapple::foundation::TimeRange{grapple::foundation::TimeSeconds{2.0}, grapple::foundation::TimeSeconds{5.0}},
+      grapple::foundation::TimeRange{grapple::foundation::TimeSeconds{10.0}, grapple::foundation::TimeSeconds{13.0}},
+      1.0,
+      grapple::foundation::AssetId{"asset_audio"},
+      grapple::timeline::Transform{}
+    }
+  });
   return plan;
 }
 
@@ -677,6 +700,23 @@ int main() {
   GRAPPLE_REQUIRE(inactiveSample);
   GRAPPLE_REQUIRE(inactiveSample.value().sample.layers.size() == 1);
   GRAPPLE_REQUIRE(inactiveSample.value().sample.clips.empty());
+  GRAPPLE_REQUIRE(inactiveSample.value().sample.audioClips.empty());
+
+  const auto preparedAudioClipPlan = evaluator.prepare(runtime::PrepareRuntimePlanRequest{
+    makeAudioClipPlan()
+  });
+  GRAPPLE_REQUIRE(preparedAudioClipPlan);
+  GRAPPLE_REQUIRE(preparedAudioClipPlan.value().prepared.clips.empty());
+  GRAPPLE_REQUIRE(preparedAudioClipPlan.value().prepared.audioClips.size() == 1);
+  const auto activeAudioSample = evaluator.sample(runtime::RuntimeSampleRequest{
+    preparedAudioClipPlan.value().prepared,
+    foundation::TimeSeconds{3.0},
+    runtime::RuntimeQuality::Interactive
+  });
+  GRAPPLE_REQUIRE(activeAudioSample);
+  GRAPPLE_REQUIRE(activeAudioSample.value().sample.clips.empty());
+  GRAPPLE_REQUIRE(activeAudioSample.value().sample.audioClips.size() == 1);
+  GRAPPLE_REQUIRE(activeAudioSample.value().sample.audioClips[0].sourceNodeId == foundation::NodeId{"node_audio_clip"});
 
   const auto preparedCameraPlan = evaluator.prepare(runtime::PrepareRuntimePlanRequest{
     makeEffectPlan("def prepare(): pass")

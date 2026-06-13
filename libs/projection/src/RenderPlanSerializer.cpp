@@ -58,6 +58,11 @@ std::string serializeCanonicalRenderPlan(const RenderPlan& plan) {
     return left.sourceNodeId < right.sourceNodeId;
   });
 
+  std::vector<RenderAudioClip> audioClips = plan.audioClips;
+  std::sort(audioClips.begin(), audioClips.end(), [](const RenderAudioClip& left, const RenderAudioClip& right) {
+    return left.sourceNodeId < right.sourceNodeId;
+  });
+
   std::vector<RenderAsset> assets = plan.assets;
   std::sort(assets.begin(), assets.end(), [](const RenderAsset& left, const RenderAsset& right) {
     return left.assetId < right.assetId;
@@ -139,6 +144,20 @@ std::string serializeCanonicalRenderPlan(const RenderPlan& plan) {
       stream << ',';
     }
     const RenderClip& clip = clips[index];
+    stream << '{';
+    foundation::writeJsonStringProperty(stream, "sourceNodeId", clip.sourceNodeId.value());
+    stream << ',';
+    foundation::writeJsonStringProperty(stream, "trackNodeId", clip.trackNodeId.value());
+    stream << ",\"payload\":";
+    stream << timeline::serializeCanonicalClipPayload(clip.payload);
+    stream << '}';
+  }
+  stream << "],\"audioClips\":[";
+  for (std::size_t index = 0; index < audioClips.size(); ++index) {
+    if (index != 0) {
+      stream << ',';
+    }
+    const RenderAudioClip& clip = audioClips[index];
     stream << '{';
     foundation::writeJsonStringProperty(stream, "sourceNodeId", clip.sourceNodeId.value());
     stream << ',';

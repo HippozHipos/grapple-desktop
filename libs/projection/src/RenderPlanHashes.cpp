@@ -22,6 +22,17 @@ foundation::Hash256 hashRenderClipParams(const RenderClip& clip) {
   return foundation::stableHash(stream.str());
 }
 
+foundation::Hash256 hashRenderAudioClipImplementation() {
+  return foundation::stableHash("runtime.clip.audio");
+}
+
+foundation::Hash256 hashRenderAudioClipParams(const RenderAudioClip& clip) {
+  std::ostringstream stream;
+  stream << "audio_clip|" << clip.trackNodeId.value() << '|'
+         << timeline::serializeCanonicalClipPayload(clip.payload);
+  return foundation::stableHash(stream.str());
+}
+
 foundation::Hash256 hashRenderCameraImplementation() {
   return foundation::stableHash("runtime.camera");
 }

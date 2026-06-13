@@ -77,6 +77,7 @@ public:
                   }
                 }
               },
+              {},
               {
                 grapple::project::RenderPlanCameraSummary{
                   grapple::foundation::NodeId{"node_camera"},

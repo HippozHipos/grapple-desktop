@@ -23,13 +23,10 @@ std::string describeSample(const runtime::RuntimeSample& sample) {
   std::ostringstream description;
   description << "layers=" << sample.layers.size()
               << " clips=" << sample.clips.size()
+              << " audioClips=" << sample.audioClips.size()
               << " cameras=" << sample.cameras.size()
               << " effects=" << sample.effectOutputs.size();
   return description.str();
-}
-
-bool isVisualClipKind(timeline::ClipKind kind) {
-  return kind == timeline::ClipKind::Video || kind == timeline::ClipKind::Image;
 }
 
 RenderedMediaKind renderedMediaKindFor(timeline::ClipKind kind) {
@@ -44,10 +41,6 @@ std::vector<RenderedMediaFrame> buildMediaFrames(const runtime::RuntimeSample& s
 
   for (const projection::RenderClip& clip : sample.clips) {
     const timeline::ClipPayload& payload = clip.payload;
-    if (!isVisualClipKind(payload.kind)) {
-      continue;
-    }
-
     frames.push_back(RenderedMediaFrame{
       clip.sourceNodeId,
       clip.trackNodeId,

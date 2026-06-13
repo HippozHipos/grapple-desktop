@@ -17,6 +17,7 @@ foundation::Result<BuildRenderPlanResult> RenderPlanBuilder::buildRenderPlan(
     {},
     {},
     {},
+    {},
     request.timeline.diagnostics
   };
 
@@ -30,6 +31,10 @@ foundation::Result<BuildRenderPlanResult> RenderPlanBuilder::buildRenderPlan(
 
   for (const TimelineClip& clip : request.timeline.clips) {
     plan.clips.push_back(RenderClip{clip.sourceNodeId, clip.trackNodeId, clip.payload});
+  }
+
+  for (const TimelineAudioClip& clip : request.timeline.audioClips) {
+    plan.audioClips.push_back(RenderAudioClip{clip.sourceNodeId, clip.trackNodeId, clip.payload});
   }
 
   for (const TimelineCamera& camera : request.timeline.cameras) {

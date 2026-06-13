@@ -127,7 +127,11 @@ foundation::Result<BuildTimelineIRResult> TimelineProjector::buildTimelineIR(
             return foundation::Error{"projection.clip_track_invalid", "Clip containment source must be a track."};
           }
 
-          timeline.clips.push_back(TimelineClip{node.id, edge.sourceNodeId, *payload});
+          if (payload->kind == timeline::ClipKind::Audio) {
+            timeline.audioClips.push_back(TimelineAudioClip{node.id, edge.sourceNodeId, *payload});
+          } else {
+            timeline.clips.push_back(TimelineClip{node.id, edge.sourceNodeId, *payload});
+          }
           extendDuration(timeline.duration, payload->timelineRange.end);
           foundTrack = true;
           break;

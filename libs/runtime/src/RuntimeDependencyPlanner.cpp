@@ -61,6 +61,21 @@ std::vector<RuntimeAssetDependency> assetDependenciesForClip(
   return dependencies;
 }
 
+std::vector<RuntimeAssetDependency> assetDependenciesForAudioClip(
+  const projection::RenderPlan& plan,
+  const projection::RenderAudioClip& clip
+) {
+  std::vector<RuntimeAssetDependency> dependencies;
+  const std::optional<RuntimeAssetDependency> assetDependency = findAssetDependency(
+    plan,
+    clip.payload.assetId
+  );
+  if (assetDependency.has_value()) {
+    dependencies.push_back(assetDependency.value());
+  }
+  return dependencies;
+}
+
 std::vector<RuntimeAssetDependency> assetDependenciesForEffect(
   const projection::RenderPlan& plan,
   const projection::RenderEffectNode& effectNode
@@ -183,6 +198,21 @@ RuntimeDependencyGraph RuntimeDependencyPlanner::build(const projection::RenderP
       projection::hashRenderClipImplementation(),
       projection::hashRenderClipParams(clip),
       assetDependenciesForClip(plan, clip),
+      {},
+      {},
+      clip.payload.timelineRange
+    });
+    dependencies.push_back(RenderNodeDependency{clip.sourceNodeId, dependencyId});
+  }
+
+  for (const projection::RenderAudioClip& clip : plan.audioClips) {
+    const RuntimeDependencyId dependencyId = dependencyIdFor(clip.sourceNodeId);
+    graph.nodes.push_back(RuntimeDependencyNode{
+      dependencyId,
+      clip.sourceNodeId,
+      projection::hashRenderAudioClipImplementation(),
+      projection::hashRenderAudioClipParams(clip),
+      assetDependenciesForAudioClip(plan, clip),
       {},
       {},
       clip.payload.timelineRange

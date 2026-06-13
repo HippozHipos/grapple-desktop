@@ -101,6 +101,7 @@ project::RenderPlanInspectResult inspectRenderPlan(const projection::RenderPlan&
     {},
     {},
     {},
+    {},
     plan.diagnostics.size()
   };
 
@@ -113,6 +114,16 @@ project::RenderPlanInspectResult inspectRenderPlan(const projection::RenderPlan&
 
   for (const projection::RenderClip& clip : plan.clips) {
     result.clips.push_back(project::RenderPlanClipSummary{
+      clip.sourceNodeId,
+      clip.trackNodeId,
+      clip.payload.assetId,
+      clip.payload.kind,
+      clip.payload.timelineRange
+    });
+  }
+
+  for (const projection::RenderAudioClip& clip : plan.audioClips) {
+    result.audioClips.push_back(project::RenderPlanClipSummary{
       clip.sourceNodeId,
       clip.trackNodeId,
       clip.payload.assetId,

@@ -912,6 +912,13 @@ void writeRenderPlanInspectJson(std::ostream& stream, const project::RenderPlanI
     }
     writeRenderPlanClipJson(stream, result.clips[index]);
   }
+  stream << "],\"audioClips\":[";
+  for (std::size_t index = 0; index < result.audioClips.size(); ++index) {
+    if (index != 0) {
+      stream << ',';
+    }
+    writeRenderPlanClipJson(stream, result.audioClips[index]);
+  }
   stream << "],\"cameras\":[";
   for (std::size_t index = 0; index < result.cameras.size(); ++index) {
     if (index != 0) {

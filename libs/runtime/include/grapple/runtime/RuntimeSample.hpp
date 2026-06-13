@@ -15,12 +15,14 @@ struct PreparedRuntimePlan;
 
 using ResolvedLayer = projection::RenderLayer;
 using ResolvedClip = projection::RenderClip;
+using ResolvedAudioClip = projection::RenderAudioClip;
 using ResolvedCamera = projection::RenderCamera;
 
 struct RuntimeSample {
   foundation::TimeSeconds time;
   std::vector<ResolvedLayer> layers;
   std::vector<ResolvedClip> clips;
+  std::vector<ResolvedAudioClip> audioClips;
   std::vector<ResolvedCamera> cameras;
   std::vector<RuntimeEffectOutput> effectOutputs;
   std::vector<RuntimeDiagnostic> diagnostics;
