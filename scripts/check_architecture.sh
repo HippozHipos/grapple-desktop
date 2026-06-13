@@ -27,6 +27,12 @@ if grep -RInE 'browser|downloaded|renderer-specific' "$root/libs" "$root/tests" 
   exit 1
 fi
 
+check_no_matches \
+  "graph and timeline core must not use generic metadata fields." \
+  '\bmetadata\b' \
+  "$root/libs/graph" \
+  "$root/libs/timeline"
+
 if grep -RInE '(Preview|Final)(GraphInterpreter|PlanInterpreter|RuntimeEvaluator|RuntimeCore|RenderCore|EffectRuntime|DependencyPlanner|CachePolicy|MediaPolicy)' "$root/libs" "$root/tests" 2>/dev/null; then
   echo "Architecture guard failed: preview/final shells must not duplicate shared render/runtime core semantics." >&2
   exit 1
