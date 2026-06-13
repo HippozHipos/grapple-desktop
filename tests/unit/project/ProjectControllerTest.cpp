@@ -447,6 +447,27 @@ int main() {
     project::RegisterAssetCommand{makeVideoAsset(foundation::AssetId{"asset_clip"}, "Clip")}
   });
   GRAPPLE_REQUIRE(registerClipAsset);
+  const auto createClipWithMismatchedAssetKind = clipProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_create_clip_mismatched_asset_kind"},
+    foundation::ProjectId{"proj_clip"},
+    registerClipAsset.value().afterRevision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::CreateClipCommand{
+      foundation::NodeId{"node_clip_mismatched_asset_kind"},
+      foundation::NodeId{"node_clip_track"},
+      foundation::EdgeId{"edge_clip_contains_mismatched_asset_kind"},
+      timeline::ClipPayload{
+        timeline::ClipKind::Audio,
+        foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{5.0}},
+        foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{5.0}},
+        1.0,
+        foundation::AssetId{"asset_clip"},
+        timeline::Transform{}
+      }
+    }
+  });
+  GRAPPLE_REQUIRE(!createClipWithMismatchedAssetKind);
+  GRAPPLE_REQUIRE(createClipWithMismatchedAssetKind.error().code == "project.clip_asset_kind_mismatch");
   const timeline::ClipPayload initialClipPayload{
     timeline::ClipKind::Video,
     foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{5.0}},
@@ -513,6 +534,25 @@ int main() {
   });
   GRAPPLE_REQUIRE(!updateClipMissingAsset);
   GRAPPLE_REQUIRE(updateClipMissingAsset.error().code == "project.clip_asset_missing");
+  const auto updateClipMismatchedAssetKind = clipProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_update_clip_mismatched_asset_kind"},
+    foundation::ProjectId{"proj_clip"},
+    createClip.value().afterRevision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::UpdateClipCommand{
+      foundation::NodeId{"node_clip"},
+      timeline::ClipPayload{
+        timeline::ClipKind::Audio,
+        foundation::TimeRange{foundation::TimeSeconds{2.0}, foundation::TimeSeconds{12.0}},
+        foundation::TimeRange{foundation::TimeSeconds{1.0}, foundation::TimeSeconds{11.0}},
+        0.5,
+        foundation::AssetId{"asset_clip"},
+        timeline::Transform{}
+      }
+    }
+  });
+  GRAPPLE_REQUIRE(!updateClipMismatchedAssetKind);
+  GRAPPLE_REQUIRE(updateClipMismatchedAssetKind.error().code == "project.clip_asset_kind_mismatch");
   const auto updateClipResult = clipProject.apply(updateClip);
   GRAPPLE_REQUIRE(updateClipResult);
   GRAPPLE_REQUIRE(updateClipResult.value().afterRevision == foundation::RevisionId{"rev_5"});
@@ -561,6 +601,31 @@ int main() {
   });
   GRAPPLE_REQUIRE(!restoreInvalidClipSnapshot);
   GRAPPLE_REQUIRE(restoreInvalidClipSnapshot.error().code == "project.snapshot_clip_asset_missing");
+  project::ProjectSnapshot invalidRestoredClipKindSnapshot = afterClipUpdate.value();
+  const auto replaceInvalidRestoredClipKindPayload = invalidRestoredClipKindSnapshot.graph.replaceNodePayload(
+    foundation::NodeId{"node_clip"},
+    timeline::ClipPayload{
+      timeline::ClipKind::Audio,
+      foundation::TimeRange{foundation::TimeSeconds{2.0}, foundation::TimeSeconds{12.0}},
+      foundation::TimeRange{foundation::TimeSeconds{1.0}, foundation::TimeSeconds{11.0}},
+      0.5,
+      foundation::AssetId{"asset_clip"},
+      timeline::Transform{}
+    }
+  );
+  GRAPPLE_REQUIRE(replaceInvalidRestoredClipKindPayload);
+  const auto restoreInvalidClipKindSnapshot = clipProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_restore_invalid_clip_kind_snapshot"},
+    foundation::ProjectId{"proj_clip"},
+    afterClipUpdate.value().revision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::RestoreSnapshotCommand{
+      foundation::SnapshotId{"snap_invalid_clip_kind"},
+      invalidRestoredClipKindSnapshot
+    }
+  });
+  GRAPPLE_REQUIRE(!restoreInvalidClipKindSnapshot);
+  GRAPPLE_REQUIRE(restoreInvalidClipKindSnapshot.error().code == "project.snapshot_clip_asset_kind_mismatch");
   const auto afterInvalidRestore = clipProject.snapshot();
   GRAPPLE_REQUIRE(afterInvalidRestore);
   GRAPPLE_REQUIRE(afterInvalidRestore.value().revision == afterClipUpdate.value().revision);

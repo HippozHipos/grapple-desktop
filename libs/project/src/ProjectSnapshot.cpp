@@ -1,5 +1,7 @@
 #include <grapple/project/ProjectSnapshot.hpp>
 
+#include "ProjectInvariants.hpp"
+
 #include <grapple/project/ProjectSerializer.hpp>
 #include <grapple/timeline/Payloads.hpp>
 
@@ -41,8 +43,18 @@ foundation::Result<void> validateProjectSnapshotReferences(const ProjectSnapshot
     if (payload == nullptr) {
       return foundation::Error{"project.snapshot_clip_payload_invalid", "Snapshot clip nodes must carry clip payloads."};
     }
-    if (snapshot.assets.find(payload->assetId) == nullptr) {
+    const asset::Asset* asset = snapshot.assets.find(payload->assetId);
+    if (asset == nullptr) {
       return foundation::Error{"project.snapshot_clip_asset_missing", "Snapshot clip assets must exist in the snapshot asset catalog."};
+    }
+    auto assetKind = invariant::requireClipMatchesAssetMediaType(
+      *payload,
+      *asset,
+      "project.snapshot_clip_asset_kind_mismatch",
+      "Snapshot clip kind must match the referenced asset media type."
+    );
+    if (!assetKind) {
+      return assetKind.error();
     }
   }
   return {};
