@@ -17,6 +17,7 @@ AgentTool makeEffectUpdateParamsTool();
 AgentTool makeEffectConnectPortsTool();
 AgentTool makeEffectDisconnectPortsTool();
 AgentTool makeRenderPlanInspectTool();
+AgentTool makeRuntimeInspectDiagnosticsTool();
 AgentTool makeNoteCreateTool();
 AgentTool makeNoteUpdateTool();
 

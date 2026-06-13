@@ -15,7 +15,7 @@
 
 namespace grapple::app {
 
-class NativeWorkspaceSession final {
+class NativeWorkspaceSession final : public project::IProjectQueryService {
 public:
   NativeWorkspaceSession(NativeWorkspaceSession&&) noexcept;
   NativeWorkspaceSession& operator=(NativeWorkspaceSession&&) noexcept;
@@ -44,6 +44,10 @@ public:
   [[nodiscard]] NativePreviewSession& preview() noexcept;
   [[nodiscard]] NativeExportSession& exportSession() noexcept;
   [[nodiscard]] media::MediaSourceCatalog& mediaSources() noexcept;
+
+  [[nodiscard]] foundation::Result<project::ProjectQueryResult> query(
+    const project::ProjectQuery& query
+  ) const override;
 
 private:
   NativeWorkspaceSession() = default;

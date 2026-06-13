@@ -201,6 +201,11 @@ foundation::Result<project::ProjectQueryResult> NativeProjectSession::query(cons
           return result.error();
         }
         return project::ProjectQueryResult{inspectRenderPlan(result.value().plan)};
+      } else if constexpr (std::is_same_v<Query, project::InspectRuntimeDiagnosticsQuery>) {
+        return foundation::Error{
+          "app.runtime_diagnostics_query_requires_workspace",
+          "Runtime diagnostic inspection requires a workspace query service with runtime configuration."
+        };
       }
     },
     query

@@ -90,6 +90,26 @@ public:
               0
             }
           };
+        } else if constexpr (std::is_same_v<Query, grapple::project::InspectRuntimeDiagnosticsQuery>) {
+          auto snapshot = project_.snapshot();
+          if (!snapshot) {
+            return snapshot.error();
+          }
+          return grapple::project::ProjectQueryResult{
+            grapple::project::RuntimeInspectDiagnosticsResult{
+              snapshot.value().revision,
+              {
+                grapple::project::RuntimeDiagnosticSummary{
+                  "runtime.effect_runtime_missing",
+                  grapple::project::RuntimeDiagnosticSeveritySummary::Warning,
+                  snapshot.value().info.id,
+                  snapshot.value().revision,
+                  grapple::foundation::NodeId{"node_agent_effect_rev_3"},
+                  "No runtime registered for this effect implementation."
+                }
+              }
+            }
+          };
         } else {
           return project_.query(typedQuery);
         }
@@ -134,11 +154,13 @@ int main() {
   GRAPPLE_REQUIRE(registeredDisconnectPorts);
   const auto registeredRenderPlanInspect = registry.registerTool(agent::makeRenderPlanInspectTool());
   GRAPPLE_REQUIRE(registeredRenderPlanInspect);
+  const auto registeredRuntimeInspectDiagnostics = registry.registerTool(agent::makeRuntimeInspectDiagnosticsTool());
+  GRAPPLE_REQUIRE(registeredRuntimeInspectDiagnostics);
   const auto registeredCreateNote = registry.registerTool(agent::makeNoteCreateTool());
   GRAPPLE_REQUIRE(registeredCreateNote);
   const auto registeredUpdateNote = registry.registerTool(agent::makeNoteUpdateTool());
   GRAPPLE_REQUIRE(registeredUpdateNote);
-  GRAPPLE_REQUIRE(registry.tools().size() == 15);
+  GRAPPLE_REQUIRE(registry.tools().size() == 16);
   GRAPPLE_REQUIRE(registry.findBySerializedId("project.inspect") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("asset.list") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("asset.import") != nullptr);
@@ -152,6 +174,7 @@ int main() {
   GRAPPLE_REQUIRE(registry.findBySerializedId("effect.connect_ports") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("effect.disconnect_ports") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("render_plan.inspect") != nullptr);
+  GRAPPLE_REQUIRE(registry.findBySerializedId("runtime.inspect_diagnostics") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("project.create_effect") == nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("note.create") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("note.update") != nullptr);
@@ -223,6 +246,10 @@ int main() {
   GRAPPLE_REQUIRE(registeredRenderPlanInspectTool != nullptr);
   GRAPPLE_REQUIRE(registeredRenderPlanInspectTool->schema.find("\"additionalProperties\": false") != std::string::npos);
   GRAPPLE_REQUIRE(registeredRenderPlanInspectTool->schema.find("\"commandId\"") == std::string::npos);
+  const agent::AgentTool* registeredRuntimeInspectDiagnosticsTool = registry.findBySerializedId("runtime.inspect_diagnostics");
+  GRAPPLE_REQUIRE(registeredRuntimeInspectDiagnosticsTool != nullptr);
+  GRAPPLE_REQUIRE(registeredRuntimeInspectDiagnosticsTool->schema.find("\"additionalProperties\": false") != std::string::npos);
+  GRAPPLE_REQUIRE(registeredRuntimeInspectDiagnosticsTool->schema.find("\"commandId\"") == std::string::npos);
 
   const auto duplicate = registry.registerTool(agent::makeProjectInspectTool());
   GRAPPLE_REQUIRE(!duplicate);
@@ -840,6 +867,27 @@ int main() {
   GRAPPLE_REQUIRE(inspectRenderPlanResult.value().payload.find("\"effectGraphs\":[{\"graphId\":\"effect_graph_node_camera\"") != std::string::npos);
   GRAPPLE_REQUIRE(inspectRenderPlanResult.value().payload.find("\"diagnosticCount\":0") != std::string::npos);
   GRAPPLE_REQUIRE(inspectRenderPlanResult.value().payload.find("\"commandId\"") == std::string::npos);
+
+  const agent::AgentTool* inspectRuntimeDiagnostics = registry.findBySerializedId("runtime.inspect_diagnostics");
+  GRAPPLE_REQUIRE(inspectRuntimeDiagnostics != nullptr);
+  const auto inspectRuntimeDiagnosticsResult = inspectRuntimeDiagnostics->handler(
+    agent::ToolCall{
+      foundation::ToolId{"tool_runtime_inspect_diagnostics"},
+      foundation::RunId{"run_1"},
+      foundation::ProjectId{"proj_agent"},
+      disconnectPortsResult.value().observedRevision,
+      ""
+    },
+    context
+  );
+  GRAPPLE_REQUIRE(inspectRuntimeDiagnosticsResult);
+  GRAPPLE_REQUIRE(inspectRuntimeDiagnosticsResult.value().status == agent::ToolResultStatus::Succeeded);
+  GRAPPLE_REQUIRE(inspectRuntimeDiagnosticsResult.value().observedRevision == foundation::RevisionId{"rev_13"});
+  GRAPPLE_REQUIRE(inspectRuntimeDiagnosticsResult.value().payload.find("\"revision\":\"rev_13\"") != std::string::npos);
+  GRAPPLE_REQUIRE(inspectRuntimeDiagnosticsResult.value().payload.find("\"code\":\"runtime.effect_runtime_missing\"") != std::string::npos);
+  GRAPPLE_REQUIRE(inspectRuntimeDiagnosticsResult.value().payload.find("\"severity\":\"warning\"") != std::string::npos);
+  GRAPPLE_REQUIRE(inspectRuntimeDiagnosticsResult.value().payload.find("\"nodeId\":\"node_agent_effect_rev_3\"") != std::string::npos);
+  GRAPPLE_REQUIRE(inspectRuntimeDiagnosticsResult.value().payload.find("\"commandId\"") == std::string::npos);
 
   return 0;
 }

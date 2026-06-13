@@ -8,6 +8,7 @@
 #include <grapple/timeline/Payloads.hpp>
 
 #include <cstddef>
+#include <optional>
 #include <string>
 #include <variant>
 #include <vector>
@@ -18,6 +19,7 @@ struct GetProjectSnapshotQuery {};
 struct GetGraphQuery {};
 struct InspectCompositionsQuery {};
 struct InspectRenderPlanQuery {};
+struct InspectRuntimeDiagnosticsQuery {};
 
 struct CompositionClipSummary {
   foundation::NodeId nodeId;
@@ -94,11 +96,32 @@ struct RenderPlanInspectResult {
   std::size_t diagnosticCount = 0;
 };
 
+enum class RuntimeDiagnosticSeveritySummary {
+  Info,
+  Warning,
+  Error
+};
+
+struct RuntimeDiagnosticSummary {
+  std::string code;
+  RuntimeDiagnosticSeveritySummary severity = RuntimeDiagnosticSeveritySummary::Error;
+  foundation::ProjectId projectId;
+  foundation::RevisionId revision;
+  std::optional<foundation::NodeId> nodeId;
+  std::string message;
+};
+
+struct RuntimeInspectDiagnosticsResult {
+  foundation::RevisionId revision;
+  std::vector<RuntimeDiagnosticSummary> diagnostics;
+};
+
 using ProjectQuery = std::variant<
   GetProjectSnapshotQuery,
   GetGraphQuery,
   InspectCompositionsQuery,
-  InspectRenderPlanQuery
+  InspectRenderPlanQuery,
+  InspectRuntimeDiagnosticsQuery
 >;
 
 struct ProjectSnapshotResult {
@@ -118,7 +141,8 @@ using ProjectQueryResult = std::variant<
   ProjectSnapshotResult,
   GraphResult,
   CompositionInspectResult,
-  RenderPlanInspectResult
+  RenderPlanInspectResult,
+  RuntimeInspectDiagnosticsResult
 >;
 
 class IProjectQueryService {

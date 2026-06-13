@@ -175,6 +175,11 @@ foundation::Result<ProjectQueryResult> ProjectController::readQuery(const Projec
           "project.render_plan_query_requires_orchestration",
           "RenderPlan inspection must be handled by a query service that owns projection orchestration."
         };
+      } else if constexpr (std::is_same_v<Query, InspectRuntimeDiagnosticsQuery>) {
+        return foundation::Error{
+          "project.runtime_diagnostics_query_requires_orchestration",
+          "Runtime diagnostic inspection must be handled by a query service that owns runtime orchestration."
+        };
       }
     },
     query

@@ -347,6 +347,12 @@ int main() {
   const auto updatedRuntimeEffectViewModel = runtimeWorkspace.value().project().buildViewModel();
   GRAPPLE_REQUIRE(updatedRuntimeEffectViewModel);
   GRAPPLE_REQUIRE(updatedRuntimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].value == "0.25");
+  const auto runtimeDiagnosticsQuery = runtimeWorkspace.value().query(project::InspectRuntimeDiagnosticsQuery{});
+  GRAPPLE_REQUIRE(runtimeDiagnosticsQuery);
+  const auto* runtimeDiagnostics = std::get_if<project::RuntimeInspectDiagnosticsResult>(&runtimeDiagnosticsQuery.value());
+  GRAPPLE_REQUIRE(runtimeDiagnostics != nullptr);
+  GRAPPLE_REQUIRE(runtimeDiagnostics->revision == foundation::RevisionId{"rev_4"});
+  GRAPPLE_REQUIRE(runtimeDiagnostics->diagnostics.empty());
   const auto runtimeRefresh = runtimeWorkspace.value().preview().refreshFromProject();
   GRAPPLE_REQUIRE(runtimeRefresh);
   const auto runtimeFrame = runtimeWorkspace.value().preview().renderFrame(render::RenderFrameRequest{

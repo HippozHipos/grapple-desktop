@@ -2,9 +2,12 @@
 
 #include <grapple/asset/Asset.hpp>
 #include <grapple/runtime/BuiltinEffectRuntime.hpp>
+#include <grapple/runtime/RuntimeEvaluator.hpp>
 #include <grapple/storage/ProjectPackageReader.hpp>
 
+#include <cstdlib>
 #include <utility>
+#include <variant>
 
 namespace grapple::app {
 
@@ -35,6 +38,34 @@ foundation::Result<media::MediaSourceCatalog> buildMediaSources(const NativeProj
   }
 
   return sources;
+}
+
+project::RuntimeDiagnosticSeveritySummary runtimeDiagnosticSeverity(
+  runtime::DiagnosticSeverity severity
+) {
+  switch (severity) {
+    case runtime::DiagnosticSeverity::Info:
+      return project::RuntimeDiagnosticSeveritySummary::Info;
+    case runtime::DiagnosticSeverity::Warning:
+      return project::RuntimeDiagnosticSeveritySummary::Warning;
+    case runtime::DiagnosticSeverity::Error:
+      return project::RuntimeDiagnosticSeveritySummary::Error;
+  }
+
+  std::abort();
+}
+
+project::RuntimeDiagnosticSummary runtimeDiagnosticSummary(
+  const runtime::RuntimeDiagnostic& diagnostic
+) {
+  return project::RuntimeDiagnosticSummary{
+    diagnostic.code,
+    runtimeDiagnosticSeverity(diagnostic.severity),
+    diagnostic.location.projectId,
+    diagnostic.location.revision,
+    diagnostic.location.nodeId,
+    diagnostic.message
+  };
 }
 
 } // namespace
@@ -164,6 +195,40 @@ NativeExportSession& NativeWorkspaceSession::exportSession() noexcept {
 
 media::MediaSourceCatalog& NativeWorkspaceSession::mediaSources() noexcept {
   return state_->mediaSources;
+}
+
+foundation::Result<project::ProjectQueryResult> NativeWorkspaceSession::query(
+  const project::ProjectQuery& query
+) const {
+  return std::visit(
+    [&](const auto& typedQuery) -> foundation::Result<project::ProjectQueryResult> {
+      using Query = std::decay_t<decltype(typedQuery)>;
+      if constexpr (std::is_same_v<Query, project::InspectRuntimeDiagnosticsQuery>) {
+        auto plan = state_->project.buildRenderPlan();
+        if (!plan) {
+          return plan.error();
+        }
+
+        runtime::RuntimeEvaluator runtime{{&state_->builtinEffectRuntime}};
+        auto prepared = runtime.prepare(runtime::PrepareRuntimePlanRequest{plan.value().plan});
+        if (!prepared) {
+          return prepared.error();
+        }
+
+        project::RuntimeInspectDiagnosticsResult result{
+          plan.value().plan.revision,
+          {}
+        };
+        for (const runtime::RuntimeDiagnostic& diagnostic : prepared.value().diagnostics) {
+          result.diagnostics.push_back(runtimeDiagnosticSummary(diagnostic));
+        }
+        return project::ProjectQueryResult{std::move(result)};
+      } else {
+        return state_->project.query(typedQuery);
+      }
+    },
+    query
+  );
 }
 
 } // namespace grapple::app

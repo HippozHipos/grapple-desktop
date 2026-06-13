@@ -8,6 +8,7 @@
 #include <json/json.h>
 
 #include <cstdint>
+#include <cstdlib>
 #include <memory>
 #include <optional>
 #include <sstream>
@@ -258,6 +259,12 @@ constexpr const char EffectDisconnectPortsSchema[] = R"json({
 })json";
 
 constexpr const char RenderPlanInspectSchema[] = R"json({
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+})json";
+
+constexpr const char RuntimeInspectDiagnosticsSchema[] = R"json({
   "type": "object",
   "additionalProperties": false,
   "properties": {}
@@ -802,6 +809,48 @@ void writeRenderPlanInspectJson(std::ostream& stream, const project::RenderPlanI
   }
   stream << "],\"diagnosticCount\":" << result.diagnosticCount
          << '}';
+}
+
+const char* runtimeDiagnosticSeverityText(project::RuntimeDiagnosticSeveritySummary severity) {
+  switch (severity) {
+    case project::RuntimeDiagnosticSeveritySummary::Info:
+      return "info";
+    case project::RuntimeDiagnosticSeveritySummary::Warning:
+      return "warning";
+    case project::RuntimeDiagnosticSeveritySummary::Error:
+      return "error";
+  }
+
+  std::abort();
+}
+
+void writeRuntimeDiagnosticJson(std::ostream& stream, const project::RuntimeDiagnosticSummary& diagnostic) {
+  stream << '{'
+         << "\"code\":" << foundation::jsonQuoted(diagnostic.code)
+         << ",\"severity\":" << foundation::jsonQuoted(runtimeDiagnosticSeverityText(diagnostic.severity))
+         << ",\"location\":{\"projectId\":" << foundation::jsonQuoted(diagnostic.projectId.value())
+         << ",\"revision\":" << foundation::jsonQuoted(diagnostic.revision.value());
+  if (diagnostic.nodeId.has_value()) {
+    stream << ",\"nodeId\":" << foundation::jsonQuoted(diagnostic.nodeId->value());
+  }
+  stream << "},\"message\":" << foundation::jsonQuoted(diagnostic.message)
+         << '}';
+}
+
+void writeRuntimeInspectDiagnosticsJson(
+  std::ostream& stream,
+  const project::RuntimeInspectDiagnosticsResult& result
+) {
+  stream << '{'
+         << "\"revision\":" << foundation::jsonQuoted(result.revision.value())
+         << ",\"diagnostics\":[";
+  for (std::size_t index = 0; index < result.diagnostics.size(); ++index) {
+    if (index != 0) {
+      stream << ',';
+    }
+    writeRuntimeDiagnosticJson(stream, result.diagnostics[index]);
+  }
+  stream << "]}";
 }
 
 } // namespace
@@ -1661,6 +1710,39 @@ AgentTool makeRenderPlanInspectTool() {
         call.toolId,
         ToolResultStatus::Succeeded,
         renderPlanResult->revision,
+        payload.str(),
+        {}
+      };
+    }
+  };
+}
+
+AgentTool makeRuntimeInspectDiagnosticsTool() {
+  return AgentTool{
+    foundation::ToolId{"tool_runtime_inspect_diagnostics"},
+    "runtime.inspect_diagnostics",
+    "Inspect Runtime Diagnostics",
+    "Returns current runtime diagnostic summaries through Project Query APIs.",
+    RuntimeInspectDiagnosticsSchema,
+    [](const ToolCall& call, AgentToolContext& context) -> foundation::Result<ToolResult> {
+      auto query = context.queries.query(project::InspectRuntimeDiagnosticsQuery{});
+      if (!query) {
+        return query.error();
+      }
+      const auto* diagnosticsResult = std::get_if<project::RuntimeInspectDiagnosticsResult>(&query.value());
+      if (diagnosticsResult == nullptr) {
+        return foundation::Error{
+          "agent.runtime_inspect_diagnostics_result_missing",
+          "Runtime diagnostics query returned the wrong result type."
+        };
+      }
+
+      std::ostringstream payload;
+      writeRuntimeInspectDiagnosticsJson(payload, *diagnosticsResult);
+      return ToolResult{
+        call.toolId,
+        ToolResultStatus::Succeeded,
+        diagnosticsResult->revision,
         payload.str(),
         {}
       };
