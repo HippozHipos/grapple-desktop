@@ -716,14 +716,28 @@ public:
   }
 
   void addTrack() {
-    const auto viewModel = workspace_.project().buildViewModel();
+    auto viewModel = workspace_.project().buildViewModel();
     if (!viewModel) {
       appendError(viewModel.error());
       return;
     }
     if (viewModel.value().timeline.compositions.empty()) {
-      appendError(grapple::foundation::Error{"desktop.composition_missing", "Add Track requires a composition."});
-      return;
+      const auto composition = workspace_.commandWriter().apply(
+        grapple::project::CreateCompositionCommand{
+          workspace_.commandWriter().nextNodeId("composition"),
+          "Main"
+        },
+        userSource()
+      );
+      if (!composition) {
+        appendError(composition.error());
+        return;
+      }
+      viewModel = workspace_.project().buildViewModel();
+      if (!viewModel) {
+        appendError(viewModel.error());
+        return;
+      }
     }
 
     const std::size_t trackNumber = viewModel.value().timeline.layers.size() + 1;
