@@ -179,8 +179,8 @@ int main() {
   GRAPPLE_REQUIRE(registeredTrimClip);
   const auto registeredCreateEffect = registry.registerTool(agent::makeEffectCreateNodeTool());
   GRAPPLE_REQUIRE(registeredCreateEffect);
-  const auto registeredUpdateEffectParams = registry.registerTool(agent::makeEffectUpdateParamsTool());
-  GRAPPLE_REQUIRE(registeredUpdateEffectParams);
+  const auto registeredUpdateEffectParamValue = registry.registerTool(agent::makeEffectUpdateParamValueTool());
+  GRAPPLE_REQUIRE(registeredUpdateEffectParamValue);
   const auto registeredConnectPorts = registry.registerTool(agent::makeEffectConnectPortsTool());
   GRAPPLE_REQUIRE(registeredConnectPorts);
   const auto registeredDisconnectPorts = registry.registerTool(agent::makeEffectDisconnectPortsTool());
@@ -203,7 +203,7 @@ int main() {
   GRAPPLE_REQUIRE(registry.findBySerializedId("timeline.move_clip") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("timeline.trim_clip") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("effect.create_node") != nullptr);
-  GRAPPLE_REQUIRE(registry.findBySerializedId("effect.update_params") != nullptr);
+  GRAPPLE_REQUIRE(registry.findBySerializedId("effect.update_param_value") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("effect.connect_ports") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("effect.disconnect_ports") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("render_plan.inspect") != nullptr);
@@ -255,12 +255,14 @@ int main() {
   GRAPPLE_REQUIRE(registeredCreateEffectTool->schema.find("\"commandId\"") == std::string::npos);
   GRAPPLE_REQUIRE(registeredCreateEffectTool->schema.find("\"effectNodeId\"") == std::string::npos);
   GRAPPLE_REQUIRE(registeredCreateEffectTool->schema.find("\"targetEdgeId\"") == std::string::npos);
-  const agent::AgentTool* registeredUpdateEffectParamsTool = registry.findBySerializedId("effect.update_params");
-  GRAPPLE_REQUIRE(registeredUpdateEffectParamsTool != nullptr);
-  GRAPPLE_REQUIRE(registeredUpdateEffectParamsTool->schema.find("\"effectNodeId\"") != std::string::npos);
-  GRAPPLE_REQUIRE(registeredUpdateEffectParamsTool->schema.find("\"params\"") != std::string::npos);
-  GRAPPLE_REQUIRE(registeredUpdateEffectParamsTool->schema.find("\"numeric\"") != std::string::npos);
-  GRAPPLE_REQUIRE(registeredUpdateEffectParamsTool->schema.find("\"commandId\"") == std::string::npos);
+  const agent::AgentTool* registeredUpdateEffectParamValueTool = registry.findBySerializedId("effect.update_param_value");
+  GRAPPLE_REQUIRE(registeredUpdateEffectParamValueTool != nullptr);
+  GRAPPLE_REQUIRE(registeredUpdateEffectParamValueTool->schema.find("\"effectNodeId\"") != std::string::npos);
+  GRAPPLE_REQUIRE(registeredUpdateEffectParamValueTool->schema.find("\"paramName\"") != std::string::npos);
+  GRAPPLE_REQUIRE(registeredUpdateEffectParamValueTool->schema.find("\"value\"") != std::string::npos);
+  GRAPPLE_REQUIRE(registeredUpdateEffectParamValueTool->schema.find("\"params\"") == std::string::npos);
+  GRAPPLE_REQUIRE(registeredUpdateEffectParamValueTool->schema.find("\"numeric\"") == std::string::npos);
+  GRAPPLE_REQUIRE(registeredUpdateEffectParamValueTool->schema.find("\"commandId\"") == std::string::npos);
   const agent::AgentTool* registeredConnectPortsTool = registry.findBySerializedId("effect.connect_ports");
   GRAPPLE_REQUIRE(registeredConnectPortsTool != nullptr);
   GRAPPLE_REQUIRE(registeredConnectPortsTool->schema.find("\"edgeId\"") != std::string::npos);
@@ -758,32 +760,26 @@ int main() {
   GRAPPLE_REQUIRE(trimmedClipPayload->sourceRange.end == foundation::TimeSeconds{4.0});
   GRAPPLE_REQUIRE(trimmedClipPayload->assetId == foundation::AssetId{"asset_video"});
 
-  const agent::AgentTool* updateEffectParams = registry.findBySerializedId("effect.update_params");
-  GRAPPLE_REQUIRE(updateEffectParams != nullptr);
-  const auto updateEffectParamsResult = updateEffectParams->handler(
+  const agent::AgentTool* updateEffectParamValue = registry.findBySerializedId("effect.update_param_value");
+  GRAPPLE_REQUIRE(updateEffectParamValue != nullptr);
+  const auto updateEffectParamValueResult = updateEffectParamValue->handler(
     agent::ToolCall{
-      foundation::ToolId{"tool_effect_update_params"},
+      foundation::ToolId{"tool_effect_update_param_value"},
       foundation::RunId{"run_1"},
       foundation::ProjectId{"proj_agent"},
       trimClipResult.value().observedRevision,
       R"({
         "effectNodeId": "node_agent_effect_rev_3",
-        "params": [
-          {
-            "name": "target_x",
-            "label": "Target X",
-            "value": 0.75,
-            "numeric": {"min": 0, "max": 1, "step": 0.01}
-          }
-        ]
+        "paramName": "target_x",
+        "value": 0.75
       })"
     },
     context
   );
-  GRAPPLE_REQUIRE(updateEffectParamsResult);
-  GRAPPLE_REQUIRE(updateEffectParamsResult.value().status == agent::ToolResultStatus::Succeeded);
-  GRAPPLE_REQUIRE(updateEffectParamsResult.value().observedRevision == foundation::RevisionId{"rev_11"});
-  GRAPPLE_REQUIRE(updateEffectParamsResult.value().payload == "{\"commandId\":\"cmd_agent_update_effect_params_rev_11\",\"effectNodeId\":\"node_agent_effect_rev_3\",\"revision\":\"rev_11\"}");
+  GRAPPLE_REQUIRE(updateEffectParamValueResult);
+  GRAPPLE_REQUIRE(updateEffectParamValueResult.value().status == agent::ToolResultStatus::Succeeded);
+  GRAPPLE_REQUIRE(updateEffectParamValueResult.value().observedRevision == foundation::RevisionId{"rev_11"});
+  GRAPPLE_REQUIRE(updateEffectParamValueResult.value().payload == "{\"commandId\":\"cmd_agent_update_effect_param_value_rev_11\",\"effectNodeId\":\"node_agent_effect_rev_3\",\"paramName\":\"target_x\",\"revision\":\"rev_11\"}");
 
   const auto afterParamUpdateSnapshot = project.snapshot();
   GRAPPLE_REQUIRE(afterParamUpdateSnapshot);
@@ -805,7 +801,7 @@ int main() {
       foundation::ToolId{"tool_effect_connect_ports"},
       foundation::RunId{"run_1"},
       foundation::ProjectId{"proj_agent"},
-      updateEffectParamsResult.value().observedRevision,
+      updateEffectParamValueResult.value().observedRevision,
       R"({
         "edgeId": "edge_agent_effect_ports",
         "sourceNodeId": "node_agent_effect_rev_3",
