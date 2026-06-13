@@ -291,14 +291,16 @@ foundation::Result<AppViewModel> NativeProjectSession::buildViewModel() const {
       clip.sourceNodeId,
       clip.trackNodeId,
       clip.payload.assetId,
-      clip.payload.timelineRange
+      clip.payload.timelineRange,
+      clip.payload.transform
     });
   }
 
   for (const projection::RenderCamera& camera : plan.cameras) {
     viewModel.timeline.cameras.push_back(AppCameraRow{
       camera.sourceNodeId,
-      camera.name
+      camera.name,
+      camera.transform
     });
   }
 

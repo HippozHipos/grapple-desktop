@@ -1,6 +1,7 @@
 find_package(Qt5 REQUIRED COMPONENTS Widgets)
 
 add_library(grapple_ui_qt
+  src/CompositionViewport.cpp
   src/EffectParamPanel.cpp
   src/PreviewSurface.cpp
   src/StewardPanel.cpp

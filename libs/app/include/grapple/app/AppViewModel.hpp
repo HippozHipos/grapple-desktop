@@ -5,6 +5,7 @@
 #include <grapple/foundation/Geometry.hpp>
 #include <grapple/foundation/StrongId.hpp>
 #include <grapple/foundation/Time.hpp>
+#include <grapple/foundation/Transform.hpp>
 
 #include <cstddef>
 #include <cstdint>
@@ -62,11 +63,13 @@ struct AppClipRow {
   foundation::NodeId trackNodeId;
   foundation::AssetId assetId;
   foundation::TimeRange timelineRange;
+  foundation::Transform2D transform;
 };
 
 struct AppCameraRow {
   foundation::NodeId sourceNodeId;
   std::string name;
+  foundation::Transform2D transform;
 };
 
 struct AppEffectParamRow {

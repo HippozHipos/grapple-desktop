@@ -8,6 +8,7 @@
 #include <grapple/render/RenderDiagnostic.hpp>
 #include <grapple/runtime/RuntimeDiagnostic.hpp>
 #include <grapple/timeline/Payloads.hpp>
+#include <grapple/ui_qt/CompositionViewport.hpp>
 #include <grapple/ui_qt/EffectParamPanel.hpp>
 #include <grapple/ui_qt/PreviewSurface.hpp>
 #include <grapple/ui_qt/StewardPanel.hpp>
@@ -304,6 +305,24 @@ public:
     previewLayout->addWidget(previewTitle_);
     previewLayout->addWidget(previewSurface_, 1);
 
+    viewportFrame_ = new QFrame;
+    viewportFrame_->setObjectName("viewportFrame");
+    viewportFrame_->setMinimumSize(420, 420);
+    auto* viewportLayout = new QVBoxLayout{viewportFrame_};
+    viewportTitle_ = new QLabel{"Viewport"};
+    viewportTitle_->setObjectName("panelTitle");
+    compositionViewport_ = new grapple::ui::CompositionViewport;
+    viewportLayout->addWidget(viewportTitle_);
+    viewportLayout->addWidget(compositionViewport_, 1);
+
+    auto* studioPanel = new QWidget;
+    studioPanel->setObjectName("studioPanel");
+    auto* studioLayout = new QHBoxLayout{studioPanel};
+    studioLayout->setContentsMargins(0, 0, 0, 0);
+    studioLayout->setSpacing(12);
+    studioLayout->addWidget(previewFrame_, 3);
+    studioLayout->addWidget(viewportFrame_, 2);
+
     timeline_ = new grapple::ui::TimelinePanel;
     timeline_->setMinimumHeight(230);
 
@@ -406,7 +425,7 @@ public:
 
     layout->addWidget(actions, 0, 0, 1, 3);
     layout->addWidget(leftPanel, 1, 0, 1, 1);
-    layout->addWidget(previewFrame_, 1, 1, 1, 1);
+    layout->addWidget(studioPanel, 1, 1, 1, 1);
     layout->addWidget(sidePanel, 1, 2, 1, 1);
     layout->addWidget(timeline_, 2, 0, 1, 3);
     layout->setColumnStretch(0, 2);
@@ -451,7 +470,7 @@ public:
       QListWidget#mediaBin::item:selected { background: #36506f; color: #ffffff; }
       QTextEdit#inspector { color: #eaf3ff; }
       QTextEdit#log { color: #b8c7dc; }
-      QFrame#previewFrame {
+      QFrame#previewFrame, QFrame#viewportFrame {
         background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #0b0e14, stop:1 #17202e);
         border: 1px solid #3c526f; border-radius: 12px;
       }
@@ -488,6 +507,9 @@ public:
     timeline_->setViewModel(viewModel.value());
     timeline_->setPlayhead(workspace_.preview().state().playhead);
     timeline_->setSelectedNodeId(selectedNodeId_);
+    compositionViewport_->setViewModel(viewModel.value());
+    compositionViewport_->setPlayhead(workspace_.preview().state().playhead);
+    compositionViewport_->setSelectedNodeId(selectedNodeId_);
     updateInspector(viewModel.value());
     timelineDuration_ = viewModel.value().timeline.duration;
   }
@@ -518,6 +540,7 @@ public:
     previewSurface_->setFrame(frame.value().frame);
     playheadLabel_->setText(QString{"Playhead: %1"}.arg(timeText(previewState.playhead)));
     timeline_->setPlayhead(previewState.playhead);
+    compositionViewport_->setPlayhead(previewState.playhead);
   }
 
   void seekTo(grapple::foundation::TimeSeconds time) {
@@ -1063,6 +1086,7 @@ private:
     selectedAssetId_ = std::nullopt;
     mediaBin_->clearSelection();
     timeline_->setSelectedNodeId(selectedNodeId_);
+    compositionViewport_->setSelectedNodeId(selectedNodeId_);
 
     const auto viewModel = workspace_.project().buildViewModel();
     if (!viewModel) {
@@ -1110,6 +1134,7 @@ private:
     selectedAssetId_ = grapple::foundation::AssetId{item->data(Qt::UserRole).toString().toStdString()};
     selectedNodeId_ = std::nullopt;
     timeline_->setSelectedNodeId(selectedNodeId_);
+    compositionViewport_->setSelectedNodeId(selectedNodeId_);
 
     const auto viewModel = workspace_.project().buildViewModel();
     if (!viewModel) {
@@ -1139,14 +1164,17 @@ private:
   QLabel* summary_ = nullptr;
   QListWidget* mediaBin_ = nullptr;
   QLabel* previewTitle_ = nullptr;
+  QLabel* viewportTitle_ = nullptr;
   QLabel* playheadLabel_ = nullptr;
   grapple::ui::PreviewSurface* previewSurface_ = nullptr;
+  grapple::ui::CompositionViewport* compositionViewport_ = nullptr;
   grapple::ui::TimelinePanel* timeline_ = nullptr;
   QTextEdit* inspector_ = nullptr;
   grapple::ui::EffectParamPanel* effectParams_ = nullptr;
   grapple::ui::StewardPanel* steward_ = nullptr;
   QTextEdit* log_ = nullptr;
   QFrame* previewFrame_ = nullptr;
+  QFrame* viewportFrame_ = nullptr;
   QTimer* playbackTimer_ = nullptr;
   grapple::foundation::TimeSeconds timelineDuration_;
   std::optional<grapple::foundation::NodeId> selectedNodeId_;
