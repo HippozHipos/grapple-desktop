@@ -70,7 +70,7 @@ int main(int argc, char* argv[]) {
     }
   };
 
-  const auto demoProject = demo::populateWalkingWomanDemo(
+  const auto demoProject = demo::populateStarterDemo(
     session,
     savePackage
       ? std::optional<storage::SnapshotCommitRecord>{storage::SnapshotCommitRecord{
@@ -85,7 +85,7 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
-  const auto demoVideo = demo::ensureWalkingWomanDemoVideo();
+  const auto demoVideo = demo::ensureStarterDemoVideo();
   if (!demoVideo) {
     printError(demoVideo.error());
     return 1;

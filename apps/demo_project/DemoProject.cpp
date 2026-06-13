@@ -31,11 +31,11 @@ project::CommandSource userSource() {
 
 } // namespace
 
-foundation::Result<void> ensureWalkingWomanDemoVideo() {
+foundation::Result<void> ensureStarterDemoVideo() {
   constexpr int width = 320;
   constexpr int height = 180;
   constexpr int frameCount = 300;
-  const foundation::FilePath path{"/tmp/grapple-native-demo/walking-woman.avi"};
+  const foundation::FilePath path{"/tmp/grapple-native-demo/starter-gradient.avi"};
   const std::filesystem::path videoPath{path.value};
   std::filesystem::create_directories(videoPath.parent_path());
 
@@ -66,7 +66,7 @@ foundation::Result<void> ensureWalkingWomanDemoVideo() {
   return {};
 }
 
-foundation::Result<void> populateWalkingWomanDemo(
+foundation::Result<void> populateStarterDemo(
   app::NativeProjectSession& session,
   std::optional<storage::SnapshotCommitRecord> headSnapshot
 ) {
@@ -76,13 +76,13 @@ foundation::Result<void> populateWalkingWomanDemo(
     project::RegisterAssetCommand{
       asset::Asset{
         foundation::AssetId{"asset_video"},
-        "Walking Woman",
+        "Starter Gradient",
         asset::AssetMetadata{
           asset::AssetMediaType::Video,
-          foundation::FilePath{"/tmp/grapple-native-demo/walking-woman.avi"},
+          foundation::FilePath{"/tmp/grapple-native-demo/starter-gradient.avi"},
           std::nullopt,
           foundation::TimeSeconds{10.0},
-          foundation::Resolution{1080, 1920},
+          foundation::Resolution{320, 180},
           foundation::FrameRate{30, 1}
         }
       }

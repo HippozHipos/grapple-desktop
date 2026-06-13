@@ -8,9 +8,9 @@
 
 namespace grapple::demo {
 
-foundation::Result<void> ensureWalkingWomanDemoVideo();
+foundation::Result<void> ensureStarterDemoVideo();
 
-foundation::Result<void> populateWalkingWomanDemo(
+foundation::Result<void> populateStarterDemo(
   app::NativeProjectSession& session,
   std::optional<storage::SnapshotCommitRecord> headSnapshot
 );

@@ -27,7 +27,7 @@ void printError(const grapple::foundation::Error& error) {
 }
 
 grapple::foundation::Result<void> populateDemo(grapple::app::NativeProjectSession& session, bool savePackage) {
-  return grapple::demo::populateWalkingWomanDemo(
+  return grapple::demo::populateStarterDemo(
     session,
     savePackage
       ? std::optional<grapple::storage::SnapshotCommitRecord>{grapple::storage::SnapshotCommitRecord{
@@ -118,7 +118,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       1
     }
   };
-  const auto demoVideo = grapple::demo::ensureWalkingWomanDemoVideo();
+  const auto demoVideo = grapple::demo::ensureStarterDemoVideo();
   if (!demoVideo) {
     printError(demoVideo.error());
     return 1;
@@ -230,7 +230,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   }
 
   if (importSmoke) {
-    window.importVideoFile(grapple::foundation::FilePath{"/tmp/grapple-native-demo/walking-woman.avi"});
+    window.importVideoFile(grapple::foundation::FilePath{"/tmp/grapple-native-demo/starter-gradient.avi"});
     const auto viewModel = workspace.value().project().buildViewModel();
     if (!viewModel) {
       printError(viewModel.error());
@@ -251,7 +251,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   }
 
   if (addVideoSmoke) {
-    window.importVideoFile(grapple::foundation::FilePath{"/tmp/grapple-native-demo/walking-woman.avi"});
+    window.importVideoFile(grapple::foundation::FilePath{"/tmp/grapple-native-demo/starter-gradient.avi"});
     window.addSelectedVideoToTimeline();
     const auto viewModel = workspace.value().project().buildViewModel();
     if (!viewModel) {
@@ -471,7 +471,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   }
 
   if (editSaveSmoke) {
-    window.importVideoFile(grapple::foundation::FilePath{"/tmp/grapple-native-demo/walking-woman.avi"});
+    window.importVideoFile(grapple::foundation::FilePath{"/tmp/grapple-native-demo/starter-gradient.avi"});
     window.addSelectedVideoToTimeline();
     const auto write = workspace.value().writePackage();
     if (!write) {
