@@ -913,6 +913,7 @@ int main() {
   GRAPPLE_REQUIRE(reopenedStewardConversation.runs[0].status == agent::AgentRunStatus::Succeeded);
   GRAPPLE_REQUIRE(reopenedStewardConversation.runs[0].toolCalls.size() == 1);
   GRAPPLE_REQUIRE(reopenedStewardConversation.runs[0].toolCalls[0].toolSerializedId == "steward.create_camera_transform");
+  GRAPPLE_REQUIRE(reopenedStewardConversation.runs[0].toolCalls[0].toolCallId == foundation::ToolId{"tool_steward_camera_transform_1"});
   const auto reopenedStewardViewModel = reopenedStewardWorkspace.value().project().buildViewModel();
   GRAPPLE_REQUIRE(reopenedStewardViewModel);
   GRAPPLE_REQUIRE(reopenedStewardViewModel.value().project.revision == foundation::RevisionId{"rev_3"});
@@ -922,6 +923,30 @@ int main() {
   GRAPPLE_REQUIRE(reopenedStewardViewModel.value().steward.edits.size() == 1);
   GRAPPLE_REQUIRE(reopenedStewardViewModel.value().steward.edits[0].revision == foundation::RevisionId{"rev_3"});
   GRAPPLE_REQUIRE(reopenedStewardViewModel.value().steward.edits[0].intent == durableIntent);
+  const foundation::NodeId reopenedSecondCameraNodeId = reopenedStewardWorkspace.value().commandWriter().nextNodeId("camera");
+  const auto reopenedSecondCamera = reopenedStewardWorkspace.value().commandWriter().apply(
+    project::CreateCameraCommand{
+      reopenedSecondCameraNodeId,
+      stewardCompositionNodeId,
+      reopenedStewardWorkspace.value().commandWriter().nextEdgeId("contains camera"),
+      timeline::CameraPayload{"Second Camera", timeline::Transform{}, timeline::CameraLens{35.0}}
+    },
+    userSource()
+  );
+  GRAPPLE_REQUIRE(reopenedSecondCamera);
+  const auto reopenedSecondStewardEffect = reopenedStewardWorkspace.value().steward().createCameraTransformEffect(
+    reopenedSecondCameraNodeId,
+    "Add editable controls to the second camera.",
+    foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{2.0}}
+  );
+  GRAPPLE_REQUIRE(reopenedSecondStewardEffect);
+  const agent::AgentConversationState reopenedStewardConversationAfterSecondRun =
+    reopenedStewardWorkspace.value().steward().conversationState();
+  GRAPPLE_REQUIRE(reopenedStewardConversationAfterSecondRun.diagnostics.empty());
+  GRAPPLE_REQUIRE(reopenedStewardConversationAfterSecondRun.runs.size() == 2);
+  GRAPPLE_REQUIRE(reopenedStewardConversationAfterSecondRun.runs[1].runId == foundation::RunId{"run_steward_2"});
+  GRAPPLE_REQUIRE(reopenedStewardConversationAfterSecondRun.runs[1].toolCalls.size() == 1);
+  GRAPPLE_REQUIRE(reopenedStewardConversationAfterSecondRun.runs[1].toolCalls[0].toolCallId == foundation::ToolId{"tool_steward_camera_transform_2"});
   std::filesystem::remove_all(stewardPackageRoot);
 
   const auto firstCommandId = session.packageState().commandLog.records()[0].id;

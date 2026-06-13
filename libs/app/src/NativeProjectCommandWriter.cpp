@@ -38,7 +38,20 @@ foundation::EdgeId NativeProjectCommandWriter::nextEdgeId(const std::string& ste
 }
 
 foundation::SnapshotId NativeProjectCommandWriter::nextSnapshotId(const std::string& stem) {
-  return foundation::SnapshotId{"snap_" + sanitizeStem(stem) + "_" + std::to_string(snapshotSequence_++)};
+  const std::string sanitized = sanitizeStem(stem);
+  while (true) {
+    foundation::SnapshotId candidate{"snap_" + sanitized + "_" + std::to_string(snapshotSequence_++)};
+    const auto exists = std::any_of(
+      session_.packageState().snapshots.records().begin(),
+      session_.packageState().snapshots.records().end(),
+      [&](const history::SnapshotRecord& record) {
+        return record.id == candidate;
+      }
+    );
+    if (!exists) {
+      return candidate;
+    }
+  }
 }
 
 foundation::Result<storage::ProjectPackageSessionResult> NativeProjectCommandWriter::apply(

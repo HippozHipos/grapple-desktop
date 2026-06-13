@@ -49,7 +49,6 @@ private:
   std::vector<agent::AgentRun> runs_;
   agent::AgentRunEventLog events_;
   std::int64_t nextRunNumber_ = 1;
-  std::int64_t nextToolNumber_ = 1;
   std::int64_t nextSequence_ = 1;
 };
 

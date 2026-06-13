@@ -293,22 +293,8 @@ std::int64_t stewardRunNumber(const foundation::RunId& runId) {
   return std::stoll(suffix);
 }
 
-std::int64_t stewardToolNumberFromPayload(const std::string& payloadJson) {
-  constexpr std::string_view prefix{"\"toolCallId\":\"tool_steward_camera_transform_"};
-  const std::size_t start = payloadJson.find(prefix);
-  if (start == std::string::npos) {
-    return 0;
-  }
-  std::size_t cursor = start + prefix.size();
-  std::string digits;
-  while (cursor < payloadJson.size() && std::isdigit(static_cast<unsigned char>(payloadJson[cursor])) != 0) {
-    digits.push_back(payloadJson[cursor]);
-    ++cursor;
-  }
-  if (digits.empty()) {
-    return 0;
-  }
-  return std::stoll(digits);
+foundation::ToolId stewardToolCallIdForRun(const foundation::RunId& runId) {
+  return foundation::ToolId{"tool_steward_camera_transform_" + std::to_string(stewardRunNumber(runId))};
 }
 
 agent::AgentTool makeStewardCreateCameraTransformTool(
@@ -413,7 +399,7 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::c
     return message.error();
   }
 
-  const foundation::ToolId toolCallId{"tool_steward_camera_transform_" + std::to_string(nextToolNumber_++)};
+  const foundation::ToolId toolCallId = stewardToolCallIdForRun(runId.value());
   std::optional<storage::ProjectPackageSessionResult> packageResult;
   agent::AgentToolRegistry registry;
   auto registered = registry.registerTool(makeStewardCreateCameraTransformTool(project_, commandWriter_, packageResult));
@@ -497,17 +483,14 @@ foundation::Result<void> NativeStewardSession::restoreConversation(
     nextRunNumber = std::max(nextRunNumber, stewardRunNumber(run.id) + 1);
   }
 
-  std::int64_t nextToolNumber = 1;
   std::int64_t nextSequence = 1;
   for (const agent::AgentRunEvent& event : restoredEvents.records()) {
-    nextToolNumber = std::max(nextToolNumber, stewardToolNumberFromPayload(event.payloadJson) + 1);
     nextSequence = std::max(nextSequence, event.sequence + 1);
   }
 
   runs_ = std::move(runs);
   events_ = std::move(restoredEvents);
   nextRunNumber_ = nextRunNumber;
-  nextToolNumber_ = nextToolNumber;
   nextSequence_ = nextSequence;
   return {};
 }
