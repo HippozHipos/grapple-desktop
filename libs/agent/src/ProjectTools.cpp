@@ -14,6 +14,7 @@
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <variant>
 
 namespace grapple::agent {
 
@@ -181,11 +182,18 @@ constexpr const char EffectCreateNodeSchema[] = R"json({
       "minItems": 1,
       "items": {
         "type": "object",
-        "required": ["name", "label", "value", "numeric"],
+        "required": ["name", "label", "value"],
         "properties": {
           "name": {"type": "string"},
           "label": {"type": "string"},
-          "value": {"type": "number"},
+          "value": {
+            "oneOf": [
+              {"type": "number"},
+              {"type": "boolean"},
+              {"type": "string"},
+              {"type": "object"}
+            ]
+          },
           "numeric": {
             "type": "object",
             "required": ["min", "max"],
@@ -212,7 +220,14 @@ constexpr const char EffectUpdateParamValueSchema[] = R"json({
   "properties": {
     "effectNodeId": {"type": "string"},
     "paramName": {"type": "string"},
-    "value": {"type": "number"}
+    "value": {
+      "oneOf": [
+        {"type": "number"},
+        {"type": "boolean"},
+        {"type": "string"},
+        {"type": "object"}
+      ]
+    }
   }
 })json";
 
@@ -477,10 +492,49 @@ foundation::Result<asset::AssetMediaType> parseAssetMediaType(const std::string&
 }
 
 foundation::Result<timeline::ParamValue> parseParamValue(const Json::Value& value, const std::string& path) {
+  if (value.isBool()) {
+    return timeline::ParamValue{value.asBool()};
+  }
+  if (value.isString()) {
+    return timeline::ParamValue{value.asString()};
+  }
   if (value.isNumeric()) {
     return timeline::ParamValue{value.asDouble()};
   }
-  return argumentError(path, "Expected number.");
+  if (!value.isObject()) {
+    return argumentError(path, "Expected parameter scalar or typed object.");
+  }
+
+  auto x = requiredDoubleMember(value, "x", path);
+  if (!x) {
+    return x.error();
+  }
+  auto y = requiredDoubleMember(value, "y", path);
+  if (!y) {
+    return y.error();
+  }
+
+  if (value.isMember("width") || value.isMember("height")) {
+    auto width = requiredDoubleMember(value, "width", path);
+    if (!width) {
+      return width.error();
+    }
+    auto height = requiredDoubleMember(value, "height", path);
+    if (!height) {
+      return height.error();
+    }
+    return timeline::ParamValue{foundation::Rect{x.value(), y.value(), width.value(), height.value()}};
+  }
+
+  if (value.isMember("z")) {
+    auto z = requiredDoubleMember(value, "z", path);
+    if (!z) {
+      return z.error();
+    }
+    return timeline::ParamValue{foundation::Vec3{x.value(), y.value(), z.value()}};
+  }
+
+  return timeline::ParamValue{foundation::Vec2{x.value(), y.value()}};
 }
 
 foundation::Result<timeline::ParamSet> parseParamSet(const Json::Value& array, const std::string& path) {
@@ -514,27 +568,33 @@ foundation::Result<timeline::ParamSet> parseParamSet(const Json::Value& array, c
     if (!label) {
       return label.error();
     }
-    const Json::Value& numericObject = array[index]["numeric"];
-    if (!numericObject.isObject()) {
-      return argumentError(itemPath + ".numeric", "Expected numeric control object.");
-    }
-    auto min = requiredDoubleMember(numericObject, "min", itemPath + ".numeric");
-    if (!min) {
-      return min.error();
-    }
-    auto max = requiredDoubleMember(numericObject, "max", itemPath + ".numeric");
-    if (!max) {
-      return max.error();
-    }
-    timeline::Param::NumericControl numeric{min.value(), max.value(), std::nullopt};
-    if (numericObject.isMember("step")) {
-      auto step = requiredDoubleMember(numericObject, "step", itemPath + ".numeric");
-      if (!step) {
-        return step.error();
+    timeline::Param::Control control{label.value(), std::nullopt};
+    if (array[index].isMember("numeric")) {
+      if (!std::holds_alternative<double>(paramValue.value())) {
+        return argumentError(itemPath + ".numeric", "Numeric controls require a numeric parameter value.");
       }
-      numeric.step = step.value();
+      const Json::Value& numericObject = array[index]["numeric"];
+      if (!numericObject.isObject()) {
+        return argumentError(itemPath + ".numeric", "Expected numeric control object.");
+      }
+      auto min = requiredDoubleMember(numericObject, "min", itemPath + ".numeric");
+      if (!min) {
+        return min.error();
+      }
+      auto max = requiredDoubleMember(numericObject, "max", itemPath + ".numeric");
+      if (!max) {
+        return max.error();
+      }
+      timeline::Param::NumericControl numeric{min.value(), max.value(), std::nullopt};
+      if (numericObject.isMember("step")) {
+        auto step = requiredDoubleMember(numericObject, "step", itemPath + ".numeric");
+        if (!step) {
+          return step.error();
+        }
+        numeric.step = step.value();
+      }
+      control.numeric = numeric;
     }
-    timeline::Param::Control control{label.value(), numeric};
     params.values.push_back(timeline::Param{name.value(), paramValue.value(), control});
   }
   return params;

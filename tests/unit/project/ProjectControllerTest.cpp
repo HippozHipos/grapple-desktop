@@ -856,28 +856,32 @@ int main() {
   });
   GRAPPLE_REQUIRE(!unlabeledAgentEffect);
   GRAPPLE_REQUIRE(unlabeledAgentEffect.error().code == "project.agent_effect_param_label_missing");
-  timeline::EffectPayload uncontrolledEffectPayload = projectEffectPayload;
-  uncontrolledEffectPayload.params.values[0].control.numeric = std::nullopt;
-  const auto uncontrolledAgentEffect = effectProject.apply(project::ProjectCommandEnvelope{
-    foundation::CommandId{"cmd_uncontrolled_agent_effect"},
+  timeline::EffectPayload nonNumericEffectPayload = projectEffectPayload;
+  nonNumericEffectPayload.params.values[0].name = "enabled";
+  nonNumericEffectPayload.params.values[0].value = true;
+  nonNumericEffectPayload.params.values[0].control.numeric = std::nullopt;
+  const auto nonNumericAgentEffect = effectProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_non_numeric_agent_effect"},
     foundation::ProjectId{"proj_effect"},
     effectTrack.value().afterRevision,
     project::CommandSource{project::CommandSourceKind::Agent, foundation::RunId{"run_effect"}, "agent"},
     project::CreateEffectCommand{
-      foundation::NodeId{"node_uncontrolled_agent_effect"},
+      foundation::NodeId{"node_non_numeric_agent_effect"},
       foundation::NodeId{"node_effect_track"},
-      foundation::EdgeId{"edge_uncontrolled_agent_effect_target"},
-      uncontrolledEffectPayload,
+      foundation::EdgeId{"edge_non_numeric_agent_effect_target"},
+      nonNumericEffectPayload,
       graph::PortName{"output"},
       graph::PortName{"input"}
     }
   });
-  GRAPPLE_REQUIRE(!uncontrolledAgentEffect);
-  GRAPPLE_REQUIRE(uncontrolledAgentEffect.error().code == "project.agent_effect_param_control_missing");
+  GRAPPLE_REQUIRE(nonNumericAgentEffect);
+  const auto afterNonNumericAgentEffect = effectProject.snapshot();
+  GRAPPLE_REQUIRE(afterNonNumericAgentEffect);
+  GRAPPLE_REQUIRE(afterNonNumericAgentEffect.value().graph.hasNode(foundation::NodeId{"node_non_numeric_agent_effect"}));
   const auto userParameterlessEffect = effectProject.apply(project::ProjectCommandEnvelope{
     foundation::CommandId{"cmd_user_parameterless_effect"},
     foundation::ProjectId{"proj_effect"},
-    effectTrack.value().afterRevision,
+    nonNumericAgentEffect.value().afterRevision,
     project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
     project::CreateEffectCommand{
       foundation::NodeId{"node_user_parameterless_effect"},

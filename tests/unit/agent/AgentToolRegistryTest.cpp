@@ -266,6 +266,7 @@ int main() {
   GRAPPLE_REQUIRE(registeredCreateEffectTool->schema.find("\"params\"") != std::string::npos);
   GRAPPLE_REQUIRE(registeredCreateEffectTool->schema.find("\"minItems\": 1") != std::string::npos);
   GRAPPLE_REQUIRE(registeredCreateEffectTool->schema.find("\"numeric\"") != std::string::npos);
+  GRAPPLE_REQUIRE(registeredCreateEffectTool->schema.find("\"boolean\"") != std::string::npos);
   GRAPPLE_REQUIRE(registeredCreateEffectTool->schema.find("\"commandId\"") == std::string::npos);
   GRAPPLE_REQUIRE(registeredCreateEffectTool->schema.find("\"effectNodeId\"") == std::string::npos);
   GRAPPLE_REQUIRE(registeredCreateEffectTool->schema.find("\"targetEdgeId\"") == std::string::npos);
@@ -274,6 +275,7 @@ int main() {
   GRAPPLE_REQUIRE(registeredUpdateEffectParamValueTool->schema.find("\"effectNodeId\"") != std::string::npos);
   GRAPPLE_REQUIRE(registeredUpdateEffectParamValueTool->schema.find("\"paramName\"") != std::string::npos);
   GRAPPLE_REQUIRE(registeredUpdateEffectParamValueTool->schema.find("\"value\"") != std::string::npos);
+  GRAPPLE_REQUIRE(registeredUpdateEffectParamValueTool->schema.find("\"boolean\"") != std::string::npos);
   GRAPPLE_REQUIRE(registeredUpdateEffectParamValueTool->schema.find("\"params\"") == std::string::npos);
   GRAPPLE_REQUIRE(registeredUpdateEffectParamValueTool->schema.find("\"numeric\"") == std::string::npos);
   GRAPPLE_REQUIRE(registeredUpdateEffectParamValueTool->schema.find("\"commandId\"") == std::string::npos);
@@ -454,6 +456,11 @@ int main() {
             "label": "Target X",
             "value": 0.5,
             "numeric": {"min": 0, "max": 1, "step": 0.01}
+          },
+          {
+            "name": "lock_subject",
+            "label": "Lock Subject",
+            "value": true
           }
         ]
       })"
@@ -489,7 +496,7 @@ int main() {
   GRAPPLE_REQUIRE(effectPayload->ports.inputs.size() == 1);
   GRAPPLE_REQUIRE(effectPayload->ports.outputs.size() == 1);
   GRAPPLE_REQUIRE(effectPayload->ports.outputs[0].name == "camera_transform");
-  GRAPPLE_REQUIRE(effectPayload->params.values.size() == 1);
+  GRAPPLE_REQUIRE(effectPayload->params.values.size() == 2);
   GRAPPLE_REQUIRE(effectPayload->params.values[0].name == "target_x");
   GRAPPLE_REQUIRE(std::get<double>(effectPayload->params.values[0].value) == 0.5);
   GRAPPLE_REQUIRE(effectPayload->params.values[0].control.label == "Target X");
@@ -497,6 +504,10 @@ int main() {
   GRAPPLE_REQUIRE(effectPayload->params.values[0].control.numeric->min == 0.0);
   GRAPPLE_REQUIRE(effectPayload->params.values[0].control.numeric->max == 1.0);
   GRAPPLE_REQUIRE(effectPayload->params.values[0].control.numeric->step == 0.01);
+  GRAPPLE_REQUIRE(effectPayload->params.values[1].name == "lock_subject");
+  GRAPPLE_REQUIRE(std::get<bool>(effectPayload->params.values[1].value));
+  GRAPPLE_REQUIRE(effectPayload->params.values[1].control.label == "Lock Subject");
+  GRAPPLE_REQUIRE(!effectPayload->params.values[1].control.numeric.has_value());
   GRAPPLE_REQUIRE(effectPayload->activeRange.end == foundation::TimeSeconds{10.0});
   GRAPPLE_REQUIRE(commands.applyCount() == 1);
 
@@ -801,12 +812,14 @@ int main() {
   GRAPPLE_REQUIRE(updatedEffectNode != nullptr);
   const auto* updatedEffectPayload = std::get_if<timeline::EffectPayload>(&updatedEffectNode->payload);
   GRAPPLE_REQUIRE(updatedEffectPayload != nullptr);
-  GRAPPLE_REQUIRE(updatedEffectPayload->params.values.size() == 1);
+  GRAPPLE_REQUIRE(updatedEffectPayload->params.values.size() == 2);
   GRAPPLE_REQUIRE(updatedEffectPayload->params.values[0].name == "target_x");
   GRAPPLE_REQUIRE(std::get<double>(updatedEffectPayload->params.values[0].value) == 0.75);
   GRAPPLE_REQUIRE(updatedEffectPayload->params.values[0].control.label == "Target X");
   GRAPPLE_REQUIRE(updatedEffectPayload->params.values[0].control.numeric.has_value());
   GRAPPLE_REQUIRE(updatedEffectPayload->params.values[0].control.numeric->step == 0.01);
+  GRAPPLE_REQUIRE(updatedEffectPayload->params.values[1].name == "lock_subject");
+  GRAPPLE_REQUIRE(std::get<bool>(updatedEffectPayload->params.values[1].value));
 
   const agent::AgentTool* connectPorts = registry.findBySerializedId("effect.connect_ports");
   GRAPPLE_REQUIRE(connectPorts != nullptr);

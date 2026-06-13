@@ -104,12 +104,6 @@ foundation::Result<void> ProjectController::validateCommand(const ProjectCommand
         "Agent-created effect parameter " + param.name + " must expose a user-facing label."
       };
     }
-    if (!std::holds_alternative<double>(param.value) || !param.control.numeric.has_value()) {
-      return foundation::Error{
-        "project.agent_effect_param_control_missing",
-        "Agent-created effect parameter " + param.name + " must expose a numeric user control."
-      };
-    }
   }
 
   return {};
