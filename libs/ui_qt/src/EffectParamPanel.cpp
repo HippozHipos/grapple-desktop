@@ -122,19 +122,16 @@ void EffectParamPanel::setSelection(
         editor->setValue(currentValue);
         editor->setToolTip(QString{"%1..%2"}.arg(*param.numericMin).arg(*param.numericMax));
 
-        auto* apply = new QPushButton{"Apply"};
-        apply->setObjectName("effectParamApply");
         const foundation::NodeId parameterEffectNodeId = effect.sourceNodeId;
         const std::string paramName = param.name;
-        connect(apply, &QPushButton::clicked, this, [this, parameterEffectNodeId, paramName, editor] {
+        connect(editor, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, [this, parameterEffectNodeId, paramName](double value) {
           if (applyHandler_) {
-            applyHandler_(parameterEffectNodeId, paramName, editor->value());
+            applyHandler_(parameterEffectNodeId, paramName, value);
           }
         });
 
         rowLayout->addWidget(label);
         rowLayout->addWidget(editor, 1);
-        rowLayout->addWidget(apply);
         layout_->addWidget(row);
       }
     }
