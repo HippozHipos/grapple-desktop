@@ -1,5 +1,7 @@
 #include <grapple/jobs/ProjectCommandQueue.hpp>
 
+#include <utility>
+
 namespace grapple::jobs {
 
 ProjectCommandQueue::ProjectCommandQueue(project::IProjectCommandService& commands)
@@ -18,13 +20,15 @@ foundation::Result<std::vector<project::ProjectCommandResult>> ProjectCommandQue
   std::vector<project::ProjectCommandResult> results;
 
   while (!queue_.empty()) {
-    auto result = commands_.apply(queue_.front());
+    project::ProjectCommandEnvelope command = std::move(queue_.front());
+    queue_.pop_front();
+
+    auto result = commands_.apply(command);
     if (!result) {
       return result.error();
     }
 
     results.push_back(std::move(result.value()));
-    queue_.pop_front();
   }
 
   return results;

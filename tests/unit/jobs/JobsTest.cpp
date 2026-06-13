@@ -79,11 +79,14 @@ int main() {
   const auto failedDrain = failingCommandQueue.drain();
   GRAPPLE_REQUIRE(!failedDrain);
   GRAPPLE_REQUIRE(failedDrain.error().code == "project.expected_revision_mismatch");
-  GRAPPLE_REQUIRE(failingCommandQueue.size() == 1);
+  GRAPPLE_REQUIRE(failingCommandQueue.size() == 0);
   const auto afterFailedDrain = project.snapshot();
   GRAPPLE_REQUIRE(afterFailedDrain);
   GRAPPLE_REQUIRE(afterFailedDrain.value().graph.hasNode(foundation::NodeId{"node_track"}));
   GRAPPLE_REQUIRE(!afterFailedDrain.value().graph.hasNode(foundation::NodeId{"node_stale_track"}));
+  const auto repeatedFailedDrain = failingCommandQueue.drain();
+  GRAPPLE_REQUIRE(repeatedFailedDrain);
+  GRAPPLE_REQUIRE(repeatedFailedDrain.value().empty());
 
   jobs::JobQueue jobs;
   bool jobRan = false;
