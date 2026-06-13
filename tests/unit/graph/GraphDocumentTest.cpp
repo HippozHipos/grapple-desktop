@@ -124,12 +124,39 @@ int main() {
   GRAPPLE_REQUIRE(diff.addedEdges[1] == foundation::EdgeId{"edge_contains_track"});
   GRAPPLE_REQUIRE(diff.removedNodes.empty());
   GRAPPLE_REQUIRE(diff.changedNodes.empty());
+  GRAPPLE_REQUIRE(diff.removedEdges.empty());
+  GRAPPLE_REQUIRE(diff.changedEdges.empty());
+
+  graph::GraphDocument changedNode = next;
+  const auto changedTrackPayload = changedNode.replaceNodePayload(
+    foundation::NodeId{"node_track"},
+    timeline::TrackPayload{"Renamed Video"}
+  );
+  GRAPPLE_REQUIRE(changedTrackPayload);
+  const graph::GraphDiff changedNodeDiff = graph::diffGraphs(next, changedNode);
+  GRAPPLE_REQUIRE(changedNodeDiff.addedNodes.empty());
+  GRAPPLE_REQUIRE(changedNodeDiff.removedNodes.empty());
+  GRAPPLE_REQUIRE(changedNodeDiff.changedNodes.size() == 1);
+  GRAPPLE_REQUIRE(changedNodeDiff.changedNodes[0] == foundation::NodeId{"node_track"});
+  GRAPPLE_REQUIRE(changedNodeDiff.addedEdges.empty());
+  GRAPPLE_REQUIRE(changedNodeDiff.removedEdges.empty());
+  GRAPPLE_REQUIRE(changedNodeDiff.changedEdges.empty());
 
   graph::GraphDocument removedTrack = next;
   const auto removeTrack = removedTrack.removeNode(foundation::NodeId{"node_track"});
   GRAPPLE_REQUIRE(removeTrack);
   GRAPPLE_REQUIRE(!removedTrack.hasNode(foundation::NodeId{"node_track"}));
   GRAPPLE_REQUIRE(removedTrack.edges().empty());
+  const graph::GraphDiff removedTrackDiff = graph::diffGraphs(next, removedTrack);
+  GRAPPLE_REQUIRE(removedTrackDiff.addedNodes.empty());
+  GRAPPLE_REQUIRE(removedTrackDiff.removedNodes.size() == 1);
+  GRAPPLE_REQUIRE(removedTrackDiff.removedNodes[0] == foundation::NodeId{"node_track"});
+  GRAPPLE_REQUIRE(removedTrackDiff.changedNodes.empty());
+  GRAPPLE_REQUIRE(removedTrackDiff.addedEdges.empty());
+  GRAPPLE_REQUIRE(removedTrackDiff.removedEdges.size() == 2);
+  GRAPPLE_REQUIRE(removedTrackDiff.removedEdges[0] == foundation::EdgeId{"edge_connect_ports"});
+  GRAPPLE_REQUIRE(removedTrackDiff.removedEdges[1] == foundation::EdgeId{"edge_contains_track"});
+  GRAPPLE_REQUIRE(removedTrackDiff.changedEdges.empty());
   const auto removeMissing = removedTrack.removeNode(foundation::NodeId{"node_track"});
   GRAPPLE_REQUIRE(!removeMissing);
   GRAPPLE_REQUIRE(removeMissing.error().code == "graph.node_missing");
@@ -142,6 +169,27 @@ int main() {
   const auto removeMissingEdge = removedEdge.removeEdge(foundation::EdgeId{"edge_connect_ports"});
   GRAPPLE_REQUIRE(!removeMissingEdge);
   GRAPPLE_REQUIRE(removeMissingEdge.error().code == "graph.edge_missing");
+
+  graph::GraphDocument changedEdge = next;
+  GRAPPLE_REQUIRE(changedEdge.removeEdge(foundation::EdgeId{"edge_contains_track"}));
+  GRAPPLE_REQUIRE(changedEdge.addEdge(graph::GraphEdge{
+    foundation::EdgeId{"edge_contains_track"},
+    graph::EdgeKind::Contains,
+    foundation::NodeId{"node_composition"},
+    graph::PortName{},
+    foundation::NodeId{"node_track"},
+    graph::PortName{},
+    8,
+    true
+  }));
+  const graph::GraphDiff changedEdgeDiff = graph::diffGraphs(next, changedEdge);
+  GRAPPLE_REQUIRE(changedEdgeDiff.addedNodes.empty());
+  GRAPPLE_REQUIRE(changedEdgeDiff.removedNodes.empty());
+  GRAPPLE_REQUIRE(changedEdgeDiff.changedNodes.empty());
+  GRAPPLE_REQUIRE(changedEdgeDiff.addedEdges.empty());
+  GRAPPLE_REQUIRE(changedEdgeDiff.removedEdges.empty());
+  GRAPPLE_REQUIRE(changedEdgeDiff.changedEdges.size() == 1);
+  GRAPPLE_REQUIRE(changedEdgeDiff.changedEdges[0] == foundation::EdgeId{"edge_contains_track"});
 
   graph::GraphDocument unorderedNext = graph;
   GRAPPLE_REQUIRE(unorderedNext.addNode(graph::GraphNode{
