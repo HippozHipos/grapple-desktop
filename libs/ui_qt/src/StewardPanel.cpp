@@ -138,8 +138,7 @@ void StewardPanel::setViewModel(const app::AppViewModel& viewModel, const agent:
     qString(intent()),
     "",
     "Project state",
-    QString{"%1 | %2 clips | %3 cameras | %4 editable effects"}
-      .arg(qString(viewModel.project.revision.value()))
+    QString{"%1 clips | %2 cameras | %3 editable effects"}
       .arg(viewModel.timeline.clips.size())
       .arg(viewModel.timeline.cameras.size())
       .arg(viewModel.timeline.effectGraphs.size()),
@@ -212,9 +211,7 @@ void StewardPanel::setViewModel(const app::AppViewModel& viewModel, const agent:
     lines << "- no applied edits yet";
   } else {
     for (auto edit = viewModel.steward.edits.rbegin(); edit != viewModel.steward.edits.rend(); ++edit) {
-      lines << QString{"- %1 @ %2"}
-        .arg(qString(edit->intent))
-        .arg(qString(edit->revision.value()));
+      lines << QString{"- %1"}.arg(qString(edit->intent));
     }
   }
 

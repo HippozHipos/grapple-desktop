@@ -59,14 +59,11 @@ QString timeText(grapple::foundation::TimeSeconds time) {
 
 QString summaryText(const grapple::app::AppViewModel& viewModel) {
   return QString{
-    "Project: %1\nRevision: %2\nDuration: %3s\nAssets: %4\nCompositions: %5\nLayers: %6\nClips: %7\nCameras: %8\nEffect graphs: %9"
+    "Project\n%1\nDuration: %2s\nMedia: %3 assets, %4 clips\nCameras: %5\nEditable effects: %6"
   }
-    .arg(qString(viewModel.project.projectId.value()))
-    .arg(qString(viewModel.project.revision.value()))
-    .arg(viewModel.timeline.duration.value)
+    .arg(qString(viewModel.project.name))
+    .arg(viewModel.timeline.duration.value, 0, 'f', 2)
     .arg(viewModel.assets.count)
-    .arg(viewModel.timeline.compositions.size())
-    .arg(viewModel.timeline.layers.size())
     .arg(viewModel.timeline.clips.size())
     .arg(viewModel.timeline.cameras.size())
     .arg(viewModel.timeline.effectGraphs.size());
@@ -82,8 +79,7 @@ QString inspectorText(
       if (asset.assetId == selectedAssetId.value()) {
         QStringList lines{
           "Inspector",
-          QString{"Asset %1"}.arg(qString(asset.assetId.value())),
-          QString{"Name: %1"}.arg(qString(asset.name)),
+          qString(asset.name),
           QString{"Type: %1"}.arg(qString(asset.mediaType))
         };
         if (asset.duration.has_value()) {
@@ -140,17 +136,15 @@ QString inspectorText(
     }
 
     if (lines.empty()) {
-      return QString{"Effects: none"};
+      return QString{"Effects\nNo effects attached."};
     }
     return QString{"Effects\n%1"}.arg(lines.join('\n'));
   };
 
   for (const grapple::app::AppClipRow& clip : viewModel.timeline.clips) {
     if (clip.sourceNodeId == selectedNodeId.value()) {
-      return QString{"Inspector\nClip %1\nAsset: %2\nTrack: %3\nRange: %4s - %5s\n\n%6"}
-        .arg(qString(clip.sourceNodeId.value()))
+      return QString{"Inspector\nClip\nAsset: %1\nRange: %2s - %3s\n\n%4"}
         .arg(qString(clip.assetName))
-        .arg(qString(clip.trackNodeId.value()))
         .arg(clip.timelineRange.start.value)
         .arg(clip.timelineRange.end.value)
         .arg(attachedEffectsText(clip.sourceNodeId));
@@ -159,8 +153,7 @@ QString inspectorText(
 
   for (const grapple::app::AppCameraRow& camera : viewModel.timeline.cameras) {
     if (camera.sourceNodeId == selectedNodeId.value()) {
-      return QString{"Inspector\nCamera %1\nName: %2\n\n%3"}
-        .arg(qString(camera.sourceNodeId.value()))
+      return QString{"Inspector\nCamera\nName: %1\n\n%2"}
         .arg(qString(camera.name))
         .arg(attachedEffectsText(camera.sourceNodeId));
     }
@@ -168,7 +161,7 @@ QString inspectorText(
 
   for (const grapple::app::AppLayerRow& layer : viewModel.timeline.layers) {
     if (layer.sourceNodeId == selectedNodeId.value()) {
-      return QString{"Inspector\nLayer %1\nClips: %2\n\n%3"}
+      return QString{"Inspector\nLayer\n%1\nClips: %2\n\n%3"}
         .arg(qString(layer.name))
         .arg(layer.clipCount)
         .arg(attachedEffectsText(layer.sourceNodeId));
@@ -555,7 +548,7 @@ public:
       return;
     }
     renderCurrentFrame(true);
-    log_->append(QString{"Preview refreshed at %1"}.arg(qString(refresh.value().revision.value())));
+    log_->append("Preview refreshed");
   }
 
   void renderCurrentFrame(bool logDiagnostics = false) {
@@ -728,7 +721,7 @@ public:
 
     refreshViewModel();
     refreshPreview();
-    log_->append(QString{"Added track at %1"}.arg(qString(result.value().snapshot.revision.value())));
+    log_->append("Added track");
   }
 
   void importVideoFile(const grapple::foundation::FilePath& path) {
@@ -872,7 +865,7 @@ public:
     selectedAssetId_ = std::nullopt;
     refreshViewModel();
     refreshPreview();
-    log_->append(QString{"Deleted clip at %1"}.arg(qString(deleted.value().snapshot.revision.value())));
+    log_->append("Deleted clip");
   }
 
   void moveSelectedClip(grapple::foundation::TimeSeconds delta) {
@@ -913,7 +906,7 @@ public:
 
     refreshViewModel();
     refreshPreview();
-    log_->append(QString{"Moved clip at %1"}.arg(qString(moved.value().snapshot.revision.value())));
+    log_->append("Moved clip");
   }
 
   void undoLastEdit() {
@@ -930,7 +923,7 @@ public:
     selectedAssetId_ = std::nullopt;
     refreshViewModel();
     refreshPreview();
-    log_->append(QString{"Undo created %1"}.arg(qString(undone.value().snapshot.revision.value())));
+    log_->append("Undo complete");
   }
 
   void redoLastEdit() {
@@ -945,7 +938,7 @@ public:
 
     refreshViewModel();
     refreshPreview();
-    log_->append(QString{"Redo created %1"}.arg(qString(redone.value().snapshot.revision.value())));
+    log_->append("Redo complete");
   }
 
   void setEffectParamControlValue(const std::string& paramName, double value) {
@@ -978,7 +971,7 @@ public:
 
     refreshViewModel();
     refreshPreview();
-    log_->append(QString{"Steward added effect at %1"}.arg(qString(created.value().snapshot.revision.value())));
+    log_->append("Steward applied camera edit");
   }
 
   void setSelectedTargetNumericEffectParam(const std::string& paramName, double value) {
@@ -1067,7 +1060,7 @@ public:
 
     refreshViewModel();
     refreshPreview();
-    log_->append(QString{"Updated effect parameter at %1"}.arg(qString(updated.value().snapshot.revision.value())));
+    log_->append("Updated effect parameter");
   }
 
   void deleteEffect(const grapple::foundation::NodeId& effectNodeId) {
@@ -1082,7 +1075,7 @@ public:
 
     refreshViewModel();
     refreshPreview();
-    log_->append(QString{"Deleted effect at %1"}.arg(qString(deleted.value().snapshot.revision.value())));
+    log_->append("Deleted effect");
   }
 
   void exportVideoFile(const grapple::foundation::FilePath& path) {
@@ -1193,8 +1186,8 @@ private:
         metadata << QString{"%1x%2"}.arg(asset.dimensions->width).arg(asset.dimensions->height);
       }
       const QString label = metadata.empty()
-        ? QString{"%1 [%2]\n%3"}.arg(qString(asset.name)).arg(qString(asset.mediaType)).arg(qString(asset.assetId.value()))
-        : QString{"%1 [%2]\n%3  %4"}.arg(qString(asset.name)).arg(qString(asset.mediaType)).arg(qString(asset.assetId.value())).arg(metadata.join("  "));
+        ? QString{"%1 [%2]"}.arg(qString(asset.name)).arg(qString(asset.mediaType))
+        : QString{"%1 [%2]\n%3"}.arg(qString(asset.name)).arg(qString(asset.mediaType)).arg(metadata.join("  "));
       auto* item = new QListWidgetItem{label};
       item->setData(Qt::UserRole, qString(asset.assetId.value()));
       mediaBin_->addItem(item);

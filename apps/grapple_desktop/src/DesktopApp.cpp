@@ -206,7 +206,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "selected=" << selectedNodeId->value() << '\n';
     std::cout << "inspector=" << inspector << '\n';
     return selectedNodeId.value() == grapple::foundation::NodeId{"node_camera_4"} &&
-           inspector.find("Effects: none") != std::string::npos
+           inspector.find("Camera\nName: Camera") != std::string::npos &&
+           inspector.find("No effects attached.") != std::string::npos
       ? 0
       : 1;
   }
@@ -370,7 +371,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "inspector=" << inspector << '\n';
     return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_7"} &&
            viewModel.value().timeline.effectGraphs.empty() &&
-           inspector.find("Effects: none") != std::string::npos
+           inspector.find("No effects attached.") != std::string::npos
       ? 0
       : 1;
   }
@@ -420,7 +421,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            steward.find("Recent Steward runs") != std::string::npos &&
            steward.find("project edit -> succeeded") != std::string::npos &&
            steward.find("project edit -> failed") != std::string::npos &&
-           steward.find("Center the walking subject with exposed controls. @ rev_6") != std::string::npos &&
+           steward.find("- Center the walking subject with exposed controls.") != std::string::npos &&
            logText.find("steward.camera_transform_exists") != std::string::npos &&
            logText.find("runtime.effect_runtime_missing") == std::string::npos
       ? 0
