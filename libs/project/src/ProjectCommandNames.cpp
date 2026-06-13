@@ -16,6 +16,8 @@ std::string_view serializedCommandName(CommandKind kind) {
       return "project.create_clip";
     case CommandKind::MoveClip:
       return "project.move_clip";
+    case CommandKind::TrimClip:
+      return "project.trim_clip";
     case CommandKind::UpdateClip:
       return "project.update_clip";
     case CommandKind::DeleteClip:

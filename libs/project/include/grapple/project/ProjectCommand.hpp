@@ -20,6 +20,7 @@ enum class CommandKind {
   CreateTrack,
   CreateClip,
   MoveClip,
+  TrimClip,
   UpdateClip,
   DeleteClip,
   CreateCamera,
@@ -75,6 +76,12 @@ struct CreateClipCommand {
 struct MoveClipCommand {
   foundation::NodeId nodeId;
   foundation::TimeSeconds newStart;
+};
+
+struct TrimClipCommand {
+  foundation::NodeId nodeId;
+  foundation::TimeRange timelineRange;
+  foundation::TimeRange sourceRange;
 };
 
 struct UpdateClipCommand {
@@ -152,6 +159,7 @@ using ProjectCommand = std::variant<
   CreateTrackCommand,
   CreateClipCommand,
   MoveClipCommand,
+  TrimClipCommand,
   UpdateClipCommand,
   DeleteClipCommand,
   CreateCameraCommand,

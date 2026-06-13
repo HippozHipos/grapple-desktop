@@ -124,6 +124,8 @@ foundation::Result<void> ProjectController::applyPayload(const ProjectCommand& p
         return handleCreateClip(typedCommand);
       } else if constexpr (std::is_same_v<Command, MoveClipCommand>) {
         return handleMoveClip(typedCommand);
+      } else if constexpr (std::is_same_v<Command, TrimClipCommand>) {
+        return handleTrimClip(typedCommand);
       } else if constexpr (std::is_same_v<Command, UpdateClipCommand>) {
         return handleUpdateClip(typedCommand);
       } else if constexpr (std::is_same_v<Command, DeleteClipCommand>) {
@@ -269,6 +271,29 @@ foundation::Result<void> ProjectController::handleMoveClip(const MoveClipCommand
     foundation::TimeSeconds{command.newStart.value + duration}
   };
   return document_.graph.replaceNodePayload(command.nodeId, movedPayload);
+}
+
+foundation::Result<void> ProjectController::handleTrimClip(const TrimClipCommand& command) {
+  const graph::GraphNode* clip = document_.graph.findNode(command.nodeId);
+  if (clip == nullptr || clip->kind != graph::NodeKind::Clip) {
+    return foundation::Error{"project.clip_missing", "Clip trim requires an existing clip node."};
+  }
+
+  const auto* payload = std::get_if<timeline::ClipPayload>(&clip->payload);
+  if (payload == nullptr) {
+    return foundation::Error{"project.clip_payload_invalid", "Clip trim requires a clip payload."};
+  }
+  if (command.timelineRange.start.value < 0.0 || command.timelineRange.end.value < command.timelineRange.start.value) {
+    return foundation::Error{"project.clip_timeline_range_invalid", "Clip trim requires a non-negative timeline range with end after start."};
+  }
+  if (command.sourceRange.start.value < 0.0 || command.sourceRange.end.value < command.sourceRange.start.value) {
+    return foundation::Error{"project.clip_source_range_invalid", "Clip trim requires a non-negative source range with end after start."};
+  }
+
+  timeline::ClipPayload trimmedPayload = *payload;
+  trimmedPayload.timelineRange = command.timelineRange;
+  trimmedPayload.sourceRange = command.sourceRange;
+  return document_.graph.replaceNodePayload(command.nodeId, trimmedPayload);
 }
 
 foundation::Result<void> ProjectController::handleDeleteClip(const DeleteClipCommand& command) {
