@@ -8,6 +8,7 @@
 #include <grapple/graph/GraphEdge.hpp>
 #include <grapple/history/HistorySerializer.hpp>
 #include <grapple/project/ProjectSerializer.hpp>
+#include <grapple/runtime/BuiltinEffects.hpp>
 #include <grapple/storage/ProjectPackageManifest.hpp>
 #include <grapple/storage/ProjectPackageReader.hpp>
 
@@ -321,6 +322,17 @@ int main() {
   GRAPPLE_REQUIRE(runtimeEffectViewModel.value().steward.edits.size() == 1);
   GRAPPLE_REQUIRE(runtimeEffectViewModel.value().steward.edits[0].revision == foundation::RevisionId{"rev_3"});
   GRAPPLE_REQUIRE(runtimeEffectViewModel.value().steward.edits[0].intent == "Center the subject with an editable camera transform.");
+  const foundation::NodeId runtimeEffectNodeId = runtimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].sourceNodeId;
+  const auto updatedRuntimeEffect = runtimeWorkspace.value().effects().setNumericParam(
+    runtimeEffectNodeId,
+    runtime::builtin_effect::PositionXParam,
+    0.25,
+    userSource()
+  );
+  GRAPPLE_REQUIRE(updatedRuntimeEffect);
+  const auto updatedRuntimeEffectViewModel = runtimeWorkspace.value().project().buildViewModel();
+  GRAPPLE_REQUIRE(updatedRuntimeEffectViewModel);
+  GRAPPLE_REQUIRE(updatedRuntimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].value == "0.25");
   const auto runtimeRefresh = runtimeWorkspace.value().preview().refreshFromProject();
   GRAPPLE_REQUIRE(runtimeRefresh);
   const auto runtimeFrame = runtimeWorkspace.value().preview().renderFrame(render::RenderFrameRequest{
@@ -331,7 +343,7 @@ int main() {
   GRAPPLE_REQUIRE(runtimeFrame.value().runtimeDiagnostics.empty());
   GRAPPLE_REQUIRE(runtimeFrame.value().frame.cameras.size() == 1);
   GRAPPLE_REQUIRE(runtimeFrame.value().frame.cameras[0].cameraNodeId == runtimeCameraNodeId);
-  GRAPPLE_REQUIRE(runtimeFrame.value().frame.cameras[0].transform.position.x == 0.0);
+  GRAPPLE_REQUIRE(runtimeFrame.value().frame.cameras[0].transform.position.x == 0.25);
   GRAPPLE_REQUIRE(runtimeFrame.value().frame.cameras[0].transform.position.y == 0.0);
   const auto runtimeExportPrepare = runtimeWorkspace.value().exportSession().prepareFromProject();
   GRAPPLE_REQUIRE(runtimeExportPrepare);

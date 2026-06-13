@@ -16,10 +16,6 @@ QString qString(const std::string& value) {
   return QString::fromStdString(value);
 }
 
-std::string numericString(double value) {
-  return QString::number(value, 'g', 15).toStdString();
-}
-
 } // namespace
 
 EffectParamPanel::EffectParamPanel(QWidget* parent)
@@ -113,7 +109,7 @@ void EffectParamPanel::setSelection(
         const std::string paramName = param.name;
         connect(apply, &QPushButton::clicked, this, [this, effectNodeId, paramName, editor] {
           if (applyHandler_) {
-            applyHandler_(effectNodeId, paramName, numericString(editor->value()));
+            applyHandler_(effectNodeId, paramName, editor->value());
           }
         });
 

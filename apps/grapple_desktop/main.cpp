@@ -42,7 +42,6 @@
 
 #include <algorithm>
 #include <cstdint>
-#include <charconv>
 #include <filesystem>
 #include <functional>
 #include <iomanip>
@@ -805,9 +804,9 @@ public:
     effectParams_->setApplyHandler([this](
       grapple::foundation::NodeId effectNodeId,
       std::string paramName,
-      std::string rawValue
+      double value
     ) {
-      setEffectNumericParam(effectNodeId, paramName, rawValue);
+      setEffectNumericParam(effectNodeId, paramName, value);
     });
 
     log_ = new QTextEdit;
@@ -1357,7 +1356,7 @@ public:
     log_->append(QString{"Steward added effect at %1"}.arg(qString(created.value().snapshot.revision.value())));
   }
 
-  void setSelectedTargetNumericEffectParam(const std::string& paramName, const std::string& rawValue) {
+  void setSelectedTargetNumericEffectParam(const std::string& paramName, double value) {
     if (paramName.empty()) {
       appendError(grapple::foundation::Error{"desktop.effect_param_name_empty", "Effect parameter name must not be empty."});
       return;
@@ -1390,62 +1389,18 @@ public:
       return;
     }
 
-    setEffectNumericParam(targetEdge->sourceNodeId, paramName, rawValue);
+    setEffectNumericParam(targetEdge->sourceNodeId, paramName, value);
   }
 
   void setEffectNumericParam(
     const grapple::foundation::NodeId& effectNodeId,
     const std::string& paramName,
-    const std::string& rawValue
+    double value
   ) {
-    if (paramName.empty()) {
-      appendError(grapple::foundation::Error{"desktop.effect_param_name_empty", "Effect parameter name must not be empty."});
-      return;
-    }
-
-    double parsedValue = 0.0;
-    const char* begin = rawValue.data();
-    const char* end = rawValue.data() + rawValue.size();
-    const auto parsed = std::from_chars(begin, end, parsedValue);
-    if (parsed.ec != std::errc{} || parsed.ptr != end) {
-      appendError(grapple::foundation::Error{"desktop.effect_param_value_invalid", "Effect parameter value must be a number."});
-      return;
-    }
-
-    const auto snapshot = workspace_.project().snapshot();
-    if (!snapshot) {
-      appendError(snapshot.error());
-      return;
-    }
-
-    const grapple::graph::GraphNode* effectNode = snapshot.value().graph.findNode(effectNodeId);
-    if (effectNode == nullptr || effectNode->kind != grapple::graph::NodeKind::Effect) {
-      appendError(grapple::foundation::Error{"desktop.effect_node_invalid", "Effect node is missing or invalid."});
-      return;
-    }
-
-    const auto* effectPayload = std::get_if<grapple::timeline::EffectPayload>(&effectNode->payload);
-    if (effectPayload == nullptr) {
-      appendError(grapple::foundation::Error{"desktop.effect_payload_invalid", "Effect node must carry an effect payload."});
-      return;
-    }
-
-    grapple::timeline::ParamSet params = effectPayload->params;
-    auto param = std::find_if(params.values.begin(), params.values.end(), [&](const grapple::timeline::Param& current) {
-      return current.name == paramName;
-    });
-    if (param == params.values.end()) {
-      appendError(grapple::foundation::Error{"desktop.effect_param_missing", "Attached effect does not define parameter " + paramName + "."});
-      return;
-    }
-    if (!std::holds_alternative<double>(param->value)) {
-      appendError(grapple::foundation::Error{"desktop.effect_param_not_numeric", "Effect parameter " + paramName + " is not numeric."});
-      return;
-    }
-    param->value = parsedValue;
-
-    const auto updated = workspace_.commandWriter().apply(
-      grapple::project::SetEffectParamsCommand{effectNode->id, params},
+    const auto updated = workspace_.effects().setNumericParam(
+      effectNodeId,
+      paramName,
+      value,
       userSource()
     );
     if (!updated) {
@@ -1874,7 +1829,7 @@ int main(int argc, char* argv[]) {
     window.clickFirstTimelineCamera();
     window.setStewardIntent("Shift the camera right with editable controls.");
     window.clickStewardCreateCameraEffect();
-    window.setSelectedTargetNumericEffectParam(grapple::runtime::builtin_effect::PositionXParam, "0.25");
+    window.setSelectedTargetNumericEffectParam(grapple::runtime::builtin_effect::PositionXParam, 0.25);
     const std::string inspector = window.inspectorContents();
     const auto viewModel = workspace.value().project().buildViewModel();
     if (!viewModel) {

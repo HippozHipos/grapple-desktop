@@ -1,5 +1,6 @@
 #pragma once
 
+#include <grapple/app/NativeEffectSession.hpp>
 #include <grapple/app/NativeExportSession.hpp>
 #include <grapple/app/NativeMediaFrameSource.hpp>
 #include <grapple/app/NativePreviewSession.hpp>
@@ -38,6 +39,7 @@ public:
   [[nodiscard]] NativeProjectSession& project() noexcept;
   [[nodiscard]] const NativeProjectSession& project() const noexcept;
   [[nodiscard]] NativeProjectCommandWriter& commandWriter() noexcept;
+  [[nodiscard]] NativeEffectSession& effects() noexcept;
   [[nodiscard]] NativeStewardSession& steward() noexcept;
   [[nodiscard]] NativePreviewSession& preview() noexcept;
   [[nodiscard]] NativeExportSession& exportSession() noexcept;

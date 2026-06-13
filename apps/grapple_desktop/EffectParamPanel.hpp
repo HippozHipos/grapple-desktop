@@ -14,7 +14,7 @@ namespace grapple::desktop {
 
 class EffectParamPanel final : public QWidget {
 public:
-  using ApplyHandler = std::function<void(foundation::NodeId, std::string, std::string)>;
+  using ApplyHandler = std::function<void(foundation::NodeId, std::string, double)>;
 
   explicit EffectParamPanel(QWidget* parent = nullptr);
 
