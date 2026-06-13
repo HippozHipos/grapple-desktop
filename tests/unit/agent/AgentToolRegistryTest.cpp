@@ -163,6 +163,29 @@ bool allUnique(std::vector<std::string> values) {
   return std::adjacent_find(values.begin(), values.end()) == values.end();
 }
 
+void requireNoRuntimeOwnedFields(const std::string& payload) {
+  const std::vector<std::string> disallowedFields{
+    "\"frameHandle\"",
+    "\"textureHandle\"",
+    "\"maskHandle\"",
+    "\"cacheHandle\"",
+    "\"rgbaPixels\"",
+    "\"sampledFrame\"",
+    "\"preparedPlan\"",
+    "\"resolvedCamera\"",
+    "\"resolvedLayers\"",
+    "\"motionVectors\"",
+    "\"depthTexture\"",
+    "\"modelResponse\"",
+    "\"compiledModule\"",
+    "\"shaderProgram\""
+  };
+
+  for (const std::string& field : disallowedFields) {
+    GRAPPLE_REQUIRE(payload.find(field) == std::string::npos);
+  }
+}
+
 } // namespace
 
 int main() {
@@ -987,6 +1010,7 @@ int main() {
   GRAPPLE_REQUIRE(inspectRenderPlanResult.value().payload.find("\"effectGraphs\":[{\"graphId\":\"effect_graph_node_camera\"") != std::string::npos);
   GRAPPLE_REQUIRE(inspectRenderPlanResult.value().payload.find("\"diagnosticCount\":0") != std::string::npos);
   GRAPPLE_REQUIRE(inspectRenderPlanResult.value().payload.find("\"commandId\"") == std::string::npos);
+  requireNoRuntimeOwnedFields(inspectRenderPlanResult.value().payload);
 
   const agent::AgentTool* inspectRuntimeDiagnostics = registry.findBySerializedId("runtime.inspect_diagnostics");
   GRAPPLE_REQUIRE(inspectRuntimeDiagnostics != nullptr);
@@ -1008,6 +1032,7 @@ int main() {
   GRAPPLE_REQUIRE(inspectRuntimeDiagnosticsResult.value().payload.find("\"severity\":\"warning\"") != std::string::npos);
   GRAPPLE_REQUIRE(inspectRuntimeDiagnosticsResult.value().payload.find("\"nodeId\":\"node_agent_effect_rev_3\"") != std::string::npos);
   GRAPPLE_REQUIRE(inspectRuntimeDiagnosticsResult.value().payload.find("\"commandId\"") == std::string::npos);
+  requireNoRuntimeOwnedFields(inspectRuntimeDiagnosticsResult.value().payload);
   GRAPPLE_REQUIRE(commands.applyCount() == commandCountBeforeInspectTools);
   GRAPPLE_REQUIRE(queries.totalQueryCount() == queryCountBeforeInspectTools + 3);
   GRAPPLE_REQUIRE(queries.compositionQueryCount() == 1);
