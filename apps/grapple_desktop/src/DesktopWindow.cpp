@@ -15,6 +15,7 @@
 #include <grapple/ui_qt/TimelinePanel.hpp>
 
 #include <QApplication>
+#include <QDoubleSpinBox>
 #include <QFileDialog>
 #include <QFrame>
 #include <QGridLayout>
@@ -935,6 +936,17 @@ public:
     log_->append(QString{"Redo created %1"}.arg(qString(redone.value().snapshot.revision.value())));
   }
 
+  void setEffectParamControlValue(const std::string& paramName, double value) {
+    auto* editor = findChild<QDoubleSpinBox*>(QString{"effectParamEditor_%1"}.arg(qString(paramName)));
+    if (editor == nullptr) {
+      appendError(grapple::foundation::Error{"desktop.effect_param_control_missing", "Effect parameter control not found."});
+      return;
+    }
+
+    editor->setValue(value);
+    QApplication::processEvents();
+  }
+
   void addEffectToSelectedTarget(std::string intent) {
     if (!selectedNodeId_.has_value()) {
       appendError(grapple::foundation::Error{"desktop.selection_missing", "Add Effect requires a selected camera."});
@@ -1336,6 +1348,10 @@ void DesktopWindow::undoLastEdit() {
 
 void DesktopWindow::redoLastEdit() {
   impl_->redoLastEdit();
+}
+
+void DesktopWindow::setEffectParamControlValue(const std::string& paramName, double value) {
+  impl_->setEffectParamControlValue(paramName, value);
 }
 
 void DesktopWindow::setSelectedTargetNumericEffectParam(const std::string& paramName, double value) {

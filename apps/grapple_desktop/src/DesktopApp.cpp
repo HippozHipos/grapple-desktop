@@ -334,8 +334,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     window.clickFirstTimelineCamera();
     window.setStewardIntent("Shift the camera right with editable controls.");
     window.clickStewardCreateCameraEffect();
-    window.setSelectedTargetNumericEffectParam(grapple::runtime::builtin_effect::PositionXParam, 0.25);
-    window.setSelectedTargetNumericEffectParam(grapple::runtime::builtin_effect::ZoomParam, 1.5);
+    window.setEffectParamControlValue(grapple::runtime::builtin_effect::PositionXParam, 0.25);
+    window.setEffectParamControlValue(grapple::runtime::builtin_effect::ZoomParam, 1.5);
     const std::string inspector = window.inspectorContents();
     const auto viewModel = workspace.value().project().buildViewModel();
     if (!viewModel) {

@@ -113,7 +113,7 @@ void EffectParamPanel::setSelection(
         }
 
         auto* editor = new QDoubleSpinBox;
-        editor->setObjectName("effectParamEditor");
+        editor->setObjectName(QString{"effectParamEditor_%1"}.arg(qString(param.name)));
         editor->setRange(*param.numericMin, *param.numericMax);
         editor->setDecimals(4);
         if (param.numericStep.has_value()) {
@@ -128,7 +128,7 @@ void EffectParamPanel::setSelection(
           if (applyHandler_) {
             applyHandler_(parameterEffectNodeId, paramName, value);
           }
-        });
+        }, Qt::QueuedConnection);
 
         rowLayout->addWidget(label);
         rowLayout->addWidget(editor, 1);
