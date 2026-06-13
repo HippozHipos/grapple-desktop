@@ -1,6 +1,6 @@
 #include <grapple/project/ProjectSnapshot.hpp>
 
-#include "ProjectInvariants.hpp"
+#include "internal/ProjectInvariants.hpp"
 
 #include <grapple/project/ProjectSerializer.hpp>
 #include <grapple/timeline/Payloads.hpp>

@@ -1,6 +1,6 @@
 #include <grapple/project/ProjectController.hpp>
 
-#include "ProjectInvariants.hpp"
+#include "internal/ProjectInvariants.hpp"
 
 #include <grapple/graph/GraphEdge.hpp>
 #include <grapple/graph/GraphNode.hpp>
