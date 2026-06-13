@@ -1,7 +1,6 @@
 #include <grapple/agent/AgentToolRegistry.hpp>
 #include <grapple/agent/ProjectTools.hpp>
 #include <grapple/graph/GraphNode.hpp>
-#include <grapple/model/ModelService.hpp>
 #include <grapple/project/ProjectController.hpp>
 #include <grapple/timeline/EffectPayload.hpp>
 #include <grapple/timeline/Payloads.hpp>
@@ -11,27 +10,6 @@
 #include <type_traits>
 
 namespace {
-
-class TestModelService final : public grapple::model::IModelService {
-public:
-  grapple::foundation::Result<grapple::model::ModelResponse> complete(
-    const grapple::model::ModelRequest& request
-  ) override {
-    return grapple::model::ModelResponse{request.modelId, ""};
-  }
-
-  grapple::foundation::Result<grapple::model::VisionResponse> analyzeImage(
-    const grapple::model::VisionRequest& request
-  ) override {
-    return grapple::model::VisionResponse{request.modelId, ""};
-  }
-
-  grapple::foundation::Result<grapple::model::SegmentationResponse> segment(
-    const grapple::model::SegmentationRequest& request
-  ) override {
-    return grapple::model::SegmentationResponse{request.modelId, ""};
-  }
-};
 
 class TestAgentQueryService final : public grapple::project::IProjectQueryService {
 public:
@@ -273,9 +251,8 @@ int main() {
   const auto afterCommandSnapshot = project.snapshot();
   GRAPPLE_REQUIRE(afterCommandSnapshot);
 
-  TestModelService models;
   TestAgentQueryService queries{project};
-  agent::AgentToolContext context{project, queries, models};
+  agent::AgentToolContext context{project, queries};
 
   const agent::AgentTool* inspect = registry.findBySerializedId("project.inspect");
   GRAPPLE_REQUIRE(inspect != nullptr);

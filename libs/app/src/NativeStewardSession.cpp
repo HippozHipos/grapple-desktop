@@ -6,7 +6,6 @@
 #include <grapple/foundation/Hash.hpp>
 #include <grapple/foundation/Json.hpp>
 #include <grapple/graph/GraphNode.hpp>
-#include <grapple/model/ModelService.hpp>
 #include <grapple/runtime/BuiltinEffects.hpp>
 #include <grapple/runtime/RuntimeOutputNames.hpp>
 #include <grapple/timeline/EffectPayload.hpp>
@@ -48,21 +47,6 @@ constexpr const char StewardCreateCameraTransformSchema[] = R"json({
     }
   }
 })json";
-
-class StewardUnusedModelService final : public model::IModelService {
-public:
-  foundation::Result<model::ModelResponse> complete(const model::ModelRequest&) override {
-    return foundation::Error{"steward.unexpected_model_call", "Steward camera transform tool does not call models."};
-  }
-
-  foundation::Result<model::VisionResponse> analyzeImage(const model::VisionRequest&) override {
-    return foundation::Error{"steward.unexpected_model_call", "Steward camera transform tool does not call models."};
-  }
-
-  foundation::Result<model::SegmentationResponse> segment(const model::SegmentationRequest&) override {
-    return foundation::Error{"steward.unexpected_model_call", "Steward camera transform tool does not call models."};
-  }
-};
 
 project::CommandSource stewardSource(foundation::RunId runId) {
   return project::CommandSource{
@@ -429,8 +413,7 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::c
     return registered.error();
   }
 
-  StewardUnusedModelService unusedModels;
-  agent::AgentToolContext toolContext{commandWriter_, project_, unusedModels};
+  agent::AgentToolContext toolContext{commandWriter_, project_};
   agent::AgentBridge bridge{registry, toolContext, events_, nextSequence_};
   auto dispatched = bridge.dispatchToolCall(agent::AgentToolDispatchRequest{
     runId.value(),

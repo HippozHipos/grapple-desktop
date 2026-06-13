@@ -1,7 +1,6 @@
 #include <grapple/agent/AgentBridge.hpp>
 #include <grapple/agent/AgentConversationState.hpp>
 #include <grapple/agent/ProjectTools.hpp>
-#include <grapple/model/ModelService.hpp>
 #include <grapple/project/ProjectController.hpp>
 
 #include <TestAssert.hpp>
@@ -12,27 +11,6 @@
 #include <vector>
 
 namespace {
-
-class TestModelService final : public grapple::model::IModelService {
-public:
-  grapple::foundation::Result<grapple::model::ModelResponse> complete(
-    const grapple::model::ModelRequest& request
-  ) override {
-    return grapple::model::ModelResponse{request.modelId, ""};
-  }
-
-  grapple::foundation::Result<grapple::model::VisionResponse> analyzeImage(
-    const grapple::model::VisionRequest& request
-  ) override {
-    return grapple::model::VisionResponse{request.modelId, ""};
-  }
-
-  grapple::foundation::Result<grapple::model::SegmentationResponse> segment(
-    const grapple::model::SegmentationRequest& request
-  ) override {
-    return grapple::model::SegmentationResponse{request.modelId, ""};
-  }
-};
 
 grapple::agent::AgentRunEvent runStartedEvent() {
   return grapple::agent::AgentRunEvent{
@@ -67,8 +45,7 @@ int main() {
   project::ProjectController project{
     project::createEmptyProject(foundation::ProjectId{"proj_bridge"}, "Bridge Project")
   };
-  TestModelService models;
-  agent::AgentToolContext context{project, project, models};
+  agent::AgentToolContext context{project, project};
   std::int64_t nextSequence = 1;
   agent::AgentBridge bridge{registry, context, log, nextSequence};
 

@@ -30,7 +30,6 @@ target_link_libraries(grapple_agent
   PUBLIC
     Grapple::Foundation
     Grapple::Project
-    Grapple::Model
     Grapple::History
   PRIVATE
     ${JSONCPP_LIBRARIES}
