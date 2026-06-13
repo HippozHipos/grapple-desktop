@@ -497,8 +497,23 @@ public:
       QPushButton#effectParamDelete:hover { background: #5a3841; }
     )");
 
+    selectInitialCamera();
     refreshViewModel();
     refreshPreview();
+  }
+
+  void selectInitialCamera() {
+    const auto viewModel = workspace_.project().buildViewModel();
+    if (!viewModel) {
+      appendError(viewModel.error());
+      return;
+    }
+    if (viewModel.value().timeline.cameras.empty()) {
+      return;
+    }
+
+    selectedNodeId_ = viewModel.value().timeline.cameras.front().sourceNodeId;
+    selectedAssetId_ = std::nullopt;
   }
 
   void refreshViewModel() {

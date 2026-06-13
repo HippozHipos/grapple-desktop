@@ -213,12 +213,18 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
 
   if (stewardSmoke) {
     const std::string steward = window.stewardContents();
+    const auto selectedNodeId = window.selectedNodeId();
     std::cout << "steward=" << steward << '\n';
+    if (selectedNodeId.has_value()) {
+      std::cout << "selected=" << selectedNodeId->value() << '\n';
+    }
     return steward.find("Bet: prompt -> editable graph") != std::string::npos &&
            steward.find("Intent: Center the subject with an editable camera transform.") != std::string::npos &&
            steward.find("Action: selected camera -> editable Camera Transform") != std::string::npos &&
            steward.find("Steward edits") != std::string::npos &&
-           steward.find("- none yet") != std::string::npos
+           steward.find("- none yet") != std::string::npos &&
+           selectedNodeId.has_value() &&
+           selectedNodeId.value() == grapple::foundation::NodeId{"node_camera_4"}
       ? 0
       : 1;
   }
