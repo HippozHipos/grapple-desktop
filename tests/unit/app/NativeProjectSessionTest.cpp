@@ -30,6 +30,20 @@ grapple::project::CommandSource userSource() {
   };
 }
 
+std::filesystem::path writeTinyPpm(const std::string& stem) {
+  const std::filesystem::path path =
+    std::filesystem::temp_directory_path() /
+    (stem + "_" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".ppm");
+  std::ofstream output{path, std::ios::binary | std::ios::trunc};
+  output << "P6\n2 1\n255\n";
+  const unsigned char pixels[] = {
+    10, 20, 30,
+    40, 50, 60
+  };
+  output.write(reinterpret_cast<const char*>(pixels), sizeof(pixels));
+  return path;
+}
+
 } // namespace
 
 int main() {
@@ -240,6 +254,88 @@ int main() {
   GRAPPLE_REQUIRE(assetClipViewModel.value().timeline.clips.size() == 1);
   GRAPPLE_REQUIRE(assetClipViewModel.value().timeline.clips[0].sourceNodeId == assetClipNodeId);
   GRAPPLE_REQUIRE(assetClipViewModel.value().timeline.clips[0].transform == clipTransform);
+
+  const std::filesystem::path cacheImagePath = writeTinyPpm("grapple_native_cache_image");
+  app::NativeProjectSession cacheProject{
+    foundation::ProjectId{"proj_app_cache"},
+    "Cache App Project",
+    storage::ProjectPackage{
+      foundation::ProjectId{"proj_app_cache"},
+      foundation::FilePath{"cache-app.grapple"},
+      1
+    }
+  };
+  app::NativeProjectCommandWriter cacheWriter{cacheProject};
+  const auto cacheAsset = cacheWriter.apply(
+    project::RegisterAssetCommand{asset::Asset{
+      foundation::AssetId{"asset_cache_image"},
+      "Cache Image",
+      asset::AssetMetadata{
+        asset::AssetMediaType::Image,
+        foundation::FilePath{cacheImagePath.string()},
+        std::nullopt,
+        foundation::TimeSeconds{1.0},
+        foundation::Resolution{2, 1},
+        std::nullopt
+      }
+    }},
+    userSource()
+  );
+  GRAPPLE_REQUIRE(cacheAsset);
+  const foundation::NodeId cacheCompositionNodeId = cacheWriter.nextNodeId("composition");
+  const auto cacheComposition = cacheWriter.apply(
+    project::CreateCompositionCommand{cacheCompositionNodeId, "Cache Main"},
+    userSource()
+  );
+  GRAPPLE_REQUIRE(cacheComposition);
+  const foundation::NodeId cacheTrackNodeId = cacheWriter.nextNodeId("track");
+  const auto cacheTrack = cacheWriter.apply(
+    project::CreateTrackCommand{
+      cacheTrackNodeId,
+      cacheCompositionNodeId,
+      cacheWriter.nextEdgeId("contains track"),
+      "Cache Track"
+    },
+    userSource()
+  );
+  GRAPPLE_REQUIRE(cacheTrack);
+  const auto cacheClip = cacheWriter.apply(
+    project::CreateClipCommand{
+      cacheWriter.nextNodeId("clip"),
+      cacheTrackNodeId,
+      cacheWriter.nextEdgeId("contains clip"),
+      timeline::ClipPayload{
+        timeline::ClipKind::Image,
+        foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}},
+        foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}},
+        1.0,
+        foundation::AssetId{"asset_cache_image"},
+        timeline::Transform{}
+      },
+      0
+    },
+    userSource()
+  );
+  GRAPPLE_REQUIRE(cacheClip);
+  auto cacheWorkspace = app::NativeWorkspaceSession::fromProject(std::move(cacheProject));
+  GRAPPLE_REQUIRE(cacheWorkspace);
+  GRAPPLE_REQUIRE(cacheWorkspace.value().cachedMediaFrameCount() == 0);
+  const auto cacheRefresh = cacheWorkspace.value().preview().refreshFromProject();
+  GRAPPLE_REQUIRE(cacheRefresh);
+  const auto firstCachedFrame = cacheWorkspace.value().preview().renderFrame(render::RenderFrameRequest{
+    foundation::TimeSeconds{0.0},
+    render::RenderQuality::Draft
+  });
+  GRAPPLE_REQUIRE(firstCachedFrame);
+  GRAPPLE_REQUIRE(firstCachedFrame.value().frame.image.has_value());
+  GRAPPLE_REQUIRE(cacheWorkspace.value().cachedMediaFrameCount() == 1);
+  const auto secondCachedFrame = cacheWorkspace.value().preview().renderFrame(render::RenderFrameRequest{
+    foundation::TimeSeconds{0.0},
+    render::RenderQuality::Draft
+  });
+  GRAPPLE_REQUIRE(secondCachedFrame);
+  GRAPPLE_REQUIRE(cacheWorkspace.value().cachedMediaFrameCount() == 1);
+  std::filesystem::remove(cacheImagePath);
 
   app::NativeProjectSession effectSession{
     foundation::ProjectId{"proj_app_effects"},

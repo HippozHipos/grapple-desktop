@@ -1,6 +1,8 @@
 #include <grapple/app/NativeWorkspaceSession.hpp>
 
 #include <grapple/asset/Asset.hpp>
+#include <grapple/media/CachingMediaReader.hpp>
+#include <grapple/media/FrameCache.hpp>
 #include <grapple/runtime/BuiltinEffectRuntime.hpp>
 #include <grapple/runtime/RuntimeEvaluator.hpp>
 #include <grapple/storage/ProjectPackageReader.hpp>
@@ -78,7 +80,9 @@ struct NativeWorkspaceSession::State {
       steward{project, commandWriter},
       mediaSources{std::move(mediaSourceCatalog)},
       mediaReader{mediaSources},
-      frameSource{mediaReader},
+      frameCache{8},
+      cachedMediaReader{mediaReader, frameCache},
+      frameSource{cachedMediaReader},
       preview{project, frameSource, {&builtinEffectRuntime}},
       exportSession{project, {&builtinEffectRuntime}} {}
 
@@ -88,6 +92,8 @@ struct NativeWorkspaceSession::State {
   NativeStewardSession steward;
   media::MediaSourceCatalog mediaSources;
   media::OpenCVMediaReader mediaReader;
+  media::FrameCache frameCache;
+  media::CachingMediaReader cachedMediaReader;
   NativeMediaFrameSource frameSource;
   runtime::BuiltinEffectRuntime builtinEffectRuntime;
   NativePreviewSession preview;
@@ -195,6 +201,10 @@ NativeExportSession& NativeWorkspaceSession::exportSession() noexcept {
 
 media::MediaSourceCatalog& NativeWorkspaceSession::mediaSources() noexcept {
   return state_->mediaSources;
+}
+
+std::size_t NativeWorkspaceSession::cachedMediaFrameCount() const noexcept {
+  return state_->frameCache.size();
 }
 
 foundation::Result<project::ProjectQueryResult> NativeWorkspaceSession::query(

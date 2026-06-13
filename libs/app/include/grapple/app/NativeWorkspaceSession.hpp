@@ -44,6 +44,7 @@ public:
   [[nodiscard]] NativePreviewSession& preview() noexcept;
   [[nodiscard]] NativeExportSession& exportSession() noexcept;
   [[nodiscard]] media::MediaSourceCatalog& mediaSources() noexcept;
+  [[nodiscard]] std::size_t cachedMediaFrameCount() const noexcept;
 
   [[nodiscard]] foundation::Result<project::ProjectQueryResult> query(
     const project::ProjectQuery& query
