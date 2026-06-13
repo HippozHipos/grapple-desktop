@@ -126,6 +126,14 @@ timeline::EffectPayload cameraTransformPayload(foundation::TimeRange activeRange
             runtime::builtin_effect::PositionYLabel,
             timeline::Param::NumericControl{-1.0, 1.0, 0.01}
           }
+        },
+        timeline::Param{
+          runtime::builtin_effect::ZoomParam,
+          1.0,
+          timeline::Param::Control{
+            runtime::builtin_effect::ZoomLabel,
+            timeline::Param::NumericControl{0.25, 4.0, 0.01}
+          }
         }
       }
     },

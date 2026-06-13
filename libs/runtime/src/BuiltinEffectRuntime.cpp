@@ -51,6 +51,7 @@ foundation::Result<EffectPrepareResult> BuiltinEffectRuntime::prepare(const Effe
   std::vector<RuntimeDiagnostic> diagnostics;
   const std::optional<double> positionX = numericParam(request.node, builtin_effect::PositionXParam);
   const std::optional<double> positionY = numericParam(request.node, builtin_effect::PositionYParam);
+  const std::optional<double> zoom = numericParam(request.node, builtin_effect::ZoomParam);
 
   if (!positionX.has_value()) {
     diagnostics.push_back(makeParamDiagnostic(request, builtin_effect::PositionXParam));
@@ -58,11 +59,15 @@ foundation::Result<EffectPrepareResult> BuiltinEffectRuntime::prepare(const Effe
   if (!positionY.has_value()) {
     diagnostics.push_back(makeParamDiagnostic(request, builtin_effect::PositionYParam));
   }
+  if (!zoom.has_value()) {
+    diagnostics.push_back(makeParamDiagnostic(request, builtin_effect::ZoomParam));
+  }
 
   RuntimeValueMap preparedValues;
-  if (positionX.has_value() && positionY.has_value()) {
+  if (positionX.has_value() && positionY.has_value() && zoom.has_value()) {
     preparedValues.push_back(RuntimeNamedValue{builtin_effect::PositionXParam, RuntimeValue{*positionX}});
     preparedValues.push_back(RuntimeNamedValue{builtin_effect::PositionYParam, RuntimeValue{*positionY}});
+    preparedValues.push_back(RuntimeNamedValue{builtin_effect::ZoomParam, RuntimeValue{*zoom}});
   }
 
   return EffectPrepareResult{
@@ -80,6 +85,7 @@ foundation::Result<EffectPrepareResult> BuiltinEffectRuntime::prepare(const Effe
 foundation::Result<EffectProcessResult> BuiltinEffectRuntime::process(const EffectProcessRequest& request) {
   std::optional<double> positionX;
   std::optional<double> positionY;
+  std::optional<double> zoom;
 
   for (const RuntimeNamedValue& value : request.prepared.preparedValues) {
     const auto* numeric = std::get_if<double>(&value.value);
@@ -90,17 +96,19 @@ foundation::Result<EffectProcessResult> BuiltinEffectRuntime::process(const Effe
       positionX = *numeric;
     } else if (value.name == builtin_effect::PositionYParam) {
       positionY = *numeric;
+    } else if (value.name == builtin_effect::ZoomParam) {
+      zoom = *numeric;
     }
   }
 
   RuntimeValueMap outputValues;
-  if (positionX.has_value() && positionY.has_value()) {
+  if (positionX.has_value() && positionY.has_value() && zoom.has_value()) {
     outputValues.push_back(RuntimeNamedValue{
       output_name::CameraTransform,
       RuntimeValue{
         foundation::Transform2D{
           foundation::Vec2{*positionX, *positionY},
-          foundation::Vec2{1.0, 1.0},
+          foundation::Vec2{*zoom, *zoom},
           0.0,
           1.0
         }

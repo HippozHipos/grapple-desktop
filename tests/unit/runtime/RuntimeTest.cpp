@@ -164,7 +164,7 @@ grapple::projection::RenderPlan makeEffectPlan(std::string source) {
   return plan;
 }
 
-grapple::projection::RenderPlan makeBuiltinCameraTransformPlan(bool includePositionY = true) {
+grapple::projection::RenderPlan makeBuiltinCameraTransformPlan(bool includePositionY = true, bool includeZoom = true) {
   grapple::projection::RenderPlan plan = makePlan("Video");
   plan.cameras.push_back(grapple::projection::RenderCamera{
     grapple::foundation::NodeId{"node_camera"},
@@ -177,6 +177,9 @@ grapple::projection::RenderPlan makeBuiltinCameraTransformPlan(bool includePosit
   };
   if (includePositionY) {
     params.values.push_back(grapple::timeline::Param{grapple::runtime::builtin_effect::PositionYParam, -0.5});
+  }
+  if (includeZoom) {
+    params.values.push_back(grapple::timeline::Param{grapple::runtime::builtin_effect::ZoomParam, 1.75});
   }
   grapple::timeline::EffectPayload payload{
     grapple::runtime::builtin_effect::CameraTransformDisplayName,
@@ -719,6 +722,8 @@ int main() {
   GRAPPLE_REQUIRE(transform != nullptr);
   GRAPPLE_REQUIRE(transform->position.x == 0.25);
   GRAPPLE_REQUIRE(transform->position.y == -0.5);
+  GRAPPLE_REQUIRE(transform->scale.x == 1.75);
+  GRAPPLE_REQUIRE(transform->scale.y == 1.75);
 
   const auto preparedInvalidBuiltinEffectPlan = evaluatorWithBuiltinRuntime.prepare(runtime::PrepareRuntimePlanRequest{
     makeBuiltinCameraTransformPlan(false)
@@ -730,6 +735,15 @@ int main() {
   GRAPPLE_REQUIRE(preparedInvalidBuiltinEffectPlan.value().diagnostics[0].location.revision == foundation::RevisionId{"rev_4"});
   GRAPPLE_REQUIRE(preparedInvalidBuiltinEffectPlan.value().diagnostics[0].location.nodeId == foundation::NodeId{"node_builtin_effect"});
   GRAPPLE_REQUIRE(preparedInvalidBuiltinEffectPlan.value().prepared.preparedEffects.size() == 1);
+
+  const auto preparedMissingZoomBuiltinEffectPlan = evaluatorWithBuiltinRuntime.prepare(runtime::PrepareRuntimePlanRequest{
+    makeBuiltinCameraTransformPlan(true, false)
+  });
+  GRAPPLE_REQUIRE(preparedMissingZoomBuiltinEffectPlan);
+  GRAPPLE_REQUIRE(preparedMissingZoomBuiltinEffectPlan.value().diagnostics.size() == 1);
+  GRAPPLE_REQUIRE(preparedMissingZoomBuiltinEffectPlan.value().diagnostics[0].code == "runtime.builtin_camera_transform_param_invalid");
+  GRAPPLE_REQUIRE(preparedMissingZoomBuiltinEffectPlan.value().diagnostics[0].message.find(runtime::builtin_effect::ZoomParam) != std::string::npos);
+
   const auto invalidBuiltinSample = evaluatorWithBuiltinRuntime.sample(runtime::RuntimeSampleRequest{
     preparedInvalidBuiltinEffectPlan.value().prepared,
     foundation::TimeSeconds{1.0},

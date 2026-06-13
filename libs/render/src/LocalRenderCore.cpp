@@ -165,17 +165,25 @@ std::optional<RenderedImage> applyCameraTransformToImage(
     return image;
   }
 
-  const int offsetX = static_cast<int>(std::lround(camera.transform.position.x * static_cast<double>(width)));
-  const int offsetY = static_cast<int>(std::lround(camera.transform.position.y * static_cast<double>(height)));
-  if (offsetX == 0 && offsetY == 0) {
+  const double scaleX = camera.transform.scale.x;
+  const double scaleY = camera.transform.scale.y;
+  if (scaleX <= 0.0 || scaleY <= 0.0) {
     return image;
   }
 
+  const int offsetX = static_cast<int>(std::lround(camera.transform.position.x * static_cast<double>(width)));
+  const int offsetY = static_cast<int>(std::lround(camera.transform.position.y * static_cast<double>(height)));
+  if (offsetX == 0 && offsetY == 0 && scaleX == 1.0 && scaleY == 1.0) {
+    return image;
+  }
+
+  const double centerX = (static_cast<double>(width) - 1.0) * 0.5;
+  const double centerY = (static_cast<double>(height) - 1.0) * 0.5;
   std::vector<std::uint8_t> transformed(image->rgbaPixels.size(), 0);
   for (int y = 0; y < height; ++y) {
     for (int x = 0; x < width; ++x) {
-      const int sourceX = x + offsetX;
-      const int sourceY = y + offsetY;
+      const int sourceX = static_cast<int>(std::lround(((static_cast<double>(x) - centerX) / scaleX) + centerX + offsetX));
+      const int sourceY = static_cast<int>(std::lround(((static_cast<double>(y) - centerY) / scaleY) + centerY + offsetY));
       if (sourceX < 0 || sourceX >= width || sourceY < 0 || sourceY >= height) {
         continue;
       }

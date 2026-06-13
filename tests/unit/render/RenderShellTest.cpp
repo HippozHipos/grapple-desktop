@@ -92,6 +92,24 @@ public:
   std::optional<grapple::render::SourceFrameRequest> lastRequest;
 };
 
+class ThreePixelFrameSource final : public grapple::render::IRenderFrameSource {
+public:
+  grapple::foundation::Result<grapple::render::SourceFrame> frameAt(
+    const grapple::render::SourceFrameRequest& request
+  ) override {
+    return grapple::render::SourceFrame{
+      request.assetId,
+      request.sourceTime,
+      grapple::foundation::Resolution{3, 1},
+      {
+        10, 20, 30, 255,
+        40, 50, 60, 255,
+        70, 80, 90, 255
+      }
+    };
+  }
+};
+
 class CapturingRangeSink final : public grapple::render::IRenderRangeSink {
 public:
   grapple::foundation::Result<void> writeFrame(
@@ -163,6 +181,54 @@ public:
               grapple::timeline::Transform{
                 grapple::foundation::Vec2{0.5, 0.0},
                 grapple::foundation::Vec2{1.0, 1.0},
+                0.0,
+                1.0
+              }
+            }
+          }
+        }
+      },
+      {}
+    };
+  }
+};
+
+class ImageZoomCameraRuntime final : public grapple::runtime::IEffectRuntime {
+public:
+  bool supports(const grapple::projection::RenderEffectNode& node) const override {
+    return node.payload.implementation.kind == grapple::timeline::EffectImplementationKind::Python;
+  }
+
+  grapple::foundation::Result<grapple::runtime::EffectPrepareResult> prepare(
+    const grapple::runtime::EffectPrepareRequest& request
+  ) override {
+    return grapple::runtime::EffectPrepareResult{
+      grapple::runtime::PreparedEffectNode{
+        request.graph.id,
+        request.graph.targetNodeId,
+        request.node.sourceNodeId,
+        nullptr,
+        {}
+      },
+      {}
+    };
+  }
+
+  grapple::foundation::Result<grapple::runtime::EffectProcessResult> process(
+    const grapple::runtime::EffectProcessRequest& request
+  ) override {
+    return grapple::runtime::EffectProcessResult{
+      grapple::runtime::RuntimeEffectOutput{
+        request.prepared.effectGraphId,
+        request.prepared.targetNodeId,
+        request.prepared.sourceNodeId,
+        {
+          grapple::runtime::RuntimeNamedValue{
+            grapple::runtime::output_name::CameraTransform,
+            grapple::runtime::RuntimeValue{
+              grapple::timeline::Transform{
+                grapple::foundation::Vec2{0.0, 0.0},
+                grapple::foundation::Vec2{2.0, 2.0},
                 0.0,
                 1.0
               }
@@ -447,6 +513,27 @@ int main() {
   GRAPPLE_REQUIRE((shiftedImageFrame.value().frame.image->resolution == foundation::Resolution{2, 1}));
   GRAPPLE_REQUIRE((shiftedImageFrame.value().frame.image->rgbaPixels == std::vector<std::uint8_t>{40, 50, 60, 255, 0, 0, 0, 0}));
   GRAPPLE_REQUIRE(shiftedImageFrame.value().runtimeDiagnostics.empty());
+
+  ImageZoomCameraRuntime imageZoomRuntime;
+  runtime::RuntimeEvaluator imageZoomEvaluator{{&imageZoomRuntime}};
+  ThreePixelFrameSource zoomFrameSource;
+  render::LocalRenderCore zoomImageCore{imageZoomEvaluator, zoomFrameSource};
+  render::PreviewRenderShell zoomImagePreview{zoomImageCore};
+  const auto zoomImageLoad = zoomImageCore.loadPlan(makeCameraEffectRenderPlan());
+  GRAPPLE_REQUIRE(zoomImageLoad);
+  const auto zoomImageFrame = zoomImagePreview.renderFrame(render::RenderFrameRequest{
+    foundation::TimeSeconds{0.0},
+    render::RenderQuality::Draft
+  });
+  GRAPPLE_REQUIRE(zoomImageFrame);
+  GRAPPLE_REQUIRE(zoomImageFrame.value().frame.image.has_value());
+  GRAPPLE_REQUIRE((zoomImageFrame.value().frame.image->resolution == foundation::Resolution{3, 1}));
+  GRAPPLE_REQUIRE((zoomImageFrame.value().frame.image->rgbaPixels == std::vector<std::uint8_t>{
+    40, 50, 60, 255,
+    40, 50, 60, 255,
+    70, 80, 90, 255
+  }));
+  GRAPPLE_REQUIRE(zoomImageFrame.value().runtimeDiagnostics.empty());
 
   TestFrameSource finalRangeFrameSource;
   render::LocalRenderCore finalRangeImageCore{imageShiftEvaluator, finalRangeFrameSource};
