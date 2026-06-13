@@ -640,9 +640,34 @@ public:
   }
 
   void clickFirstTimelineCamera() {
+    clickTimelineCameraAtIndex(0);
+  }
+
+  void clickSecondTimelineCamera() {
+    clickTimelineCameraAtIndex(1);
+  }
+
+  void clickTimelineCameraAtIndex(std::size_t cameraIndex) {
+    const auto viewModel = workspace_.project().buildViewModel();
+    if (!viewModel) {
+      appendError(viewModel.error());
+      return;
+    }
+    if (cameraIndex >= viewModel.value().timeline.cameras.size()) {
+      appendError(grapple::foundation::Error{"desktop.camera_index_missing", "Requested timeline camera does not exist."});
+      return;
+    }
+
+    const int cameraRow = static_cast<int>(viewModel.value().timeline.layers.size());
+    const std::size_t cameraCount = viewModel.value().timeline.cameras.size();
+    const double rowTop = 34.0 + (static_cast<double>(cameraRow) * 44.0);
+    const double availableHeight = 32.0;
+    const double gap = 4.0;
+    const double laneHeight = std::max(12.0, (availableHeight - (gap * static_cast<double>(cameraCount - 1))) / static_cast<double>(cameraCount));
+    const double y = rowTop + 6.0 + (static_cast<double>(cameraIndex) * (laneHeight + gap)) + (laneHeight * 0.5);
     QMouseEvent event{
       QEvent::MouseButtonPress,
-      QPointF{180.0, 100.0},
+      QPointF{180.0, y},
       Qt::LeftButton,
       Qt::LeftButton,
       Qt::NoModifier
@@ -1447,6 +1472,10 @@ void DesktopWindow::clickFirstTimelineClip() {
 
 void DesktopWindow::clickFirstTimelineCamera() {
   impl_->clickFirstTimelineCamera();
+}
+
+void DesktopWindow::clickSecondTimelineCamera() {
+  impl_->clickSecondTimelineCamera();
 }
 
 std::optional<foundation::NodeId> DesktopWindow::selectedNodeId() const {

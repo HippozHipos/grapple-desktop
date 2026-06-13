@@ -172,8 +172,10 @@ std::optional<foundation::NodeId> TimelinePanel::nodeAt(const QPoint& point) con
   }
 
   if (row == static_cast<int>(viewModel_->timeline.layers.size()) && !viewModel_->timeline.cameras.empty()) {
-    if (cameraRectFor(row).contains(point)) {
-      return viewModel_->timeline.cameras.front().sourceNodeId;
+    for (std::size_t index = 0; index < viewModel_->timeline.cameras.size(); ++index) {
+      if (cameraRectFor(row, index, viewModel_->timeline.cameras.size()).contains(point)) {
+        return viewModel_->timeline.cameras[index].sourceNodeId;
+      }
     }
   }
 
@@ -189,11 +191,17 @@ QRect TimelinePanel::clipRectFor(int row, const app::AppClipRow& clip) const {
   return QRect{x + 2, top + 8, std::max(18, endX - x - 4), rowHeight() - 16};
 }
 
-QRect TimelinePanel::cameraRectFor(int row) const {
+QRect TimelinePanel::cameraRectFor(int row, std::size_t cameraIndex, std::size_t cameraCount) const {
   const int left = timelineLeft();
   const int width = std::max(1, timelineRight() - left);
   const int top = rulerHeight() + (row * rowHeight());
-  return QRect{left + 2, top + 10, std::max(18, width - 4), rowHeight() - 20};
+  const int gap = 4;
+  const int laneTop = top + 6;
+  const int availableHeight = rowHeight() - 12;
+  const int count = std::max(1, static_cast<int>(cameraCount));
+  const int laneHeight = std::max(12, (availableHeight - (gap * (count - 1))) / count);
+  const int y = laneTop + (static_cast<int>(cameraIndex) * (laneHeight + gap));
+  return QRect{left + 2, y, std::max(18, width - 4), laneHeight};
 }
 
 int TimelinePanel::clipX(foundation::TimeSeconds time, int left, int trackWidth, double duration) {
@@ -243,19 +251,21 @@ void TimelinePanel::drawCameraRow(
   painter.setPen(QColor{"#d7f8ff"});
   painter.drawText(QRect{16, row.top(), left - 28, row.height()}, Qt::AlignVCenter | Qt::AlignLeft, "Cameras");
 
-  const QRect cameraStrip = cameraRectFor((row.top() - rulerHeight()) / rowHeight());
-  const bool selected = selectedNodeId_.has_value() &&
-                        !viewModel.timeline.cameras.empty() &&
-                        viewModel.timeline.cameras.front().sourceNodeId == selectedNodeId_.value();
-  painter.setPen(selected ? QPen{QColor{"#ffffff"}, 3} : QPen{QColor{"#86e8f2"}, 1});
-  painter.setBrush(QColor{"#23535e"});
-  painter.drawRoundedRect(cameraStrip, 6, 6);
-  painter.setPen(QColor{"#e5fdff"});
-  painter.drawText(
-    cameraStrip.adjusted(10, 0, -8, 0),
-    Qt::AlignVCenter | Qt::AlignLeft,
-    elidedText(painter, qString(viewModel.timeline.cameras.front().name), cameraStrip.width() - 18)
-  );
+  const int cameraRowIndex = (row.top() - rulerHeight()) / rowHeight();
+  for (std::size_t index = 0; index < viewModel.timeline.cameras.size(); ++index) {
+    const app::AppCameraRow& camera = viewModel.timeline.cameras[index];
+    const QRect cameraStrip = cameraRectFor(cameraRowIndex, index, viewModel.timeline.cameras.size());
+    const bool selected = selectedNodeId_.has_value() && camera.sourceNodeId == selectedNodeId_.value();
+    painter.setPen(selected ? QPen{QColor{"#ffffff"}, 3} : QPen{QColor{"#86e8f2"}, 1});
+    painter.setBrush(QColor{"#23535e"});
+    painter.drawRoundedRect(cameraStrip, 6, 6);
+    painter.setPen(QColor{"#e5fdff"});
+    painter.drawText(
+      cameraStrip.adjusted(10, 0, -8, 0),
+      Qt::AlignVCenter | Qt::AlignLeft,
+      elidedText(painter, qString(camera.name), cameraStrip.width() - 18)
+    );
+  }
 }
 
 void TimelinePanel::drawPlayhead(QPainter& painter, int left, int trackWidth, double duration) const {

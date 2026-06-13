@@ -49,6 +49,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   bool timelineSeekSmoke = false;
   bool selectSmoke = false;
   bool selectCameraSmoke = false;
+  bool selectSecondCameraSmoke = false;
   bool stewardSmoke = false;
   bool importSmoke = false;
   bool addVideoSmoke = false;
@@ -80,6 +81,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       selectSmoke = true;
     } else if (argument == "--select-camera-smoke") {
       selectCameraSmoke = true;
+    } else if (argument == "--select-second-camera-smoke") {
+      selectSecondCameraSmoke = true;
     } else if (argument == "--steward-smoke") {
       stewardSmoke = true;
     } else if (argument == "--import-smoke") {
@@ -115,7 +118,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     } else if (argument == "--effect-screenshot" && index + 1 < argc) {
       effectScreenshotPath = argv[++index];
     } else {
-      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --select-camera-smoke, --steward-smoke, --import-smoke, --add-video-smoke, --empty-add-video-smoke, --empty-add-track-smoke, --empty-add-camera-smoke, --move-clip-smoke, --undo-redo-smoke, --add-effect-smoke, --set-effect-param-smoke, --delete-effect-smoke, --delete-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, --screenshot <path>, or --effect-screenshot <path>.\n";
+      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --select-camera-smoke, --select-second-camera-smoke, --steward-smoke, --import-smoke, --add-video-smoke, --empty-add-video-smoke, --empty-add-track-smoke, --empty-add-camera-smoke, --move-clip-smoke, --undo-redo-smoke, --add-effect-smoke, --set-effect-param-smoke, --delete-effect-smoke, --delete-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, --screenshot <path>, or --effect-screenshot <path>.\n";
       return 1;
     }
   }
@@ -235,6 +238,37 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     return selectedNodeId.value() == grapple::foundation::NodeId{"node_camera_4"} &&
            inspector.find("Camera\nName: Camera") != std::string::npos &&
            inspector.find("No effects attached.") != std::string::npos
+      ? 0
+      : 1;
+  }
+
+  if (selectSecondCameraSmoke) {
+    window.addCamera();
+    window.show();
+    app.processEvents();
+    const auto viewModel = workspace.value().project().buildViewModel();
+    if (!viewModel) {
+      printError(viewModel.error());
+      return 1;
+    }
+    if (viewModel.value().timeline.cameras.size() != 2) {
+      std::cerr << "Expected two cameras.\n";
+      return 1;
+    }
+
+    window.clickFirstTimelineCamera();
+    const auto firstSelectedNodeId = window.selectedNodeId();
+    window.clickSecondTimelineCamera();
+    const auto secondSelectedNodeId = window.selectedNodeId();
+    if (!firstSelectedNodeId.has_value() || !secondSelectedNodeId.has_value()) {
+      std::cerr << "Camera selection missing.\n";
+      return 1;
+    }
+
+    std::cout << "firstSelected=" << firstSelectedNodeId->value() << '\n';
+    std::cout << "secondSelected=" << secondSelectedNodeId->value() << '\n';
+    return firstSelectedNodeId.value() == viewModel.value().timeline.cameras[0].sourceNodeId &&
+           secondSelectedNodeId.value() == viewModel.value().timeline.cameras[1].sourceNodeId
       ? 0
       : 1;
   }

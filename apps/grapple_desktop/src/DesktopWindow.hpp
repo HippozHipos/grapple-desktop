@@ -35,6 +35,7 @@ public:
   void clickTimelineAtRatio(double ratio);
   void clickFirstTimelineClip();
   void clickFirstTimelineCamera();
+  void clickSecondTimelineCamera();
   [[nodiscard]] std::optional<foundation::NodeId> selectedNodeId() const;
   [[nodiscard]] std::optional<foundation::AssetId> selectedAssetId() const;
   [[nodiscard]] std::string inspectorContents() const;

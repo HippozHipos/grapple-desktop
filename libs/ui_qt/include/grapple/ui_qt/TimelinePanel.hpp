@@ -7,6 +7,7 @@
 #include <QString>
 #include <QWidget>
 
+#include <cstddef>
 #include <functional>
 #include <optional>
 
@@ -39,7 +40,7 @@ private:
   [[nodiscard]] foundation::TimeSeconds timeAtX(int x) const noexcept;
   [[nodiscard]] std::optional<foundation::NodeId> nodeAt(const QPoint& point) const;
   [[nodiscard]] QRect clipRectFor(int row, const app::AppClipRow& clip) const;
-  [[nodiscard]] QRect cameraRectFor(int row) const;
+  [[nodiscard]] QRect cameraRectFor(int row, std::size_t cameraIndex, std::size_t cameraCount) const;
 
   static int clipX(foundation::TimeSeconds time, int left, int trackWidth, double duration);
   static QString elidedText(QPainter& painter, const QString& text, int width);
