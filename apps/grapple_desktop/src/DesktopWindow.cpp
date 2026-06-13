@@ -503,7 +503,7 @@ public:
     }
     summary_->setText(summaryText(viewModel.value()));
     rebuildMediaBin(viewModel.value());
-    steward_->setViewModel(viewModel.value());
+    steward_->setViewModel(viewModel.value(), workspace_.steward().conversationState());
     timeline_->setViewModel(viewModel.value());
     timeline_->setPlayhead(workspace_.preview().state().playhead);
     timeline_->setSelectedNodeId(selectedNodeId_);
@@ -895,6 +895,7 @@ public:
     );
     if (!created) {
       appendError(created.error());
+      refreshViewModel();
       return;
     }
 

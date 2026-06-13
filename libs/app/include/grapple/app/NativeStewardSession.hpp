@@ -1,12 +1,16 @@
 #pragma once
 
+#include <grapple/agent/AgentConversationState.hpp>
+#include <grapple/agent/AgentRunEventLog.hpp>
 #include <grapple/app/NativeProjectCommandWriter.hpp>
 #include <grapple/foundation/Result.hpp>
 #include <grapple/foundation/StrongId.hpp>
 #include <grapple/foundation/Time.hpp>
 #include <grapple/storage/ProjectPackageSession.hpp>
 
+#include <cstdint>
 #include <string>
+#include <vector>
 
 namespace grapple::app {
 
@@ -20,9 +24,27 @@ public:
     foundation::TimeRange activeRange
   );
 
+  [[nodiscard]] agent::AgentConversationState conversationState() const;
+
 private:
+  foundation::Result<foundation::RunId> startRun(
+    const project::ProjectSnapshot& snapshot,
+    const std::string& title
+  );
+  foundation::Result<void> appendEvent(
+    foundation::RunId runId,
+    agent::AgentRunEventKind kind,
+    std::string payloadJson
+  );
+  void markRunStatus(const foundation::RunId& runId, agent::AgentRunStatus status);
+
   NativeProjectSession& project_;
   NativeProjectCommandWriter& commandWriter_;
+  std::vector<agent::AgentRun> runs_;
+  agent::AgentRunEventLog events_;
+  std::int64_t nextRunNumber_ = 1;
+  std::int64_t nextToolNumber_ = 1;
+  std::int64_t nextSequence_ = 1;
 };
 
 } // namespace grapple::app

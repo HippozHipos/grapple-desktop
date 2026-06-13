@@ -42,6 +42,47 @@ QStringList exposedControlsFor(const app::AppEffectRow& effect) {
   return controls;
 }
 
+QString runStatusText(agent::AgentRunStatus status) {
+  switch (status) {
+    case agent::AgentRunStatus::Pending:
+      return "pending";
+    case agent::AgentRunStatus::Running:
+      return "running";
+    case agent::AgentRunStatus::Succeeded:
+      return "succeeded";
+    case agent::AgentRunStatus::Failed:
+      return "failed";
+  }
+
+  return "unknown";
+}
+
+QString toolStatusText(agent::AgentConversationToolCallStatus status) {
+  switch (status) {
+    case agent::AgentConversationToolCallStatus::Running:
+      return "running";
+    case agent::AgentConversationToolCallStatus::Succeeded:
+      return "succeeded";
+    case agent::AgentConversationToolCallStatus::Failed:
+      return "failed";
+  }
+
+  return "unknown";
+}
+
+QString diagnosticSeverityText(agent::DiagnosticSeverity severity) {
+  switch (severity) {
+    case agent::DiagnosticSeverity::Info:
+      return "info";
+    case agent::DiagnosticSeverity::Warning:
+      return "warning";
+    case agent::DiagnosticSeverity::Error:
+      return "error";
+  }
+
+  return "unknown";
+}
+
 } // namespace
 
 StewardPanel::StewardPanel(QWidget* parent)
@@ -77,7 +118,7 @@ void StewardPanel::setCreateCameraEffectHandler(CreateCameraEffectHandler handle
   createCameraEffectHandler_ = std::move(handler);
 }
 
-void StewardPanel::setViewModel(const app::AppViewModel& viewModel) {
+void StewardPanel::setViewModel(const app::AppViewModel& viewModel, const agent::AgentConversationState& conversationState) {
   QStringList lines{
     "Steward",
     "Bet: prompt -> editable graph",
@@ -110,6 +151,47 @@ void StewardPanel::setViewModel(const app::AppViewModel& viewModel) {
 
   if (!hasEditableEffect) {
     lines << "- none yet";
+  }
+
+  lines << "";
+  lines << "Agent conversation";
+  if (conversationState.runs.empty()) {
+    lines << "- no runs yet";
+  } else {
+    for (auto run = conversationState.runs.rbegin(); run != conversationState.runs.rend(); ++run) {
+      lines << QString{"- %1 [%2]"}
+        .arg(qString(run->title.empty() ? run->runId.value() : run->title))
+        .arg(runStatusText(run->status));
+      if (!run->summary.empty()) {
+        lines << QString{"  %1"}.arg(qString(run->summary));
+      }
+      for (const agent::AgentConversationMessage& message : run->messages) {
+        lines << QString{"  %1: %2"}
+          .arg(qString(message.role))
+          .arg(qString(message.content));
+      }
+      for (const agent::AgentConversationToolCall& toolCall : run->toolCalls) {
+        lines << QString{"  tool %1 -> %2"}
+          .arg(qString(toolCall.toolSerializedId))
+          .arg(toolStatusText(toolCall.status));
+      }
+      for (const agent::AgentConversationDiagnostic& diagnostic : run->diagnostics) {
+        lines << QString{"  diagnostic [%1] %2: %3"}
+          .arg(diagnosticSeverityText(diagnostic.severity))
+          .arg(qString(diagnostic.code))
+          .arg(qString(diagnostic.message));
+      }
+    }
+  }
+
+  if (!conversationState.diagnostics.empty()) {
+    lines << "";
+    lines << "Conversation projection diagnostics";
+    for (const agent::AgentConversationProjectionDiagnostic& diagnostic : conversationState.diagnostics) {
+      lines << QString{"- %1: %2"}
+        .arg(qString(diagnostic.code))
+        .arg(qString(diagnostic.message));
+    }
   }
 
   lines << "";

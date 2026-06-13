@@ -365,6 +365,7 @@ int main() {
     userSource()
   );
   GRAPPLE_REQUIRE(runtimeCamera);
+  GRAPPLE_REQUIRE(runtimeWorkspace.value().steward().conversationState().runs.empty());
   const auto runtimeEffect = runtimeWorkspace.value().steward().createCameraTransformEffect(
     runtimeCameraNodeId,
     "Center the subject with an editable camera transform.",
@@ -380,6 +381,22 @@ int main() {
   );
   GRAPPLE_REQUIRE(!duplicateRuntimeEffect);
   GRAPPLE_REQUIRE(duplicateRuntimeEffect.error().code == "steward.camera_transform_exists");
+  const agent::AgentConversationState stewardConversation = runtimeWorkspace.value().steward().conversationState();
+  GRAPPLE_REQUIRE(stewardConversation.diagnostics.empty());
+  GRAPPLE_REQUIRE(stewardConversation.runs.size() == 2);
+  GRAPPLE_REQUIRE(stewardConversation.runs[0].status == agent::AgentRunStatus::Succeeded);
+  GRAPPLE_REQUIRE(stewardConversation.runs[0].title == "Create editable camera transform");
+  GRAPPLE_REQUIRE(stewardConversation.runs[0].messages.size() == 1);
+  GRAPPLE_REQUIRE(stewardConversation.runs[0].toolCalls.size() == 1);
+  GRAPPLE_REQUIRE(stewardConversation.runs[0].toolCalls[0].toolSerializedId == "steward.create_camera_transform");
+  GRAPPLE_REQUIRE(stewardConversation.runs[0].toolCalls[0].status == agent::AgentConversationToolCallStatus::Succeeded);
+  GRAPPLE_REQUIRE(stewardConversation.runs[1].status == agent::AgentRunStatus::Failed);
+  GRAPPLE_REQUIRE(stewardConversation.runs[1].toolCalls.size() == 1);
+  GRAPPLE_REQUIRE(stewardConversation.runs[1].toolCalls[0].status == agent::AgentConversationToolCallStatus::Failed);
+  GRAPPLE_REQUIRE(stewardConversation.runs[1].diagnostics.size() == 1);
+  GRAPPLE_REQUIRE(stewardConversation.runs[1].diagnostics[0].code == "steward.camera_transform_exists");
+  GRAPPLE_REQUIRE(runtimeWorkspace.value().project().packageState().commandLog.records().back().sourceRunId.has_value());
+  GRAPPLE_REQUIRE(runtimeWorkspace.value().project().packageState().commandLog.records().back().sourceRunId.value() == stewardConversation.runs[0].runId);
   const auto runtimeEffectViewModel = runtimeWorkspace.value().project().buildViewModel();
   GRAPPLE_REQUIRE(runtimeEffectViewModel);
   GRAPPLE_REQUIRE(runtimeEffectViewModel.value().timeline.effectGraphs.size() == 1);

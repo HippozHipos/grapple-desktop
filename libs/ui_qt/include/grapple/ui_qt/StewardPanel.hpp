@@ -1,5 +1,6 @@
 #pragma once
 
+#include <grapple/agent/AgentConversationState.hpp>
 #include <grapple/app/AppViewModel.hpp>
 
 #include <QWidget>
@@ -20,7 +21,7 @@ public:
   explicit StewardPanel(QWidget* parent = nullptr);
 
   void setCreateCameraEffectHandler(CreateCameraEffectHandler handler);
-  void setViewModel(const app::AppViewModel& viewModel);
+  void setViewModel(const app::AppViewModel& viewModel, const agent::AgentConversationState& conversationState);
   void setIntent(std::string intent);
   void triggerCreateCameraEffect();
   [[nodiscard]] std::string contents() const;

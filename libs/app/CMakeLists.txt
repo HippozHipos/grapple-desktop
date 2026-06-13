@@ -18,6 +18,7 @@ target_include_directories(grapple_app
 
 target_link_libraries(grapple_app
   PUBLIC
+    Grapple::Agent
     Grapple::Foundation
     Grapple::Media
     Grapple::Project
