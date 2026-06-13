@@ -7,8 +7,39 @@
 #include <cstdint>
 #include <string>
 #include <utility>
+#include <vector>
 
 namespace grapple::runtime {
+
+namespace {
+
+bool containsDependency(
+  const std::vector<RuntimeDependencyId>& dependencies,
+  RuntimeDependencyId dependencyId
+) {
+  for (const RuntimeDependencyId& dependency : dependencies) {
+    if (dependency == dependencyId) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+const PreparedEffectNode* findPreparedEffect(
+  const PreparedRuntimePlan& prepared,
+  foundation::NodeId sourceNodeId
+) {
+  for (const PreparedEffectNode& effect : prepared.preparedEffects) {
+    if (effect.sourceNodeId == sourceNodeId) {
+      return &effect;
+    }
+  }
+
+  return nullptr;
+}
+
+} // namespace
 
 RuntimeEvaluator::RuntimeEvaluator() = default;
 
@@ -19,7 +50,24 @@ foundation::Result<PrepareRuntimePlanResult> RuntimeEvaluator::prepare(
   const PrepareRuntimePlanRequest& request
 ) const {
   const RuntimeDependencyPlanner planner;
-  RuntimeDependencyGraph graph = planner.build(request.plan);
+  RuntimeDependencyGraph graph;
+  std::vector<RuntimeDependencyId> invalidatedDependencies;
+  const bool canReusePreviousPrepared =
+    request.previousPrepared != nullptr &&
+    request.previousPrepared->diagnostics.empty() &&
+    request.previousPrepared->dependencyGraph.projectId == request.plan.projectId;
+
+  if (canReusePreviousPrepared) {
+    RuntimeInvalidationResult invalidation = planner.diff(RuntimeInvalidationRequest{
+      request.previousPrepared->dependencyGraph,
+      request.plan,
+      "runtime_prepare_v1"
+    });
+    graph = std::move(invalidation.nextGraph);
+    invalidatedDependencies = std::move(invalidation.invalidatedDependencies);
+  } else {
+    graph = planner.build(request.plan);
+  }
 
   PreparedRuntimePlan prepared{
     request.plan.revision,
@@ -54,6 +102,18 @@ foundation::Result<PrepareRuntimePlanResult> RuntimeEvaluator::prepare(
           "No runtime supports effect node " + effectNode.sourceNodeId.value() + "."
         });
         continue;
+      }
+
+      const RuntimeDependencyId dependencyId = runtimeDependencyIdForNode(effectNode.sourceNodeId);
+      if (canReusePreviousPrepared && !containsDependency(invalidatedDependencies, dependencyId)) {
+        const PreparedEffectNode* previousEffect = findPreparedEffect(
+          *request.previousPrepared,
+          effectNode.sourceNodeId
+        );
+        if (previousEffect != nullptr && previousEffect->runtime == selectedRuntime) {
+          prepared.preparedEffects.push_back(*previousEffect);
+          continue;
+        }
       }
 
       auto effectPrepare = selectedRuntime->prepare(EffectPrepareRequest{

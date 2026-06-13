@@ -17,7 +17,7 @@ struct RenderNodeDependency {
 };
 
 RuntimeDependencyId dependencyIdFor(foundation::NodeId nodeId) {
-  return RuntimeDependencyId{"dep_" + nodeId.value()};
+  return runtimeDependencyIdForNode(nodeId);
 }
 
 std::optional<RuntimeDependencyId> findDependencyForNode(
@@ -161,6 +161,10 @@ bool dependencyNodeChanged(
 }
 
 } // namespace
+
+RuntimeDependencyId runtimeDependencyIdForNode(foundation::NodeId nodeId) {
+  return RuntimeDependencyId{"dep_" + nodeId.value()};
+}
 
 RuntimeDependencyGraph RuntimeDependencyPlanner::build(const projection::RenderPlan& plan) const {
   RuntimeDependencyGraph graph{

@@ -262,7 +262,8 @@ foundation::Result<void> LocalRenderCore::loadPlan(const projection::RenderPlan&
   }
 
   auto prepared = runtime_.prepare(runtime::PrepareRuntimePlanRequest{
-    plan
+    plan,
+    prepared_.has_value() ? &prepared_.value() : nullptr
   });
   if (!prepared) {
     return prepared.error();

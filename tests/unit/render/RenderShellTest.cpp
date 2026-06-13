@@ -570,7 +570,8 @@ int main() {
   revisedCameraPlan.revision = foundation::RevisionId{"rev_4"};
   const auto revisedCameraLoad = cameraCore.loadPlan(revisedCameraPlan);
   GRAPPLE_REQUIRE(revisedCameraLoad);
-  GRAPPLE_REQUIRE(cameraRuntime.prepareCount == 2);
+  GRAPPLE_REQUIRE(cameraRuntime.prepareCount == 1);
+  GRAPPLE_REQUIRE(cameraCore.state().revision == foundation::RevisionId{"rev_4"});
   const auto cameraFrame = cameraPreview.renderFrame(render::RenderFrameRequest{
     foundation::TimeSeconds{2.5},
     render::RenderQuality::Draft

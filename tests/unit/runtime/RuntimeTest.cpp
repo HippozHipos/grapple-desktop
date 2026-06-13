@@ -25,6 +25,7 @@ public:
     const grapple::runtime::EffectPrepareRequest& request
   ) override {
     ++prepareCount;
+    preparedNodeIds.push_back(request.node.sourceNodeId);
     return grapple::runtime::EffectPrepareResult{
       grapple::runtime::PreparedEffectNode{
         request.graph.id,
@@ -65,6 +66,7 @@ public:
 
   int prepareCount = 0;
   int processCount = 0;
+  std::vector<grapple::foundation::NodeId> preparedNodeIds;
 };
 
 grapple::projection::RenderPlan makePlan(std::string layerName) {
@@ -722,6 +724,34 @@ int main() {
   GRAPPLE_REQUIRE(supportedEffectSample.value().sample.effectOutputs[0].values.size() == 1);
   GRAPPLE_REQUIRE(std::get<double>(supportedEffectSample.value().sample.effectOutputs[0].values[0].value) == 3.5);
   GRAPPLE_REQUIRE(effectRuntime.processCount == 1);
+
+  TestEffectRuntime reuseRuntime;
+  const runtime::RuntimeEvaluator reuseEvaluator{{&reuseRuntime}};
+  const auto initialReusablePrepare = reuseEvaluator.prepare(runtime::PrepareRuntimePlanRequest{
+    makeEffectChainPlan(0.1)
+  });
+  GRAPPLE_REQUIRE(initialReusablePrepare);
+  GRAPPLE_REQUIRE(reuseRuntime.prepareCount == 3);
+  GRAPPLE_REQUIRE((reuseRuntime.preparedNodeIds == std::vector<foundation::NodeId>{
+    foundation::NodeId{"node_effect_a"},
+    foundation::NodeId{"node_effect_b"},
+    foundation::NodeId{"node_effect_c"}
+  }));
+  const auto changedReusablePrepare = reuseEvaluator.prepare(runtime::PrepareRuntimePlanRequest{
+    makeEffectChainPlan(0.9),
+    &initialReusablePrepare.value().prepared
+  });
+  GRAPPLE_REQUIRE(changedReusablePrepare);
+  GRAPPLE_REQUIRE(changedReusablePrepare.value().diagnostics.empty());
+  GRAPPLE_REQUIRE(changedReusablePrepare.value().prepared.preparedEffects.size() == 3);
+  GRAPPLE_REQUIRE(reuseRuntime.prepareCount == 5);
+  GRAPPLE_REQUIRE((reuseRuntime.preparedNodeIds == std::vector<foundation::NodeId>{
+    foundation::NodeId{"node_effect_a"},
+    foundation::NodeId{"node_effect_b"},
+    foundation::NodeId{"node_effect_c"},
+    foundation::NodeId{"node_effect_a"},
+    foundation::NodeId{"node_effect_b"}
+  }));
 
   runtime::BuiltinEffectRuntime builtinRuntime;
   const runtime::RuntimeEvaluator evaluatorWithBuiltinRuntime{{&builtinRuntime}};

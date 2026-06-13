@@ -21,6 +21,8 @@ struct RuntimeInvalidationResult {
   std::vector<RuntimeCacheKey> invalidatedCacheKeys;
 };
 
+RuntimeDependencyId runtimeDependencyIdForNode(foundation::NodeId nodeId);
+
 class RuntimeDependencyPlanner {
 public:
   RuntimeDependencyGraph build(const projection::RenderPlan& plan) const;

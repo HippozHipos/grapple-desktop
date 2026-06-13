@@ -24,6 +24,7 @@ struct PreparedRuntimePlan {
 
 struct PrepareRuntimePlanRequest {
   projection::RenderPlan plan;
+  const PreparedRuntimePlan* previousPrepared = nullptr;
 };
 
 struct PrepareRuntimePlanResult {
