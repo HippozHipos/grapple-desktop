@@ -154,9 +154,6 @@ std::string serializeCanonicalCommandPayload(const ProjectCommand& command) {
         stream << ",\"order\":" << typedCommand.order;
       } else if constexpr (std::is_same_v<Command, DisconnectPortsCommand>) {
         writeIdProperty(stream, "edgeId", typedCommand.edgeId.value());
-      } else if constexpr (std::is_same_v<Command, UpdateEffectParamsCommand>) {
-        writeIdProperty(stream, "effectNodeId", typedCommand.effectNodeId.value());
-        stream << ",\"params\":" << timeline::serializeCanonicalParamSet(typedCommand.params);
       } else if constexpr (std::is_same_v<Command, UpdateEffectParamValueCommand>) {
         writeIdProperty(stream, "effectNodeId", typedCommand.effectNodeId.value());
         stream << ',';

@@ -30,7 +30,6 @@ enum class CommandKind {
   DeleteEffect,
   ConnectPorts,
   DisconnectPorts,
-  UpdateEffectParams,
   UpdateEffectParamValue,
   UpsertEffectParamKeyframe,
   DeleteEffectParamKeyframe,
@@ -137,11 +136,6 @@ struct DisconnectPortsCommand {
   foundation::EdgeId edgeId;
 };
 
-struct UpdateEffectParamsCommand {
-  foundation::NodeId effectNodeId;
-  timeline::ParamSet params;
-};
-
 struct UpdateEffectParamValueCommand {
   foundation::NodeId effectNodeId;
   std::string paramName;
@@ -190,7 +184,6 @@ using ProjectCommand = std::variant<
   DeleteEffectCommand,
   ConnectPortsCommand,
   DisconnectPortsCommand,
-  UpdateEffectParamsCommand,
   UpdateEffectParamValueCommand,
   UpsertEffectParamKeyframeCommand,
   DeleteEffectParamKeyframeCommand,

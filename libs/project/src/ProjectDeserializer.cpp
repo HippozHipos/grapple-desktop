@@ -1353,21 +1353,6 @@ foundation::Result<ProjectCommand> deserializeCanonicalCommandPayload(
     }
     return ProjectCommand{DisconnectPortsCommand{foundation::EdgeId{edgeId.value()}}};
   }
-  if (serializedName == "project.update_effect_params") {
-    auto effectNodeId = requiredStringMember(root.value(), "effectNodeId", "$");
-    if (!effectNodeId) {
-      return effectNodeId.error();
-    }
-    auto paramsArray = requiredArrayMember(root.value(), "params", "$");
-    if (!paramsArray) {
-      return paramsArray.error();
-    }
-    auto params = parseParamSet(paramsArray.value(), "$.params");
-    if (!params) {
-      return params.error();
-    }
-    return ProjectCommand{UpdateEffectParamsCommand{foundation::NodeId{effectNodeId.value()}, params.value()}};
-  }
   if (serializedName == "project.update_effect_param_value") {
     auto effectNodeId = requiredStringMember(root.value(), "effectNodeId", "$");
     if (!effectNodeId) {

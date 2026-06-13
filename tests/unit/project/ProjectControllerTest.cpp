@@ -68,7 +68,6 @@ int main() {
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::DeleteEffect) == "project.delete_effect");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::ConnectPorts) == "project.connect_ports");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::DisconnectPorts) == "project.disconnect_ports");
-  GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::UpdateEffectParams) == "project.update_effect_params");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::UpdateEffectParamValue) == "project.update_effect_param_value");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::UpsertEffectParamKeyframe) == "project.upsert_effect_param_keyframe");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::DeleteEffectParamKeyframe) == "project.delete_effect_param_keyframe");
@@ -96,7 +95,6 @@ int main() {
     project::serializedCommandName(project::CommandKind::DeleteEffect),
     project::serializedCommandName(project::CommandKind::ConnectPorts),
     project::serializedCommandName(project::CommandKind::DisconnectPorts),
-    project::serializedCommandName(project::CommandKind::UpdateEffectParams),
     project::serializedCommandName(project::CommandKind::UpdateEffectParamValue),
     project::serializedCommandName(project::CommandKind::UpsertEffectParamKeyframe),
     project::serializedCommandName(project::CommandKind::DeleteEffectParamKeyframe),

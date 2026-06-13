@@ -346,27 +346,26 @@ int main() {
     projection::serializeCanonicalRenderPlan(reorderedPlan)
   );
 
-  const project::ProjectCommandEnvelope updateEffectParams{
-    foundation::CommandId{"cmd_update_effect_params"},
+  const project::ProjectCommandEnvelope updateEffectParamValue{
+    foundation::CommandId{"cmd_update_effect_param_value"},
     foundation::ProjectId{"proj_projection"},
     createEffect.value().afterRevision,
     project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
-    project::UpdateEffectParamsCommand{
+    project::UpdateEffectParamValueCommand{
       foundation::NodeId{"node_effect"},
-      timeline::ParamSet{
-        {timeline::Param{"target_x", 0.5}, timeline::Param{"subject_height", 0.8}}
-      }
+      "target_x",
+      0.5
     }
   };
-  GRAPPLE_REQUIRE(project::commandKind(updateEffectParams.payload) == project::CommandKind::UpdateEffectParams);
+  GRAPPLE_REQUIRE(project::commandKind(updateEffectParamValue.payload) == project::CommandKind::UpdateEffectParamValue);
   GRAPPLE_REQUIRE(
-    project::serializeCanonicalCommandPayload(updateEffectParams.payload) ==
-    "{\"effectNodeId\":\"node_effect\",\"params\":[{\"name\":\"subject_height\",\"value\":0.80000000000000004,\"keyframes\":[]},{\"name\":\"target_x\",\"value\":0.5,\"keyframes\":[]}]}"
+    project::serializeCanonicalCommandPayload(updateEffectParamValue.payload) ==
+    "{\"effectNodeId\":\"node_effect\",\"paramName\":\"target_x\",\"value\":0.5}"
   );
 
-  const auto updateEffectParamsResult = controller.apply(updateEffectParams);
-  GRAPPLE_REQUIRE(updateEffectParamsResult);
-  GRAPPLE_REQUIRE(updateEffectParamsResult.value().afterRevision == foundation::RevisionId{"rev_6"});
+  const auto updateEffectParamValueResult = controller.apply(updateEffectParamValue);
+  GRAPPLE_REQUIRE(updateEffectParamValueResult);
+  GRAPPLE_REQUIRE(updateEffectParamValueResult.value().afterRevision == foundation::RevisionId{"rev_6"});
 
   const auto updatedSnapshot = controller.snapshot();
   GRAPPLE_REQUIRE(updatedSnapshot);
@@ -382,9 +381,10 @@ int main() {
   GRAPPLE_REQUIRE(updatedPlan.value().plan.effectGraphs.size() == 1);
   GRAPPLE_REQUIRE(updatedPlan.value().plan.effectGraphs[0].nodes.size() == 1);
   GRAPPLE_REQUIRE(updatedPlan.value().plan.effectGraphs[0].nodes[0].payload.implementation.entrypoint == "prepare");
-  GRAPPLE_REQUIRE(updatedPlan.value().plan.effectGraphs[0].nodes[0].payload.params.values.size() == 2);
+  GRAPPLE_REQUIRE(updatedPlan.value().plan.effectGraphs[0].nodes[0].payload.params.values.size() == 1);
   GRAPPLE_REQUIRE(std::get<double>(updatedPlan.value().plan.effectGraphs[0].nodes[0].payload.params.values[0].value) == 0.5);
-  GRAPPLE_REQUIRE(std::get<double>(updatedPlan.value().plan.effectGraphs[0].nodes[0].payload.params.values[1].value) == 0.8);
+  GRAPPLE_REQUIRE(updatedPlan.value().plan.effectGraphs[0].nodes[0].payload.params.values[0].keyframes.size() == 1);
+  GRAPPLE_REQUIRE(updatedPlan.value().plan.effectGraphs[0].nodes[0].payload.params.values[0].keyframes[0].id == foundation::KeyframeId{"key_target_x_1"});
 
   project::ProjectDocument connectedEffectsDocument = project::createEmptyProject(
     foundation::ProjectId{"proj_connected_effects"},
