@@ -16,6 +16,7 @@ struct NativePackageWriteResult {
   foundation::FilePath manifestPath;
   foundation::FilePath commandLogPath;
   foundation::FilePath eventLogPath;
+  foundation::FilePath schemaMigrationLogPath;
 };
 
 class NativeProjectSession final : public project::IProjectQueryService {

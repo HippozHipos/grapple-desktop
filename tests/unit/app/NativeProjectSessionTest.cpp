@@ -249,6 +249,7 @@ int main() {
   GRAPPLE_REQUIRE(writeCurrentSnapshot.value().manifestPath.value == (appPackageRoot / "manifest.json").lexically_normal().string());
   GRAPPLE_REQUIRE(writeCurrentSnapshot.value().commandLogPath.value == (appPackageRoot / "history/commands.json").lexically_normal().string());
   GRAPPLE_REQUIRE(writeCurrentSnapshot.value().eventLogPath.value == (appPackageRoot / "history/events.json").lexically_normal().string());
+  GRAPPLE_REQUIRE(writeCurrentSnapshot.value().schemaMigrationLogPath.value == (appPackageRoot / "history/schema_migrations.json").lexically_normal().string());
 
   app::NativeProjectSession restoreSession{
     foundation::ProjectId{"proj_app_restore"},
@@ -941,6 +942,7 @@ int main() {
   GRAPPLE_REQUIRE(savedWrite.value().project.manifestPath.value == (packageRoot / "manifest.json").lexically_normal().string());
   GRAPPLE_REQUIRE(savedWrite.value().project.commandLogPath.value == (packageRoot / "history/commands.json").lexically_normal().string());
   GRAPPLE_REQUIRE(savedWrite.value().project.eventLogPath.value == (packageRoot / "history/events.json").lexically_normal().string());
+  GRAPPLE_REQUIRE(savedWrite.value().project.schemaMigrationLogPath.value == (packageRoot / "history/schema_migrations.json").lexically_normal().string());
   GRAPPLE_REQUIRE(savedWrite.value().agentRunsPath.value == (packageRoot / "agent/runs.json").lexically_normal().string());
   GRAPPLE_REQUIRE(savedWrite.value().agentEventsPath.value == (packageRoot / "agent/events.json").lexically_normal().string());
 
@@ -962,6 +964,11 @@ int main() {
   std::ostringstream savedEventLogContents;
   savedEventLogContents << savedEventLogFile.rdbuf();
   GRAPPLE_REQUIRE(savedEventLogContents.str() == history::serializeCanonicalEventLog(savedWorkspace.value().project().packageState().eventLog));
+  std::ifstream savedSchemaMigrationLogFile{savedWrite.value().project.schemaMigrationLogPath.value, std::ios::binary};
+  GRAPPLE_REQUIRE(savedSchemaMigrationLogFile.good());
+  std::ostringstream savedSchemaMigrationLogContents;
+  savedSchemaMigrationLogContents << savedSchemaMigrationLogFile.rdbuf();
+  GRAPPLE_REQUIRE(savedSchemaMigrationLogContents.str() == "[]");
   std::ifstream savedAgentRunsFile{savedWrite.value().agentRunsPath.value, std::ios::binary};
   GRAPPLE_REQUIRE(savedAgentRunsFile.good());
   std::ostringstream savedAgentRunsContents;

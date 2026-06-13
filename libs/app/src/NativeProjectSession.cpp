@@ -427,6 +427,16 @@ foundation::Result<NativePackageWriteResult> NativeProjectSession::writePackage(
     return eventLogPath.error();
   }
 
+  const storage::SchemaMigrationLog schemaMigrationLog;
+  auto schemaMigrationLogPath = writer.writeSchemaMigrationLog(storage::ProjectSchemaMigrationLogWriteRequest{
+    state.package,
+    manifestResult.value().schemaMigrationLogPath,
+    schemaMigrationLog
+  });
+  if (!schemaMigrationLogPath) {
+    return schemaMigrationLogPath.error();
+  }
+
   auto manifestPath = writer.writeManifest(manifestResult.value(), state.package);
   if (!manifestPath) {
     return manifestPath.error();
@@ -436,7 +446,8 @@ foundation::Result<NativePackageWriteResult> NativeProjectSession::writePackage(
     snapshotPath.value(),
     manifestPath.value(),
     commandLogPath.value(),
-    eventLogPath.value()
+    eventLogPath.value(),
+    schemaMigrationLogPath.value()
   };
 }
 

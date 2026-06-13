@@ -181,6 +181,7 @@ int main(int argc, char* argv[]) {
     std::cout << "manifest=" << write.value().manifestPath.value << '\n';
     std::cout << "commands=" << write.value().commandLogPath.value << '\n';
     std::cout << "events=" << write.value().eventLogPath.value << '\n';
+    std::cout << "schema_migrations=" << write.value().schemaMigrationLogPath.value << '\n';
     if (openPackageSmoke) {
       auto opened = app::NativeProjectSession::openPackage(storage::ProjectPackage{
         foundation::ProjectId{"proj_cli"},

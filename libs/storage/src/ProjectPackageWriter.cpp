@@ -136,4 +136,19 @@ foundation::Result<foundation::FilePath> ProjectPackageWriter::writeEventLog(
   );
 }
 
+foundation::Result<foundation::FilePath> ProjectPackageWriter::writeSchemaMigrationLog(
+  const ProjectSchemaMigrationLogWriteRequest& request
+) const {
+  return writePackageTextFile(
+    request.package,
+    request.schemaMigrationLogPath,
+    serializeCanonicalSchemaMigrationLog(request.schemaMigrationLog),
+    "storage.schema_migration_log_path_empty",
+    "storage.schema_migration_log_path_absolute",
+    "storage.schema_migration_log_directory_create_failed",
+    "storage.schema_migration_log_open_failed",
+    "storage.schema_migration_log_write_failed"
+  );
+}
+
 } // namespace grapple::storage

@@ -30,6 +30,7 @@ struct ProjectPackageManifest {
   int schemaVersion = 1;
   foundation::FilePath commandLogPath;
   foundation::FilePath eventLogPath;
+  foundation::FilePath schemaMigrationLogPath;
   std::optional<ProjectPackageHeadManifest> head;
   std::optional<ProjectPackageSnapshotManifest> latestSnapshot;
 };

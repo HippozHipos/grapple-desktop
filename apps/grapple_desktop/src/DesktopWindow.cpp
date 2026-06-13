@@ -1118,11 +1118,12 @@ public:
       appendError(write.error());
       return;
     }
-    log_->append(QString{"Package saved\n%1\n%2\n%3\n%4\n%5\n%6"}
+    log_->append(QString{"Package saved\n%1\n%2\n%3\n%4\n%5\n%6\n%7"}
       .arg(qString(write.value().project.snapshotPath.value))
       .arg(qString(write.value().project.manifestPath.value))
       .arg(qString(write.value().project.commandLogPath.value))
       .arg(qString(write.value().project.eventLogPath.value))
+      .arg(qString(write.value().project.schemaMigrationLogPath.value))
       .arg(qString(write.value().agentRunsPath.value))
       .arg(qString(write.value().agentEventsPath.value)));
   }

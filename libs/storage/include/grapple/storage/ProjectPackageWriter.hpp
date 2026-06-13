@@ -8,6 +8,7 @@
 #include <grapple/storage/ProjectCommitBuilder.hpp>
 #include <grapple/storage/ProjectPackage.hpp>
 #include <grapple/storage/ProjectPackageManifest.hpp>
+#include <grapple/storage/SchemaMigration.hpp>
 
 namespace grapple::storage {
 
@@ -29,12 +30,19 @@ struct ProjectEventLogWriteRequest {
   history::EventLogStore eventLog;
 };
 
+struct ProjectSchemaMigrationLogWriteRequest {
+  ProjectPackage package;
+  foundation::FilePath schemaMigrationLogPath;
+  SchemaMigrationLog schemaMigrationLog;
+};
+
 class ProjectPackageWriter {
 public:
   foundation::Result<foundation::FilePath> writeManifest(const ProjectPackageManifest& manifest, const ProjectPackage& package) const;
   foundation::Result<foundation::FilePath> writeSnapshot(const ProjectSnapshotWriteRequest& request) const;
   foundation::Result<foundation::FilePath> writeCommandLog(const ProjectCommandLogWriteRequest& request) const;
   foundation::Result<foundation::FilePath> writeEventLog(const ProjectEventLogWriteRequest& request) const;
+  foundation::Result<foundation::FilePath> writeSchemaMigrationLog(const ProjectSchemaMigrationLogWriteRequest& request) const;
 };
 
 } // namespace grapple::storage

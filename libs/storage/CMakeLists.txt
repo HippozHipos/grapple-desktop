@@ -8,6 +8,7 @@ add_library(grapple_storage
   src/ProjectPackageSession.cpp
   src/ProjectPackageStore.cpp
   src/ProjectPackageWriter.cpp
+  src/SchemaMigration.cpp
 )
 
 add_library(Grapple::Storage ALIAS grapple_storage)

@@ -9,6 +9,7 @@
 #include <grapple/storage/ProjectPackageSession.hpp>
 #include <grapple/storage/ProjectPackageStore.hpp>
 #include <grapple/storage/ProjectPackageWriter.hpp>
+#include <grapple/storage/SchemaMigration.hpp>
 
 #include <TestAssert.hpp>
 
@@ -132,6 +133,7 @@ int main() {
   GRAPPLE_REQUIRE(manifest);
   GRAPPLE_REQUIRE(manifest.value().projectId == foundation::ProjectId{"proj_storage"});
   GRAPPLE_REQUIRE(manifest.value().schemaVersion == 1);
+  GRAPPLE_REQUIRE(manifest.value().schemaMigrationLogPath == foundation::FilePath{"history/schema_migrations.json"});
   GRAPPLE_REQUIRE(manifest.value().head.has_value());
   GRAPPLE_REQUIRE(manifest.value().head->revision == foundation::RevisionId{"rev_1"});
   GRAPPLE_REQUIRE(manifest.value().head->lastCommandId == foundation::CommandId{"cmd_1"});
@@ -143,7 +145,7 @@ int main() {
   GRAPPLE_REQUIRE(manifest.value().latestSnapshot->documentPath == foundation::FilePath{"snapshots/rev_1.json"});
   GRAPPLE_REQUIRE(manifest.value().latestSnapshot->label == std::optional<std::string>{"first"});
   GRAPPLE_REQUIRE(storage::serializeCanonicalProjectPackageManifest(manifest.value()) ==
-    "{\"schemaVersion\":1,\"projectId\":\"proj_storage\",\"commandLogPath\":\"history/commands.json\",\"eventLogPath\":\"history/events.json\",\"head\":{\"revision\":\"rev_1\",\"lastCommandId\":\"cmd_1\",\"lastSnapshotId\":\"snap_1\"},\"latestSnapshot\":{\"id\":\"snap_1\",\"revision\":\"rev_1\",\"canonicalHash\":\"" +
+    "{\"schemaVersion\":1,\"projectId\":\"proj_storage\",\"commandLogPath\":\"history/commands.json\",\"eventLogPath\":\"history/events.json\",\"schemaMigrationLogPath\":\"history/schema_migrations.json\",\"head\":{\"revision\":\"rev_1\",\"lastCommandId\":\"cmd_1\",\"lastSnapshotId\":\"snap_1\"},\"latestSnapshot\":{\"id\":\"snap_1\",\"revision\":\"rev_1\",\"canonicalHash\":\"" +
     committedSnapshot.value().canonicalHash.toHex() +
     "\",\"documentPath\":\"snapshots/rev_1.json\",\"label\":\"first\"}}");
 
@@ -155,7 +157,7 @@ int main() {
   const auto emptyManifest = storage::buildProjectPackageManifest(emptyStore.state());
   GRAPPLE_REQUIRE(emptyManifest);
   GRAPPLE_REQUIRE(storage::serializeCanonicalProjectPackageManifest(emptyManifest.value()) ==
-    "{\"schemaVersion\":1,\"projectId\":\"proj_storage\",\"commandLogPath\":\"history/commands.json\",\"eventLogPath\":\"history/events.json\",\"head\":null,\"latestSnapshot\":null}");
+    "{\"schemaVersion\":1,\"projectId\":\"proj_storage\",\"commandLogPath\":\"history/commands.json\",\"eventLogPath\":\"history/events.json\",\"schemaMigrationLogPath\":\"history/schema_migrations.json\",\"head\":null,\"latestSnapshot\":null}");
 
   const std::filesystem::path packageRoot =
     std::filesystem::temp_directory_path() /
@@ -218,6 +220,19 @@ int main() {
   std::ostringstream eventLogContents;
   eventLogContents << eventLogFile.rdbuf();
   GRAPPLE_REQUIRE(eventLogContents.str() == history::serializeCanonicalEventLog(store.state().eventLog));
+  const storage::SchemaMigrationLog emptyDiskMigrationLog;
+  const auto writtenSchemaMigrationLogPath = packageWriter.writeSchemaMigrationLog(storage::ProjectSchemaMigrationLogWriteRequest{
+    diskPackage,
+    manifest.value().schemaMigrationLogPath,
+    emptyDiskMigrationLog
+  });
+  GRAPPLE_REQUIRE(writtenSchemaMigrationLogPath);
+  GRAPPLE_REQUIRE(writtenSchemaMigrationLogPath.value().value == (packageRoot / "history/schema_migrations.json").lexically_normal().string());
+  std::ifstream schemaMigrationLogFile{writtenSchemaMigrationLogPath.value().value, std::ios::binary};
+  GRAPPLE_REQUIRE(schemaMigrationLogFile.good());
+  std::ostringstream schemaMigrationLogContents;
+  schemaMigrationLogContents << schemaMigrationLogFile.rdbuf();
+  GRAPPLE_REQUIRE(schemaMigrationLogContents.str() == "[]");
   const storage::ProjectPackageReader packageReader;
   const auto readPackage = packageReader.readPackage(foundation::FilePath{packageRoot.string()});
   GRAPPLE_REQUIRE(readPackage);
@@ -401,6 +416,46 @@ int main() {
   const auto missingHeadSnapshotManifest = storage::buildProjectPackageManifest(missingHeadSnapshotState);
   GRAPPLE_REQUIRE(!missingHeadSnapshotManifest);
   GRAPPLE_REQUIRE(missingHeadSnapshotManifest.error().code == "storage.package_head_snapshot_missing");
+
+  storage::SchemaMigrationLog migrationLog;
+  const auto migrationAppliedAt = std::chrono::system_clock::time_point{std::chrono::milliseconds{123456}};
+  const auto appendedMigration = migrationLog.append(storage::SchemaMigrationRecord{
+    "storage.add_schema_migration_log",
+    1,
+    2,
+    migrationAppliedAt
+  });
+  GRAPPLE_REQUIRE(appendedMigration);
+  GRAPPLE_REQUIRE(migrationLog.records().size() == 1);
+  GRAPPLE_REQUIRE(migrationLog.records()[0].operationName == "storage.add_schema_migration_log");
+  GRAPPLE_REQUIRE(migrationLog.records()[0].fromSchemaVersion == 1);
+  GRAPPLE_REQUIRE(migrationLog.records()[0].toSchemaVersion == 2);
+  const std::string serializedMigrationLog = storage::serializeCanonicalSchemaMigrationLog(migrationLog);
+  GRAPPLE_REQUIRE(serializedMigrationLog == "[{\"operationName\":\"storage.add_schema_migration_log\",\"fromSchemaVersion\":1,\"toSchemaVersion\":2,\"appliedAtMs\":123456}]");
+  const auto parsedMigrationLog = storage::deserializeCanonicalSchemaMigrationLog(serializedMigrationLog);
+  GRAPPLE_REQUIRE(parsedMigrationLog);
+  GRAPPLE_REQUIRE(storage::serializeCanonicalSchemaMigrationLog(parsedMigrationLog.value()) == serializedMigrationLog);
+
+  storage::SchemaMigrationLog invalidMigrationLog;
+  const auto unnamedMigration = invalidMigrationLog.append(storage::SchemaMigrationRecord{
+    "",
+    1,
+    2,
+    migrationAppliedAt
+  });
+  GRAPPLE_REQUIRE(!unnamedMigration);
+  GRAPPLE_REQUIRE(unnamedMigration.error().code == "storage.schema_migration_operation_empty");
+  const auto unchangedMigration = invalidMigrationLog.append(storage::SchemaMigrationRecord{
+    "storage.no_change",
+    2,
+    2,
+    migrationAppliedAt
+  });
+  GRAPPLE_REQUIRE(!unchangedMigration);
+  GRAPPLE_REQUIRE(unchangedMigration.error().code == "storage.schema_migration_version_unchanged");
+  const auto invalidParsedMigrationLog = storage::deserializeCanonicalSchemaMigrationLog(R"([{"operationName":"","fromSchemaVersion":1,"toSchemaVersion":2,"appliedAtMs":123456}])");
+  GRAPPLE_REQUIRE(!invalidParsedMigrationLog);
+  GRAPPLE_REQUIRE(invalidParsedMigrationLog.error().code == "storage.schema_migration_json_invalid");
 
   storage::ProjectPackageSession session{
     project::createEmptyProject(foundation::ProjectId{"proj_session"}, "Session Project"),

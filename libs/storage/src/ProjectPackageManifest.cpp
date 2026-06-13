@@ -211,6 +211,7 @@ foundation::Result<ProjectPackageManifest> buildProjectPackageManifest(const Pro
   manifest.schemaVersion = state.package.schemaVersion;
   manifest.commandLogPath = foundation::FilePath{"history/commands.json"};
   manifest.eventLogPath = foundation::FilePath{"history/events.json"};
+  manifest.schemaMigrationLogPath = foundation::FilePath{"history/schema_migrations.json"};
 
   if (!state.head.has_value()) {
     return manifest;
@@ -251,6 +252,8 @@ std::string serializeCanonicalProjectPackageManifest(const ProjectPackageManifes
   foundation::writeJsonStringProperty(stream, "commandLogPath", manifest.commandLogPath.value);
   stream << ',';
   foundation::writeJsonStringProperty(stream, "eventLogPath", manifest.eventLogPath.value);
+  stream << ',';
+  foundation::writeJsonStringProperty(stream, "schemaMigrationLogPath", manifest.schemaMigrationLogPath.value);
   stream << ",\"head\":";
   if (manifest.head.has_value()) {
     stream << '{';
@@ -322,8 +325,13 @@ foundation::Result<ProjectPackageManifest> deserializeCanonicalProjectPackageMan
   if (!eventLogPath) {
     return eventLogPath.error();
   }
+  auto schemaMigrationLogPath = requiredStringMember(root.value(), "schemaMigrationLogPath", "$");
+  if (!schemaMigrationLogPath) {
+    return schemaMigrationLogPath.error();
+  }
   manifest.commandLogPath = foundation::FilePath{commandLogPath.value()};
   manifest.eventLogPath = foundation::FilePath{eventLogPath.value()};
+  manifest.schemaMigrationLogPath = foundation::FilePath{schemaMigrationLogPath.value()};
 
   if (!headValue.value().isNull()) {
     if (!headValue.value().isObject()) {
