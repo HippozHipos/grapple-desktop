@@ -41,12 +41,15 @@ std::string mediaTypeName(asset::AssetMediaType mediaType) {
   std::abort();
 }
 
-std::string assetNameFor(
+foundation::Result<std::string> assetNameFor(
   const asset::AssetCatalog& assets,
   const foundation::AssetId& assetId
 ) {
   const asset::Asset* asset = assets.find(assetId);
-  return asset == nullptr ? assetId.value() : asset->name;
+  if (asset == nullptr) {
+    return foundation::Error{"app.clip_asset_missing", "Clip asset must exist in the project asset catalog."};
+  }
+  return asset->name;
 }
 
 std::string implementationKindName(timeline::EffectImplementationKind kind) {
@@ -281,11 +284,15 @@ foundation::Result<AppViewModel> NativeProjectSession::buildViewModel() const {
   }
 
   for (const projection::RenderClip& clip : plan.clips) {
+    auto assetName = assetNameFor(snapshot.assets, clip.payload.assetId);
+    if (!assetName) {
+      return assetName.error();
+    }
     viewModel.timeline.clips.push_back(AppClipRow{
       clip.sourceNodeId,
       clip.trackNodeId,
       clip.payload.assetId,
-      assetNameFor(snapshot.assets, clip.payload.assetId),
+      assetName.value(),
       clip.payload.timelineRange,
       clip.payload.transform
     });

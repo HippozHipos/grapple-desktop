@@ -282,6 +282,9 @@ foundation::Result<void> ProjectController::handleCreateClip(const CreateClipCom
   if (track == nullptr || track->kind != graph::NodeKind::Track) {
     return foundation::Error{"project.track_missing", "Clip must be created inside an existing track."};
   }
+  if (document_.assets.find(command.payload.assetId) == nullptr) {
+    return foundation::Error{"project.clip_asset_missing", "Clip asset must be registered before it can be placed on the timeline."};
+  }
 
   auto nodeResult = document_.graph.addNode(graph::GraphNode{
     command.nodeId,
@@ -309,6 +312,9 @@ foundation::Result<void> ProjectController::handleUpdateClip(const UpdateClipCom
   const graph::GraphNode* clip = document_.graph.findNode(command.nodeId);
   if (clip == nullptr || clip->kind != graph::NodeKind::Clip) {
     return foundation::Error{"project.clip_missing", "Clip updates require an existing clip node."};
+  }
+  if (document_.assets.find(command.payload.assetId) == nullptr) {
+    return foundation::Error{"project.clip_asset_missing", "Clip asset must be registered before a clip can reference it."};
   }
 
   return document_.graph.replaceNodePayload(command.nodeId, command.payload);

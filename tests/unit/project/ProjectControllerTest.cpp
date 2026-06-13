@@ -8,6 +8,8 @@
 #include <TestAssert.hpp>
 
 #include <algorithm>
+#include <optional>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -31,6 +33,24 @@ grapple::project::ProjectCommandEnvelope makeCreateComposition(
 bool allUnique(std::vector<std::string_view> values) {
   std::sort(values.begin(), values.end());
   return std::adjacent_find(values.begin(), values.end()) == values.end();
+}
+
+grapple::asset::Asset makeVideoAsset(
+  grapple::foundation::AssetId assetId,
+  std::string name
+) {
+  return grapple::asset::Asset{
+    std::move(assetId),
+    std::move(name),
+    grapple::asset::AssetMetadata{
+      grapple::asset::AssetMediaType::Video,
+      grapple::foundation::FilePath{"/media/test.mp4"},
+      std::nullopt,
+      grapple::foundation::TimeSeconds{10.0},
+      grapple::foundation::Resolution{1920, 1080},
+      grapple::foundation::FrameRate{30, 1}
+    }
+  };
 }
 
 } // namespace
@@ -398,6 +418,35 @@ int main() {
     }
   });
   GRAPPLE_REQUIRE(clipTrack);
+  const auto createClipWithMissingAsset = clipProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_create_clip_missing_asset"},
+    foundation::ProjectId{"proj_clip"},
+    clipTrack.value().afterRevision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::CreateClipCommand{
+      foundation::NodeId{"node_clip_missing_asset"},
+      foundation::NodeId{"node_clip_track"},
+      foundation::EdgeId{"edge_clip_contains_missing_asset_clip"},
+      timeline::ClipPayload{
+        timeline::ClipKind::Video,
+        foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{5.0}},
+        foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{5.0}},
+        1.0,
+        foundation::AssetId{"asset_missing_clip"},
+        timeline::Transform{}
+      }
+    }
+  });
+  GRAPPLE_REQUIRE(!createClipWithMissingAsset);
+  GRAPPLE_REQUIRE(createClipWithMissingAsset.error().code == "project.clip_asset_missing");
+  const auto registerClipAsset = clipProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_register_clip_asset"},
+    foundation::ProjectId{"proj_clip"},
+    clipTrack.value().afterRevision,
+    project::CommandSource{project::CommandSourceKind::Importer, std::nullopt, "test"},
+    project::RegisterAssetCommand{makeVideoAsset(foundation::AssetId{"asset_clip"}, "Clip")}
+  });
+  GRAPPLE_REQUIRE(registerClipAsset);
   const timeline::ClipPayload initialClipPayload{
     timeline::ClipKind::Video,
     foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{5.0}},
@@ -409,7 +458,7 @@ int main() {
   const auto createClip = clipProject.apply(project::ProjectCommandEnvelope{
     foundation::CommandId{"cmd_create_clip"},
     foundation::ProjectId{"proj_clip"},
-    clipTrack.value().afterRevision,
+    registerClipAsset.value().afterRevision,
     project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
     project::CreateClipCommand{
       foundation::NodeId{"node_clip"},
@@ -445,9 +494,28 @@ int main() {
   GRAPPLE_REQUIRE(project::commandKind(updateClip.payload) == project::CommandKind::UpdateClip);
   GRAPPLE_REQUIRE(project::serializeCanonicalCommandPayload(updateClip.payload).find("\"nodeId\":\"node_clip\"") != std::string::npos);
   GRAPPLE_REQUIRE(project::serializeCanonicalCommandPayload(updateClip.payload).find("\"end\":12") != std::string::npos);
+  const auto updateClipMissingAsset = clipProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_update_clip_missing_asset"},
+    foundation::ProjectId{"proj_clip"},
+    createClip.value().afterRevision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::UpdateClipCommand{
+      foundation::NodeId{"node_clip"},
+      timeline::ClipPayload{
+        timeline::ClipKind::Video,
+        foundation::TimeRange{foundation::TimeSeconds{2.0}, foundation::TimeSeconds{12.0}},
+        foundation::TimeRange{foundation::TimeSeconds{1.0}, foundation::TimeSeconds{11.0}},
+        0.5,
+        foundation::AssetId{"asset_missing_updated_clip"},
+        timeline::Transform{}
+      }
+    }
+  });
+  GRAPPLE_REQUIRE(!updateClipMissingAsset);
+  GRAPPLE_REQUIRE(updateClipMissingAsset.error().code == "project.clip_asset_missing");
   const auto updateClipResult = clipProject.apply(updateClip);
   GRAPPLE_REQUIRE(updateClipResult);
-  GRAPPLE_REQUIRE(updateClipResult.value().afterRevision == foundation::RevisionId{"rev_4"});
+  GRAPPLE_REQUIRE(updateClipResult.value().afterRevision == foundation::RevisionId{"rev_5"});
   const auto afterClipUpdate = clipProject.snapshot();
   GRAPPLE_REQUIRE(afterClipUpdate);
   const graph::GraphNode* updatedClipNode = afterClipUpdate.value().graph.findNode(foundation::NodeId{"node_clip"});
@@ -490,7 +558,7 @@ int main() {
   GRAPPLE_REQUIRE(project::serializeCanonicalCommandPayload(deleteClip.payload) == "{\"nodeId\":\"node_clip\"}");
   const auto deleteClipResult = clipProject.apply(deleteClip);
   GRAPPLE_REQUIRE(deleteClipResult);
-  GRAPPLE_REQUIRE(deleteClipResult.value().afterRevision == foundation::RevisionId{"rev_5"});
+  GRAPPLE_REQUIRE(deleteClipResult.value().afterRevision == foundation::RevisionId{"rev_6"});
   const auto afterClipDelete = clipProject.snapshot();
   GRAPPLE_REQUIRE(afterClipDelete);
   GRAPPLE_REQUIRE(!afterClipDelete.value().graph.hasNode(foundation::NodeId{"node_clip"}));
@@ -549,10 +617,18 @@ int main() {
     }
   });
   GRAPPLE_REQUIRE(moveClipTrack);
+  const auto registerMoveClipAsset = moveClipProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_register_move_clip_asset"},
+    foundation::ProjectId{"proj_move_clip"},
+    moveClipTrack.value().afterRevision,
+    project::CommandSource{project::CommandSourceKind::Importer, std::nullopt, "test"},
+    project::RegisterAssetCommand{makeVideoAsset(foundation::AssetId{"asset_move_clip"}, "Move Clip")}
+  });
+  GRAPPLE_REQUIRE(registerMoveClipAsset);
   const auto moveClipCreate = moveClipProject.apply(project::ProjectCommandEnvelope{
     foundation::CommandId{"cmd_move_clip_create"},
     foundation::ProjectId{"proj_move_clip"},
-    moveClipTrack.value().afterRevision,
+    registerMoveClipAsset.value().afterRevision,
     project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
     project::CreateClipCommand{
       foundation::NodeId{"node_move_clip"},
@@ -585,7 +661,7 @@ int main() {
   GRAPPLE_REQUIRE(project::serializeCanonicalCommandPayload(moveClip.payload) == "{\"nodeId\":\"node_move_clip\",\"newStart\":4}");
   const auto moveClipResult = moveClipProject.apply(moveClip);
   GRAPPLE_REQUIRE(moveClipResult);
-  GRAPPLE_REQUIRE(moveClipResult.value().afterRevision == foundation::RevisionId{"rev_4"});
+  GRAPPLE_REQUIRE(moveClipResult.value().afterRevision == foundation::RevisionId{"rev_5"});
   const auto afterMoveClip = moveClipProject.snapshot();
   GRAPPLE_REQUIRE(afterMoveClip);
   const graph::GraphNode* movedClipNode = afterMoveClip.value().graph.findNode(foundation::NodeId{"node_move_clip"});
@@ -615,7 +691,7 @@ int main() {
   GRAPPLE_REQUIRE(project::serializeCanonicalCommandPayload(trimClip.payload) == "{\"nodeId\":\"node_move_clip\",\"timelineRange\":{\"start\":5,\"end\":8},\"sourceRange\":{\"start\":4,\"end\":7}}");
   const auto trimClipResult = moveClipProject.apply(trimClip);
   GRAPPLE_REQUIRE(trimClipResult);
-  GRAPPLE_REQUIRE(trimClipResult.value().afterRevision == foundation::RevisionId{"rev_5"});
+  GRAPPLE_REQUIRE(trimClipResult.value().afterRevision == foundation::RevisionId{"rev_6"});
   const auto afterTrimClip = moveClipProject.snapshot();
   GRAPPLE_REQUIRE(afterTrimClip);
   const graph::GraphNode* trimmedClipNode = afterTrimClip.value().graph.findNode(foundation::NodeId{"node_move_clip"});
