@@ -30,6 +30,16 @@ constexpr const char AssetListSchema[] = R"json({
   "properties": {}
 })json";
 
+constexpr const char TimelineCreateTrackSchema[] = R"json({
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["compositionNodeId", "name"],
+  "properties": {
+    "compositionNodeId": {"type": "string"},
+    "name": {"type": "string"}
+  }
+})json";
+
 constexpr const char EffectCreateNodeSchema[] = R"json({
   "type": "object",
   "additionalProperties": false,
@@ -426,6 +436,72 @@ AgentTool makeAssetListTool() {
         call.toolId,
         ToolResultStatus::Succeeded,
         snapshot.value().revision,
+        payload.str(),
+        {}
+      };
+    }
+  };
+}
+
+AgentTool makeTimelineCreateTrackTool() {
+  return AgentTool{
+    foundation::ToolId{"tool_timeline_create_track"},
+    "timeline.create_track",
+    "Create Timeline Track",
+    "Creates a timeline track in an explicit composition through Project Core.",
+    TimelineCreateTrackSchema,
+    [](const ToolCall& call, AgentToolContext& context) -> foundation::Result<ToolResult> {
+      auto arguments = parseArguments(call.arguments);
+      if (!arguments) {
+        return arguments.error();
+      }
+      auto compositionNodeId = requiredStringMember(arguments.value(), "compositionNodeId", "$");
+      if (!compositionNodeId) {
+        return compositionNodeId.error();
+      }
+      auto name = requiredStringMember(arguments.value(), "name", "$");
+      if (!name) {
+        return name.error();
+      }
+
+      auto snapshot = readProjectSnapshot(context, "Create track");
+      if (!snapshot) {
+        return snapshot.error();
+      }
+
+      const std::int64_t nextRevisionNumber = snapshot.value().revisionNumber + 1;
+      const foundation::CommandId commandId{"cmd_agent_create_track_rev_" + std::to_string(nextRevisionNumber)};
+      const foundation::NodeId trackNodeId{"node_agent_track_rev_" + std::to_string(nextRevisionNumber)};
+      const foundation::EdgeId containmentEdgeId{"edge_agent_track_contains_rev_" + std::to_string(nextRevisionNumber)};
+      auto command = context.commands.apply(project::ProjectCommandEnvelope{
+        commandId,
+        call.projectId,
+        call.expectedRevision,
+        project::CommandSource{project::CommandSourceKind::Agent, call.runId, "agent"},
+        project::CreateTrackCommand{
+          trackNodeId,
+          foundation::NodeId{compositionNodeId.value()},
+          containmentEdgeId,
+          name.value(),
+          0
+        }
+      });
+      if (!command) {
+        return command.error();
+      }
+
+      std::ostringstream payload;
+      payload << '{'
+              << "\"commandId\":" << foundation::jsonQuoted(commandId.value())
+              << ",\"trackNodeId\":" << foundation::jsonQuoted(trackNodeId.value())
+              << ",\"containmentEdgeId\":" << foundation::jsonQuoted(containmentEdgeId.value())
+              << ",\"compositionNodeId\":" << foundation::jsonQuoted(compositionNodeId.value())
+              << ",\"revision\":" << foundation::jsonQuoted(command.value().afterRevision.value())
+              << '}';
+      return ToolResult{
+        call.toolId,
+        ToolResultStatus::Succeeded,
+        command.value().afterRevision,
         payload.str(),
         {}
       };

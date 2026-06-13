@@ -41,15 +41,18 @@ int main() {
   GRAPPLE_REQUIRE(registered);
   const auto registeredAssetList = registry.registerTool(agent::makeAssetListTool());
   GRAPPLE_REQUIRE(registeredAssetList);
+  const auto registeredCreateTrack = registry.registerTool(agent::makeTimelineCreateTrackTool());
+  GRAPPLE_REQUIRE(registeredCreateTrack);
   const auto registeredCreateEffect = registry.registerTool(agent::makeEffectCreateNodeTool());
   GRAPPLE_REQUIRE(registeredCreateEffect);
   const auto registeredCreateNote = registry.registerTool(agent::makeNoteCreateTool());
   GRAPPLE_REQUIRE(registeredCreateNote);
   const auto registeredUpdateNote = registry.registerTool(agent::makeNoteUpdateTool());
   GRAPPLE_REQUIRE(registeredUpdateNote);
-  GRAPPLE_REQUIRE(registry.tools().size() == 5);
+  GRAPPLE_REQUIRE(registry.tools().size() == 6);
   GRAPPLE_REQUIRE(registry.findBySerializedId("project.inspect") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("asset.list") != nullptr);
+  GRAPPLE_REQUIRE(registry.findBySerializedId("timeline.create_track") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("effect.create_node") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("project.create_effect") == nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("note.create") != nullptr);
@@ -58,6 +61,10 @@ int main() {
   GRAPPLE_REQUIRE(registeredAssetListTool != nullptr);
   GRAPPLE_REQUIRE(registeredAssetListTool->schema.find("\"additionalProperties\": false") != std::string::npos);
   GRAPPLE_REQUIRE(registeredAssetListTool->schema.find("\"commandId\"") == std::string::npos);
+  const agent::AgentTool* registeredCreateTrackTool = registry.findBySerializedId("timeline.create_track");
+  GRAPPLE_REQUIRE(registeredCreateTrackTool != nullptr);
+  GRAPPLE_REQUIRE(registeredCreateTrackTool->schema.find("\"compositionNodeId\"") != std::string::npos);
+  GRAPPLE_REQUIRE(registeredCreateTrackTool->schema.find("\"commandId\"") == std::string::npos);
   const agent::AgentTool* registeredCreateEffectTool = registry.findBySerializedId("effect.create_node");
   GRAPPLE_REQUIRE(registeredCreateEffectTool != nullptr);
   GRAPPLE_REQUIRE(registeredCreateEffectTool->schema.find("\"targetNodeId\"") != std::string::npos);
@@ -369,6 +376,46 @@ int main() {
     listAssetsResult.value().payload ==
     "{\"revision\":\"rev_6\",\"assets\":[{\"assetId\":\"asset_video\",\"name\":\"Walking Woman\",\"mediaType\":\"video\",\"sourcePath\":\"/media/walking-woman.mov\",\"thumbnailPath\":\"/media/thumbs/walking-woman.jpg\",\"duration\":10,\"dimensions\":{\"width\":1080,\"height\":1920},\"frameRate\":{\"numerator\":30000,\"denominator\":1001}}]}"
   );
+
+  const agent::AgentTool* createTrack = registry.findBySerializedId("timeline.create_track");
+  GRAPPLE_REQUIRE(createTrack != nullptr);
+  const auto createTrackResult = createTrack->handler(
+    agent::ToolCall{
+      foundation::ToolId{"tool_timeline_create_track"},
+      foundation::RunId{"run_1"},
+      foundation::ProjectId{"proj_agent"},
+      registerAsset.value().afterRevision,
+      R"({
+        "compositionNodeId": "node_composition",
+        "name": "Agent Track"
+      })"
+    },
+    context
+  );
+  GRAPPLE_REQUIRE(createTrackResult);
+  GRAPPLE_REQUIRE(createTrackResult.value().status == agent::ToolResultStatus::Succeeded);
+  GRAPPLE_REQUIRE(createTrackResult.value().observedRevision == foundation::RevisionId{"rev_7"});
+  GRAPPLE_REQUIRE(createTrackResult.value().payload == "{\"commandId\":\"cmd_agent_create_track_rev_7\",\"trackNodeId\":\"node_agent_track_rev_7\",\"containmentEdgeId\":\"edge_agent_track_contains_rev_7\",\"compositionNodeId\":\"node_composition\",\"revision\":\"rev_7\"}");
+
+  const auto afterTrackSnapshot = project.snapshot();
+  GRAPPLE_REQUIRE(afterTrackSnapshot);
+  const graph::GraphNode* trackNode = afterTrackSnapshot.value().graph.findNode(foundation::NodeId{"node_agent_track_rev_7"});
+  GRAPPLE_REQUIRE(trackNode != nullptr);
+  GRAPPLE_REQUIRE(trackNode->kind == graph::NodeKind::Track);
+  const auto* trackPayload = std::get_if<timeline::TrackPayload>(&trackNode->payload);
+  GRAPPLE_REQUIRE(trackPayload != nullptr);
+  GRAPPLE_REQUIRE(trackPayload->name == "Agent Track");
+  const graph::GraphEdge* trackEdge = nullptr;
+  for (const graph::GraphEdge& edge : afterTrackSnapshot.value().graph.edges()) {
+    if (edge.id == foundation::EdgeId{"edge_agent_track_contains_rev_7"}) {
+      trackEdge = &edge;
+      break;
+    }
+  }
+  GRAPPLE_REQUIRE(trackEdge != nullptr);
+  GRAPPLE_REQUIRE(trackEdge->kind == graph::EdgeKind::Contains);
+  GRAPPLE_REQUIRE(trackEdge->sourceNodeId == foundation::NodeId{"node_composition"});
+  GRAPPLE_REQUIRE(trackEdge->targetNodeId == foundation::NodeId{"node_agent_track_rev_7"});
 
   return 0;
 }
