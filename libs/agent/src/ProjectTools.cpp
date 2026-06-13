@@ -12,6 +12,7 @@
 #include <optional>
 #include <sstream>
 #include <string>
+#include <string_view>
 
 namespace grapple::agent {
 
@@ -23,7 +24,7 @@ constexpr const char ProjectInspectSchema[] = R"json({
   "properties": {}
 })json";
 
-constexpr const char ProjectCreateEffectSchema[] = R"json({
+constexpr const char EffectCreateNodeSchema[] = R"json({
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -81,6 +82,27 @@ constexpr const char ProjectCreateEffectSchema[] = R"json({
         }
       }
     }
+  }
+})json";
+
+constexpr const char NoteCreateSchema[] = R"json({
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["title", "markdown"],
+  "properties": {
+    "title": {"type": "string"},
+    "markdown": {"type": "string"}
+  }
+})json";
+
+constexpr const char NoteUpdateSchema[] = R"json({
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["nodeId", "title", "markdown"],
+  "properties": {
+    "nodeId": {"type": "string"},
+    "title": {"type": "string"},
+    "markdown": {"type": "string"}
   }
 })json";
 
@@ -273,6 +295,24 @@ foundation::Result<timeline::EffectPortSet> parsePortSet(const Json::Value& obje
   return timeline::EffectPortSet{parsedInputs.value(), parsedOutputs.value()};
 }
 
+foundation::Result<project::ProjectSnapshot> readProjectSnapshot(
+  AgentToolContext& context,
+  std::string_view operation
+) {
+  auto query = context.queries.query(project::GetProjectSnapshotQuery{});
+  if (!query) {
+    return query.error();
+  }
+  const auto* snapshotResult = std::get_if<project::ProjectSnapshotResult>(&query.value());
+  if (snapshotResult == nullptr) {
+    return foundation::Error{
+      "agent.project_snapshot_result_missing",
+      std::string{operation} + " query returned the wrong result type."
+    };
+  }
+  return snapshotResult->snapshot;
+}
+
 } // namespace
 
 AgentTool makeProjectInspectTool() {
@@ -283,32 +323,26 @@ AgentTool makeProjectInspectTool() {
     "Returns the current project revision and graph counts.",
     ProjectInspectSchema,
     [](const ToolCall& call, AgentToolContext& context) -> foundation::Result<ToolResult> {
-      auto query = context.queries.query(project::GetProjectSnapshotQuery{});
-      if (!query) {
-        return query.error();
+      auto snapshot = readProjectSnapshot(context, "Project inspect");
+      if (!snapshot) {
+        return snapshot.error();
       }
 
-      const auto* snapshotResult = std::get_if<project::ProjectSnapshotResult>(&query.value());
-      if (snapshotResult == nullptr) {
-        return foundation::Error{"agent.project_snapshot_result_missing", "Project inspect query returned the wrong result type."};
-      }
-
-      const project::ProjectSnapshot& snapshot = snapshotResult->snapshot;
       std::ostringstream payload;
       payload << '{'
-              << "\"projectId\":" << foundation::jsonQuoted(snapshot.info.id.value())
-              << ",\"revision\":" << foundation::jsonQuoted(snapshot.revision.value())
-              << ",\"revisionNumber\":" << snapshot.revisionNumber
-              << ",\"canonicalHash\":" << foundation::jsonQuoted(snapshot.canonicalHash.toHex())
-              << ",\"graph\":{\"nodes\":" << snapshot.graph.nodes().size()
-              << ",\"edges\":" << snapshot.graph.edges().size()
-              << "},\"assets\":{\"count\":" << snapshot.assets.assets().size()
+              << "\"projectId\":" << foundation::jsonQuoted(snapshot.value().info.id.value())
+              << ",\"revision\":" << foundation::jsonQuoted(snapshot.value().revision.value())
+              << ",\"revisionNumber\":" << snapshot.value().revisionNumber
+              << ",\"canonicalHash\":" << foundation::jsonQuoted(snapshot.value().canonicalHash.toHex())
+              << ",\"graph\":{\"nodes\":" << snapshot.value().graph.nodes().size()
+              << ",\"edges\":" << snapshot.value().graph.edges().size()
+              << "},\"assets\":{\"count\":" << snapshot.value().assets.assets().size()
               << "}}";
 
       return ToolResult{
         call.toolId,
         ToolResultStatus::Succeeded,
-        snapshot.revision,
+        snapshot.value().revision,
         payload.str(),
         {}
       };
@@ -316,28 +350,24 @@ AgentTool makeProjectInspectTool() {
   };
 }
 
-AgentTool makeProjectCreateEffectTool() {
+AgentTool makeEffectCreateNodeTool() {
   return AgentTool{
-    foundation::ToolId{"tool_project_create_effect"},
-    "project.create_effect",
-    "Create Effect",
+    foundation::ToolId{"tool_effect_create_node"},
+    "effect.create_node",
+    "Create Effect Node",
     "Creates an editable effect node with canonical code, ports, params, and user-facing parameter controls. The tool allocates project ids; agents provide edit intent and payload data only.",
-    ProjectCreateEffectSchema,
+    EffectCreateNodeSchema,
     [](const ToolCall& call, AgentToolContext& context) -> foundation::Result<ToolResult> {
       auto arguments = parseArguments(call.arguments);
       if (!arguments) {
         return arguments.error();
       }
 
-      auto query = context.queries.query(project::GetProjectSnapshotQuery{});
-      if (!query) {
-        return query.error();
+      auto snapshot = readProjectSnapshot(context, "Create effect");
+      if (!snapshot) {
+        return snapshot.error();
       }
-      const auto* snapshotResult = std::get_if<project::ProjectSnapshotResult>(&query.value());
-      if (snapshotResult == nullptr) {
-        return foundation::Error{"agent.project_snapshot_result_missing", "Create effect query returned the wrong result type."};
-      }
-      const std::int64_t nextRevisionNumber = snapshotResult->snapshot.revisionNumber + 1;
+      const std::int64_t nextRevisionNumber = snapshot.value().revisionNumber + 1;
       const foundation::CommandId commandId{"cmd_agent_create_effect_rev_" + std::to_string(nextRevisionNumber)};
       const foundation::NodeId effectNodeId{"node_agent_effect_rev_" + std::to_string(nextRevisionNumber)};
       const foundation::EdgeId targetEdgeId{"edge_agent_effect_targets_rev_" + std::to_string(nextRevisionNumber)};
@@ -440,6 +470,130 @@ AgentTool makeProjectCreateEffectTool() {
               << ",\"effectNodeId\":" << foundation::jsonQuoted(effectNodeId.value())
               << ",\"targetEdgeId\":" << foundation::jsonQuoted(targetEdgeId.value())
               << ",\"targetNodeId\":" << foundation::jsonQuoted(targetNodeId.value())
+              << ",\"revision\":" << foundation::jsonQuoted(command.value().afterRevision.value())
+              << '}';
+      return ToolResult{
+        call.toolId,
+        ToolResultStatus::Succeeded,
+        command.value().afterRevision,
+        payload.str(),
+        {}
+      };
+    }
+  };
+}
+
+AgentTool makeNoteCreateTool() {
+  return AgentTool{
+    foundation::ToolId{"tool_note_create"},
+    "note.create",
+    "Create Note",
+    "Creates a project note through Project Core.",
+    NoteCreateSchema,
+    [](const ToolCall& call, AgentToolContext& context) -> foundation::Result<ToolResult> {
+      auto arguments = parseArguments(call.arguments);
+      if (!arguments) {
+        return arguments.error();
+      }
+      auto title = requiredStringMember(arguments.value(), "title", "$");
+      if (!title) {
+        return title.error();
+      }
+      auto markdown = requiredStringMember(arguments.value(), "markdown", "$");
+      if (!markdown) {
+        return markdown.error();
+      }
+
+      auto snapshot = readProjectSnapshot(context, "Create note");
+      if (!snapshot) {
+        return snapshot.error();
+      }
+
+      const std::int64_t nextRevisionNumber = snapshot.value().revisionNumber + 1;
+      const foundation::CommandId commandId{"cmd_agent_create_note_rev_" + std::to_string(nextRevisionNumber)};
+      const foundation::NodeId noteNodeId{"node_agent_note_rev_" + std::to_string(nextRevisionNumber)};
+      auto command = context.commands.apply(project::ProjectCommandEnvelope{
+        commandId,
+        call.projectId,
+        call.expectedRevision,
+        project::CommandSource{project::CommandSourceKind::Agent, call.runId, "agent"},
+        project::CreateNoteCommand{
+          noteNodeId,
+          timeline::NotePayload{title.value(), markdown.value()}
+        }
+      });
+      if (!command) {
+        return command.error();
+      }
+
+      std::ostringstream payload;
+      payload << '{'
+              << "\"commandId\":" << foundation::jsonQuoted(commandId.value())
+              << ",\"noteNodeId\":" << foundation::jsonQuoted(noteNodeId.value())
+              << ",\"revision\":" << foundation::jsonQuoted(command.value().afterRevision.value())
+              << '}';
+      return ToolResult{
+        call.toolId,
+        ToolResultStatus::Succeeded,
+        command.value().afterRevision,
+        payload.str(),
+        {}
+      };
+    }
+  };
+}
+
+AgentTool makeNoteUpdateTool() {
+  return AgentTool{
+    foundation::ToolId{"tool_note_update"},
+    "note.update",
+    "Update Note",
+    "Updates an existing project note through Project Core.",
+    NoteUpdateSchema,
+    [](const ToolCall& call, AgentToolContext& context) -> foundation::Result<ToolResult> {
+      auto arguments = parseArguments(call.arguments);
+      if (!arguments) {
+        return arguments.error();
+      }
+      auto nodeId = requiredStringMember(arguments.value(), "nodeId", "$");
+      if (!nodeId) {
+        return nodeId.error();
+      }
+      auto title = requiredStringMember(arguments.value(), "title", "$");
+      if (!title) {
+        return title.error();
+      }
+      auto markdown = requiredStringMember(arguments.value(), "markdown", "$");
+      if (!markdown) {
+        return markdown.error();
+      }
+
+      auto snapshot = readProjectSnapshot(context, "Update note");
+      if (!snapshot) {
+        return snapshot.error();
+      }
+
+      const std::int64_t nextRevisionNumber = snapshot.value().revisionNumber + 1;
+      const foundation::CommandId commandId{"cmd_agent_update_note_rev_" + std::to_string(nextRevisionNumber)};
+      const foundation::NodeId noteNodeId{nodeId.value()};
+      auto command = context.commands.apply(project::ProjectCommandEnvelope{
+        commandId,
+        call.projectId,
+        call.expectedRevision,
+        project::CommandSource{project::CommandSourceKind::Agent, call.runId, "agent"},
+        project::UpdateNoteCommand{
+          noteNodeId,
+          timeline::NotePayload{title.value(), markdown.value()}
+        }
+      });
+      if (!command) {
+        return command.error();
+      }
+
+      std::ostringstream payload;
+      payload << '{'
+              << "\"commandId\":" << foundation::jsonQuoted(commandId.value())
+              << ",\"noteNodeId\":" << foundation::jsonQuoted(noteNodeId.value())
               << ",\"revision\":" << foundation::jsonQuoted(command.value().afterRevision.value())
               << '}';
       return ToolResult{

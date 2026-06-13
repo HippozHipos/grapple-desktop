@@ -39,12 +39,19 @@ int main() {
   agent::AgentToolRegistry registry;
   const auto registered = registry.registerTool(agent::makeProjectInspectTool());
   GRAPPLE_REQUIRE(registered);
-  const auto registeredCreateEffect = registry.registerTool(agent::makeProjectCreateEffectTool());
+  const auto registeredCreateEffect = registry.registerTool(agent::makeEffectCreateNodeTool());
   GRAPPLE_REQUIRE(registeredCreateEffect);
-  GRAPPLE_REQUIRE(registry.tools().size() == 2);
+  const auto registeredCreateNote = registry.registerTool(agent::makeNoteCreateTool());
+  GRAPPLE_REQUIRE(registeredCreateNote);
+  const auto registeredUpdateNote = registry.registerTool(agent::makeNoteUpdateTool());
+  GRAPPLE_REQUIRE(registeredUpdateNote);
+  GRAPPLE_REQUIRE(registry.tools().size() == 4);
   GRAPPLE_REQUIRE(registry.findBySerializedId("project.inspect") != nullptr);
-  GRAPPLE_REQUIRE(registry.findBySerializedId("project.create_effect") != nullptr);
-  const agent::AgentTool* registeredCreateEffectTool = registry.findBySerializedId("project.create_effect");
+  GRAPPLE_REQUIRE(registry.findBySerializedId("effect.create_node") != nullptr);
+  GRAPPLE_REQUIRE(registry.findBySerializedId("project.create_effect") == nullptr);
+  GRAPPLE_REQUIRE(registry.findBySerializedId("note.create") != nullptr);
+  GRAPPLE_REQUIRE(registry.findBySerializedId("note.update") != nullptr);
+  const agent::AgentTool* registeredCreateEffectTool = registry.findBySerializedId("effect.create_node");
   GRAPPLE_REQUIRE(registeredCreateEffectTool != nullptr);
   GRAPPLE_REQUIRE(registeredCreateEffectTool->schema.find("\"targetNodeId\"") != std::string::npos);
   GRAPPLE_REQUIRE(registeredCreateEffectTool->schema.find("\"params\"") != std::string::npos);
@@ -116,11 +123,11 @@ int main() {
   });
   GRAPPLE_REQUIRE(camera);
 
-  const agent::AgentTool* createEffect = registry.findBySerializedId("project.create_effect");
+  const agent::AgentTool* createEffect = registry.findBySerializedId("effect.create_node");
   GRAPPLE_REQUIRE(createEffect != nullptr);
   const auto hiddenEffectResult = createEffect->handler(
     agent::ToolCall{
-      foundation::ToolId{"tool_project_create_effect"},
+      foundation::ToolId{"tool_effect_create_node"},
       foundation::RunId{"run_1"},
       foundation::ProjectId{"proj_agent"},
       camera.value().afterRevision,
@@ -147,7 +154,7 @@ int main() {
 
   const auto unlabeledEffectResult = createEffect->handler(
     agent::ToolCall{
-      foundation::ToolId{"tool_project_create_effect"},
+      foundation::ToolId{"tool_effect_create_node"},
       foundation::RunId{"run_1"},
       foundation::ProjectId{"proj_agent"},
       camera.value().afterRevision,
@@ -180,7 +187,7 @@ int main() {
 
   const auto createEffectResult = createEffect->handler(
     agent::ToolCall{
-      foundation::ToolId{"tool_project_create_effect"},
+      foundation::ToolId{"tool_effect_create_node"},
       foundation::RunId{"run_1"},
       foundation::ProjectId{"proj_agent"},
       camera.value().afterRevision,
@@ -246,6 +253,73 @@ int main() {
   GRAPPLE_REQUIRE(effectPayload->params.values[0].control.numeric->max == 1.0);
   GRAPPLE_REQUIRE(effectPayload->params.values[0].control.numeric->step == 0.01);
   GRAPPLE_REQUIRE(effectPayload->activeRange.end == foundation::TimeSeconds{10.0});
+
+  const agent::AgentTool* createNote = registry.findBySerializedId("note.create");
+  GRAPPLE_REQUIRE(createNote != nullptr);
+  const auto createNoteResult = createNote->handler(
+    agent::ToolCall{
+      foundation::ToolId{"tool_note_create"},
+      foundation::RunId{"run_1"},
+      foundation::ProjectId{"proj_agent"},
+      createEffectResult.value().observedRevision,
+      R"({
+        "title": "Edit rationale",
+        "markdown": "Expose target_x as a user control."
+      })"
+    },
+    context
+  );
+  GRAPPLE_REQUIRE(createNoteResult);
+  GRAPPLE_REQUIRE(createNoteResult.value().status == agent::ToolResultStatus::Succeeded);
+  GRAPPLE_REQUIRE(createNoteResult.value().observedRevision == foundation::RevisionId{"rev_4"});
+  GRAPPLE_REQUIRE(createNoteResult.value().payload == "{\"commandId\":\"cmd_agent_create_note_rev_4\",\"noteNodeId\":\"node_agent_note_rev_4\",\"revision\":\"rev_4\"}");
+
+  const agent::AgentTool* updateNote = registry.findBySerializedId("note.update");
+  GRAPPLE_REQUIRE(updateNote != nullptr);
+  const auto updateNoteResult = updateNote->handler(
+    agent::ToolCall{
+      foundation::ToolId{"tool_note_update"},
+      foundation::RunId{"run_1"},
+      foundation::ProjectId{"proj_agent"},
+      createNoteResult.value().observedRevision,
+      R"({
+        "nodeId": "node_agent_note_rev_4",
+        "title": "Updated rationale",
+        "markdown": "Parameter remains editable after creation."
+      })"
+    },
+    context
+  );
+  GRAPPLE_REQUIRE(updateNoteResult);
+  GRAPPLE_REQUIRE(updateNoteResult.value().status == agent::ToolResultStatus::Succeeded);
+  GRAPPLE_REQUIRE(updateNoteResult.value().observedRevision == foundation::RevisionId{"rev_5"});
+  GRAPPLE_REQUIRE(updateNoteResult.value().payload == "{\"commandId\":\"cmd_agent_update_note_rev_5\",\"noteNodeId\":\"node_agent_note_rev_4\",\"revision\":\"rev_5\"}");
+  const auto afterNoteSnapshot = project.snapshot();
+  GRAPPLE_REQUIRE(afterNoteSnapshot);
+  const graph::GraphNode* noteNode = afterNoteSnapshot.value().graph.findNode(foundation::NodeId{"node_agent_note_rev_4"});
+  GRAPPLE_REQUIRE(noteNode != nullptr);
+  GRAPPLE_REQUIRE(noteNode->kind == graph::NodeKind::Note);
+  const auto* notePayload = std::get_if<timeline::NotePayload>(&noteNode->payload);
+  GRAPPLE_REQUIRE(notePayload != nullptr);
+  GRAPPLE_REQUIRE(notePayload->title == "Updated rationale");
+  GRAPPLE_REQUIRE(notePayload->markdown == "Parameter remains editable after creation.");
+
+  const auto missingNoteUpdateResult = updateNote->handler(
+    agent::ToolCall{
+      foundation::ToolId{"tool_note_update"},
+      foundation::RunId{"run_1"},
+      foundation::ProjectId{"proj_agent"},
+      updateNoteResult.value().observedRevision,
+      R"({
+        "nodeId": "node_missing_note",
+        "title": "Missing",
+        "markdown": "No note exists."
+      })"
+    },
+    context
+  );
+  GRAPPLE_REQUIRE(!missingNoteUpdateResult);
+  GRAPPLE_REQUIRE(missingNoteUpdateResult.error().code == "project.note_missing");
 
   return 0;
 }

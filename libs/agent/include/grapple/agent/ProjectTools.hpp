@@ -5,6 +5,8 @@
 namespace grapple::agent {
 
 AgentTool makeProjectInspectTool();
-AgentTool makeProjectCreateEffectTool();
+AgentTool makeEffectCreateNodeTool();
+AgentTool makeNoteCreateTool();
+AgentTool makeNoteUpdateTool();
 
 } // namespace grapple::agent
