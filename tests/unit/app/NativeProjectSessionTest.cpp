@@ -9,6 +9,7 @@
 #include <grapple/history/HistorySerializer.hpp>
 #include <grapple/project/ProjectSerializer.hpp>
 #include <grapple/runtime/BuiltinEffects.hpp>
+#include <grapple/runtime/EffectRuntime.hpp>
 #include <grapple/storage/ProjectPackageManifest.hpp>
 #include <grapple/storage/ProjectPackageReader.hpp>
 
@@ -43,6 +44,46 @@ std::filesystem::path writeTinyPpm(const std::string& stem) {
   output.write(reinterpret_cast<const char*>(pixels), sizeof(pixels));
   return path;
 }
+
+class CountingCameraTransformRuntime final : public grapple::runtime::IEffectRuntime {
+public:
+  bool supports(const grapple::projection::RenderEffectNode& node) const override {
+    return node.payload.implementation.kind == grapple::timeline::EffectImplementationKind::Builtin &&
+           node.payload.implementation.entrypoint == grapple::runtime::builtin_effect::CameraTransformEntrypoint;
+  }
+
+  grapple::foundation::Result<grapple::runtime::EffectPrepareResult> prepare(
+    const grapple::runtime::EffectPrepareRequest& request
+  ) override {
+    ++prepareCount;
+    return grapple::runtime::EffectPrepareResult{
+      grapple::runtime::PreparedEffectNode{
+        request.graph.id,
+        request.graph.targetNodeId,
+        request.node.sourceNodeId,
+        nullptr,
+        {}
+      },
+      {}
+    };
+  }
+
+  grapple::foundation::Result<grapple::runtime::EffectProcessResult> process(
+    const grapple::runtime::EffectProcessRequest& request
+  ) override {
+    return grapple::runtime::EffectProcessResult{
+      grapple::runtime::RuntimeEffectOutput{
+        request.prepared.effectGraphId,
+        request.prepared.targetNodeId,
+        request.prepared.sourceNodeId,
+        {}
+      },
+      {}
+    };
+  }
+
+  int prepareCount = 0;
+};
 
 } // namespace
 
@@ -675,6 +716,30 @@ int main() {
   GRAPPLE_REQUIRE(runtimeDiagnostics != nullptr);
   GRAPPLE_REQUIRE(runtimeDiagnostics->revision == foundation::RevisionId{"rev_5"});
   GRAPPLE_REQUIRE(runtimeDiagnostics->diagnostics.empty());
+  CountingCameraTransformRuntime countedPreviewRuntime;
+  app::NativePreviewSession countedPreview{
+    runtimeWorkspace.value().project(),
+    std::vector<runtime::IEffectRuntime*>{&countedPreviewRuntime}
+  };
+  const auto countedRefresh = countedPreview.refreshFromProject();
+  GRAPPLE_REQUIRE(countedRefresh);
+  GRAPPLE_REQUIRE(countedPreviewRuntime.prepareCount == 1);
+  const auto repeatedCountedRefresh = countedPreview.refreshFromProject();
+  GRAPPLE_REQUIRE(repeatedCountedRefresh);
+  GRAPPLE_REQUIRE(repeatedCountedRefresh.value().preparedPlanHash == countedRefresh.value().preparedPlanHash);
+  GRAPPLE_REQUIRE(countedPreviewRuntime.prepareCount == 1);
+  CountingCameraTransformRuntime countedExportRuntime;
+  app::NativeExportSession countedExport{
+    runtimeWorkspace.value().project(),
+    std::vector<runtime::IEffectRuntime*>{&countedExportRuntime}
+  };
+  const auto countedPrepare = countedExport.prepareFromProject();
+  GRAPPLE_REQUIRE(countedPrepare);
+  GRAPPLE_REQUIRE(countedExportRuntime.prepareCount == 1);
+  const auto repeatedCountedPrepare = countedExport.prepareFromProject();
+  GRAPPLE_REQUIRE(repeatedCountedPrepare);
+  GRAPPLE_REQUIRE(repeatedCountedPrepare.value().preparedPlanHash == countedPrepare.value().preparedPlanHash);
+  GRAPPLE_REQUIRE(countedExportRuntime.prepareCount == 1);
   const auto runtimeRefresh = runtimeWorkspace.value().preview().refreshFromProject();
   GRAPPLE_REQUIRE(runtimeRefresh);
   const auto runtimeFrame = runtimeWorkspace.value().preview().renderFrame(render::RenderFrameRequest{
