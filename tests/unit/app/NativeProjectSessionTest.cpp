@@ -115,6 +115,9 @@ int main() {
   const std::filesystem::path stewardPackageRoot =
     std::filesystem::temp_directory_path() /
     ("grapple_native_app_steward_" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+  const std::filesystem::path projectOnlyPackageRoot =
+    std::filesystem::temp_directory_path() /
+    ("grapple_native_app_project_only_" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
   const std::filesystem::path cachePackageRoot =
     std::filesystem::temp_directory_path() /
     ("grapple_native_app_cache_" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
@@ -1120,6 +1123,51 @@ int main() {
   GRAPPLE_REQUIRE(workspaceTrack);
   GRAPPLE_REQUIRE(workspaceTrack.value().snapshot.revision == foundation::RevisionId{"rev_2"});
   std::filesystem::remove_all(packageRoot);
+
+  app::NativeProjectSession projectOnlySession{
+    foundation::ProjectId{"proj_app_project_only"},
+    "Project Only App Project",
+    storage::ProjectPackage{
+      foundation::ProjectId{"proj_app_project_only"},
+      foundation::FilePath{projectOnlyPackageRoot.string()},
+      1
+    }
+  };
+  app::NativeProjectCommandWriter projectOnlyWriter{projectOnlySession};
+  const auto projectOnlyComposition = projectOnlyWriter.apply(
+    project::CreateCompositionCommand{projectOnlyWriter.nextNodeId("project only composition"), "Project Only Main"},
+    userSource(),
+    storage::SnapshotCommitRecord{
+      foundation::SnapshotId{"snap_project_only_rev_1"},
+      foundation::FilePath{"snapshots/rev_1.json"},
+      std::optional<std::string>{"project only"}
+    }
+  );
+  GRAPPLE_REQUIRE(projectOnlyComposition);
+  const auto projectOnlyWrite = projectOnlySession.writePackage();
+  GRAPPLE_REQUIRE(projectOnlyWrite);
+  GRAPPLE_REQUIRE(!std::filesystem::exists(projectOnlyPackageRoot / "agent/runs.json"));
+  GRAPPLE_REQUIRE(!std::filesystem::exists(projectOnlyPackageRoot / "agent/events.json"));
+
+  auto openedProjectOnlyWorkspace = app::NativeWorkspaceSession::openPackageRoot(
+    foundation::FilePath{projectOnlyPackageRoot.string()}
+  );
+  GRAPPLE_REQUIRE(openedProjectOnlyWorkspace);
+  const agent::AgentConversationState projectOnlyConversation =
+    openedProjectOnlyWorkspace.value().steward().conversationState();
+  GRAPPLE_REQUIRE(projectOnlyConversation.runs.empty());
+  GRAPPLE_REQUIRE(projectOnlyConversation.diagnostics.empty());
+
+  std::filesystem::create_directories(projectOnlyPackageRoot / "agent");
+  std::ofstream orphanRunsFile{projectOnlyPackageRoot / "agent/runs.json", std::ios::binary | std::ios::trunc};
+  orphanRunsFile << "[]";
+  orphanRunsFile.close();
+  auto openedIncompleteSidecar = app::NativeWorkspaceSession::openPackageRoot(
+    foundation::FilePath{projectOnlyPackageRoot.string()}
+  );
+  GRAPPLE_REQUIRE(!openedIncompleteSidecar);
+  GRAPPLE_REQUIRE(openedIncompleteSidecar.error().code == "app.package_agent_sidecar_incomplete");
+  std::filesystem::remove_all(projectOnlyPackageRoot);
 
   app::NativeProjectSession stewardProject{
     foundation::ProjectId{"proj_app_steward"},

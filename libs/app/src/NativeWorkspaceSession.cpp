@@ -154,6 +154,65 @@ foundation::Result<std::string> readPackageTextFile(
   return contents.str();
 }
 
+foundation::Result<bool> packageTextFileExists(
+  const storage::ProjectPackage& package,
+  const foundation::FilePath& relativePath
+) {
+  auto path = packagePath(package, relativePath);
+  if (!path) {
+    return path.error();
+  }
+
+  std::error_code existsError;
+  const bool exists = std::filesystem::exists(path.value(), existsError);
+  if (existsError) {
+    return foundation::Error{"app.package_sidecar_stat_failed", existsError.message()};
+  }
+  return exists;
+}
+
+foundation::Result<void> restoreAgentConversationSidecar(
+  NativeWorkspaceSession& workspace,
+  const storage::ProjectPackage& package
+) {
+  auto runsExist = packageTextFileExists(package, agentRunsRelativePath());
+  if (!runsExist) {
+    return runsExist.error();
+  }
+  auto eventsExist = packageTextFileExists(package, agentEventsRelativePath());
+  if (!eventsExist) {
+    return eventsExist.error();
+  }
+
+  if (!runsExist.value() && !eventsExist.value()) {
+    return {};
+  }
+  if (runsExist.value() != eventsExist.value()) {
+    return foundation::Error{
+      "app.package_agent_sidecar_incomplete",
+      "Workspace agent sidecar must contain both runs and events."
+    };
+  }
+
+  auto runsContents = readPackageTextFile(package, agentRunsRelativePath());
+  if (!runsContents) {
+    return runsContents.error();
+  }
+  auto eventsContents = readPackageTextFile(package, agentEventsRelativePath());
+  if (!eventsContents) {
+    return eventsContents.error();
+  }
+  auto runs = agent::deserializeCanonicalAgentRuns(runsContents.value());
+  if (!runs) {
+    return runs.error();
+  }
+  auto events = agent::deserializeCanonicalAgentRunEvents(eventsContents.value());
+  if (!events) {
+    return events.error();
+  }
+  return workspace.steward().restoreConversation(std::move(runs.value()), std::move(events.value()));
+}
+
 } // namespace
 
 struct NativeWorkspaceSession::State {
@@ -226,23 +285,7 @@ foundation::Result<NativeWorkspaceSession> NativeWorkspaceSession::openPackage(s
   }
 
   const storage::ProjectPackage& openedPackage = workspace.value().state_->project.packageState().package;
-  auto runsContents = readPackageTextFile(openedPackage, agentRunsRelativePath());
-  if (!runsContents) {
-    return runsContents.error();
-  }
-  auto eventsContents = readPackageTextFile(openedPackage, agentEventsRelativePath());
-  if (!eventsContents) {
-    return eventsContents.error();
-  }
-  auto runs = agent::deserializeCanonicalAgentRuns(runsContents.value());
-  if (!runs) {
-    return runs.error();
-  }
-  auto events = agent::deserializeCanonicalAgentRunEvents(eventsContents.value());
-  if (!events) {
-    return events.error();
-  }
-  auto restored = workspace.value().state_->steward.restoreConversation(std::move(runs.value()), std::move(events.value()));
+  auto restored = restoreAgentConversationSidecar(workspace.value(), openedPackage);
   if (!restored) {
     return restored.error();
   }
