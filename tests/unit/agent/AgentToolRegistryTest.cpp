@@ -51,11 +51,13 @@ int main() {
   GRAPPLE_REQUIRE(registeredTrimClip);
   const auto registeredCreateEffect = registry.registerTool(agent::makeEffectCreateNodeTool());
   GRAPPLE_REQUIRE(registeredCreateEffect);
+  const auto registeredUpdateEffectParams = registry.registerTool(agent::makeEffectUpdateParamsTool());
+  GRAPPLE_REQUIRE(registeredUpdateEffectParams);
   const auto registeredCreateNote = registry.registerTool(agent::makeNoteCreateTool());
   GRAPPLE_REQUIRE(registeredCreateNote);
   const auto registeredUpdateNote = registry.registerTool(agent::makeNoteUpdateTool());
   GRAPPLE_REQUIRE(registeredUpdateNote);
-  GRAPPLE_REQUIRE(registry.tools().size() == 9);
+  GRAPPLE_REQUIRE(registry.tools().size() == 10);
   GRAPPLE_REQUIRE(registry.findBySerializedId("project.inspect") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("asset.list") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("timeline.create_track") != nullptr);
@@ -63,6 +65,7 @@ int main() {
   GRAPPLE_REQUIRE(registry.findBySerializedId("timeline.move_clip") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("timeline.trim_clip") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("effect.create_node") != nullptr);
+  GRAPPLE_REQUIRE(registry.findBySerializedId("effect.update_params") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("project.create_effect") == nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("note.create") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("note.update") != nullptr);
@@ -99,6 +102,12 @@ int main() {
   GRAPPLE_REQUIRE(registeredCreateEffectTool->schema.find("\"commandId\"") == std::string::npos);
   GRAPPLE_REQUIRE(registeredCreateEffectTool->schema.find("\"effectNodeId\"") == std::string::npos);
   GRAPPLE_REQUIRE(registeredCreateEffectTool->schema.find("\"targetEdgeId\"") == std::string::npos);
+  const agent::AgentTool* registeredUpdateEffectParamsTool = registry.findBySerializedId("effect.update_params");
+  GRAPPLE_REQUIRE(registeredUpdateEffectParamsTool != nullptr);
+  GRAPPLE_REQUIRE(registeredUpdateEffectParamsTool->schema.find("\"effectNodeId\"") != std::string::npos);
+  GRAPPLE_REQUIRE(registeredUpdateEffectParamsTool->schema.find("\"params\"") != std::string::npos);
+  GRAPPLE_REQUIRE(registeredUpdateEffectParamsTool->schema.find("\"numeric\"") != std::string::npos);
+  GRAPPLE_REQUIRE(registeredUpdateEffectParamsTool->schema.find("\"commandId\"") == std::string::npos);
 
   const auto duplicate = registry.registerTool(agent::makeProjectInspectTool());
   GRAPPLE_REQUIRE(!duplicate);
@@ -556,6 +565,46 @@ int main() {
   GRAPPLE_REQUIRE(trimmedClipPayload->sourceRange.start == foundation::TimeSeconds{2.0});
   GRAPPLE_REQUIRE(trimmedClipPayload->sourceRange.end == foundation::TimeSeconds{4.0});
   GRAPPLE_REQUIRE(trimmedClipPayload->assetId == foundation::AssetId{"asset_video"});
+
+  const agent::AgentTool* updateEffectParams = registry.findBySerializedId("effect.update_params");
+  GRAPPLE_REQUIRE(updateEffectParams != nullptr);
+  const auto updateEffectParamsResult = updateEffectParams->handler(
+    agent::ToolCall{
+      foundation::ToolId{"tool_effect_update_params"},
+      foundation::RunId{"run_1"},
+      foundation::ProjectId{"proj_agent"},
+      trimClipResult.value().observedRevision,
+      R"({
+        "effectNodeId": "node_agent_effect_rev_3",
+        "params": [
+          {
+            "name": "target_x",
+            "label": "Target X",
+            "value": 0.75,
+            "numeric": {"min": 0, "max": 1, "step": 0.01}
+          }
+        ]
+      })"
+    },
+    context
+  );
+  GRAPPLE_REQUIRE(updateEffectParamsResult);
+  GRAPPLE_REQUIRE(updateEffectParamsResult.value().status == agent::ToolResultStatus::Succeeded);
+  GRAPPLE_REQUIRE(updateEffectParamsResult.value().observedRevision == foundation::RevisionId{"rev_11"});
+  GRAPPLE_REQUIRE(updateEffectParamsResult.value().payload == "{\"commandId\":\"cmd_agent_update_effect_params_rev_11\",\"effectNodeId\":\"node_agent_effect_rev_3\",\"revision\":\"rev_11\"}");
+
+  const auto afterParamUpdateSnapshot = project.snapshot();
+  GRAPPLE_REQUIRE(afterParamUpdateSnapshot);
+  const graph::GraphNode* updatedEffectNode = afterParamUpdateSnapshot.value().graph.findNode(foundation::NodeId{"node_agent_effect_rev_3"});
+  GRAPPLE_REQUIRE(updatedEffectNode != nullptr);
+  const auto* updatedEffectPayload = std::get_if<timeline::EffectPayload>(&updatedEffectNode->payload);
+  GRAPPLE_REQUIRE(updatedEffectPayload != nullptr);
+  GRAPPLE_REQUIRE(updatedEffectPayload->params.values.size() == 1);
+  GRAPPLE_REQUIRE(updatedEffectPayload->params.values[0].name == "target_x");
+  GRAPPLE_REQUIRE(std::get<double>(updatedEffectPayload->params.values[0].value) == 0.75);
+  GRAPPLE_REQUIRE(updatedEffectPayload->params.values[0].control.label == "Target X");
+  GRAPPLE_REQUIRE(updatedEffectPayload->params.values[0].control.numeric.has_value());
+  GRAPPLE_REQUIRE(updatedEffectPayload->params.values[0].control.numeric->step == 0.01);
 
   return 0;
 }

@@ -11,6 +11,7 @@ AgentTool makeTimelineCreateClipTool();
 AgentTool makeTimelineMoveClipTool();
 AgentTool makeTimelineTrimClipTool();
 AgentTool makeEffectCreateNodeTool();
+AgentTool makeEffectUpdateParamsTool();
 AgentTool makeNoteCreateTool();
 AgentTool makeNoteUpdateTool();
 

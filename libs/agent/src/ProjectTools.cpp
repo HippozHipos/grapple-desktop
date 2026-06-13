@@ -164,6 +164,40 @@ constexpr const char EffectCreateNodeSchema[] = R"json({
   }
 })json";
 
+constexpr const char EffectUpdateParamsSchema[] = R"json({
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "effectNodeId",
+    "params"
+  ],
+  "properties": {
+    "effectNodeId": {"type": "string"},
+    "params": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["name", "label", "value", "numeric"],
+        "properties": {
+          "name": {"type": "string"},
+          "label": {"type": "string"},
+          "value": {"type": "number"},
+          "numeric": {
+            "type": "object",
+            "required": ["min", "max"],
+            "properties": {
+              "min": {"type": "number"},
+              "max": {"type": "number"},
+              "step": {"type": "number"}
+            }
+          }
+        }
+      }
+    }
+  }
+})json";
+
 constexpr const char NoteCreateSchema[] = R"json({
   "type": "object",
   "additionalProperties": false,
@@ -939,6 +973,69 @@ AgentTool makeEffectCreateNodeTool() {
               << ",\"effectNodeId\":" << foundation::jsonQuoted(effectNodeId.value())
               << ",\"targetEdgeId\":" << foundation::jsonQuoted(targetEdgeId.value())
               << ",\"targetNodeId\":" << foundation::jsonQuoted(targetNodeId.value())
+              << ",\"revision\":" << foundation::jsonQuoted(command.value().afterRevision.value())
+              << '}';
+      return ToolResult{
+        call.toolId,
+        ToolResultStatus::Succeeded,
+        command.value().afterRevision,
+        payload.str(),
+        {}
+      };
+    }
+  };
+}
+
+AgentTool makeEffectUpdateParamsTool() {
+  return AgentTool{
+    foundation::ToolId{"tool_effect_update_params"},
+    "effect.update_params",
+    "Update Effect Params",
+    "Replaces an effect node's complete editable parameter set through Project Core.",
+    EffectUpdateParamsSchema,
+    [](const ToolCall& call, AgentToolContext& context) -> foundation::Result<ToolResult> {
+      auto arguments = parseArguments(call.arguments);
+      if (!arguments) {
+        return arguments.error();
+      }
+      auto effectNodeId = requiredStringMember(arguments.value(), "effectNodeId", "$");
+      if (!effectNodeId) {
+        return effectNodeId.error();
+      }
+      auto paramsArray = requiredArrayMember(arguments.value(), "params", "$");
+      if (!paramsArray) {
+        return paramsArray.error();
+      }
+      auto params = parseParamSet(paramsArray.value(), "$.params");
+      if (!params) {
+        return params.error();
+      }
+
+      auto snapshot = readProjectSnapshot(context, "Update effect params");
+      if (!snapshot) {
+        return snapshot.error();
+      }
+
+      const std::int64_t nextRevisionNumber = snapshot.value().revisionNumber + 1;
+      const foundation::CommandId commandId{"cmd_agent_update_effect_params_rev_" + std::to_string(nextRevisionNumber)};
+      auto command = context.commands.apply(project::ProjectCommandEnvelope{
+        commandId,
+        call.projectId,
+        call.expectedRevision,
+        project::CommandSource{project::CommandSourceKind::Agent, call.runId, "agent"},
+        project::UpdateEffectParamsCommand{
+          foundation::NodeId{effectNodeId.value()},
+          params.value()
+        }
+      });
+      if (!command) {
+        return command.error();
+      }
+
+      std::ostringstream payload;
+      payload << '{'
+              << "\"commandId\":" << foundation::jsonQuoted(commandId.value())
+              << ",\"effectNodeId\":" << foundation::jsonQuoted(effectNodeId.value())
               << ",\"revision\":" << foundation::jsonQuoted(command.value().afterRevision.value())
               << '}';
       return ToolResult{
