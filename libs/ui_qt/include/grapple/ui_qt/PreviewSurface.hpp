@@ -1,5 +1,6 @@
 #pragma once
 
+#include <grapple/app/AppViewModel.hpp>
 #include <grapple/render/LocalRenderCore.hpp>
 
 #include <QRect>
@@ -7,6 +8,9 @@
 #include <QWidget>
 
 #include <optional>
+#include <string>
+#include <utility>
+#include <vector>
 
 class QPaintEvent;
 class QPainter;
@@ -17,6 +21,7 @@ class PreviewSurface final : public QWidget {
 public:
   explicit PreviewSurface(QWidget* parent = nullptr);
 
+  void setAssetLabels(const app::AppAssetSummary& assets);
   void setFrame(render::RenderFrame frame);
 
 protected:
@@ -27,8 +32,10 @@ private:
   void drawCenteredText(QPainter& painter, const QString& text) const;
   void drawRenderedImage(QPainter& painter, const render::RenderFrame& frame) const;
   void drawMediaFrame(QPainter& painter, const render::RenderedMediaFrame& mediaFrame, const QRect& card) const;
+  [[nodiscard]] QString assetLabel(const foundation::AssetId& assetId) const;
 
   std::optional<render::RenderFrame> frame_;
+  std::vector<std::pair<foundation::AssetId, std::string>> assetLabels_;
 };
 
 } // namespace grapple::ui

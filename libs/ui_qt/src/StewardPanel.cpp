@@ -23,7 +23,7 @@ QString targetNameFor(const app::AppViewModel& viewModel, const foundation::Node
   }
   for (const app::AppClipRow& clip : viewModel.timeline.clips) {
     if (clip.sourceNodeId == nodeId) {
-      return qString(clip.assetId.value());
+      return qString(clip.assetName);
     }
   }
   for (const app::AppLayerRow& layer : viewModel.timeline.layers) {

@@ -60,6 +60,15 @@ PreviewSurface::PreviewSurface(QWidget* parent)
   setMinimumSize(480, 280);
 }
 
+void PreviewSurface::setAssetLabels(const app::AppAssetSummary& assets) {
+  assetLabels_.clear();
+  assetLabels_.reserve(assets.rows.size());
+  for (const app::AppAssetRow& asset : assets.rows) {
+    assetLabels_.push_back({asset.assetId, asset.name});
+  }
+  update();
+}
+
 void PreviewSurface::setFrame(render::RenderFrame frame) {
   frame_ = std::move(frame);
   update();
@@ -161,7 +170,7 @@ void PreviewSurface::drawRenderedImage(QPainter& painter, const render::RenderFr
     painter.drawText(
       rect().adjusted(18, -32, -18, -10),
       Qt::AlignBottom | Qt::AlignHCenter,
-      QString{"%1  %2"}.arg(qString(mediaFrame.assetId.value())).arg(timeText(mediaFrame.sourceTime))
+      QString{"%1  %2"}.arg(assetLabel(mediaFrame.assetId)).arg(timeText(mediaFrame.sourceTime))
     );
   }
 }
@@ -182,7 +191,7 @@ void PreviewSurface::drawMediaFrame(
   painter.setFont(QFont{"DejaVu Sans", 12});
   const QRect detailsRect = card.adjusted(18, 58, -18, -18);
   const QStringList lines{
-    QString{"asset %1"}.arg(qString(mediaFrame.assetId.value())),
+    QString{"asset %1"}.arg(assetLabel(mediaFrame.assetId)),
     QString{"clip %1"}.arg(qString(mediaFrame.clipNodeId.value())),
     QString{"source %1"}.arg(timeText(mediaFrame.sourceTime))
   };
@@ -191,6 +200,15 @@ void PreviewSurface::drawMediaFrame(
     painter.drawText(detailsRect.left(), y + 18, elidedText(painter, line, detailsRect.width()));
     y += 24;
   }
+}
+
+QString PreviewSurface::assetLabel(const foundation::AssetId& assetId) const {
+  for (const auto& assetLabel : assetLabels_) {
+    if (assetLabel.first == assetId) {
+      return qString(assetLabel.second);
+    }
+  }
+  return qString(assetId.value());
 }
 
 } // namespace grapple::ui

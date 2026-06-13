@@ -40,6 +40,14 @@ std::string mediaTypeName(asset::AssetMediaType mediaType) {
   std::abort();
 }
 
+std::string assetNameFor(
+  const asset::AssetCatalog& assets,
+  const foundation::AssetId& assetId
+) {
+  const asset::Asset* asset = assets.find(assetId);
+  return asset == nullptr ? assetId.value() : asset->name;
+}
+
 std::string implementationKindName(timeline::EffectImplementationKind kind) {
   switch (kind) {
     case timeline::EffectImplementationKind::Builtin:
@@ -291,6 +299,7 @@ foundation::Result<AppViewModel> NativeProjectSession::buildViewModel() const {
       clip.sourceNodeId,
       clip.trackNodeId,
       clip.payload.assetId,
+      assetNameFor(snapshot.assets, clip.payload.assetId),
       clip.payload.timelineRange,
       clip.payload.transform
     });

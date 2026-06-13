@@ -227,7 +227,7 @@ void TimelinePanel::drawLayerRow(
     painter.setBrush(QColor{"#36466e"});
     painter.drawRoundedRect(clipRect, 6, 6);
     painter.setPen(QColor{"#eef4ff"});
-    painter.drawText(clipRect.adjusted(10, 0, -8, 0), Qt::AlignVCenter | Qt::AlignLeft, elidedText(painter, qString(clip.assetId.value()), clipRect.width() - 18));
+    painter.drawText(clipRect.adjusted(10, 0, -8, 0), Qt::AlignVCenter | Qt::AlignLeft, elidedText(painter, qString(clip.assetName), clipRect.width() - 18));
   }
 }
 

@@ -124,7 +124,7 @@ void CompositionViewport::drawClip(QPainter& painter, const app::AppClipRow& cli
   painter.setPen(QColor{"#eaf3ff"});
   painter.setFont(QFont{"DejaVu Sans", 9, QFont::Bold});
   const QString label = QFontMetrics{painter.font()}.elidedText(
-    qString(clip.assetId.value()),
+    qString(clip.assetName),
     Qt::ElideRight,
     static_cast<int>(std::max(20.0, clipRect.width() - 16.0))
   );

@@ -391,6 +391,7 @@ int main() {
   GRAPPLE_REQUIRE(assetClipViewModel);
   GRAPPLE_REQUIRE(assetClipViewModel.value().timeline.clips.size() == 1);
   GRAPPLE_REQUIRE(assetClipViewModel.value().timeline.clips[0].sourceNodeId == assetClipNodeId);
+  GRAPPLE_REQUIRE(assetClipViewModel.value().timeline.clips[0].assetName == "Clip");
   GRAPPLE_REQUIRE(assetClipViewModel.value().timeline.clips[0].transform == clipTransform);
 
   const std::filesystem::path cacheImagePath = writeTinyPpm("grapple_native_cache_image");

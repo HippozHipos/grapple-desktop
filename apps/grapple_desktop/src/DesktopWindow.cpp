@@ -149,7 +149,7 @@ QString inspectorText(
     if (clip.sourceNodeId == selectedNodeId.value()) {
       return QString{"Inspector\nClip %1\nAsset: %2\nTrack: %3\nRange: %4s - %5s\n\n%6"}
         .arg(qString(clip.sourceNodeId.value()))
-        .arg(qString(clip.assetId.value()))
+        .arg(qString(clip.assetName))
         .arg(qString(clip.trackNodeId.value()))
         .arg(clip.timelineRange.start.value)
         .arg(clip.timelineRange.end.value)
@@ -536,6 +536,7 @@ public:
     }
     summary_->setText(summaryText(viewModel.value()));
     rebuildMediaBin(viewModel.value());
+    previewSurface_->setAssetLabels(viewModel.value().assets);
     steward_->setViewModel(viewModel.value(), workspace_.steward().conversationState());
     timeline_->setViewModel(viewModel.value());
     timeline_->setPlayhead(workspace_.preview().state().playhead);
