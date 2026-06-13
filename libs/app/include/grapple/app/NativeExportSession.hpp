@@ -5,10 +5,6 @@
 #include <grapple/foundation/Result.hpp>
 #include <grapple/render/FinalRenderShell.hpp>
 #include <grapple/render/LocalRenderCore.hpp>
-#include <grapple/runtime/EffectRuntime.hpp>
-#include <grapple/runtime/RuntimeEvaluator.hpp>
-
-#include <vector>
 
 namespace grapple::app {
 
@@ -19,13 +15,7 @@ struct NativeExportPrepareResult {
 
 class NativeExportSession {
 public:
-  explicit NativeExportSession(NativeProjectSession& project);
-  NativeExportSession(NativeProjectSession& project, std::vector<runtime::IEffectRuntime*> effectRuntimes);
-  NativeExportSession(
-    NativeProjectSession& project,
-    render::IRenderFrameSource& frameSource,
-    std::vector<runtime::IEffectRuntime*> effectRuntimes
-  );
+  NativeExportSession(NativeProjectSession& project, render::LocalRenderCore& core);
 
   foundation::Result<NativeExportPrepareResult> prepareFromProject();
   foundation::Result<render::FinalRenderResult> render(render::ExportSettings settings);
@@ -34,8 +24,7 @@ public:
 
 private:
   NativeProjectSession& project_;
-  runtime::RuntimeEvaluator runtime_;
-  render::LocalRenderCore core_;
+  render::LocalRenderCore& core_;
   render::FinalRenderShell final_;
 };
 

@@ -5,10 +5,6 @@
 #include <grapple/foundation/Result.hpp>
 #include <grapple/render/LocalRenderCore.hpp>
 #include <grapple/render/PreviewRenderShell.hpp>
-#include <grapple/runtime/EffectRuntime.hpp>
-#include <grapple/runtime/RuntimeEvaluator.hpp>
-
-#include <vector>
 
 namespace grapple::app {
 
@@ -19,14 +15,7 @@ struct NativePreviewRefreshResult {
 
 class NativePreviewSession {
 public:
-  explicit NativePreviewSession(NativeProjectSession& project);
-  NativePreviewSession(NativeProjectSession& project, render::IRenderFrameSource& frameSource);
-  NativePreviewSession(
-    NativeProjectSession& project,
-    render::IRenderFrameSource& frameSource,
-    std::vector<runtime::IEffectRuntime*> effectRuntimes
-  );
-  NativePreviewSession(NativeProjectSession& project, std::vector<runtime::IEffectRuntime*> effectRuntimes);
+  NativePreviewSession(NativeProjectSession& project, render::LocalRenderCore& core);
 
   foundation::Result<NativePreviewRefreshResult> refreshFromProject();
   foundation::Result<void> seek(foundation::TimeSeconds time);
@@ -37,8 +26,7 @@ public:
 
 private:
   NativeProjectSession& project_;
-  runtime::RuntimeEvaluator runtime_;
-  render::LocalRenderCore core_;
+  render::LocalRenderCore& core_;
   render::PreviewRenderShell preview_;
 };
 

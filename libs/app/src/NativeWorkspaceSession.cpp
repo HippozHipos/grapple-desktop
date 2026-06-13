@@ -167,8 +167,10 @@ struct NativeWorkspaceSession::State {
       frameCache{MediaFrameCacheBytes},
       cachedMediaReader{mediaReader, frameCache},
       frameSource{cachedMediaReader},
-      preview{project, frameSource, {&builtinEffectRuntime}},
-      exportSession{project, frameSource, {&builtinEffectRuntime}} {}
+      runtime{{&builtinEffectRuntime}},
+      renderCore{runtime, frameSource},
+      preview{project, renderCore},
+      exportSession{project, renderCore} {}
 
   NativeProjectSession project;
   NativeProjectCommandWriter commandWriter;
@@ -180,6 +182,8 @@ struct NativeWorkspaceSession::State {
   media::CachingMediaReader cachedMediaReader;
   NativeMediaFrameSource frameSource;
   runtime::BuiltinEffectRuntime builtinEffectRuntime;
+  runtime::RuntimeEvaluator runtime;
+  render::LocalRenderCore renderCore;
   NativePreviewSession preview;
   NativeExportSession exportSession;
 };

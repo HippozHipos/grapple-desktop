@@ -127,24 +127,11 @@ private:
 
 } // namespace
 
-NativeExportSession::NativeExportSession(NativeProjectSession& project)
-  : NativeExportSession{project, {}} {}
-
 NativeExportSession::NativeExportSession(
   NativeProjectSession& project,
-  std::vector<runtime::IEffectRuntime*> effectRuntimes
+  render::LocalRenderCore& core
 ) : project_{project},
-    runtime_{std::move(effectRuntimes)},
-    core_{runtime_},
-    final_{core_} {}
-
-NativeExportSession::NativeExportSession(
-  NativeProjectSession& project,
-  render::IRenderFrameSource& frameSource,
-  std::vector<runtime::IEffectRuntime*> effectRuntimes
-) : project_{project},
-    runtime_{std::move(effectRuntimes)},
-    core_{runtime_, frameSource},
+    core_{core},
     final_{core_} {}
 
 foundation::Result<NativeExportPrepareResult> NativeExportSession::prepareFromProject() {

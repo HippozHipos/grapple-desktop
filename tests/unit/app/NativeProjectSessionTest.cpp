@@ -9,8 +9,10 @@
 #include <grapple/graph/GraphEdge.hpp>
 #include <grapple/history/HistorySerializer.hpp>
 #include <grapple/project/ProjectSerializer.hpp>
+#include <grapple/render/LocalRenderCore.hpp>
 #include <grapple/runtime/BuiltinEffects.hpp>
 #include <grapple/runtime/EffectRuntime.hpp>
+#include <grapple/runtime/RuntimeEvaluator.hpp>
 #include <grapple/storage/ProjectPackageManifest.hpp>
 #include <grapple/storage/ProjectPackageReader.hpp>
 
@@ -809,30 +811,32 @@ int main() {
     project::serializeCanonicalProjectSnapshot(runtimeDiagnosticsSnapshotAfter.value()) ==
     serializedRuntimeDiagnosticsSnapshotBefore
   );
-  CountingCameraTransformRuntime countedPreviewRuntime;
+  CountingCameraTransformRuntime countedRuntime;
+  runtime::RuntimeEvaluator countedEvaluator{{&countedRuntime}};
+  render::LocalRenderCore countedCore{countedEvaluator};
   app::NativePreviewSession countedPreview{
     runtimeWorkspace.value().project(),
-    std::vector<runtime::IEffectRuntime*>{&countedPreviewRuntime}
+    countedCore
   };
   const auto countedRefresh = countedPreview.refreshFromProject();
   GRAPPLE_REQUIRE(countedRefresh);
-  GRAPPLE_REQUIRE(countedPreviewRuntime.prepareCount == 1);
+  GRAPPLE_REQUIRE(countedRuntime.prepareCount == 1);
   const auto repeatedCountedRefresh = countedPreview.refreshFromProject();
   GRAPPLE_REQUIRE(repeatedCountedRefresh);
   GRAPPLE_REQUIRE(repeatedCountedRefresh.value().preparedPlanHash == countedRefresh.value().preparedPlanHash);
-  GRAPPLE_REQUIRE(countedPreviewRuntime.prepareCount == 1);
-  CountingCameraTransformRuntime countedExportRuntime;
+  GRAPPLE_REQUIRE(countedRuntime.prepareCount == 1);
   app::NativeExportSession countedExport{
     runtimeWorkspace.value().project(),
-    std::vector<runtime::IEffectRuntime*>{&countedExportRuntime}
+    countedCore
   };
   const auto countedPrepare = countedExport.prepareFromProject();
   GRAPPLE_REQUIRE(countedPrepare);
-  GRAPPLE_REQUIRE(countedExportRuntime.prepareCount == 1);
+  GRAPPLE_REQUIRE(countedPrepare.value().preparedPlanHash == countedRefresh.value().preparedPlanHash);
+  GRAPPLE_REQUIRE(countedRuntime.prepareCount == 1);
   const auto repeatedCountedPrepare = countedExport.prepareFromProject();
   GRAPPLE_REQUIRE(repeatedCountedPrepare);
   GRAPPLE_REQUIRE(repeatedCountedPrepare.value().preparedPlanHash == countedPrepare.value().preparedPlanHash);
-  GRAPPLE_REQUIRE(countedExportRuntime.prepareCount == 1);
+  GRAPPLE_REQUIRE(countedRuntime.prepareCount == 1);
   const auto runtimeRefresh = runtimeWorkspace.value().preview().refreshFromProject();
   GRAPPLE_REQUIRE(runtimeRefresh);
   const auto runtimeFrame = runtimeWorkspace.value().preview().renderFrame(render::RenderFrameRequest{
@@ -861,7 +865,9 @@ int main() {
   GRAPPLE_REQUIRE(runtimeExport.value().runtimeDiagnostics.empty());
   GRAPPLE_REQUIRE(runtimeExport.value().framesEvaluated == 2);
 
-  app::NativePreviewSession preview{session};
+  runtime::RuntimeEvaluator appRuntime;
+  render::LocalRenderCore appRenderCore{appRuntime};
+  app::NativePreviewSession preview{session, appRenderCore};
   const auto frameBeforeRefresh = preview.renderFrame(render::RenderFrameRequest{
     foundation::TimeSeconds{0.0},
     render::RenderQuality::Draft
@@ -887,8 +893,8 @@ int main() {
   GRAPPLE_REQUIRE(frame.value().runtimeDiagnostics.empty());
   GRAPPLE_REQUIRE(frame.value().renderDiagnostics.empty());
 
-  app::NativeExportSession exportSession{session};
-  const auto exportBeforePrepare = exportSession.render(render::ExportSettings{
+  app::NativeExportSession exportSession{session, appRenderCore};
+  const auto exportAfterPreviewRefresh = exportSession.render(render::ExportSettings{
     foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}},
     foundation::FrameRate{2, 1},
     foundation::Resolution{1920, 1080},
@@ -896,8 +902,8 @@ int main() {
     render::RenderQuality::Final,
     foundation::FilePath{"/tmp/app-export.mov"}
   });
-  GRAPPLE_REQUIRE(!exportBeforePrepare);
-  GRAPPLE_REQUIRE(exportBeforePrepare.error().code == "render.plan_missing");
+  GRAPPLE_REQUIRE(exportAfterPreviewRefresh);
+  GRAPPLE_REQUIRE(exportAfterPreviewRefresh.value().framesEvaluated == 2);
 
   const auto exportPrepare = exportSession.prepareFromProject();
   GRAPPLE_REQUIRE(exportPrepare);

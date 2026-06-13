@@ -1,32 +1,12 @@
 #include <grapple/app/NativePreviewSession.hpp>
 
-#include <utility>
-
 namespace grapple::app {
 
-NativePreviewSession::NativePreviewSession(NativeProjectSession& project)
-  : NativePreviewSession{project, {}} {}
-
 NativePreviewSession::NativePreviewSession(
   NativeProjectSession& project,
-  render::IRenderFrameSource& frameSource
-) : NativePreviewSession{project, frameSource, {}} {}
-
-NativePreviewSession::NativePreviewSession(
-  NativeProjectSession& project,
-  render::IRenderFrameSource& frameSource,
-  std::vector<runtime::IEffectRuntime*> effectRuntimes
+  render::LocalRenderCore& core
 ) : project_{project},
-    runtime_{std::move(effectRuntimes)},
-    core_{runtime_, frameSource},
-    preview_{core_} {}
-
-NativePreviewSession::NativePreviewSession(
-  NativeProjectSession& project,
-  std::vector<runtime::IEffectRuntime*> effectRuntimes
-) : project_{project},
-    runtime_{std::move(effectRuntimes)},
-    core_{runtime_},
+    core_{core},
     preview_{core_} {}
 
 foundation::Result<NativePreviewRefreshResult> NativePreviewSession::refreshFromProject() {

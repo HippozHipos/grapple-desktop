@@ -4,6 +4,8 @@
 #include <grapple/app/NativePreviewSession.hpp>
 #include <grapple/app/NativeWorkspaceSession.hpp>
 #include <grapple/projection/RenderPlanSerializer.hpp>
+#include <grapple/render/LocalRenderCore.hpp>
+#include <grapple/runtime/RuntimeEvaluator.hpp>
 #include <grapple/storage/ProjectCommitBuilder.hpp>
 
 #include <filesystem>
@@ -103,7 +105,9 @@ int main(int argc, char* argv[]) {
   }
 
   if (printPreviewFrame) {
-    app::NativePreviewSession preview{session};
+    runtime::RuntimeEvaluator runtime;
+    render::LocalRenderCore renderCore{runtime};
+    app::NativePreviewSession preview{session, renderCore};
     const auto refresh = preview.refreshFromProject();
     if (!refresh) {
       printError(refresh.error());
