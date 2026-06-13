@@ -2,6 +2,8 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(JSONCPP REQUIRED jsoncpp)
 
 add_library(grapple_agent
+  src/AgentConversationState.cpp
+  src/AgentRunEvent.cpp
   src/AgentToolRegistry.cpp
   src/ProjectTools.cpp
 )
