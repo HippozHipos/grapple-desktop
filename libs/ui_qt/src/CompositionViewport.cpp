@@ -158,9 +158,18 @@ void CompositionViewport::drawCamera(QPainter& painter, const app::AppCameraRow&
   painter.drawRoundedRect(icon, 5.0, 5.0);
   painter.drawEllipse(QPointF{0.0, 0.0}, 4.0, 4.0);
 
-  painter.setPen(QColor{"#d8f3ff"});
   painter.setFont(QFont{"DejaVu Sans", 9, QFont::Bold});
-  painter.drawText(cameraRect.adjusted(8.0, 6.0, -8.0, -6.0), Qt::AlignTop | Qt::AlignLeft, qString(camera.name));
+  const QString label = QFontMetrics{painter.font()}.elidedText(
+    qString(camera.name),
+    Qt::ElideRight,
+    static_cast<int>(std::max(20.0, cameraRect.width() - 16.0))
+  );
+  const QRectF labelRect = cameraRect.adjusted(8.0, cameraRect.height() - 24.0, -8.0, -6.0);
+  painter.setPen(Qt::NoPen);
+  painter.setBrush(QColor{"#09131d"});
+  painter.drawRoundedRect(labelRect, 4.0, 4.0);
+  painter.setPen(QColor{"#d8f3ff"});
+  painter.drawText(labelRect.adjusted(6.0, 0.0, -6.0, 0.0), Qt::AlignVCenter | Qt::AlignLeft, label);
   painter.restore();
 }
 
