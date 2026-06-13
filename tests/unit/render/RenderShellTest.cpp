@@ -120,12 +120,14 @@ public:
     frameIndexes.push_back(frameIndex);
     frameTimes.push_back(frame.frame.time);
     frameDescriptions.push_back(frame.frame.description);
+    frameImages.push_back(frame.frame.image);
     return {};
   }
 
   std::vector<std::size_t> frameIndexes;
   std::vector<grapple::foundation::TimeSeconds> frameTimes;
   std::vector<std::string> frameDescriptions;
+  std::vector<std::optional<grapple::render::RenderedImage>> frameImages;
 };
 
 class FailingRangeSink final : public grapple::render::IRenderRangeSink {
@@ -543,12 +545,17 @@ int main() {
   render::FinalRenderShell finalRangeRender{finalRangeImageCore};
   const auto finalRangeImageLoad = finalRangeImageCore.loadPlan(makeCameraEffectRenderPlan());
   GRAPPLE_REQUIRE(finalRangeImageLoad);
+  CapturingRangeSink finalRangeImageSink;
   const auto finalRangeImageResult = finalRangeRender.render(render::FinalRenderRequest{
-    makeExportSettings(foundation::Resolution{1920, 1080})
+    makeExportSettings(foundation::Resolution{1920, 1080}),
+    &finalRangeImageSink
   });
   GRAPPLE_REQUIRE(finalRangeImageResult);
   GRAPPLE_REQUIRE(finalRangeImageResult.value().framesEvaluated == 2);
   GRAPPLE_REQUIRE(finalRangeImageResult.value().runtimeDiagnostics.empty());
+  GRAPPLE_REQUIRE(finalRangeImageSink.frameImages.size() == 2);
+  GRAPPLE_REQUIRE(finalRangeImageSink.frameImages[0].has_value());
+  GRAPPLE_REQUIRE((finalRangeImageSink.frameImages[0]->rgbaPixels == std::vector<std::uint8_t>{40, 50, 60, 255, 0, 0, 0, 0}));
   GRAPPLE_REQUIRE(finalRangeFrameSource.requests == 2);
   GRAPPLE_REQUIRE(finalRangeFrameSource.lastRequest.has_value());
   GRAPPLE_REQUIRE(finalRangeFrameSource.lastRequest->assetId == foundation::AssetId{"asset_video"});
