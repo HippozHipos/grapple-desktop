@@ -34,10 +34,23 @@ QString targetNameFor(const app::AppViewModel& viewModel, const foundation::Node
   return qString(nodeId.value());
 }
 
+QString controlTextFor(const app::AppEffectParamRow& param) {
+  const QString displayName = param.label.empty() ? qString(param.name) : qString(param.label);
+  QString text = QString{"%1=%2"}.arg(displayName).arg(qString(param.value));
+  if (param.numericMin.has_value() && param.numericMax.has_value()) {
+    text += QString{" [%1..%2"}.arg(*param.numericMin).arg(*param.numericMax);
+    if (param.numericStep.has_value()) {
+      text += QString{" step %1"}.arg(*param.numericStep);
+    }
+    text += "]";
+  }
+  return text;
+}
+
 QStringList exposedControlsFor(const app::AppEffectRow& effect) {
   QStringList controls;
   for (const app::AppEffectParamRow& param : effect.params) {
-    controls << (param.label.empty() ? qString(param.name) : qString(param.label));
+    controls << controlTextFor(param);
   }
   return controls;
 }

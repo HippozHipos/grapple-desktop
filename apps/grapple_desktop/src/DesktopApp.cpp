@@ -405,6 +405,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            inspector.find("Camera Transform") != std::string::npos &&
            inspector.find("Position X (position_x)=0") != std::string::npos &&
            intentRecorded &&
+           steward.find("Position X=0 [-1..1 step 0.01]") != std::string::npos &&
+           steward.find("Position Y=0 [-1..1 step 0.01]") != std::string::npos &&
            steward.find("tool steward.create_camera_transform -> succeeded") != std::string::npos &&
            steward.find("tool steward.create_camera_transform -> failed") != std::string::npos &&
            steward.find("Center the walking subject with exposed controls. @ rev_6") != std::string::npos &&
