@@ -10,6 +10,7 @@
 
 #include <json/json.h>
 
+#include <initializer_list>
 #include <memory>
 #include <optional>
 #include <string>
@@ -47,6 +48,31 @@ foundation::Result<Json::Value> requiredMember(const Json::Value& object, const 
     return parseError(path + "." + key, "Missing required field.");
   }
   return object[key];
+}
+
+foundation::Result<void> requireOnlyMembers(
+  const Json::Value& object,
+  std::initializer_list<std::string_view> allowed,
+  const std::string& path
+) {
+  if (!object.isObject()) {
+    return parseError(path, "Expected object.");
+  }
+
+  for (const std::string& member : object.getMemberNames()) {
+    bool expected = false;
+    for (std::string_view allowedMember : allowed) {
+      if (member == allowedMember) {
+        expected = true;
+        break;
+      }
+    }
+    if (!expected) {
+      return parseError(path + "." + member, "Unexpected serialized field.");
+    }
+  }
+
+  return {};
 }
 
 foundation::Result<Json::Value> requiredObjectMember(const Json::Value& object, const char* key, const std::string& path) {
@@ -290,6 +316,10 @@ foundation::Result<std::optional<foundation::Resolution>> optionalResolutionMemb
   if (!value.value().isObject()) {
     return parseError(path + "." + key, "Expected object or null.");
   }
+  auto members = requireOnlyMembers(value.value(), {"width", "height"}, path + "." + key);
+  if (!members) {
+    return members.error();
+  }
   auto width = requiredIntMember(value.value(), "width", path + "." + key);
   if (!width) {
     return width.error();
@@ -316,6 +346,10 @@ foundation::Result<std::optional<foundation::FrameRate>> optionalFrameRateMember
   if (!value.value().isObject()) {
     return parseError(path + "." + key, "Expected object or null.");
   }
+  auto members = requireOnlyMembers(value.value(), {"numerator", "denominator"}, path + "." + key);
+  if (!members) {
+    return members.error();
+  }
   auto numerator = requiredIntMember(value.value(), "numerator", path + "." + key);
   if (!numerator) {
     return numerator.error();
@@ -328,6 +362,10 @@ foundation::Result<std::optional<foundation::FrameRate>> optionalFrameRateMember
 }
 
 foundation::Result<foundation::Vec2> parseVec2(const Json::Value& object, const std::string& path) {
+  auto members = requireOnlyMembers(object, {"x", "y"}, path);
+  if (!members) {
+    return members.error();
+  }
   auto x = requiredDoubleMember(object, "x", path);
   if (!x) {
     return x.error();
@@ -340,6 +378,10 @@ foundation::Result<foundation::Vec2> parseVec2(const Json::Value& object, const 
 }
 
 foundation::Result<foundation::Vec3> parseVec3(const Json::Value& object, const std::string& path) {
+  auto members = requireOnlyMembers(object, {"x", "y", "z"}, path);
+  if (!members) {
+    return members.error();
+  }
   auto x = requiredDoubleMember(object, "x", path);
   if (!x) {
     return x.error();
@@ -356,6 +398,10 @@ foundation::Result<foundation::Vec3> parseVec3(const Json::Value& object, const 
 }
 
 foundation::Result<foundation::Rect> parseRect(const Json::Value& object, const std::string& path) {
+  auto members = requireOnlyMembers(object, {"x", "y", "width", "height"}, path);
+  if (!members) {
+    return members.error();
+  }
   auto x = requiredDoubleMember(object, "x", path);
   if (!x) {
     return x.error();
@@ -376,6 +422,10 @@ foundation::Result<foundation::Rect> parseRect(const Json::Value& object, const 
 }
 
 foundation::Result<foundation::TimeRange> parseTimeRange(const Json::Value& object, const std::string& path) {
+  auto members = requireOnlyMembers(object, {"start", "end"}, path);
+  if (!members) {
+    return members.error();
+  }
   auto start = requiredDoubleMember(object, "start", path);
   if (!start) {
     return start.error();
@@ -388,6 +438,10 @@ foundation::Result<foundation::TimeRange> parseTimeRange(const Json::Value& obje
 }
 
 foundation::Result<timeline::Transform> parseTransform(const Json::Value& object, const std::string& path) {
+  auto members = requireOnlyMembers(object, {"position", "scale", "rotationDegrees", "opacity"}, path);
+  if (!members) {
+    return members.error();
+  }
   auto positionValue = requiredObjectMember(object, "position", path);
   if (!positionValue) {
     return positionValue.error();
@@ -453,6 +507,10 @@ foundation::Result<timeline::Param::Keyframe> parseParamKeyframe(const Json::Val
   if (!object.isObject()) {
     return parseError(path, "Expected keyframe object.");
   }
+  auto members = requireOnlyMembers(object, {"id", "time", "value"}, path);
+  if (!members) {
+    return members.error();
+  }
   auto keyframeId = requiredStringMember(object, "id", path);
   if (!keyframeId) {
     return keyframeId.error();
@@ -487,6 +545,10 @@ foundation::Result<timeline::ParamSet> parseParamSet(const Json::Value& array, c
     if (!array[index].isObject()) {
       return parseError(itemPath, "Expected parameter object.");
     }
+    auto members = requireOnlyMembers(array[index], {"name", "value", "label", "numeric", "keyframes"}, itemPath);
+    if (!members) {
+      return members.error();
+    }
     auto name = requiredStringMember(array[index], "name", itemPath);
     if (!name) {
       return name.error();
@@ -512,6 +574,10 @@ foundation::Result<timeline::ParamSet> parseParamSet(const Json::Value& array, c
       auto numericObject = requiredObjectMember(array[index], "numeric", itemPath);
       if (!numericObject) {
         return numericObject.error();
+      }
+      auto numericMembers = requireOnlyMembers(numericObject.value(), {"min", "max", "step"}, itemPath + ".numeric");
+      if (!numericMembers) {
+        return numericMembers.error();
       }
       auto min = requiredDoubleMember(numericObject.value(), "min", itemPath + ".numeric");
       if (!min) {
@@ -558,6 +624,10 @@ foundation::Result<timeline::ParamSet> parseParamSet(const Json::Value& array, c
 }
 
 foundation::Result<timeline::EffectPortSet> parsePortSet(const Json::Value& object, const std::string& path) {
+  auto members = requireOnlyMembers(object, {"inputs", "outputs"}, path);
+  if (!members) {
+    return members.error();
+  }
   auto inputs = requiredArrayMember(object, "inputs", path);
   if (!inputs) {
     return inputs.error();
@@ -570,6 +640,10 @@ foundation::Result<timeline::EffectPortSet> parsePortSet(const Json::Value& obje
   timeline::EffectPortSet ports;
   for (Json::ArrayIndex index = 0; index < inputs.value().size(); ++index) {
     const std::string itemPath = path + ".inputs[" + std::to_string(index) + "]";
+    auto portMembers = requireOnlyMembers(inputs.value()[index], {"name"}, itemPath);
+    if (!portMembers) {
+      return portMembers.error();
+    }
     auto name = requiredStringMember(inputs.value()[index], "name", itemPath);
     if (!name) {
       return name.error();
@@ -578,6 +652,10 @@ foundation::Result<timeline::EffectPortSet> parsePortSet(const Json::Value& obje
   }
   for (Json::ArrayIndex index = 0; index < outputs.value().size(); ++index) {
     const std::string itemPath = path + ".outputs[" + std::to_string(index) + "]";
+    auto portMembers = requireOnlyMembers(outputs.value()[index], {"name"}, itemPath);
+    if (!portMembers) {
+      return portMembers.error();
+    }
     auto name = requiredStringMember(outputs.value()[index], "name", itemPath);
     if (!name) {
       return name.error();
@@ -598,6 +676,10 @@ foundation::Result<std::vector<timeline::EffectModelDependency>> parseModelDepen
   std::vector<timeline::EffectModelDependency> modelDependencies;
   for (Json::ArrayIndex index = 0; index < array.size(); ++index) {
     const std::string itemPath = path + "[" + std::to_string(index) + "]";
+    auto members = requireOnlyMembers(array[index], {"modelId", "versionHash"}, itemPath);
+    if (!members) {
+      return members.error();
+    }
     auto modelId = requiredStringMember(array[index], "modelId", itemPath);
     if (!modelId) {
       return modelId.error();
@@ -619,6 +701,10 @@ foundation::Result<std::vector<timeline::EffectModelDependency>> parseModelDepen
 }
 
 foundation::Result<asset::Asset> parseAsset(const Json::Value& object, const std::string& path) {
+  auto members = requireOnlyMembers(object, {"id", "name", "metadata"}, path);
+  if (!members) {
+    return members.error();
+  }
   auto id = requiredStringMember(object, "id", path);
   if (!id) {
     return id.error();
@@ -630,6 +716,14 @@ foundation::Result<asset::Asset> parseAsset(const Json::Value& object, const std
   auto metadata = requiredObjectMember(object, "metadata", path);
   if (!metadata) {
     return metadata.error();
+  }
+  auto metadataMembers = requireOnlyMembers(
+    metadata.value(),
+    {"mediaType", "sourcePath", "thumbnailPath", "duration", "dimensions", "frameRate"},
+    path + ".metadata"
+  );
+  if (!metadataMembers) {
+    return metadataMembers.error();
   }
   auto mediaTypeName = requiredStringMember(metadata.value(), "mediaType", path + ".metadata");
   if (!mediaTypeName) {
@@ -675,6 +769,14 @@ foundation::Result<asset::Asset> parseAsset(const Json::Value& object, const std
 }
 
 foundation::Result<timeline::ClipPayload> parseClipPayload(const Json::Value& object, const std::string& path) {
+  auto members = requireOnlyMembers(
+    object,
+    {"kind", "timelineRange", "sourceRange", "playbackRate", "assetId", "transform"},
+    path
+  );
+  if (!members) {
+    return members.error();
+  }
   auto kindName = requiredStringMember(object, "kind", path);
   if (!kindName) {
     return kindName.error();
@@ -726,6 +828,10 @@ foundation::Result<timeline::ClipPayload> parseClipPayload(const Json::Value& ob
 }
 
 foundation::Result<timeline::CameraPayload> parseCameraPayload(const Json::Value& object, const std::string& path) {
+  auto members = requireOnlyMembers(object, {"name", "transform", "lens"}, path);
+  if (!members) {
+    return members.error();
+  }
   auto name = requiredStringMember(object, "name", path);
   if (!name) {
     return name.error();
@@ -742,6 +848,10 @@ foundation::Result<timeline::CameraPayload> parseCameraPayload(const Json::Value
   if (!lensObject) {
     return lensObject.error();
   }
+  auto lensMembers = requireOnlyMembers(lensObject.value(), {"focalLength"}, path + ".lens");
+  if (!lensMembers) {
+    return lensMembers.error();
+  }
   auto focalLength = requiredDoubleMember(lensObject.value(), "focalLength", path + ".lens");
   if (!focalLength) {
     return focalLength.error();
@@ -750,6 +860,14 @@ foundation::Result<timeline::CameraPayload> parseCameraPayload(const Json::Value
 }
 
 foundation::Result<timeline::EffectPayload> parseEffectPayload(const Json::Value& object, const std::string& path) {
+  auto members = requireOnlyMembers(
+    object,
+    {"displayName", "implementation", "ports", "params", "activeRange", "modelDependencies"},
+    path
+  );
+  if (!members) {
+    return members.error();
+  }
   auto displayName = requiredStringMember(object, "displayName", path);
   if (!displayName) {
     return displayName.error();
@@ -757,6 +875,14 @@ foundation::Result<timeline::EffectPayload> parseEffectPayload(const Json::Value
   auto implementationObject = requiredObjectMember(object, "implementation", path);
   if (!implementationObject) {
     return implementationObject.error();
+  }
+  auto implementationMembers = requireOnlyMembers(
+    implementationObject.value(),
+    {"kind", "entrypoint", "source"},
+    path + ".implementation"
+  );
+  if (!implementationMembers) {
+    return implementationMembers.error();
   }
   auto implementationKindName = requiredStringMember(implementationObject.value(), "kind", path + ".implementation");
   if (!implementationKindName) {
@@ -773,6 +899,14 @@ foundation::Result<timeline::EffectPayload> parseEffectPayload(const Json::Value
   auto sourceObject = requiredObjectMember(implementationObject.value(), "source", path + ".implementation");
   if (!sourceObject) {
     return sourceObject.error();
+  }
+  auto sourceMembers = requireOnlyMembers(
+    sourceObject.value(),
+    {"kind", "language", "inlineSource", "sourceAssetId", "sourceHash"},
+    path + ".implementation.source"
+  );
+  if (!sourceMembers) {
+    return sourceMembers.error();
   }
   auto sourceKindName = requiredStringMember(sourceObject.value(), "kind", path + ".implementation.source");
   if (!sourceKindName) {
@@ -859,12 +993,21 @@ foundation::Result<graph::NodePayload> parseNodePayload(
   graph::NodeKind nodeKind,
   const std::string& path
 ) {
+  auto typedMembers = requireOnlyMembers(object, {"type", "name", "payload", "assetId", "title", "markdown"}, path);
+  if (!typedMembers) {
+    return typedMembers.error();
+  }
+
   auto type = requiredStringMember(object, "type", path);
   if (!type) {
     return type.error();
   }
 
   if (type.value() == "composition") {
+    auto members = requireOnlyMembers(object, {"type", "name"}, path);
+    if (!members) {
+      return members.error();
+    }
     auto name = requiredStringMember(object, "name", path);
     if (!name) {
       return name.error();
@@ -872,6 +1015,10 @@ foundation::Result<graph::NodePayload> parseNodePayload(
     return graph::NodePayload{timeline::CompositionPayload{name.value()}};
   }
   if (type.value() == "track") {
+    auto members = requireOnlyMembers(object, {"type", "name"}, path);
+    if (!members) {
+      return members.error();
+    }
     auto name = requiredStringMember(object, "name", path);
     if (!name) {
       return name.error();
@@ -879,6 +1026,10 @@ foundation::Result<graph::NodePayload> parseNodePayload(
     return graph::NodePayload{timeline::TrackPayload{name.value()}};
   }
   if (type.value() == "clip") {
+    auto members = requireOnlyMembers(object, {"type", "payload"}, path);
+    if (!members) {
+      return members.error();
+    }
     auto payloadObject = requiredObjectMember(object, "payload", path);
     if (!payloadObject) {
       return payloadObject.error();
@@ -890,6 +1041,10 @@ foundation::Result<graph::NodePayload> parseNodePayload(
     return graph::NodePayload{payload.value()};
   }
   if (type.value() == "camera") {
+    auto members = requireOnlyMembers(object, {"type", "payload"}, path);
+    if (!members) {
+      return members.error();
+    }
     auto payloadObject = requiredObjectMember(object, "payload", path);
     if (!payloadObject) {
       return payloadObject.error();
@@ -901,6 +1056,10 @@ foundation::Result<graph::NodePayload> parseNodePayload(
     return graph::NodePayload{payload.value()};
   }
   if (type.value() == "effect") {
+    auto members = requireOnlyMembers(object, {"type", "payload"}, path);
+    if (!members) {
+      return members.error();
+    }
     auto payloadObject = requiredObjectMember(object, "payload", path);
     if (!payloadObject) {
       return payloadObject.error();
@@ -912,6 +1071,10 @@ foundation::Result<graph::NodePayload> parseNodePayload(
     return graph::NodePayload{payload.value()};
   }
   if (type.value() == "asset") {
+    auto members = requireOnlyMembers(object, {"type", "assetId"}, path);
+    if (!members) {
+      return members.error();
+    }
     auto assetId = requiredStringMember(object, "assetId", path);
     if (!assetId) {
       return assetId.error();
@@ -919,6 +1082,10 @@ foundation::Result<graph::NodePayload> parseNodePayload(
     return graph::NodePayload{timeline::AssetPayload{foundation::AssetId{assetId.value()}}};
   }
   if (type.value() == "note") {
+    auto members = requireOnlyMembers(object, {"type", "title", "markdown"}, path);
+    if (!members) {
+      return members.error();
+    }
     auto title = requiredStringMember(object, "title", path);
     if (!title) {
       return title.error();
@@ -935,6 +1102,10 @@ foundation::Result<graph::NodePayload> parseNodePayload(
 }
 
 foundation::Result<graph::GraphNode> parseNode(const Json::Value& object, const std::string& path) {
+  auto members = requireOnlyMembers(object, {"id", "kind", "enabled", "payload"}, path);
+  if (!members) {
+    return members.error();
+  }
   auto id = requiredStringMember(object, "id", path);
   if (!id) {
     return id.error();
@@ -963,6 +1134,14 @@ foundation::Result<graph::GraphNode> parseNode(const Json::Value& object, const 
 }
 
 foundation::Result<graph::GraphEdge> parseEdge(const Json::Value& object, const std::string& path) {
+  auto members = requireOnlyMembers(
+    object,
+    {"id", "kind", "sourceNodeId", "sourcePort", "targetNodeId", "targetPort", "order", "enabled"},
+    path
+  );
+  if (!members) {
+    return members.error();
+  }
   auto id = requiredStringMember(object, "id", path);
   if (!id) {
     return id.error();
@@ -1012,6 +1191,10 @@ foundation::Result<graph::GraphEdge> parseEdge(const Json::Value& object, const 
 }
 
 foundation::Result<graph::GraphDocument> parseGraph(const Json::Value& object, const std::string& path) {
+  auto members = requireOnlyMembers(object, {"nodes", "edges"}, path);
+  if (!members) {
+    return members.error();
+  }
   auto nodes = requiredArrayMember(object, "nodes", path);
   if (!nodes) {
     return nodes.error();
@@ -1048,6 +1231,10 @@ foundation::Result<graph::GraphDocument> parseGraph(const Json::Value& object, c
 }
 
 foundation::Result<ProjectSettings> parseSettings(const Json::Value& object, const std::string& path) {
+  auto members = requireOnlyMembers(object, {"defaultDuration"}, path);
+  if (!members) {
+    return members.error();
+  }
   auto defaultDuration = requiredMember(object, "defaultDuration", path);
   if (!defaultDuration) {
     return defaultDuration.error();
@@ -1075,6 +1262,10 @@ foundation::Result<ProjectCommand> deserializeCanonicalCommandPayload(
   }
 
   if (serializedName == "project.register_asset") {
+    auto members = requireOnlyMembers(root.value(), {"asset"}, "$");
+    if (!members) {
+      return members.error();
+    }
     auto assetObject = requiredObjectMember(root.value(), "asset", "$");
     if (!assetObject) {
       return assetObject.error();
@@ -1086,6 +1277,10 @@ foundation::Result<ProjectCommand> deserializeCanonicalCommandPayload(
     return ProjectCommand{RegisterAssetCommand{asset.value()}};
   }
   if (serializedName == "project.create_composition") {
+    auto members = requireOnlyMembers(root.value(), {"nodeId", "name"}, "$");
+    if (!members) {
+      return members.error();
+    }
     auto nodeId = requiredStringMember(root.value(), "nodeId", "$");
     if (!nodeId) {
       return nodeId.error();
@@ -1097,6 +1292,10 @@ foundation::Result<ProjectCommand> deserializeCanonicalCommandPayload(
     return ProjectCommand{CreateCompositionCommand{foundation::NodeId{nodeId.value()}, name.value()}};
   }
   if (serializedName == "project.create_track") {
+    auto members = requireOnlyMembers(root.value(), {"nodeId", "compositionNodeId", "containmentEdgeId", "name", "order"}, "$");
+    if (!members) {
+      return members.error();
+    }
     auto nodeId = requiredStringMember(root.value(), "nodeId", "$");
     if (!nodeId) {
       return nodeId.error();
@@ -1126,6 +1325,10 @@ foundation::Result<ProjectCommand> deserializeCanonicalCommandPayload(
     }};
   }
   if (serializedName == "project.create_clip") {
+    auto members = requireOnlyMembers(root.value(), {"nodeId", "trackNodeId", "containmentEdgeId", "payload", "order"}, "$");
+    if (!members) {
+      return members.error();
+    }
     auto nodeId = requiredStringMember(root.value(), "nodeId", "$");
     if (!nodeId) {
       return nodeId.error();
@@ -1159,6 +1362,10 @@ foundation::Result<ProjectCommand> deserializeCanonicalCommandPayload(
     }};
   }
   if (serializedName == "project.move_clip") {
+    auto members = requireOnlyMembers(root.value(), {"nodeId", "newStart"}, "$");
+    if (!members) {
+      return members.error();
+    }
     auto nodeId = requiredStringMember(root.value(), "nodeId", "$");
     if (!nodeId) {
       return nodeId.error();
@@ -1170,6 +1377,10 @@ foundation::Result<ProjectCommand> deserializeCanonicalCommandPayload(
     return ProjectCommand{MoveClipCommand{foundation::NodeId{nodeId.value()}, foundation::TimeSeconds{newStart.value()}}};
   }
   if (serializedName == "project.trim_clip") {
+    auto members = requireOnlyMembers(root.value(), {"nodeId", "timelineRange", "sourceRange"}, "$");
+    if (!members) {
+      return members.error();
+    }
     auto nodeId = requiredStringMember(root.value(), "nodeId", "$");
     if (!nodeId) {
       return nodeId.error();
@@ -1193,6 +1404,10 @@ foundation::Result<ProjectCommand> deserializeCanonicalCommandPayload(
     return ProjectCommand{TrimClipCommand{foundation::NodeId{nodeId.value()}, timelineRange.value(), sourceRange.value()}};
   }
   if (serializedName == "project.update_clip") {
+    auto members = requireOnlyMembers(root.value(), {"nodeId", "payload"}, "$");
+    if (!members) {
+      return members.error();
+    }
     auto nodeId = requiredStringMember(root.value(), "nodeId", "$");
     if (!nodeId) {
       return nodeId.error();
@@ -1208,6 +1423,10 @@ foundation::Result<ProjectCommand> deserializeCanonicalCommandPayload(
     return ProjectCommand{UpdateClipCommand{foundation::NodeId{nodeId.value()}, payload.value()}};
   }
   if (serializedName == "project.delete_clip") {
+    auto members = requireOnlyMembers(root.value(), {"nodeId"}, "$");
+    if (!members) {
+      return members.error();
+    }
     auto nodeId = requiredStringMember(root.value(), "nodeId", "$");
     if (!nodeId) {
       return nodeId.error();
@@ -1215,6 +1434,10 @@ foundation::Result<ProjectCommand> deserializeCanonicalCommandPayload(
     return ProjectCommand{DeleteClipCommand{foundation::NodeId{nodeId.value()}}};
   }
   if (serializedName == "project.create_camera") {
+    auto members = requireOnlyMembers(root.value(), {"nodeId", "compositionNodeId", "containmentEdgeId", "payload", "order"}, "$");
+    if (!members) {
+      return members.error();
+    }
     auto nodeId = requiredStringMember(root.value(), "nodeId", "$");
     if (!nodeId) {
       return nodeId.error();
@@ -1248,6 +1471,10 @@ foundation::Result<ProjectCommand> deserializeCanonicalCommandPayload(
     }};
   }
   if (serializedName == "project.update_camera") {
+    auto members = requireOnlyMembers(root.value(), {"nodeId", "payload"}, "$");
+    if (!members) {
+      return members.error();
+    }
     auto nodeId = requiredStringMember(root.value(), "nodeId", "$");
     if (!nodeId) {
       return nodeId.error();
@@ -1263,6 +1490,10 @@ foundation::Result<ProjectCommand> deserializeCanonicalCommandPayload(
     return ProjectCommand{UpdateCameraCommand{foundation::NodeId{nodeId.value()}, payload.value()}};
   }
   if (serializedName == "project.create_effect") {
+    auto members = requireOnlyMembers(root.value(), {"nodeId", "targetNodeId", "targetEdgeId", "payload", "sourcePort", "targetPort", "order"}, "$");
+    if (!members) {
+      return members.error();
+    }
     auto nodeId = requiredStringMember(root.value(), "nodeId", "$");
     if (!nodeId) {
       return nodeId.error();
@@ -1306,6 +1537,10 @@ foundation::Result<ProjectCommand> deserializeCanonicalCommandPayload(
     }};
   }
   if (serializedName == "project.delete_effect") {
+    auto members = requireOnlyMembers(root.value(), {"nodeId"}, "$");
+    if (!members) {
+      return members.error();
+    }
     auto nodeId = requiredStringMember(root.value(), "nodeId", "$");
     if (!nodeId) {
       return nodeId.error();
@@ -1313,6 +1548,10 @@ foundation::Result<ProjectCommand> deserializeCanonicalCommandPayload(
     return ProjectCommand{DeleteEffectCommand{foundation::NodeId{nodeId.value()}}};
   }
   if (serializedName == "project.connect_ports") {
+    auto members = requireOnlyMembers(root.value(), {"edgeId", "sourceNodeId", "sourcePort", "targetNodeId", "targetPort", "order"}, "$");
+    if (!members) {
+      return members.error();
+    }
     auto edgeId = requiredStringMember(root.value(), "edgeId", "$");
     if (!edgeId) {
       return edgeId.error();
@@ -1347,6 +1586,10 @@ foundation::Result<ProjectCommand> deserializeCanonicalCommandPayload(
     }};
   }
   if (serializedName == "project.disconnect_ports") {
+    auto members = requireOnlyMembers(root.value(), {"edgeId"}, "$");
+    if (!members) {
+      return members.error();
+    }
     auto edgeId = requiredStringMember(root.value(), "edgeId", "$");
     if (!edgeId) {
       return edgeId.error();
@@ -1354,6 +1597,10 @@ foundation::Result<ProjectCommand> deserializeCanonicalCommandPayload(
     return ProjectCommand{DisconnectPortsCommand{foundation::EdgeId{edgeId.value()}}};
   }
   if (serializedName == "project.update_effect_param_value") {
+    auto members = requireOnlyMembers(root.value(), {"effectNodeId", "paramName", "value"}, "$");
+    if (!members) {
+      return members.error();
+    }
     auto effectNodeId = requiredStringMember(root.value(), "effectNodeId", "$");
     if (!effectNodeId) {
       return effectNodeId.error();
@@ -1377,6 +1624,10 @@ foundation::Result<ProjectCommand> deserializeCanonicalCommandPayload(
     }};
   }
   if (serializedName == "project.upsert_effect_param_keyframe") {
+    auto members = requireOnlyMembers(root.value(), {"effectNodeId", "paramName", "keyframe"}, "$");
+    if (!members) {
+      return members.error();
+    }
     auto effectNodeId = requiredStringMember(root.value(), "effectNodeId", "$");
     if (!effectNodeId) {
       return effectNodeId.error();
@@ -1400,6 +1651,10 @@ foundation::Result<ProjectCommand> deserializeCanonicalCommandPayload(
     }};
   }
   if (serializedName == "project.delete_effect_param_keyframe") {
+    auto members = requireOnlyMembers(root.value(), {"effectNodeId", "paramName", "keyframeId"}, "$");
+    if (!members) {
+      return members.error();
+    }
     auto effectNodeId = requiredStringMember(root.value(), "effectNodeId", "$");
     if (!effectNodeId) {
       return effectNodeId.error();
@@ -1419,6 +1674,10 @@ foundation::Result<ProjectCommand> deserializeCanonicalCommandPayload(
     }};
   }
   if (serializedName == "project.create_note" || serializedName == "project.update_note") {
+    auto members = requireOnlyMembers(root.value(), {"nodeId", "title", "markdown"}, "$");
+    if (!members) {
+      return members.error();
+    }
     auto nodeId = requiredStringMember(root.value(), "nodeId", "$");
     if (!nodeId) {
       return nodeId.error();
@@ -1438,6 +1697,10 @@ foundation::Result<ProjectCommand> deserializeCanonicalCommandPayload(
     return ProjectCommand{UpdateNoteCommand{foundation::NodeId{nodeId.value()}, payload}};
   }
   if (serializedName == "project.restore_snapshot") {
+    auto members = requireOnlyMembers(root.value(), {"snapshotId", "snapshot"}, "$");
+    if (!members) {
+      return members.error();
+    }
     auto snapshotId = requiredStringMember(root.value(), "snapshotId", "$");
     if (!snapshotId) {
       return snapshotId.error();
@@ -1465,6 +1728,15 @@ foundation::Result<ProjectSnapshot> deserializeCanonicalProjectSnapshot(const st
   auto root = parseJson(json);
   if (!root) {
     return root.error();
+  }
+
+  auto members = requireOnlyMembers(
+    root.value(),
+    {"projectId", "name", "revision", "revisionNumber", "settings", "assets", "graph"},
+    "$"
+  );
+  if (!members) {
+    return members.error();
   }
 
   auto projectId = requiredStringMember(root.value(), "projectId", "$");

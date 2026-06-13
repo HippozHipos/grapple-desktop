@@ -156,6 +156,12 @@ int main() {
   GRAPPLE_REQUIRE(parsedCreateTrackPayload);
   GRAPPLE_REQUIRE(project::commandKind(parsedCreateTrackPayload.value()) == project::CommandKind::CreateTrack);
   GRAPPLE_REQUIRE(project::serializeCanonicalCommandPayload(parsedCreateTrackPayload.value()) == project::serializeCanonicalCommandPayload(createTrack.payload));
+  const auto commandWithUnexpectedField = project::deserializeCanonicalCommandPayload(
+    project::serializedCommandName(project::CommandKind::CreateTrack),
+    "{\"nodeId\":\"node_track\",\"compositionNodeId\":\"node_composition\",\"containmentEdgeId\":\"edge_contains_track\",\"name\":\"Video\",\"order\":0,\"metadata\":{}}"
+  );
+  GRAPPLE_REQUIRE(!commandWithUnexpectedField);
+  GRAPPLE_REQUIRE(commandWithUnexpectedField.error().message.find("Unexpected serialized field") != std::string::npos);
 
   const auto trackResult = controller.apply(createTrack);
   GRAPPLE_REQUIRE(trackResult);
@@ -206,6 +212,16 @@ int main() {
   GRAPPLE_REQUIRE(serialized.find("\"revision\":\"rev_3\"") != std::string::npos);
   GRAPPLE_REQUIRE(serialized.find("\"settings\":{\"defaultDuration\":null}") != std::string::npos);
   GRAPPLE_REQUIRE(serialized.find("\"nodes\"") != std::string::npos);
+  const std::string serializedWithUnexpectedNodeField = std::string{
+    "{\"projectId\":\"proj_test\",\"name\":\"Test Project\",\"revision\":\"rev_3\",\"revisionNumber\":3,"
+    "\"settings\":{\"defaultDuration\":null},\"assets\":[],\"graph\":{\"nodes\":["
+    "{\"id\":\"node_composition\",\"kind\":\"composition\",\"enabled\":true,"
+    "\"payload\":{\"type\":\"composition\",\"name\":\"Main\",\"metadata\":{}}}"
+    "],\"edges\":[]}}"
+  };
+  const auto snapshotWithUnexpectedNodeField = project::deserializeCanonicalProjectSnapshot(serializedWithUnexpectedNodeField);
+  GRAPPLE_REQUIRE(!snapshotWithUnexpectedNodeField);
+  GRAPPLE_REQUIRE(snapshotWithUnexpectedNodeField.error().message.find("Unexpected serialized field") != std::string::npos);
   GRAPPLE_REQUIRE(project::hashProjectSnapshot(afterRestore.value()) == project::hashProjectSnapshot(afterRestore.value()));
   project::ProjectSnapshot durationSnapshot = afterRestore.value();
   durationSnapshot.settings.defaultDuration = foundation::TimeSeconds{12.5};
