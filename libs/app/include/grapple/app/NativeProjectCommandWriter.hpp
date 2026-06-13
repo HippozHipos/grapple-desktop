@@ -17,7 +17,7 @@ class NativeProjectCommandWriter final : public project::IProjectCommandService,
 public:
   explicit NativeProjectCommandWriter(NativeProjectSession& session);
 
-  [[nodiscard]] foundation::CommandId nextCommandId(const std::string& stem) override;
+  [[nodiscard]] foundation::CommandId nextCommandId() override;
   [[nodiscard]] foundation::AssetId nextAssetId(const std::string& stem) override;
   [[nodiscard]] foundation::NodeId nextNodeId(const std::string& stem) override;
   [[nodiscard]] foundation::EdgeId nextEdgeId(const std::string& stem) override;

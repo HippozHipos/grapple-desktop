@@ -24,8 +24,8 @@ grapple::agent::AgentRunEvent runStartedEvent() {
 
 class TestProjectIdAllocator final : public grapple::project::IProjectIdAllocator {
 public:
-  grapple::foundation::CommandId nextCommandId(const std::string& stem) override {
-    return grapple::foundation::CommandId{"cmd_test_" + stem};
+  grapple::foundation::CommandId nextCommandId() override {
+    return grapple::foundation::CommandId{"cmd_test"};
   }
 
   grapple::foundation::AssetId nextAssetId(const std::string& stem) override {

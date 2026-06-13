@@ -68,7 +68,7 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeProjectCommandWri
     return currentSnapshot.error();
   }
 
-  foundation::CommandId commandId = nextCommandId("command");
+  foundation::CommandId commandId = nextCommandId();
   if (!snapshot.has_value()) {
     foundation::SnapshotId snapshotId = nextSnapshotId(commandId.value());
     snapshot = storage::SnapshotCommitRecord{
@@ -268,8 +268,7 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeProjectCommandWri
   );
 }
 
-foundation::CommandId NativeProjectCommandWriter::nextCommandId(const std::string& stem) {
-  (void)sanitizeStem(stem);
+foundation::CommandId NativeProjectCommandWriter::nextCommandId() {
   return foundation::CommandId{"cmd_app_" + std::to_string(commandSequence_++)};
 }
 

@@ -160,8 +160,8 @@ private:
 
 class TestProjectIdAllocator final : public grapple::project::IProjectIdAllocator {
 public:
-  grapple::foundation::CommandId nextCommandId(const std::string& stem) override {
-    return grapple::foundation::CommandId{"cmd_agent_" + stem + "_" + std::to_string(commandSequence_++)};
+  grapple::foundation::CommandId nextCommandId() override {
+    return grapple::foundation::CommandId{"cmd_agent_" + std::to_string(commandSequence_++)};
   }
 
   grapple::foundation::AssetId nextAssetId(const std::string& stem) override {
@@ -606,7 +606,7 @@ int main() {
   GRAPPLE_REQUIRE(createEffectResult);
   GRAPPLE_REQUIRE(createEffectResult.value().status == agent::ToolResultStatus::Succeeded);
   GRAPPLE_REQUIRE(createEffectResult.value().observedRevision == foundation::RevisionId{"rev_3"});
-  GRAPPLE_REQUIRE(createEffectResult.value().payload == "{\"commandId\":\"cmd_agent_create_effect_1\",\"effectNodeId\":\"node_agent_effect_1\",\"targetEdgeId\":\"edge_agent_effect_targets_1\",\"targetNodeId\":\"node_camera\",\"revision\":\"rev_3\"}");
+  GRAPPLE_REQUIRE(createEffectResult.value().payload == "{\"commandId\":\"cmd_agent_1\",\"effectNodeId\":\"node_agent_effect_1\",\"targetEdgeId\":\"edge_agent_effect_targets_1\",\"targetNodeId\":\"node_camera\",\"revision\":\"rev_3\"}");
 
   const auto afterEffectSnapshot = project.snapshot();
   GRAPPLE_REQUIRE(afterEffectSnapshot);
@@ -665,7 +665,7 @@ int main() {
   GRAPPLE_REQUIRE(createNoteResult);
   GRAPPLE_REQUIRE(createNoteResult.value().status == agent::ToolResultStatus::Succeeded);
   GRAPPLE_REQUIRE(createNoteResult.value().observedRevision == foundation::RevisionId{"rev_4"});
-  GRAPPLE_REQUIRE(createNoteResult.value().payload == "{\"commandId\":\"cmd_agent_create_note_2\",\"noteNodeId\":\"node_agent_note_2\",\"revision\":\"rev_4\"}");
+  GRAPPLE_REQUIRE(createNoteResult.value().payload == "{\"commandId\":\"cmd_agent_2\",\"noteNodeId\":\"node_agent_note_2\",\"revision\":\"rev_4\"}");
 
   const agent::AgentTool* updateNote = registry.findBySerializedId("note.update");
   GRAPPLE_REQUIRE(updateNote != nullptr);
@@ -686,7 +686,7 @@ int main() {
   GRAPPLE_REQUIRE(updateNoteResult);
   GRAPPLE_REQUIRE(updateNoteResult.value().status == agent::ToolResultStatus::Succeeded);
   GRAPPLE_REQUIRE(updateNoteResult.value().observedRevision == foundation::RevisionId{"rev_5"});
-  GRAPPLE_REQUIRE(updateNoteResult.value().payload == "{\"commandId\":\"cmd_agent_update_note_3\",\"noteNodeId\":\"node_agent_note_2\",\"revision\":\"rev_5\"}");
+  GRAPPLE_REQUIRE(updateNoteResult.value().payload == "{\"commandId\":\"cmd_agent_3\",\"noteNodeId\":\"node_agent_note_2\",\"revision\":\"rev_5\"}");
   const auto afterNoteSnapshot = project.snapshot();
   GRAPPLE_REQUIRE(afterNoteSnapshot);
   const graph::GraphNode* noteNode = afterNoteSnapshot.value().graph.findNode(foundation::NodeId{"node_agent_note_2"});
@@ -784,7 +784,7 @@ int main() {
   GRAPPLE_REQUIRE(createTrackResult);
   GRAPPLE_REQUIRE(createTrackResult.value().status == agent::ToolResultStatus::Succeeded);
   GRAPPLE_REQUIRE(createTrackResult.value().observedRevision == foundation::RevisionId{"rev_7"});
-  GRAPPLE_REQUIRE(createTrackResult.value().payload == "{\"commandId\":\"cmd_agent_create_track_6\",\"trackNodeId\":\"node_agent_track_3\",\"containmentEdgeId\":\"edge_agent_contains_track_2\",\"compositionNodeId\":\"node_composition\",\"revision\":\"rev_7\"}");
+  GRAPPLE_REQUIRE(createTrackResult.value().payload == "{\"commandId\":\"cmd_agent_6\",\"trackNodeId\":\"node_agent_track_3\",\"containmentEdgeId\":\"edge_agent_contains_track_2\",\"compositionNodeId\":\"node_composition\",\"revision\":\"rev_7\"}");
 
   const auto afterTrackSnapshot = project.snapshot();
   GRAPPLE_REQUIRE(afterTrackSnapshot);
@@ -828,7 +828,7 @@ int main() {
   GRAPPLE_REQUIRE(createClipResult);
   GRAPPLE_REQUIRE(createClipResult.value().status == agent::ToolResultStatus::Succeeded);
   GRAPPLE_REQUIRE(createClipResult.value().observedRevision == foundation::RevisionId{"rev_8"});
-  GRAPPLE_REQUIRE(createClipResult.value().payload == "{\"commandId\":\"cmd_agent_create_clip_7\",\"clipNodeId\":\"node_agent_clip_4\",\"containmentEdgeId\":\"edge_agent_contains_clip_3\",\"trackNodeId\":\"node_agent_track_3\",\"assetId\":\"asset_video\",\"revision\":\"rev_8\"}");
+  GRAPPLE_REQUIRE(createClipResult.value().payload == "{\"commandId\":\"cmd_agent_7\",\"clipNodeId\":\"node_agent_clip_4\",\"containmentEdgeId\":\"edge_agent_contains_clip_3\",\"trackNodeId\":\"node_agent_track_3\",\"assetId\":\"asset_video\",\"revision\":\"rev_8\"}");
 
   const auto afterClipSnapshot = project.snapshot();
   GRAPPLE_REQUIRE(afterClipSnapshot);
@@ -874,7 +874,7 @@ int main() {
   GRAPPLE_REQUIRE(moveClipResult);
   GRAPPLE_REQUIRE(moveClipResult.value().status == agent::ToolResultStatus::Succeeded);
   GRAPPLE_REQUIRE(moveClipResult.value().observedRevision == foundation::RevisionId{"rev_9"});
-  GRAPPLE_REQUIRE(moveClipResult.value().payload == "{\"commandId\":\"cmd_agent_move_clip_8\",\"clipNodeId\":\"node_agent_clip_4\",\"newStart\":2,\"revision\":\"rev_9\"}");
+  GRAPPLE_REQUIRE(moveClipResult.value().payload == "{\"commandId\":\"cmd_agent_8\",\"clipNodeId\":\"node_agent_clip_4\",\"newStart\":2,\"revision\":\"rev_9\"}");
 
   const auto afterMoveSnapshot = project.snapshot();
   GRAPPLE_REQUIRE(afterMoveSnapshot);
@@ -907,7 +907,7 @@ int main() {
   GRAPPLE_REQUIRE(trimClipResult);
   GRAPPLE_REQUIRE(trimClipResult.value().status == agent::ToolResultStatus::Succeeded);
   GRAPPLE_REQUIRE(trimClipResult.value().observedRevision == foundation::RevisionId{"rev_10"});
-  GRAPPLE_REQUIRE(trimClipResult.value().payload == "{\"commandId\":\"cmd_agent_trim_clip_9\",\"clipNodeId\":\"node_agent_clip_4\",\"revision\":\"rev_10\"}");
+  GRAPPLE_REQUIRE(trimClipResult.value().payload == "{\"commandId\":\"cmd_agent_9\",\"clipNodeId\":\"node_agent_clip_4\",\"revision\":\"rev_10\"}");
 
   const auto afterTrimSnapshot = project.snapshot();
   GRAPPLE_REQUIRE(afterTrimSnapshot);
@@ -940,7 +940,7 @@ int main() {
   GRAPPLE_REQUIRE(updateEffectParamValueResult);
   GRAPPLE_REQUIRE(updateEffectParamValueResult.value().status == agent::ToolResultStatus::Succeeded);
   GRAPPLE_REQUIRE(updateEffectParamValueResult.value().observedRevision == foundation::RevisionId{"rev_11"});
-  GRAPPLE_REQUIRE(updateEffectParamValueResult.value().payload == "{\"commandId\":\"cmd_agent_update_effect_param_value_10\",\"effectNodeId\":\"node_agent_effect_1\",\"paramName\":\"target_x\",\"revision\":\"rev_11\"}");
+  GRAPPLE_REQUIRE(updateEffectParamValueResult.value().payload == "{\"commandId\":\"cmd_agent_10\",\"effectNodeId\":\"node_agent_effect_1\",\"paramName\":\"target_x\",\"revision\":\"rev_11\"}");
 
   const auto afterParamUpdateSnapshot = project.snapshot();
   GRAPPLE_REQUIRE(afterParamUpdateSnapshot);

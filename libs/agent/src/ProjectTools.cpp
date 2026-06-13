@@ -1128,7 +1128,7 @@ AgentTool makeAssetImportTool() {
         parsedDuration = foundation::TimeSeconds{duration.value().value()};
       }
 
-      const foundation::CommandId commandId = context.ids.nextCommandId("import_asset");
+      const foundation::CommandId commandId = context.ids.nextCommandId();
       auto command = context.commands.apply(project::ProjectCommandEnvelope{
         commandId,
         call.projectId,
@@ -1245,7 +1245,7 @@ AgentTool makeTimelineCreateTrackTool() {
         return name.error();
       }
 
-      const foundation::CommandId commandId = context.ids.nextCommandId("create_track");
+      const foundation::CommandId commandId = context.ids.nextCommandId();
       const foundation::NodeId trackNodeId = context.ids.nextNodeId("track");
       const foundation::EdgeId containmentEdgeId = context.ids.nextEdgeId("contains_track");
       auto command = context.commands.apply(project::ProjectCommandEnvelope{
@@ -1341,7 +1341,7 @@ AgentTool makeTimelineCreateClipTool() {
         return playbackRate.error();
       }
 
-      const foundation::CommandId commandId = context.ids.nextCommandId("create_clip");
+      const foundation::CommandId commandId = context.ids.nextCommandId();
       const foundation::NodeId clipNodeId = context.ids.nextNodeId("clip");
       const foundation::EdgeId containmentEdgeId = context.ids.nextEdgeId("contains_clip");
       auto command = context.commands.apply(project::ProjectCommandEnvelope{
@@ -1413,7 +1413,7 @@ AgentTool makeTimelineMoveClipTool() {
         return newStart.error();
       }
 
-      const foundation::CommandId commandId = context.ids.nextCommandId("move_clip");
+      const foundation::CommandId commandId = context.ids.nextCommandId();
       auto command = context.commands.apply(project::ProjectCommandEnvelope{
         commandId,
         call.projectId,
@@ -1483,7 +1483,7 @@ AgentTool makeTimelineTrimClipTool() {
         return sourceRange.error();
       }
 
-      const foundation::CommandId commandId = context.ids.nextCommandId("trim_clip");
+      const foundation::CommandId commandId = context.ids.nextCommandId();
       auto command = context.commands.apply(project::ProjectCommandEnvelope{
         commandId,
         call.projectId,
@@ -1607,7 +1607,7 @@ AgentTool makeEffectCreateNodeTool() {
         return params.error();
       }
 
-      const foundation::CommandId commandId = context.ids.nextCommandId("create_effect");
+      const foundation::CommandId commandId = context.ids.nextCommandId();
       const foundation::NodeId effectNodeId = context.ids.nextNodeId("effect");
       const foundation::EdgeId targetEdgeId = context.ids.nextEdgeId("effect_targets");
       auto command = context.commands.apply(project::ProjectCommandEnvelope{
@@ -1697,7 +1697,7 @@ AgentTool makeEffectUpdateParamValueTool() {
         return paramValue.error();
       }
 
-      const foundation::CommandId commandId = context.ids.nextCommandId("update_effect_param_value");
+      const foundation::CommandId commandId = context.ids.nextCommandId();
       auto command = context.commands.apply(project::ProjectCommandEnvelope{
         commandId,
         call.projectId,
@@ -1781,7 +1781,7 @@ AgentTool makeEffectConnectPortsTool() {
         order = parsedOrder.value();
       }
 
-      const foundation::CommandId commandId = context.ids.nextCommandId("connect_ports");
+      const foundation::CommandId commandId = context.ids.nextCommandId();
       auto command = context.commands.apply(project::ProjectCommandEnvelope{
         commandId,
         call.projectId,
@@ -1837,7 +1837,7 @@ AgentTool makeEffectDisconnectPortsTool() {
         return edgeId.error();
       }
 
-      const foundation::CommandId commandId = context.ids.nextCommandId("disconnect_ports");
+      const foundation::CommandId commandId = context.ids.nextCommandId();
       auto command = context.commands.apply(project::ProjectCommandEnvelope{
         commandId,
         call.projectId,
@@ -1972,7 +1972,7 @@ AgentTool makeNoteCreateTool() {
         return markdown.error();
       }
 
-      const foundation::CommandId commandId = context.ids.nextCommandId("create_note");
+      const foundation::CommandId commandId = context.ids.nextCommandId();
       const foundation::NodeId noteNodeId = context.ids.nextNodeId("note");
       auto command = context.commands.apply(project::ProjectCommandEnvelope{
         commandId,
@@ -2034,7 +2034,7 @@ AgentTool makeNoteUpdateTool() {
         return markdown.error();
       }
 
-      const foundation::CommandId commandId = context.ids.nextCommandId("update_note");
+      const foundation::CommandId commandId = context.ids.nextCommandId();
       const foundation::NodeId noteNodeId{nodeId.value()};
       auto command = context.commands.apply(project::ProjectCommandEnvelope{
         commandId,
