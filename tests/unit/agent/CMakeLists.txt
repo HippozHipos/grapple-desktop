@@ -45,3 +45,19 @@ target_include_directories(grapple_agent_bridge_tests
 )
 
 add_test(NAME grapple_agent_bridge_tests COMMAND grapple_agent_bridge_tests)
+
+add_executable(grapple_agent_run_event_serializer_tests
+  AgentRunEventSerializerTest.cpp
+)
+
+target_link_libraries(grapple_agent_run_event_serializer_tests
+  PRIVATE
+    Grapple::Agent
+)
+
+target_include_directories(grapple_agent_run_event_serializer_tests
+  PRIVATE
+    ${CMAKE_SOURCE_DIR}/tests
+)
+
+add_test(NAME grapple_agent_run_event_serializer_tests COMMAND grapple_agent_run_event_serializer_tests)

@@ -5,6 +5,8 @@ add_library(grapple_agent
   src/AgentBridge.cpp
   src/AgentConversationState.cpp
   src/AgentRunEvent.cpp
+  src/AgentRunEventLog.cpp
+  src/AgentRunEventSerializer.cpp
   src/AgentToolRegistry.cpp
   src/ProjectTools.cpp
 )

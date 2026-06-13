@@ -1,10 +1,12 @@
 #pragma once
 
+#include <grapple/foundation/Result.hpp>
 #include <grapple/foundation/StrongId.hpp>
 
 #include <chrono>
 #include <cstdint>
 #include <string>
+#include <string_view>
 
 namespace grapple::agent {
 
@@ -29,5 +31,6 @@ struct AgentRunEvent {
 };
 
 const char* serializedAgentRunEventKind(AgentRunEventKind kind);
+foundation::Result<AgentRunEventKind> parseAgentRunEventKind(std::string_view value);
 
 } // namespace grapple::agent

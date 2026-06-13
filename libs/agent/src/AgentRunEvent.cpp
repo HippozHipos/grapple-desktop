@@ -1,6 +1,7 @@
 #include <grapple/agent/AgentRunEvent.hpp>
 
 #include <cstdlib>
+#include <string_view>
 
 namespace grapple::agent {
 
@@ -27,6 +28,37 @@ const char* serializedAgentRunEventKind(AgentRunEventKind kind) {
   }
 
   std::abort();
+}
+
+foundation::Result<AgentRunEventKind> parseAgentRunEventKind(std::string_view value) {
+  if (value == "run_started") {
+    return AgentRunEventKind::RunStarted;
+  }
+  if (value == "model_message") {
+    return AgentRunEventKind::ModelMessage;
+  }
+  if (value == "tool_call_started") {
+    return AgentRunEventKind::ToolCallStarted;
+  }
+  if (value == "tool_call_finished") {
+    return AgentRunEventKind::ToolCallFinished;
+  }
+  if (value == "diagnostic_emitted") {
+    return AgentRunEventKind::DiagnosticEmitted;
+  }
+  if (value == "run_finished") {
+    return AgentRunEventKind::RunFinished;
+  }
+  if (value == "delegated_run_started") {
+    return AgentRunEventKind::DelegatedRunStarted;
+  }
+  if (value == "delegated_run_updated") {
+    return AgentRunEventKind::DelegatedRunUpdated;
+  }
+  if (value == "delegated_run_finished") {
+    return AgentRunEventKind::DelegatedRunFinished;
+  }
+  return foundation::Error{"agent.run_event_kind_invalid", "Unknown agent run event kind."};
 }
 
 } // namespace grapple::agent
