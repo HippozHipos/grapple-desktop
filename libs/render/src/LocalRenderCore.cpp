@@ -55,6 +55,25 @@ std::vector<RenderedMediaFrame> buildMediaFrames(const runtime::RuntimeSample& s
   return frames;
 }
 
+std::vector<RenderedAudioClip> buildAudioClips(const runtime::RuntimeSample& sample) {
+  std::vector<RenderedAudioClip> audioClips;
+  audioClips.reserve(sample.audioClips.size());
+
+  for (const projection::RenderAudioClip& clip : sample.audioClips) {
+    const timeline::ClipPayload& payload = clip.payload;
+    audioClips.push_back(RenderedAudioClip{
+      clip.sourceNodeId,
+      clip.trackNodeId,
+      payload.assetId,
+      payload.timelineRange,
+      payload.sourceRange,
+      payload.playbackRate
+    });
+  }
+
+  return audioClips;
+}
+
 void applyCameraTransformOutputs(
   runtime::RuntimeSample& sample,
   const foundation::ProjectId& projectId,
@@ -238,6 +257,7 @@ foundation::Result<RenderFrameResult> renderSampleFrame(
   );
 
   const std::vector<RenderedMediaFrame> mediaFrames = buildMediaFrames(sample);
+  const std::vector<RenderedAudioClip> audioClips = buildAudioClips(sample);
   const std::vector<RenderedCamera> cameras = buildRenderedCameras(sample);
   auto image = buildRenderedImage(mediaFrames, request.quality, frameSource);
   if (!image) {
@@ -250,6 +270,7 @@ foundation::Result<RenderFrameResult> renderSampleFrame(
       request.time,
       describeSample(sample),
       mediaFrames,
+      audioClips,
       cameras,
       std::move(transformedImage)
     },

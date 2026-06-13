@@ -30,6 +30,15 @@ struct RenderedMediaFrame {
   foundation::TimeSeconds sourceTime;
 };
 
+struct RenderedAudioClip {
+  foundation::NodeId clipNodeId;
+  foundation::NodeId trackNodeId;
+  foundation::AssetId assetId;
+  foundation::TimeRange timelineRange;
+  foundation::TimeRange sourceRange;
+  double playbackRate = 1.0;
+};
+
 struct RenderedImage {
   foundation::Resolution resolution;
   std::vector<std::uint8_t> rgbaPixels;
@@ -64,6 +73,7 @@ struct RenderFrame {
   foundation::TimeSeconds time;
   std::string description;
   std::vector<RenderedMediaFrame> mediaFrames;
+  std::vector<RenderedAudioClip> audioClips;
   std::vector<RenderedCamera> cameras;
   std::optional<RenderedImage> image;
 };

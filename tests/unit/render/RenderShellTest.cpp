@@ -121,6 +121,7 @@ public:
     frameTimes.push_back(frame.frame.time);
     frameDescriptions.push_back(frame.frame.description);
     frameImages.push_back(frame.frame.image);
+    frameAudioClips.push_back(frame.frame.audioClips);
     return {};
   }
 
@@ -128,6 +129,7 @@ public:
   std::vector<grapple::foundation::TimeSeconds> frameTimes;
   std::vector<std::string> frameDescriptions;
   std::vector<std::optional<grapple::render::RenderedImage>> frameImages;
+  std::vector<std::vector<grapple::render::RenderedAudioClip>> frameAudioClips;
 };
 
 class FailingRangeSink final : public grapple::render::IRenderRangeSink {
@@ -425,12 +427,21 @@ int main() {
   GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.time == foundation::TimeSeconds{4.0});
   GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.description == "layers=1 clips=1 audioClips=1 cameras=0 effects=0");
   GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.mediaFrames.size() == 1);
+  GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.audioClips.size() == 1);
   GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.cameras.empty());
   GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.mediaFrames[0].clipNodeId == foundation::NodeId{"node_clip"});
   GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.mediaFrames[0].trackNodeId == foundation::NodeId{"node_track"});
   GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.mediaFrames[0].assetId == foundation::AssetId{"asset_video"});
   GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.mediaFrames[0].kind == render::RenderedMediaKind::Video);
   GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.mediaFrames[0].sourceTime == foundation::TimeSeconds{4.0});
+  GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.audioClips[0].clipNodeId == foundation::NodeId{"node_audio_clip"});
+  GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.audioClips[0].trackNodeId == foundation::NodeId{"node_track"});
+  GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.audioClips[0].assetId == foundation::AssetId{"asset_audio"});
+  GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.audioClips[0].timelineRange.start == foundation::TimeSeconds{0.0});
+  GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.audioClips[0].timelineRange.end == foundation::TimeSeconds{6.0});
+  GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.audioClips[0].sourceRange.start == foundation::TimeSeconds{10.0});
+  GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.audioClips[0].sourceRange.end == foundation::TimeSeconds{16.0});
+  GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.audioClips[0].playbackRate == 1.0);
   GRAPPLE_REQUIRE(renderedActiveFrame.value().runtimeDiagnostics.empty());
   GRAPPLE_REQUIRE(renderedActiveFrame.value().renderDiagnostics.empty());
 
@@ -441,6 +452,7 @@ int main() {
   GRAPPLE_REQUIRE(renderedInactiveFrame);
   GRAPPLE_REQUIRE(renderedInactiveFrame.value().frame.description == "layers=1 clips=0 audioClips=0 cameras=0 effects=0");
   GRAPPLE_REQUIRE(renderedInactiveFrame.value().frame.mediaFrames.empty());
+  GRAPPLE_REQUIRE(renderedInactiveFrame.value().frame.audioClips.empty());
   GRAPPLE_REQUIRE(renderedInactiveFrame.value().frame.cameras.empty());
 
   const auto pause = preview.pause();
@@ -461,6 +473,9 @@ int main() {
   GRAPPLE_REQUIRE((finalSink.frameTimes == std::vector<foundation::TimeSeconds>{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{0.5}}));
   GRAPPLE_REQUIRE(finalSink.frameDescriptions.size() == 2);
   GRAPPLE_REQUIRE(finalSink.frameDescriptions[0] == "layers=1 clips=1 audioClips=1 cameras=0 effects=0");
+  GRAPPLE_REQUIRE(finalSink.frameAudioClips.size() == 2);
+  GRAPPLE_REQUIRE(finalSink.frameAudioClips[0].size() == 1);
+  GRAPPLE_REQUIRE(finalSink.frameAudioClips[0][0].assetId == foundation::AssetId{"asset_audio"});
 
   const auto finalState = finalRender.state();
   GRAPPLE_REQUIRE(finalState.core.preparedPlanHash == coreAfterLoad.preparedPlanHash);
