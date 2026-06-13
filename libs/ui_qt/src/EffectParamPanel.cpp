@@ -1,12 +1,15 @@
 #include <grapple/ui_qt/EffectParamPanel.hpp>
 
+#include <QCheckBox>
 #include <QDoubleSpinBox>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QLineEdit>
 #include <QPushButton>
 #include <QVBoxLayout>
 
 #include <utility>
+#include <variant>
 
 namespace grapple::ui {
 
@@ -92,47 +95,77 @@ void EffectParamPanel::setSelection(
         label->setMinimumWidth(92);
         label->setToolTip(qString(param.name));
 
-        if (!param.numericMin.has_value() || !param.numericMax.has_value()) {
-          auto* value = new QLabel{qString(param.value)};
-          value->setObjectName("effectParamHelp");
-          rowLayout->addWidget(label);
-          rowLayout->addWidget(value, 1);
-          layout_->addWidget(row);
-          continue;
-        }
-
-        bool parsed = false;
-        const double currentValue = qString(param.value).toDouble(&parsed);
-        if (!parsed) {
-          auto* value = new QLabel{QString{"Invalid numeric value: %1"}.arg(qString(param.value))};
-          value->setObjectName("effectParamHelp");
-          rowLayout->addWidget(label);
-          rowLayout->addWidget(value, 1);
-          layout_->addWidget(row);
-          continue;
-        }
-
-        auto* editor = new QDoubleSpinBox;
-        editor->setObjectName(QString{"effectParamEditor_%1"}.arg(qString(param.name)));
-        editor->setRange(*param.numericMin, *param.numericMax);
-        editor->setDecimals(4);
-        if (param.numericStep.has_value()) {
-          editor->setSingleStep(*param.numericStep);
-        }
-        editor->setValue(currentValue);
-        editor->setToolTip(QString{"%1..%2"}.arg(*param.numericMin).arg(*param.numericMax));
-
-        const foundation::NodeId parameterEffectNodeId = effect.sourceNodeId;
-        const std::string paramName = param.name;
-        connect(editor, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, [this, parameterEffectNodeId, paramName](double value) {
-          if (applyHandler_) {
-            applyHandler_(parameterEffectNodeId, paramName, value);
+        const auto* numericValue = std::get_if<double>(&param.value);
+        if (numericValue != nullptr && param.numericMin.has_value() && param.numericMax.has_value()) {
+          auto* editor = new QDoubleSpinBox;
+          editor->setObjectName(QString{"effectParamEditor_%1"}.arg(qString(param.name)));
+          editor->setRange(*param.numericMin, *param.numericMax);
+          editor->setDecimals(4);
+          if (param.numericStep.has_value()) {
+            editor->setSingleStep(*param.numericStep);
           }
-        }, Qt::QueuedConnection);
+          editor->setValue(*numericValue);
+          editor->setToolTip(QString{"%1..%2"}.arg(*param.numericMin).arg(*param.numericMax));
 
-        rowLayout->addWidget(label);
-        rowLayout->addWidget(editor, 1);
-        layout_->addWidget(row);
+          const foundation::NodeId parameterEffectNodeId = effect.sourceNodeId;
+          const std::string paramName = param.name;
+          connect(editor, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, [this, parameterEffectNodeId, paramName](double value) {
+            if (applyHandler_) {
+              applyHandler_(parameterEffectNodeId, paramName, timeline::ParamValue{value});
+            }
+          }, Qt::QueuedConnection);
+
+          rowLayout->addWidget(label);
+          rowLayout->addWidget(editor, 1);
+          layout_->addWidget(row);
+          continue;
+        }
+
+        if (const auto* boolValue = std::get_if<bool>(&param.value)) {
+          auto* editor = new QCheckBox;
+          editor->setObjectName(QString{"effectParamEditor_%1"}.arg(qString(param.name)));
+          editor->setChecked(*boolValue);
+
+          const foundation::NodeId parameterEffectNodeId = effect.sourceNodeId;
+          const std::string paramName = param.name;
+          connect(editor, &QCheckBox::toggled, this, [this, parameterEffectNodeId, paramName](bool value) {
+            if (applyHandler_) {
+              applyHandler_(parameterEffectNodeId, paramName, timeline::ParamValue{value});
+            }
+          }, Qt::QueuedConnection);
+
+          rowLayout->addWidget(label);
+          rowLayout->addWidget(editor, 1);
+          layout_->addWidget(row);
+          continue;
+        }
+
+        if (const auto* stringValue = std::get_if<std::string>(&param.value)) {
+          auto* editor = new QLineEdit{qString(*stringValue)};
+          editor->setObjectName(QString{"effectParamEditor_%1"}.arg(qString(param.name)));
+
+          const foundation::NodeId parameterEffectNodeId = effect.sourceNodeId;
+          const std::string paramName = param.name;
+          connect(editor, &QLineEdit::editingFinished, this, [this, editor, parameterEffectNodeId, paramName] {
+            if (applyHandler_) {
+              applyHandler_(parameterEffectNodeId, paramName, timeline::ParamValue{editor->text().toStdString()});
+            }
+          });
+
+          rowLayout->addWidget(label);
+          rowLayout->addWidget(editor, 1);
+          layout_->addWidget(row);
+          continue;
+        }
+
+        {
+          auto* value = new QLabel{qString(app::paramValueDisplayText(param.value))};
+          value->setObjectName("effectParamHelp");
+          rowLayout->addWidget(label);
+          rowLayout->addWidget(value, 1);
+          layout_->addWidget(row);
+          continue;
+        }
       }
     }
   }

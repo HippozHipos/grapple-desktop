@@ -14,10 +14,10 @@ class NativeEffectSession final {
 public:
   NativeEffectSession(NativeProjectSession& project, NativeProjectCommandWriter& commandWriter);
 
-  foundation::Result<storage::ProjectPackageSessionResult> setNumericParam(
+  foundation::Result<storage::ProjectPackageSessionResult> setParamValue(
     foundation::NodeId effectNodeId,
     std::string paramName,
-    double value,
+    timeline::ParamValue value,
     project::CommandSource source
   );
   foundation::Result<storage::ProjectPackageSessionResult> upsertParamKeyframe(

@@ -3,6 +3,7 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(JSONCPP REQUIRED jsoncpp)
 
 add_library(grapple_app
+  src/AppViewModel.cpp
   src/NativeEffectSession.cpp
   src/NativeExportSession.cpp
   src/NativeMediaFrameSource.cpp

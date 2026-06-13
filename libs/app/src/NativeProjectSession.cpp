@@ -9,7 +9,7 @@
 #include <algorithm>
 #include <cstdlib>
 #include <optional>
-#include <sstream>
+#include <type_traits>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -59,30 +59,6 @@ std::string implementationKindName(timeline::EffectImplementationKind kind) {
   }
 
   std::abort();
-}
-
-std::string paramValueText(const timeline::ParamValue& value) {
-  return std::visit(
-    [](const auto& typedValue) -> std::string {
-      using Value = std::decay_t<decltype(typedValue)>;
-      std::ostringstream output;
-      if constexpr (std::is_same_v<Value, double>) {
-        output << typedValue;
-      } else if constexpr (std::is_same_v<Value, bool>) {
-        output << (typedValue ? "true" : "false");
-      } else if constexpr (std::is_same_v<Value, std::string>) {
-        output << typedValue;
-      } else if constexpr (std::is_same_v<Value, foundation::Vec2>) {
-        output << typedValue.x << ", " << typedValue.y;
-      } else if constexpr (std::is_same_v<Value, foundation::Vec3>) {
-        output << typedValue.x << ", " << typedValue.y << ", " << typedValue.z;
-      } else if constexpr (std::is_same_v<Value, foundation::Rect>) {
-        output << typedValue.x << ", " << typedValue.y << ", " << typedValue.width << "x" << typedValue.height;
-      }
-      return output.str();
-    },
-    value
-  );
 }
 
 std::optional<std::string> snapshotLabelForRevision(
@@ -332,13 +308,13 @@ foundation::Result<AppViewModel> NativeProjectSession::buildViewModel() const {
           keyframes.push_back(AppEffectParamRow::Keyframe{
             keyframe.id,
             keyframe.time,
-            paramValueText(keyframe.value)
+            keyframe.value
           });
         }
         params.push_back(AppEffectParamRow{
           param.name,
           param.control.label,
-          paramValueText(param.value),
+          param.value,
           param.control.numeric.has_value() ? std::optional<double>{param.control.numeric->min} : std::nullopt,
           param.control.numeric.has_value() ? std::optional<double>{param.control.numeric->max} : std::nullopt,
           param.control.numeric.has_value() ? param.control.numeric->step : std::nullopt,

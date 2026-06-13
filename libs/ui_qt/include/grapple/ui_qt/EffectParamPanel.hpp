@@ -14,7 +14,7 @@ namespace grapple::ui {
 
 class EffectParamPanel final : public QWidget {
 public:
-  using ApplyHandler = std::function<void(foundation::NodeId, std::string, double)>;
+  using ApplyHandler = std::function<void(foundation::NodeId, std::string, timeline::ParamValue)>;
   using DeleteHandler = std::function<void(foundation::NodeId)>;
 
   explicit EffectParamPanel(QWidget* parent = nullptr);

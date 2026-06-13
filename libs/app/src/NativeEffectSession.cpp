@@ -8,17 +8,17 @@ NativeEffectSession::NativeEffectSession(NativeProjectSession& project, NativePr
   : project_{project},
     commandWriter_{commandWriter} {}
 
-foundation::Result<storage::ProjectPackageSessionResult> NativeEffectSession::setNumericParam(
+foundation::Result<storage::ProjectPackageSessionResult> NativeEffectSession::setParamValue(
   foundation::NodeId effectNodeId,
   std::string paramName,
-  double value,
+  timeline::ParamValue value,
   project::CommandSource source
 ) {
   return commandWriter_.apply(
     project::UpdateEffectParamValueCommand{
       std::move(effectNodeId),
       std::move(paramName),
-      timeline::ParamValue{value}
+      std::move(value)
     },
     std::move(source)
   );

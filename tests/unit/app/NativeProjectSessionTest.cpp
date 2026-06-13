@@ -586,6 +586,14 @@ int main() {
               "Target X",
               timeline::Param::NumericControl{0.0, 1.0, 0.01}
             }
+          },
+          timeline::Param{
+            "lock_subject",
+            true,
+            timeline::Param::Control{
+              "Lock Subject",
+              std::nullopt
+            }
           }}
         },
         foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{10.0}}
@@ -611,14 +619,18 @@ int main() {
   GRAPPLE_REQUIRE(effectViewModel.value().timeline.effectGraphs[0].effects[0].displayName == "Camera Follow");
   GRAPPLE_REQUIRE(effectViewModel.value().timeline.effectGraphs[0].effects[0].implementationKind == "python");
   GRAPPLE_REQUIRE(effectViewModel.value().timeline.effectGraphs[0].effects[0].entrypoint == "prepare");
-  GRAPPLE_REQUIRE(effectViewModel.value().timeline.effectGraphs[0].effects[0].params.size() == 1);
+  GRAPPLE_REQUIRE(effectViewModel.value().timeline.effectGraphs[0].effects[0].params.size() == 2);
   GRAPPLE_REQUIRE(effectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].name == "target_x");
   GRAPPLE_REQUIRE(effectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].label == "Target X");
-  GRAPPLE_REQUIRE(effectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].value == "0.5");
+  GRAPPLE_REQUIRE(std::get<double>(effectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].value) == 0.5);
   GRAPPLE_REQUIRE(effectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].numericMin == 0.0);
   GRAPPLE_REQUIRE(effectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].numericMax == 1.0);
   GRAPPLE_REQUIRE(effectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].numericStep == 0.01);
   GRAPPLE_REQUIRE(effectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].keyframes.empty());
+  GRAPPLE_REQUIRE(effectViewModel.value().timeline.effectGraphs[0].effects[0].params[1].name == "lock_subject");
+  GRAPPLE_REQUIRE(effectViewModel.value().timeline.effectGraphs[0].effects[0].params[1].label == "Lock Subject");
+  GRAPPLE_REQUIRE(std::get<bool>(effectViewModel.value().timeline.effectGraphs[0].effects[0].params[1].value));
+  GRAPPLE_REQUIRE(app::paramValueDisplayText(effectViewModel.value().timeline.effectGraphs[0].effects[0].params[1].value) == "true");
   app::NativeEffectSession effectEdits{effectSession, effectWriter};
   const auto appKeyframeUpsert = effectEdits.upsertParamKeyframe(
     effectNodeId,
@@ -636,8 +648,8 @@ int main() {
   GRAPPLE_REQUIRE(keyframedEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].keyframes.size() == 1);
   GRAPPLE_REQUIRE(keyframedEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].keyframes[0].keyframeId == foundation::KeyframeId{"key_app_target_x"});
   GRAPPLE_REQUIRE(keyframedEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].keyframes[0].time == foundation::TimeSeconds{1.25});
-  GRAPPLE_REQUIRE(keyframedEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].keyframes[0].value == "0.8");
-  const auto appParamValueUpdate = effectEdits.setNumericParam(
+  GRAPPLE_REQUIRE(std::get<double>(keyframedEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].keyframes[0].value) == 0.8);
+  const auto appParamValueUpdate = effectEdits.setParamValue(
     effectNodeId,
     "target_x",
     0.6,
@@ -646,9 +658,19 @@ int main() {
   GRAPPLE_REQUIRE(appParamValueUpdate);
   const auto valueUpdatedEffectViewModel = effectSession.buildViewModel();
   GRAPPLE_REQUIRE(valueUpdatedEffectViewModel);
-  GRAPPLE_REQUIRE(valueUpdatedEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].value == "0.6");
+  GRAPPLE_REQUIRE(std::get<double>(valueUpdatedEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].value) == 0.6);
   GRAPPLE_REQUIRE(valueUpdatedEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].keyframes.size() == 1);
   GRAPPLE_REQUIRE(valueUpdatedEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].keyframes[0].keyframeId == foundation::KeyframeId{"key_app_target_x"});
+  const auto boolParamUpdate = effectEdits.setParamValue(
+    effectNodeId,
+    "lock_subject",
+    false,
+    userSource()
+  );
+  GRAPPLE_REQUIRE(boolParamUpdate);
+  const auto boolUpdatedEffectViewModel = effectSession.buildViewModel();
+  GRAPPLE_REQUIRE(boolUpdatedEffectViewModel);
+  GRAPPLE_REQUIRE(!std::get<bool>(boolUpdatedEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[1].value));
   const auto appKeyframeDelete = effectEdits.deleteParamKeyframe(
     effectNodeId,
     "target_x",
@@ -730,8 +752,8 @@ int main() {
   GRAPPLE_REQUIRE(runtimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].label == "Position X");
   GRAPPLE_REQUIRE(runtimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[1].label == "Position Y");
   GRAPPLE_REQUIRE(runtimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[2].label == "Zoom");
-  GRAPPLE_REQUIRE(runtimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].value == "0.15");
-  GRAPPLE_REQUIRE(runtimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[2].value == "1.1");
+  GRAPPLE_REQUIRE(std::get<double>(runtimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].value) == 0.15);
+  GRAPPLE_REQUIRE(std::get<double>(runtimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[2].value) == 1.1);
   GRAPPLE_REQUIRE(runtimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[2].numericMin == 0.25);
   GRAPPLE_REQUIRE(runtimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[2].numericMax == 4.0);
   GRAPPLE_REQUIRE(runtimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[2].numericStep == 0.01);
@@ -753,14 +775,14 @@ int main() {
   GRAPPLE_REQUIRE(initialRuntimeFrame.value().frame.cameras[0].transform.position.y == 0.0);
   GRAPPLE_REQUIRE(initialRuntimeFrame.value().frame.cameras[0].transform.scale.x == 1.1);
   GRAPPLE_REQUIRE(initialRuntimeFrame.value().frame.cameras[0].transform.scale.y == 1.1);
-  const auto updatedRuntimeEffect = runtimeWorkspace.value().effects().setNumericParam(
+  const auto updatedRuntimeEffect = runtimeWorkspace.value().effects().setParamValue(
     runtimeEffectNodeId,
     runtime::builtin_effect::PositionXParam,
     0.25,
     userSource()
   );
   GRAPPLE_REQUIRE(updatedRuntimeEffect);
-  const auto updatedRuntimeZoom = runtimeWorkspace.value().effects().setNumericParam(
+  const auto updatedRuntimeZoom = runtimeWorkspace.value().effects().setParamValue(
     runtimeEffectNodeId,
     runtime::builtin_effect::ZoomParam,
     1.5,
@@ -769,8 +791,8 @@ int main() {
   GRAPPLE_REQUIRE(updatedRuntimeZoom);
   const auto updatedRuntimeEffectViewModel = runtimeWorkspace.value().project().buildViewModel();
   GRAPPLE_REQUIRE(updatedRuntimeEffectViewModel);
-  GRAPPLE_REQUIRE(updatedRuntimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].value == "0.25");
-  GRAPPLE_REQUIRE(updatedRuntimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[2].value == "1.5");
+  GRAPPLE_REQUIRE(std::get<double>(updatedRuntimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].value) == 0.25);
+  GRAPPLE_REQUIRE(std::get<double>(updatedRuntimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[2].value) == 1.5);
   const auto runtimeDiagnosticsSnapshotBefore = runtimeWorkspace.value().project().snapshot();
   GRAPPLE_REQUIRE(runtimeDiagnosticsSnapshotBefore);
   const std::string serializedRuntimeDiagnosticsSnapshotBefore =

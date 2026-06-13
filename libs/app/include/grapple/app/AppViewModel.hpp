@@ -6,6 +6,7 @@
 #include <grapple/foundation/StrongId.hpp>
 #include <grapple/foundation/Time.hpp>
 #include <grapple/foundation/Transform.hpp>
+#include <grapple/timeline/ParamValue.hpp>
 
 #include <cstddef>
 #include <cstdint>
@@ -77,12 +78,12 @@ struct AppEffectParamRow {
   struct Keyframe {
     foundation::KeyframeId keyframeId;
     foundation::TimeSeconds time;
-    std::string value;
+    timeline::ParamValue value;
   };
 
   std::string name;
   std::string label;
-  std::string value;
+  timeline::ParamValue value;
   std::optional<double> numericMin;
   std::optional<double> numericMax;
   std::optional<double> numericStep;
@@ -123,5 +124,7 @@ struct AppViewModel {
   AppAssetSummary assets;
   AppTimelineView timeline;
 };
+
+std::string paramValueDisplayText(const timeline::ParamValue& value);
 
 } // namespace grapple::app

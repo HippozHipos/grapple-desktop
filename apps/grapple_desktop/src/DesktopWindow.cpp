@@ -1,5 +1,6 @@
 #include "DesktopWindow.hpp"
 
+#include <grapple/app/AppViewModel.hpp>
 #include <grapple/app/NativeWorkspaceSession.hpp>
 #include <grapple/asset/Asset.hpp>
 #include <grapple/foundation/Hash.hpp>
@@ -121,7 +122,7 @@ QString inspectorText(
             const QString displayName = param.label.empty()
               ? qString(param.name)
               : QString{"%1 (%2)"}.arg(qString(param.label)).arg(qString(param.name));
-            QString paramText = QString{"%1=%2"}.arg(displayName).arg(qString(param.value));
+            QString paramText = QString{"%1=%2"}.arg(displayName).arg(qString(grapple::app::paramValueDisplayText(param.value)));
             if (param.numericMin.has_value() && param.numericMax.has_value()) {
               paramText += QString{" [%1..%2"}.arg(*param.numericMin).arg(*param.numericMax);
               if (param.numericStep.has_value()) {
@@ -336,9 +337,9 @@ public:
     effectParams_->setApplyHandler([this](
       grapple::foundation::NodeId effectNodeId,
       std::string paramName,
-      double value
+      grapple::timeline::ParamValue value
     ) {
-      setEffectNumericParam(effectNodeId, paramName, value);
+      setEffectParamValue(effectNodeId, paramName, std::move(value));
     });
     effectParams_->setDeleteHandler([this](grapple::foundation::NodeId effectNodeId) {
       deleteEffect(effectNodeId);
@@ -1017,7 +1018,7 @@ public:
       return;
     }
 
-    setEffectNumericParam(targetEdge->sourceNodeId, paramName, value);
+    setEffectParamValue(targetEdge->sourceNodeId, paramName, grapple::timeline::ParamValue{value});
   }
 
   void deleteSelectedTargetEffect() {
@@ -1052,15 +1053,15 @@ public:
     deleteEffect(targetEdge->sourceNodeId);
   }
 
-  void setEffectNumericParam(
+  void setEffectParamValue(
     const grapple::foundation::NodeId& effectNodeId,
     const std::string& paramName,
-    double value
+    grapple::timeline::ParamValue value
   ) {
-    const auto updated = workspace_.effects().setNumericParam(
+    const auto updated = workspace_.effects().setParamValue(
       effectNodeId,
       paramName,
-      value,
+      std::move(value),
       userSource()
     );
     if (!updated) {
