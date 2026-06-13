@@ -634,6 +634,7 @@ int main() {
   GRAPPLE_REQUIRE(effectViewModel.value().timeline.effectGraphs[0].effects[0].displayName == "Camera Follow");
   GRAPPLE_REQUIRE(effectViewModel.value().timeline.effectGraphs[0].effects[0].implementationKind == "python");
   GRAPPLE_REQUIRE(effectViewModel.value().timeline.effectGraphs[0].effects[0].entrypoint == "prepare");
+  GRAPPLE_REQUIRE(!effectViewModel.value().timeline.effectGraphs[0].effects[0].cameraTransformEffect);
   GRAPPLE_REQUIRE(effectViewModel.value().timeline.effectGraphs[0].effects[0].params.size() == 2);
   GRAPPLE_REQUIRE(effectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].name == "target_x");
   GRAPPLE_REQUIRE(effectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].label == "Target X");
@@ -809,6 +810,7 @@ int main() {
   GRAPPLE_REQUIRE(runtimeEffectViewModel.value().timeline.effectGraphs[0].effects.size() == 1);
   GRAPPLE_REQUIRE(runtimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].displayName == "Camera Transform");
   GRAPPLE_REQUIRE(runtimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].implementationKind == "builtin");
+  GRAPPLE_REQUIRE(runtimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].cameraTransformEffect);
   GRAPPLE_REQUIRE(runtimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].params.size() == 3);
   GRAPPLE_REQUIRE(runtimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].label == "Position X");
   GRAPPLE_REQUIRE(runtimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[1].label == "Position Y");

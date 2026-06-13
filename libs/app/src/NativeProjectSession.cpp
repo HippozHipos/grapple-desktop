@@ -2,6 +2,7 @@
 
 #include <grapple/asset/Asset.hpp>
 #include <grapple/history/CommandRecord.hpp>
+#include <grapple/runtime/BuiltinEffects.hpp>
 #include <grapple/history/SnapshotRecord.hpp>
 #include <grapple/storage/ProjectPackageManifest.hpp>
 #include <grapple/storage/ProjectPackageWriter.hpp>
@@ -338,6 +339,8 @@ foundation::Result<AppViewModel> NativeProjectSession::buildViewModel() const {
         effect.payload.displayName,
         implementationKindName(effect.payload.implementation.kind),
         effect.payload.implementation.entrypoint,
+        effect.payload.implementation.kind == timeline::EffectImplementationKind::Builtin &&
+          effect.payload.implementation.entrypoint == runtime::builtin_effect::CameraTransformEntrypoint,
         effect.payload.activeRange,
         std::move(params)
       });

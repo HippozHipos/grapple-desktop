@@ -537,7 +537,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
         return graph.targetNodeId == grapple::foundation::NodeId{"node_camera_4"} &&
                graph.effects.size() == 1 &&
                graph.effects.front().displayName == "Camera Transform" &&
-               graph.effects.front().implementationKind == "builtin";
+               graph.effects.front().implementationKind == "builtin" &&
+               graph.effects.front().cameraTransformEffect;
       }
     );
     return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_6"} &&

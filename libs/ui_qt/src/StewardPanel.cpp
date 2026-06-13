@@ -81,7 +81,7 @@ bool selectedCameraHasTransformEffect(
       continue;
     }
     for (const app::AppEffectRow& effect : graph.effects) {
-      if (effect.entrypoint == "camera_transform") {
+      if (effect.cameraTransformEffect) {
         return true;
       }
     }

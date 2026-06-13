@@ -107,6 +107,7 @@ struct AppEffectRow {
   std::string displayName;
   std::string implementationKind;
   std::string entrypoint;
+  bool cameraTransformEffect = false;
   foundation::TimeRange activeRange;
   std::vector<AppEffectParamRow> params;
 };
