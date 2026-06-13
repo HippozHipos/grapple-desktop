@@ -10,7 +10,7 @@
 
 class QVBoxLayout;
 
-namespace grapple::desktop {
+namespace grapple::ui {
 
 class EffectParamPanel final : public QWidget {
 public:
@@ -35,4 +35,4 @@ private:
   DeleteHandler deleteHandler_;
 };
 
-} // namespace grapple::desktop
+} // namespace grapple::ui

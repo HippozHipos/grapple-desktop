@@ -1,4 +1,4 @@
-#include "EffectParamPanel.hpp"
+#include <grapple/ui_qt/EffectParamPanel.hpp>
 
 #include <QDoubleSpinBox>
 #include <QHBoxLayout>
@@ -8,7 +8,7 @@
 
 #include <utility>
 
-namespace grapple::desktop {
+namespace grapple::ui {
 
 namespace {
 
@@ -165,4 +165,4 @@ void EffectParamPanel::addMessage(const QString& message) {
   layout_->addWidget(help);
 }
 
-} // namespace grapple::desktop
+} // namespace grapple::ui

@@ -1,4 +1,4 @@
-#include "StewardPanel.hpp"
+#include <grapple/ui_qt/StewardPanel.hpp>
 
 #include <QLineEdit>
 #include <QPushButton>
@@ -7,7 +7,7 @@
 
 #include <utility>
 
-namespace grapple::desktop {
+namespace grapple::ui {
 
 namespace {
 
@@ -144,4 +144,4 @@ std::string StewardPanel::intent() const {
   return intent_->text().toStdString();
 }
 
-} // namespace grapple::desktop
+} // namespace grapple::ui

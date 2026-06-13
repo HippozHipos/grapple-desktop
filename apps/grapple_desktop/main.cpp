@@ -1,8 +1,5 @@
 #include <DemoProject.hpp>
 
-#include "EffectParamPanel.hpp"
-#include "StewardPanel.hpp"
-
 #include <grapple/app/NativeProjectSession.hpp>
 #include <grapple/app/NativeWorkspaceSession.hpp>
 #include <grapple/asset/Asset.hpp>
@@ -14,6 +11,8 @@
 #include <grapple/runtime/BuiltinEffects.hpp>
 #include <grapple/runtime/RuntimeDiagnostic.hpp>
 #include <grapple/timeline/Payloads.hpp>
+#include <grapple/ui_qt/EffectParamPanel.hpp>
+#include <grapple/ui_qt/StewardPanel.hpp>
 
 #include <QApplication>
 #include <QColor>
@@ -802,7 +801,7 @@ public:
     inspector_->setObjectName("inspector");
     inspector_->setReadOnly(true);
 
-    effectParams_ = new grapple::desktop::EffectParamPanel;
+    effectParams_ = new grapple::ui::EffectParamPanel;
     effectParams_->setApplyHandler([this](
       grapple::foundation::NodeId effectNodeId,
       std::string paramName,
@@ -818,7 +817,7 @@ public:
     log_->setObjectName("log");
     log_->setReadOnly(true);
 
-    steward_ = new grapple::desktop::StewardPanel;
+    steward_ = new grapple::ui::StewardPanel;
 
     playbackTimer_ = new QTimer{this};
     playbackTimer_->setInterval(33);
@@ -1640,8 +1639,8 @@ private:
   PreviewSurface* previewSurface_ = nullptr;
   TimelinePanel* timeline_ = nullptr;
   QTextEdit* inspector_ = nullptr;
-  grapple::desktop::EffectParamPanel* effectParams_ = nullptr;
-  grapple::desktop::StewardPanel* steward_ = nullptr;
+  grapple::ui::EffectParamPanel* effectParams_ = nullptr;
+  grapple::ui::StewardPanel* steward_ = nullptr;
   QTextEdit* log_ = nullptr;
   QFrame* previewFrame_ = nullptr;
   QTimer* playbackTimer_ = nullptr;

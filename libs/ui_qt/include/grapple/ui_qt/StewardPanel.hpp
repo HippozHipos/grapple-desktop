@@ -11,7 +11,7 @@ class QLineEdit;
 class QPushButton;
 class QTextEdit;
 
-namespace grapple::desktop {
+namespace grapple::ui {
 
 class StewardPanel final : public QWidget {
 public:
@@ -33,4 +33,4 @@ private:
   QTextEdit* text_ = nullptr;
 };
 
-} // namespace grapple::desktop
+} // namespace grapple::ui
