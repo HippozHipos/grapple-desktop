@@ -1,0 +1,55 @@
+#pragma once
+
+#include <grapple/app/NativeWorkspaceSession.hpp>
+
+#include <QPixmap>
+
+#include <memory>
+#include <optional>
+#include <string>
+
+namespace grapple::desktop {
+
+class DesktopWindowImpl;
+
+class DesktopWindow final {
+public:
+  explicit DesktopWindow(app::NativeWorkspaceSession& workspace);
+  ~DesktopWindow();
+
+  DesktopWindow(const DesktopWindow&) = delete;
+  DesktopWindow& operator=(const DesktopWindow&) = delete;
+  DesktopWindow(DesktopWindow&&) = delete;
+  DesktopWindow& operator=(DesktopWindow&&) = delete;
+
+  void show();
+  [[nodiscard]] QPixmap grab() const;
+
+  void seekTo(foundation::TimeSeconds time);
+  void clickTimelineAtRatio(double ratio);
+  void clickFirstTimelineClip();
+  void clickFirstTimelineCamera();
+  [[nodiscard]] std::optional<foundation::NodeId> selectedNodeId() const;
+  [[nodiscard]] std::optional<foundation::AssetId> selectedAssetId() const;
+  [[nodiscard]] std::string inspectorContents() const;
+  [[nodiscard]] std::string logContents() const;
+  [[nodiscard]] std::string stewardContents() const;
+  void setStewardIntent(std::string intent);
+  void clickStewardCreateCameraEffect();
+  void startPlayback();
+  void pausePlayback();
+  void advancePlaybackFrame();
+  void addTrack();
+  void importVideoFile(const foundation::FilePath& path);
+  void addSelectedVideoToTimeline();
+  void deleteSelectedClip();
+  void moveSelectedClip(foundation::TimeSeconds delta);
+  void setSelectedTargetNumericEffectParam(const std::string& paramName, double value);
+  void deleteSelectedTargetEffect();
+  void openPackageRoot(const foundation::FilePath& rootPath);
+
+private:
+  std::unique_ptr<DesktopWindowImpl> impl_;
+};
+
+} // namespace grapple::desktop

@@ -3,6 +3,7 @@ find_package(OpenCV REQUIRED COMPONENTS core videoio)
 
 add_executable(grapple_desktop
   src/DesktopApp.cpp
+  src/DesktopWindow.cpp
   src/main.cpp
 )
 
