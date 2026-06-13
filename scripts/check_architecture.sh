@@ -85,6 +85,11 @@ check_no_matches \
   "$root/libs/agent"
 
 check_no_matches \
+  "agent tools must request ids from the project id allocator instead of deriving ids from revisions." \
+  'revisionNumber \+ 1|nextRevisionNumber|cmd_agent_.*rev_|node_agent_.*rev_|edge_agent_.*rev_' \
+  "$root/libs/agent"
+
+check_no_matches \
   "lower-level modules must not depend on the app orchestration layer." \
   '#include <grapple/app/' \
   "$root/libs/foundation" \
