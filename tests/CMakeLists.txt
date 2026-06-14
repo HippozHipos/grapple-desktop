@@ -68,6 +68,8 @@ add_test(NAME grapple_desktop_move_clip_smoke COMMAND grapple_desktop --move-cli
 set_tests_properties(grapple_desktop_move_clip_smoke PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 add_test(NAME grapple_desktop_trim_clip_smoke COMMAND grapple_desktop --trim-clip-smoke)
 set_tests_properties(grapple_desktop_trim_clip_smoke PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+add_test(NAME grapple_desktop_nudge_clip_smoke COMMAND grapple_desktop --nudge-clip-smoke)
+set_tests_properties(grapple_desktop_nudge_clip_smoke PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 add_test(NAME grapple_desktop_undo_redo_smoke COMMAND grapple_desktop --undo-redo-smoke)
 set_tests_properties(grapple_desktop_undo_redo_smoke PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 add_test(NAME grapple_desktop_add_effect_smoke COMMAND grapple_desktop --add-effect-smoke)

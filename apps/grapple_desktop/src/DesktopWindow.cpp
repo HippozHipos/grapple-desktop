@@ -154,11 +154,13 @@ QString inspectorText(
   };
 
   auto selectedClipText = [&](const grapple::app::AppClipRow& clip) {
-    return QString{"Inspector\nClip\nAsset: %1\nType: %2\nRange: %3s - %4s\n\n%5"}
+    return QString{"Inspector\nClip\nAsset: %1\nType: %2\nRange: %3s - %4s\nPosition: %5, %6\n\n%7"}
       .arg(qString(clip.assetName))
       .arg(qString(clip.kind))
       .arg(clip.timelineRange.start.value)
       .arg(clip.timelineRange.end.value)
+      .arg(clip.transform.position.x, 0, 'f', 2)
+      .arg(clip.transform.position.y, 0, 'f', 2)
       .arg(attachedEffectsText(clip.sourceNodeId));
   };
 
@@ -449,6 +451,7 @@ public:
     auto* editNoteAction = moreMenu->addAction("Edit Note");
     auto* moveClipAction = moreMenu->addAction("Move Clip +1s");
     auto* trimClipAction = moreMenu->addAction("Trim Clip End -1s");
+    auto* nudgeClipAction = moreMenu->addAction("Nudge Clip X +0.1");
     auto* deleteClipAction = moreMenu->addAction("Delete Clip");
     auto* deleteTrackAction = moreMenu->addAction("Delete Track");
     moreButton->setMenu(moreMenu);
@@ -539,6 +542,7 @@ public:
     connect(editNoteAction, &QAction::triggered, this, [this] { editSelectedNote(); });
     connect(moveClipAction, &QAction::triggered, this, [this] { moveSelectedClip(grapple::foundation::TimeSeconds{1.0}); });
     connect(trimClipAction, &QAction::triggered, this, [this] { trimSelectedClipEnd(grapple::foundation::TimeSeconds{-1.0}); });
+    connect(nudgeClipAction, &QAction::triggered, this, [this] { nudgeSelectedClipX(0.1); });
     connect(deleteClipAction, &QAction::triggered, this, [this] { deleteSelectedClip(); });
     connect(deleteTrackAction, &QAction::triggered, this, [this] { deleteSelectedTrack(); });
     connect(exportButton, &QPushButton::clicked, this, [this] { chooseAndExportVideo(); });
@@ -1560,6 +1564,50 @@ public:
     log_->append("Trimmed clip");
   }
 
+  void nudgeSelectedClipX(double delta) {
+    if (!selectedNodeId_.has_value()) {
+      appendError(grapple::foundation::Error{"desktop.selection_missing", "Nudge Clip requires a selected clip."});
+      return;
+    }
+
+    const auto viewModel = workspace_.project().buildViewModel();
+    if (!viewModel) {
+      appendError(viewModel.error());
+      return;
+    }
+
+    const grapple::app::AppClipRow* selectedClip = findClipRow(viewModel.value(), selectedNodeId_.value());
+    if (selectedClip == nullptr) {
+      appendError(grapple::foundation::Error{"desktop.selected_node_not_clip", "Nudge Clip only applies to selected clips."});
+      return;
+    }
+
+    grapple::timeline::Transform transform = selectedClip->transform;
+    transform.position.x += delta;
+    const auto updated = workspace_.commandWriter().apply(
+      grapple::project::UpdateClipCommand{
+        selectedClip->sourceNodeId,
+        grapple::timeline::ClipPayload{
+          selectedClip->clipKind,
+          selectedClip->timelineRange,
+          selectedClip->sourceRange,
+          selectedClip->playbackRate,
+          selectedClip->assetId,
+          transform
+        }
+      },
+      userSource()
+    );
+    if (!updated) {
+      appendError(updated.error());
+      return;
+    }
+
+    refreshViewModel();
+    refreshPreview();
+    log_->append("Nudged clip");
+  }
+
   void undoLastEdit() {
     const auto undone = workspace_.commandWriter().undoLastCommittedCommand(
       userSource(),
@@ -2130,6 +2178,10 @@ void DesktopWindow::moveSelectedClip(foundation::TimeSeconds delta) {
 
 void DesktopWindow::trimSelectedClipEnd(foundation::TimeSeconds delta) {
   impl_->trimSelectedClipEnd(delta);
+}
+
+void DesktopWindow::nudgeSelectedClipX(double delta) {
+  impl_->nudgeSelectedClipX(delta);
 }
 
 void DesktopWindow::undoLastEdit() {

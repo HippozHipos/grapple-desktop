@@ -126,6 +126,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   bool updateNoteSmoke = false;
   bool moveClipSmoke = false;
   bool trimClipSmoke = false;
+  bool nudgeClipSmoke = false;
   bool undoRedoSmoke = false;
   bool addEffectSmoke = false;
   bool setEffectParamSmoke = false;
@@ -182,6 +183,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       moveClipSmoke = true;
     } else if (argument == "--trim-clip-smoke") {
       trimClipSmoke = true;
+    } else if (argument == "--nudge-clip-smoke") {
+      nudgeClipSmoke = true;
     } else if (argument == "--undo-redo-smoke") {
       undoRedoSmoke = true;
     } else if (argument == "--add-effect-smoke") {
@@ -207,7 +210,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     } else if (argument == "--effect-screenshot" && index + 1 < argc) {
       effectScreenshotPath = argv[++index];
     } else {
-      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --select-audio-clip-smoke, --select-audio-track-smoke, --select-camera-smoke, --select-second-camera-smoke, --steward-smoke, --import-smoke, --import-media-types-smoke, --add-video-smoke, --empty-add-video-smoke, --empty-add-track-smoke, --empty-add-camera-smoke, --update-camera-smoke, --add-note-smoke, --update-note-smoke, --move-clip-smoke, --trim-clip-smoke, --undo-redo-smoke, --add-effect-smoke, --set-effect-param-smoke, --effect-keyframe-smoke, --delete-effect-smoke, --delete-smoke, --delete-track-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, --screenshot <path>, or --effect-screenshot <path>.\n";
+      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --select-audio-clip-smoke, --select-audio-track-smoke, --select-camera-smoke, --select-second-camera-smoke, --steward-smoke, --import-smoke, --import-media-types-smoke, --add-video-smoke, --empty-add-video-smoke, --empty-add-track-smoke, --empty-add-camera-smoke, --update-camera-smoke, --add-note-smoke, --update-note-smoke, --move-clip-smoke, --trim-clip-smoke, --nudge-clip-smoke, --undo-redo-smoke, --add-effect-smoke, --set-effect-param-smoke, --effect-keyframe-smoke, --delete-effect-smoke, --delete-smoke, --delete-track-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, --screenshot <path>, or --effect-screenshot <path>.\n";
       return 1;
     }
   }
@@ -758,6 +761,36 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            clip.sourceRange.start == grapple::foundation::TimeSeconds{0.0} &&
            clip.sourceRange.end == grapple::foundation::TimeSeconds{9.0} &&
            viewModel.value().timeline.duration == grapple::foundation::TimeSeconds{9.0}
+      ? 0
+      : 1;
+  }
+
+  if (nudgeClipSmoke) {
+    window.show();
+    app.processEvents();
+    window.clickFirstTimelineClip();
+    window.nudgeSelectedClipX(0.25);
+    const auto viewModel = workspace.value().project().buildViewModel();
+    if (!viewModel) {
+      printError(viewModel.error());
+      return 1;
+    }
+    if (viewModel.value().timeline.clips.empty()) {
+      std::cerr << "No clips after nudge.\n";
+      return 1;
+    }
+    const grapple::app::AppClipRow& clip = viewModel.value().timeline.clips.front();
+    const std::string inspector = window.inspectorContents();
+    std::cout << "revision=" << viewModel.value().project.revision.value() << '\n';
+    std::cout << "positionX=" << clip.transform.position.x << '\n';
+    std::cout << "inspector=" << inspector << '\n';
+    return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_6"} &&
+           clip.transform.position.x == 0.25 &&
+           clip.timelineRange.start == grapple::foundation::TimeSeconds{0.0} &&
+           clip.timelineRange.end == grapple::foundation::TimeSeconds{10.0} &&
+           clip.sourceRange.start == grapple::foundation::TimeSeconds{0.0} &&
+           clip.sourceRange.end == grapple::foundation::TimeSeconds{10.0} &&
+           inspector.find("Position: 0.25, 0.00") != std::string::npos
       ? 0
       : 1;
   }
