@@ -1466,6 +1466,161 @@ int main() {
   GRAPPLE_REQUIRE(!deleteNonEffect);
   GRAPPLE_REQUIRE(deleteNonEffect.error().code == "project.effect_missing");
 
+  project::ProjectController targetDeleteProject{
+    project::createEmptyProject(foundation::ProjectId{"proj_target_delete"}, "Target Delete Project")
+  };
+  const auto targetDeleteInitial = targetDeleteProject.snapshot();
+  GRAPPLE_REQUIRE(targetDeleteInitial);
+  const auto targetDeleteComposition = targetDeleteProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_target_delete_composition"},
+    foundation::ProjectId{"proj_target_delete"},
+    targetDeleteInitial.value().revision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::CreateCompositionCommand{foundation::NodeId{"node_target_delete_composition"}, "Main"}
+  });
+  GRAPPLE_REQUIRE(targetDeleteComposition);
+  const auto targetDeleteTrack = targetDeleteProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_target_delete_track"},
+    foundation::ProjectId{"proj_target_delete"},
+    targetDeleteComposition.value().afterRevision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::CreateTrackCommand{
+      foundation::NodeId{"node_target_delete_track"},
+      foundation::NodeId{"node_target_delete_composition"},
+      foundation::EdgeId{"edge_target_delete_contains_track"},
+      "Video",
+      timeline::TrackKind::Visual
+    }
+  });
+  GRAPPLE_REQUIRE(targetDeleteTrack);
+  const auto targetDeleteAsset = targetDeleteProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_target_delete_asset"},
+    foundation::ProjectId{"proj_target_delete"},
+    targetDeleteTrack.value().afterRevision,
+    project::CommandSource{project::CommandSourceKind::Importer, std::nullopt, "test"},
+    project::RegisterAssetCommand{makeVideoAsset(foundation::AssetId{"asset_target_delete"}, "Target Delete")}
+  });
+  GRAPPLE_REQUIRE(targetDeleteAsset);
+  const timeline::ClipPayload targetDeleteClipPayload{
+    timeline::ClipKind::Video,
+    foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{5.0}},
+    foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{5.0}},
+    1.0,
+    foundation::AssetId{"asset_target_delete"},
+    timeline::Transform{}
+  };
+  const auto targetDeleteClip = targetDeleteProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_target_delete_clip"},
+    foundation::ProjectId{"proj_target_delete"},
+    targetDeleteAsset.value().afterRevision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::CreateClipCommand{
+      foundation::NodeId{"node_target_delete_clip"},
+      foundation::NodeId{"node_target_delete_track"},
+      foundation::EdgeId{"edge_target_delete_contains_clip"},
+      targetDeleteClipPayload
+    }
+  });
+  GRAPPLE_REQUIRE(targetDeleteClip);
+  const auto targetDeleteClipEffect = targetDeleteProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_target_delete_clip_effect"},
+    foundation::ProjectId{"proj_target_delete"},
+    targetDeleteClip.value().afterRevision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::CreateEffectCommand{
+      foundation::NodeId{"node_target_delete_clip_effect"},
+      foundation::NodeId{"node_target_delete_clip"},
+      foundation::EdgeId{"edge_target_delete_clip_effect_target"},
+      projectEffectPayload,
+      graph::PortName{"output"},
+      graph::PortName{"input"}
+    }
+  });
+  GRAPPLE_REQUIRE(targetDeleteClipEffect);
+  const auto deleteTargetClip = targetDeleteProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_delete_target_clip"},
+    foundation::ProjectId{"proj_target_delete"},
+    targetDeleteClipEffect.value().afterRevision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::DeleteClipCommand{foundation::NodeId{"node_target_delete_clip"}}
+  });
+  GRAPPLE_REQUIRE(deleteTargetClip);
+  const auto afterTargetClipDelete = targetDeleteProject.snapshot();
+  GRAPPLE_REQUIRE(afterTargetClipDelete);
+  GRAPPLE_REQUIRE(!afterTargetClipDelete.value().graph.hasNode(foundation::NodeId{"node_target_delete_clip"}));
+  GRAPPLE_REQUIRE(!afterTargetClipDelete.value().graph.hasNode(foundation::NodeId{"node_target_delete_clip_effect"}));
+  const projection::TimelineProjector targetDeleteProjector;
+  const auto clipTargetDeletedTimeline = targetDeleteProjector.buildTimelineIR(projection::BuildTimelineIRRequest{
+    afterTargetClipDelete.value()
+  });
+  GRAPPLE_REQUIRE(clipTargetDeletedTimeline);
+  GRAPPLE_REQUIRE(clipTargetDeletedTimeline.value().timeline.effectGraphs.empty());
+
+  const auto recreatedTargetDeleteClip = targetDeleteProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_recreate_target_delete_clip"},
+    foundation::ProjectId{"proj_target_delete"},
+    afterTargetClipDelete.value().revision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::CreateClipCommand{
+      foundation::NodeId{"node_target_delete_clip_recreated"},
+      foundation::NodeId{"node_target_delete_track"},
+      foundation::EdgeId{"edge_target_delete_contains_recreated_clip"},
+      targetDeleteClipPayload
+    }
+  });
+  GRAPPLE_REQUIRE(recreatedTargetDeleteClip);
+  const auto targetDeleteTrackEffect = targetDeleteProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_target_delete_track_effect"},
+    foundation::ProjectId{"proj_target_delete"},
+    recreatedTargetDeleteClip.value().afterRevision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::CreateEffectCommand{
+      foundation::NodeId{"node_target_delete_track_effect"},
+      foundation::NodeId{"node_target_delete_track"},
+      foundation::EdgeId{"edge_target_delete_track_effect_target"},
+      projectEffectPayload,
+      graph::PortName{"output"},
+      graph::PortName{"input"}
+    }
+  });
+  GRAPPLE_REQUIRE(targetDeleteTrackEffect);
+  const auto recreatedTargetDeleteClipEffect = targetDeleteProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_recreated_target_delete_clip_effect"},
+    foundation::ProjectId{"proj_target_delete"},
+    targetDeleteTrackEffect.value().afterRevision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::CreateEffectCommand{
+      foundation::NodeId{"node_recreated_target_delete_clip_effect"},
+      foundation::NodeId{"node_target_delete_clip_recreated"},
+      foundation::EdgeId{"edge_recreated_target_delete_clip_effect_target"},
+      projectEffectPayload,
+      graph::PortName{"output"},
+      graph::PortName{"input"}
+    }
+  });
+  GRAPPLE_REQUIRE(recreatedTargetDeleteClipEffect);
+  const auto deleteTargetTrack = targetDeleteProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_delete_target_track"},
+    foundation::ProjectId{"proj_target_delete"},
+    recreatedTargetDeleteClipEffect.value().afterRevision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::DeleteTrackCommand{foundation::NodeId{"node_target_delete_track"}}
+  });
+  GRAPPLE_REQUIRE(deleteTargetTrack);
+  const auto afterTargetTrackDelete = targetDeleteProject.snapshot();
+  GRAPPLE_REQUIRE(afterTargetTrackDelete);
+  GRAPPLE_REQUIRE(!afterTargetTrackDelete.value().graph.hasNode(foundation::NodeId{"node_target_delete_track"}));
+  GRAPPLE_REQUIRE(!afterTargetTrackDelete.value().graph.hasNode(foundation::NodeId{"node_target_delete_clip_recreated"}));
+  GRAPPLE_REQUIRE(!afterTargetTrackDelete.value().graph.hasNode(foundation::NodeId{"node_target_delete_track_effect"}));
+  GRAPPLE_REQUIRE(!afterTargetTrackDelete.value().graph.hasNode(foundation::NodeId{"node_recreated_target_delete_clip_effect"}));
+  GRAPPLE_REQUIRE(afterTargetTrackDelete.value().graph.edges().empty());
+  const auto trackTargetDeletedTimeline = targetDeleteProjector.buildTimelineIR(projection::BuildTimelineIRRequest{
+    afterTargetTrackDelete.value()
+  });
+  GRAPPLE_REQUIRE(trackTargetDeletedTimeline);
+  GRAPPLE_REQUIRE(trackTargetDeletedTimeline.value().timeline.layers.empty());
+  GRAPPLE_REQUIRE(trackTargetDeletedTimeline.value().timeline.effectGraphs.empty());
+
   project::ProjectController noteProject{
     project::createEmptyProject(foundation::ProjectId{"proj_notes"}, "Notes Project")
   };

@@ -25,6 +25,36 @@ bool sameParamValueType(const timeline::ParamValue& left, const timeline::ParamV
   return left.index() == right.index();
 }
 
+bool containsNodeId(const std::vector<foundation::NodeId>& nodeIds, foundation::NodeId nodeId) {
+  return std::find(nodeIds.begin(), nodeIds.end(), nodeId) != nodeIds.end();
+}
+
+foundation::Result<std::vector<foundation::NodeId>> effectNodeIdsTargeting(
+  const graph::GraphDocument& graph,
+  const std::vector<foundation::NodeId>& targetNodeIds
+) {
+  std::vector<foundation::NodeId> effectNodeIds;
+  for (const graph::GraphEdge& edge : graph.edges()) {
+    if (edge.kind != graph::EdgeKind::Targets || !containsNodeId(targetNodeIds, edge.targetNodeId)) {
+      continue;
+    }
+
+    const graph::GraphNode* effect = graph.findNode(edge.sourceNodeId);
+    if (effect == nullptr || effect->kind != graph::NodeKind::Effect) {
+      return foundation::Error{
+        "project.effect_target_source_invalid",
+        "Effect target edge source must be an effect node."
+      };
+    }
+
+    if (!containsNodeId(effectNodeIds, effect->id)) {
+      effectNodeIds.push_back(effect->id);
+    }
+  }
+
+  return effectNodeIds;
+}
+
 foundation::Result<void> requireNonEmpty(std::string_view value, const char* code, const char* message) {
   if (value.empty()) {
     return foundation::Error{code, message};
@@ -296,6 +326,7 @@ foundation::Result<void> ProjectController::handleDeleteTrack(const DeleteTrackC
     return foundation::Error{"project.track_missing", "Track deletion requires an existing track node."};
   }
 
+  std::vector<foundation::NodeId> targetNodeIds{command.nodeId};
   std::vector<foundation::NodeId> containedClipIds;
   for (const graph::GraphEdge& edge : document_.graph.edges()) {
     if (edge.kind != graph::EdgeKind::Contains || edge.sourceNodeId != command.nodeId) {
@@ -304,6 +335,19 @@ foundation::Result<void> ProjectController::handleDeleteTrack(const DeleteTrackC
     const graph::GraphNode* child = document_.graph.findNode(edge.targetNodeId);
     if (child != nullptr && child->kind == graph::NodeKind::Clip) {
       containedClipIds.push_back(child->id);
+      targetNodeIds.push_back(child->id);
+    }
+  }
+
+  auto targetedEffectNodeIds = effectNodeIdsTargeting(document_.graph, targetNodeIds);
+  if (!targetedEffectNodeIds) {
+    return targetedEffectNodeIds.error();
+  }
+
+  for (const foundation::NodeId& effectNodeId : targetedEffectNodeIds.value()) {
+    auto removedEffect = document_.graph.removeNode(effectNodeId);
+    if (!removedEffect) {
+      return removedEffect.error();
     }
   }
 
@@ -467,6 +511,18 @@ foundation::Result<void> ProjectController::handleDeleteClip(const DeleteClipCom
   const graph::GraphNode* clip = document_.graph.findNode(command.nodeId);
   if (clip == nullptr || clip->kind != graph::NodeKind::Clip) {
     return foundation::Error{"project.clip_missing", "Clip deletion requires an existing clip node."};
+  }
+
+  auto targetedEffectNodeIds = effectNodeIdsTargeting(document_.graph, {command.nodeId});
+  if (!targetedEffectNodeIds) {
+    return targetedEffectNodeIds.error();
+  }
+
+  for (const foundation::NodeId& effectNodeId : targetedEffectNodeIds.value()) {
+    auto removedEffect = document_.graph.removeNode(effectNodeId);
+    if (!removedEffect) {
+      return removedEffect.error();
+    }
   }
 
   return document_.graph.removeNode(command.nodeId);
