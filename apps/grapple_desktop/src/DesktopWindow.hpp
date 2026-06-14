@@ -52,6 +52,7 @@ public:
   void addTrack();
   void addCamera();
   void addNote();
+  void updateSelectedNote(std::string title, std::string markdown);
   void importMediaFile(const foundation::FilePath& path);
   void addSelectedMediaToTimeline();
   void deleteSelectedClip();

@@ -122,6 +122,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   bool emptyAddTrackSmoke = false;
   bool emptyAddCameraSmoke = false;
   bool addNoteSmoke = false;
+  bool updateNoteSmoke = false;
   bool moveClipSmoke = false;
   bool trimClipSmoke = false;
   bool undoRedoSmoke = false;
@@ -172,6 +173,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       emptyAddCameraSmoke = true;
     } else if (argument == "--add-note-smoke") {
       addNoteSmoke = true;
+    } else if (argument == "--update-note-smoke") {
+      updateNoteSmoke = true;
     } else if (argument == "--move-clip-smoke") {
       moveClipSmoke = true;
     } else if (argument == "--trim-clip-smoke") {
@@ -201,7 +204,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     } else if (argument == "--effect-screenshot" && index + 1 < argc) {
       effectScreenshotPath = argv[++index];
     } else {
-      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --select-audio-clip-smoke, --select-audio-track-smoke, --select-camera-smoke, --select-second-camera-smoke, --steward-smoke, --import-smoke, --import-media-types-smoke, --add-video-smoke, --empty-add-video-smoke, --empty-add-track-smoke, --empty-add-camera-smoke, --add-note-smoke, --move-clip-smoke, --trim-clip-smoke, --undo-redo-smoke, --add-effect-smoke, --set-effect-param-smoke, --effect-keyframe-smoke, --delete-effect-smoke, --delete-smoke, --delete-track-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, --screenshot <path>, or --effect-screenshot <path>.\n";
+      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --select-audio-clip-smoke, --select-audio-track-smoke, --select-camera-smoke, --select-second-camera-smoke, --steward-smoke, --import-smoke, --import-media-types-smoke, --add-video-smoke, --empty-add-video-smoke, --empty-add-track-smoke, --empty-add-camera-smoke, --add-note-smoke, --update-note-smoke, --move-clip-smoke, --trim-clip-smoke, --undo-redo-smoke, --add-effect-smoke, --set-effect-param-smoke, --effect-keyframe-smoke, --delete-effect-smoke, --delete-smoke, --delete-track-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, --screenshot <path>, or --effect-screenshot <path>.\n";
       return 1;
     }
   }
@@ -650,6 +653,28 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            viewModel.value().notes.rows.size() == 1 &&
            viewModel.value().notes.rows.front().title == "Note 1" &&
            inspector.find("Inspector\nNote\nNote 1") != std::string::npos
+      ? 0
+      : 1;
+  }
+
+  if (updateNoteSmoke) {
+    window.addNote();
+    window.updateSelectedNote("Updated Note", "Updated project note");
+    const auto viewModel = workspace.value().project().buildViewModel();
+    if (!viewModel) {
+      printError(viewModel.error());
+      return 1;
+    }
+    const std::string inspector = window.inspectorContents();
+    std::cout << "revision=" << viewModel.value().project.revision.value() << '\n';
+    std::cout << "notes=" << viewModel.value().notes.rows.size() << '\n';
+    std::cout << "inspector=" << inspector << '\n';
+    return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_7"} &&
+           viewModel.value().notes.rows.size() == 1 &&
+           viewModel.value().notes.rows.front().title == "Updated Note" &&
+           viewModel.value().notes.rows.front().markdown == "Updated project note" &&
+           inspector.find("Inspector\nNote\nUpdated Note") != std::string::npos &&
+           inspector.find("Updated project note") != std::string::npos
       ? 0
       : 1;
   }

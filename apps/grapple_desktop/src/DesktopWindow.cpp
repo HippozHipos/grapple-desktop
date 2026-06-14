@@ -19,7 +19,9 @@
 #include <QFrame>
 #include <QGridLayout>
 #include <QHBoxLayout>
+#include <QInputDialog>
 #include <QLabel>
+#include <QLineEdit>
 #include <QListView>
 #include <QListWidget>
 #include <QListWidgetItem>
@@ -442,6 +444,7 @@ public:
     auto* addTrackAction = moreMenu->addAction("Add Track");
     auto* addCameraAction = moreMenu->addAction("Add Camera");
     auto* addNoteAction = moreMenu->addAction("Add Note");
+    auto* editNoteAction = moreMenu->addAction("Edit Note");
     auto* moveClipAction = moreMenu->addAction("Move Clip +1s");
     auto* trimClipAction = moreMenu->addAction("Trim Clip End -1s");
     auto* deleteClipAction = moreMenu->addAction("Delete Clip");
@@ -530,6 +533,7 @@ public:
     connect(addTrackAction, &QAction::triggered, this, [this] { addTrack(); });
     connect(addCameraAction, &QAction::triggered, this, [this] { addCamera(); });
     connect(addNoteAction, &QAction::triggered, this, [this] { addNote(); });
+    connect(editNoteAction, &QAction::triggered, this, [this] { editSelectedNote(); });
     connect(moveClipAction, &QAction::triggered, this, [this] { moveSelectedClip(grapple::foundation::TimeSeconds{1.0}); });
     connect(trimClipAction, &QAction::triggered, this, [this] { trimSelectedClipEnd(grapple::foundation::TimeSeconds{-1.0}); });
     connect(deleteClipAction, &QAction::triggered, this, [this] { deleteSelectedClip(); });
@@ -1036,6 +1040,101 @@ public:
     selectedAssetId_ = std::nullopt;
     refreshViewModel();
     log_->append("Added note");
+  }
+
+  void updateSelectedNote(std::string title, std::string markdown) {
+    if (!selectedNodeId_.has_value()) {
+      appendError(grapple::foundation::Error{"desktop.selection_missing", "Edit Note requires a selected note."});
+      return;
+    }
+
+    const auto viewModel = workspace_.project().buildViewModel();
+    if (!viewModel) {
+      appendError(viewModel.error());
+      return;
+    }
+
+    const grapple::app::AppNoteRow* selectedNote = selectedNoteRow(viewModel.value());
+    if (selectedNote == nullptr) {
+      appendError(grapple::foundation::Error{"desktop.selected_node_not_note", "Edit Note only applies to selected notes."});
+      return;
+    }
+
+    const auto result = workspace_.commandWriter().apply(
+      grapple::project::UpdateNoteCommand{
+        selectedNote->sourceNodeId,
+        grapple::timeline::NotePayload{std::move(title), std::move(markdown)}
+      },
+      userSource()
+    );
+    if (!result) {
+      appendError(result.error());
+      return;
+    }
+
+    selectedAssetId_ = std::nullopt;
+    refreshViewModel();
+    log_->append("Updated note");
+  }
+
+  void editSelectedNote() {
+    if (!selectedNodeId_.has_value()) {
+      appendError(grapple::foundation::Error{"desktop.selection_missing", "Edit Note requires a selected note."});
+      return;
+    }
+
+    const auto viewModel = workspace_.project().buildViewModel();
+    if (!viewModel) {
+      appendError(viewModel.error());
+      return;
+    }
+
+    const grapple::app::AppNoteRow* selectedNote = selectedNoteRow(viewModel.value());
+    if (selectedNote == nullptr) {
+      appendError(grapple::foundation::Error{"desktop.selected_node_not_note", "Edit Note only applies to selected notes."});
+      return;
+    }
+
+    bool titleAccepted = false;
+    const QString title = QInputDialog::getText(
+      this,
+      "Edit Note",
+      "Title",
+      QLineEdit::Normal,
+      qString(selectedNote->title),
+      &titleAccepted
+    );
+    if (!titleAccepted) {
+      return;
+    }
+
+    bool markdownAccepted = false;
+    const QString markdown = QInputDialog::getMultiLineText(
+      this,
+      "Edit Note",
+      "Body",
+      qString(selectedNote->markdown),
+      &markdownAccepted
+    );
+    if (!markdownAccepted) {
+      return;
+    }
+
+    updateSelectedNote(title.toStdString(), markdown.toStdString());
+  }
+
+  const grapple::app::AppNoteRow* selectedNoteRow(const grapple::app::AppViewModel& viewModel) const {
+    if (!selectedNodeId_.has_value()) {
+      return nullptr;
+    }
+    const auto selectedNote = std::find_if(
+      viewModel.notes.rows.begin(),
+      viewModel.notes.rows.end(),
+      [&](const grapple::app::AppNoteRow& note) {
+        return note.sourceNodeId == selectedNodeId_.value();
+      }
+    );
+    return selectedNote == viewModel.notes.rows.end() ? nullptr : &*selectedNote;
   }
 
   void importMediaFile(const grapple::foundation::FilePath& path) {
@@ -1908,6 +2007,10 @@ void DesktopWindow::addCamera() {
 
 void DesktopWindow::addNote() {
   impl_->addNote();
+}
+
+void DesktopWindow::updateSelectedNote(std::string title, std::string markdown) {
+  impl_->updateSelectedNote(std::move(title), std::move(markdown));
 }
 
 void DesktopWindow::importMediaFile(const foundation::FilePath& path) {
