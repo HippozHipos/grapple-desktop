@@ -772,6 +772,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     window.clickFirstTimelineClip();
     window.nudgeSelectedClipX(0.25);
     window.nudgeSelectedClipY(0.5);
+    window.setSelectedClipUniformScale(1.25);
+    window.setSelectedClipOpacity(0.5);
     const auto viewModel = workspace.value().project().buildViewModel();
     if (!viewModel) {
       printError(viewModel.error());
@@ -786,15 +788,23 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "revision=" << viewModel.value().project.revision.value() << '\n';
     std::cout << "positionX=" << clip.transform.position.x << '\n';
     std::cout << "positionY=" << clip.transform.position.y << '\n';
+    std::cout << "scaleX=" << clip.transform.scale.x << '\n';
+    std::cout << "scaleY=" << clip.transform.scale.y << '\n';
+    std::cout << "opacity=" << clip.transform.opacity << '\n';
     std::cout << "inspector=" << inspector << '\n';
-    return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_7"} &&
+    return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_9"} &&
            clip.transform.position.x == 0.25 &&
            clip.transform.position.y == 0.5 &&
+           clip.transform.scale.x == 1.25 &&
+           clip.transform.scale.y == 1.25 &&
+           clip.transform.opacity == 0.5 &&
            clip.timelineRange.start == grapple::foundation::TimeSeconds{0.0} &&
            clip.timelineRange.end == grapple::foundation::TimeSeconds{10.0} &&
            clip.sourceRange.start == grapple::foundation::TimeSeconds{0.0} &&
            clip.sourceRange.end == grapple::foundation::TimeSeconds{10.0} &&
-           inspector.find("Position: 0.25, 0.50") != std::string::npos
+           inspector.find("Position: 0.25, 0.50") != std::string::npos &&
+           inspector.find("Scale: 1.25, 1.25") != std::string::npos &&
+           inspector.find("Opacity: 0.50") != std::string::npos
       ? 0
       : 1;
   }

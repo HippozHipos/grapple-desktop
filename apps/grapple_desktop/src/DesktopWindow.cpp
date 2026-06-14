@@ -155,13 +155,16 @@ QString inspectorText(
   };
 
   auto selectedClipText = [&](const grapple::app::AppClipRow& clip) {
-    return QString{"Inspector\nClip\nAsset: %1\nType: %2\nRange: %3s - %4s\nPosition: %5, %6\n\n%7"}
+    return QString{"Inspector\nClip\nAsset: %1\nType: %2\nRange: %3s - %4s\nPosition: %5, %6\nScale: %7, %8\nOpacity: %9\n\n%10"}
       .arg(qString(clip.assetName))
       .arg(qString(clip.kind))
       .arg(clip.timelineRange.start.value)
       .arg(clip.timelineRange.end.value)
       .arg(clip.transform.position.x, 0, 'f', 2)
       .arg(clip.transform.position.y, 0, 'f', 2)
+      .arg(clip.transform.scale.x, 0, 'f', 2)
+      .arg(clip.transform.scale.y, 0, 'f', 2)
+      .arg(clip.transform.opacity, 0, 'f', 2)
       .arg(attachedEffectsText(clip.sourceNodeId));
   };
 
@@ -455,6 +458,8 @@ public:
     auto* trimClipAction = moreMenu->addAction("Trim Clip End -1s");
     auto* nudgeClipXAction = moreMenu->addAction("Nudge Clip X +0.1");
     auto* nudgeClipYAction = moreMenu->addAction("Nudge Clip Y +0.1");
+    auto* scaleClipAction = moreMenu->addAction("Scale Clip 1.25x");
+    auto* opacityClipAction = moreMenu->addAction("Set Clip Opacity 0.5");
     auto* deleteClipAction = moreMenu->addAction("Delete Clip");
     auto* deleteTrackAction = moreMenu->addAction("Delete Track");
     moreButton->setMenu(moreMenu);
@@ -548,6 +553,8 @@ public:
     connect(trimClipAction, &QAction::triggered, this, [this] { trimSelectedClipEnd(grapple::foundation::TimeSeconds{-1.0}); });
     connect(nudgeClipXAction, &QAction::triggered, this, [this] { nudgeSelectedClipX(0.1); });
     connect(nudgeClipYAction, &QAction::triggered, this, [this] { nudgeSelectedClipY(0.1); });
+    connect(scaleClipAction, &QAction::triggered, this, [this] { setSelectedClipUniformScale(1.25); });
+    connect(opacityClipAction, &QAction::triggered, this, [this] { setSelectedClipOpacity(0.5); });
     connect(deleteClipAction, &QAction::triggered, this, [this] { deleteSelectedClip(); });
     connect(deleteTrackAction, &QAction::triggered, this, [this] { deleteSelectedTrack(); });
     connect(exportButton, &QPushButton::clicked, this, [this] { chooseAndExportVideo(); });
@@ -1626,35 +1633,56 @@ public:
   }
 
   void nudgeSelectedClipPosition(grapple::foundation::Vec2 delta) {
-    if (!selectedNodeId_.has_value()) {
-      appendError(grapple::foundation::Error{"desktop.selection_missing", "Nudge Clip requires a selected clip."});
+    auto selectedClip = selectedClipRowForAction("Nudge Clip");
+    if (!selectedClip) {
+      appendError(selectedClip.error());
       return;
     }
 
-    const auto viewModel = workspace_.project().buildViewModel();
-    if (!viewModel) {
-      appendError(viewModel.error());
-      return;
-    }
-
-    const grapple::app::AppClipRow* selectedClip = findClipRow(viewModel.value(), selectedNodeId_.value());
-    if (selectedClip == nullptr) {
-      appendError(grapple::foundation::Error{"desktop.selected_node_not_clip", "Nudge Clip only applies to selected clips."});
-      return;
-    }
-
-    grapple::timeline::Transform transform = selectedClip->transform;
+    grapple::timeline::Transform transform = selectedClip.value().transform;
     transform.position.x += delta.x;
     transform.position.y += delta.y;
+    updateSelectedClipTransform(selectedClip.value(), transform, "Nudged clip");
+  }
+
+  void setSelectedClipUniformScale(double scale) {
+    auto selectedClip = selectedClipRowForAction("Scale Clip");
+    if (!selectedClip) {
+      appendError(selectedClip.error());
+      return;
+    }
+
+    grapple::timeline::Transform transform = selectedClip.value().transform;
+    transform.scale = grapple::foundation::Vec2{scale, scale};
+    updateSelectedClipTransform(selectedClip.value(), transform, "Scaled clip");
+  }
+
+  void setSelectedClipOpacity(double opacity) {
+    auto selectedClip = selectedClipRowForAction("Set Clip Opacity");
+    if (!selectedClip) {
+      appendError(selectedClip.error());
+      return;
+    }
+
+    grapple::timeline::Transform transform = selectedClip.value().transform;
+    transform.opacity = opacity;
+    updateSelectedClipTransform(selectedClip.value(), transform, "Updated clip opacity");
+  }
+
+  void updateSelectedClipTransform(
+    const grapple::app::AppClipRow& selectedClip,
+    grapple::timeline::Transform transform,
+    const QString& logMessage
+  ) {
     const auto updated = workspace_.commandWriter().apply(
       grapple::project::UpdateClipCommand{
-        selectedClip->sourceNodeId,
+        selectedClip.sourceNodeId,
         grapple::timeline::ClipPayload{
-          selectedClip->clipKind,
-          selectedClip->timelineRange,
-          selectedClip->sourceRange,
-          selectedClip->playbackRate,
-          selectedClip->assetId,
+          selectedClip.clipKind,
+          selectedClip.timelineRange,
+          selectedClip.sourceRange,
+          selectedClip.playbackRate,
+          selectedClip.assetId,
           transform
         }
       },
@@ -1667,7 +1695,31 @@ public:
 
     refreshViewModel();
     refreshPreview();
-    log_->append("Nudged clip");
+    log_->append(logMessage);
+  }
+
+  grapple::foundation::Result<grapple::app::AppClipRow> selectedClipRowForAction(const std::string& actionName) {
+    if (!selectedNodeId_.has_value()) {
+      return grapple::foundation::Error{
+        "desktop.selection_missing",
+        actionName + " requires a selected clip."
+      };
+    }
+
+    const auto viewModel = workspace_.project().buildViewModel();
+    if (!viewModel) {
+      return viewModel.error();
+    }
+
+    const grapple::app::AppClipRow* selectedClip = findClipRow(viewModel.value(), selectedNodeId_.value());
+    if (selectedClip == nullptr) {
+      return grapple::foundation::Error{
+        "desktop.selected_node_not_clip",
+        actionName + " only applies to selected clips."
+      };
+    }
+
+    return *selectedClip;
   }
 
   void nudgeSelectedClipX(double delta) {
@@ -2260,6 +2312,14 @@ void DesktopWindow::nudgeSelectedClipX(double delta) {
 
 void DesktopWindow::nudgeSelectedClipY(double delta) {
   impl_->nudgeSelectedClipY(delta);
+}
+
+void DesktopWindow::setSelectedClipUniformScale(double scale) {
+  impl_->setSelectedClipUniformScale(scale);
+}
+
+void DesktopWindow::setSelectedClipOpacity(double opacity) {
+  impl_->setSelectedClipOpacity(opacity);
 }
 
 void DesktopWindow::undoLastEdit() {

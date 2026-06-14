@@ -63,6 +63,8 @@ public:
   void trimSelectedClipEnd(foundation::TimeSeconds delta);
   void nudgeSelectedClipX(double delta);
   void nudgeSelectedClipY(double delta);
+  void setSelectedClipUniformScale(double scale);
+  void setSelectedClipOpacity(double opacity);
   void undoLastEdit();
   void redoLastEdit();
   void exportVideoFile(const foundation::FilePath& path);
