@@ -45,7 +45,7 @@ foundation::Result<render::RenderFrameResult> NativePreviewSession::renderFrame(
   });
 }
 
-render::PreviewRenderShellState NativePreviewSession::state() const noexcept {
+render::PreviewRenderShellState NativePreviewSession::state() const {
   const render::LocalRenderSystemState renderState = renderSystem_.state();
   return render::PreviewRenderShellState{
     renderState.playback,

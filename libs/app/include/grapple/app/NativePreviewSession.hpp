@@ -21,7 +21,7 @@ public:
   foundation::Result<void> play();
   foundation::Result<void> pause();
   foundation::Result<render::RenderFrameResult> renderFrame(render::RenderFrameRequest request) const;
-  [[nodiscard]] render::PreviewRenderShellState state() const noexcept;
+  [[nodiscard]] render::PreviewRenderShellState state() const;
 
 private:
   NativeProjectSession& project_;

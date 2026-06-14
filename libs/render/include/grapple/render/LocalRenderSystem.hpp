@@ -6,6 +6,7 @@
 #include <grapple/render/FinalRenderShell.hpp>
 #include <grapple/render/PreviewRenderShell.hpp>
 
+#include <mutex>
 #include <optional>
 
 namespace grapple::render {
@@ -42,12 +43,13 @@ public:
   foundation::Result<void> pause();
   foundation::Result<PlaybackFrameResult> renderPlaybackFrame(const PlaybackFrameRequest& request) const;
   foundation::Result<ExportResult> exportRange(const ExportRequest& request);
-  [[nodiscard]] LocalRenderSystemState state() const noexcept;
+  [[nodiscard]] LocalRenderSystemState state() const;
 
 private:
   LocalRenderCore& core_;
   PreviewRenderShell preview_;
   FinalRenderShell finalRender_;
+  mutable std::mutex mutex_;
 };
 
 } // namespace grapple::render

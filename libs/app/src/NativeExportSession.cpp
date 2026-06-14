@@ -168,7 +168,7 @@ foundation::Result<render::FinalRenderResult> NativeExportSession::renderToVideo
   return result;
 }
 
-render::FinalRenderShellState NativeExportSession::state() const noexcept {
+render::FinalRenderShellState NativeExportSession::state() const {
   const render::LocalRenderSystemState renderState = renderSystem_.state();
   return render::FinalRenderShellState{
     renderState.core,
