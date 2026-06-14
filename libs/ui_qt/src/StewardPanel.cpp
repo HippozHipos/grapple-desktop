@@ -54,40 +54,6 @@ QStringList exposedControlsFor(const app::AppEffectRow& effect) {
   return controls;
 }
 
-std::optional<foundation::NodeId> stewardCameraTargetId(
-  const app::AppViewModel& viewModel,
-  const std::optional<foundation::NodeId>& selectedNodeId
-) {
-  if (selectedNodeId.has_value()) {
-    for (const app::AppCameraRow& camera : viewModel.timeline.cameras) {
-      if (camera.sourceNodeId == selectedNodeId.value()) {
-        return camera.sourceNodeId;
-      }
-    }
-  }
-  if (viewModel.timeline.cameras.size() == 1) {
-    return viewModel.timeline.cameras.front().sourceNodeId;
-  }
-  return std::nullopt;
-}
-
-bool selectedCameraHasTransformEffect(
-  const app::AppViewModel& viewModel,
-  const foundation::NodeId& cameraNodeId
-) {
-  for (const app::AppEffectGraphRow& graph : viewModel.timeline.effectGraphs) {
-    if (graph.targetNodeId != cameraNodeId) {
-      continue;
-    }
-    for (const app::AppEffectRow& effect : graph.effects) {
-      if (effect.cameraTransformEffect) {
-        return true;
-      }
-    }
-  }
-  return false;
-}
-
 QString runStatusText(agent::AgentRunStatus status) {
   switch (status) {
     case agent::AgentRunStatus::Pending:
@@ -174,11 +140,11 @@ void StewardPanel::setViewModel(
   const agent::AgentConversationState& conversationState,
   const std::optional<foundation::NodeId>& selectedNodeId
 ) {
-  const std::optional<foundation::NodeId> cameraTargetId = stewardCameraTargetId(viewModel, selectedNodeId);
+  const std::optional<foundation::NodeId> cameraTargetId = app::stewardCameraTargetId(viewModel, selectedNodeId);
   if (!cameraTargetId.has_value()) {
     createCameraEffectButton_->setText(viewModel.timeline.cameras.empty() ? "Add Camera" : "Select Camera");
     createCameraEffectButton_->setEnabled(false);
-  } else if (selectedCameraHasTransformEffect(viewModel, cameraTargetId.value())) {
+  } else if (app::cameraHasTransformEffect(viewModel, cameraTargetId.value())) {
     createCameraEffectButton_->setText("Editable Controls Created");
     createCameraEffectButton_->setEnabled(false);
   } else {

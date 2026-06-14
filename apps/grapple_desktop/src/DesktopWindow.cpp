@@ -1279,12 +1279,10 @@ public:
       return viewModel.error();
     }
 
-    const grapple::app::AppCameraRow* selectedCamera = selectedCameraRow(viewModel.value());
-    if (selectedCamera != nullptr) {
-      return selectedCamera->sourceNodeId;
-    }
-    if (viewModel.value().timeline.cameras.size() == 1) {
-      return viewModel.value().timeline.cameras.front().sourceNodeId;
+    const std::optional<grapple::foundation::NodeId> targetCameraNodeId =
+      grapple::app::stewardCameraTargetId(viewModel.value(), selectedNodeId_);
+    if (targetCameraNodeId.has_value()) {
+      return targetCameraNodeId.value();
     }
     if (viewModel.value().timeline.cameras.empty()) {
       return grapple::foundation::Error{"desktop.camera_missing", "Add Effect requires a camera."};

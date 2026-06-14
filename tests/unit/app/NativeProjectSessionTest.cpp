@@ -1040,6 +1040,8 @@ int main() {
   GRAPPLE_REQUIRE(runtimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].implementationKind == "builtin");
   GRAPPLE_REQUIRE(runtimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].cameraTransformEffect);
   GRAPPLE_REQUIRE(runtimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].params.size() == 3);
+  GRAPPLE_REQUIRE(app::stewardCameraTargetId(runtimeEffectViewModel.value(), std::nullopt) == runtimeCameraNodeId);
+  GRAPPLE_REQUIRE(app::cameraHasTransformEffect(runtimeEffectViewModel.value(), runtimeCameraNodeId));
   GRAPPLE_REQUIRE(runtimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].label == "Position X");
   GRAPPLE_REQUIRE(runtimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[1].label == "Position Y");
   GRAPPLE_REQUIRE(runtimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[2].label == "Zoom");

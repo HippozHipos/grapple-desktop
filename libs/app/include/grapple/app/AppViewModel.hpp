@@ -146,5 +146,13 @@ struct AppViewModel {
 };
 
 std::string paramValueDisplayText(const timeline::ParamValue& value);
+std::optional<foundation::NodeId> stewardCameraTargetId(
+  const AppViewModel& viewModel,
+  const std::optional<foundation::NodeId>& selectedNodeId
+);
+bool cameraHasTransformEffect(
+  const AppViewModel& viewModel,
+  const foundation::NodeId& cameraNodeId
+);
 
 } // namespace grapple::app
