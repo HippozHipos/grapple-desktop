@@ -58,17 +58,13 @@ void CompositionViewport::paintEvent(QPaintEvent* event) {
   painter.setRenderHint(QPainter::Antialiasing);
   painter.fillRect(rect(), QColor{"#10151f"});
 
-  painter.setPen(QColor{"#9fb7d5"});
-  painter.setFont(QFont{"DejaVu Sans", 11, QFont::Bold});
-  painter.drawText(rect().adjusted(12, 8, -12, -8), Qt::AlignTop | Qt::AlignLeft, "Composition Viewport");
-
   if (!viewModel_.has_value()) {
     painter.setPen(QColor{"#d8f3ff"});
     painter.drawText(rect().adjusted(24, 24, -24, -24), Qt::AlignCenter, "No composition loaded");
     return;
   }
 
-  const QRectF world = QRectF{rect()}.adjusted(30.0, 44.0, -30.0, -30.0);
+  const QRectF world = QRectF{rect()}.adjusted(30.0, 24.0, -30.0, -30.0);
   painter.setPen(QPen{QColor{"#2e3a4d"}, 1});
   painter.setBrush(QColor{"#151c28"});
   painter.drawRoundedRect(world, 12.0, 12.0);
