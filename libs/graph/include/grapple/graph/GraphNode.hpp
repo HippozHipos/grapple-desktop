@@ -3,6 +3,7 @@
 #include <grapple/foundation/StrongId.hpp>
 #include <grapple/timeline/Payloads.hpp>
 
+#include <utility>
 #include <variant>
 
 namespace grapple::graph {
@@ -28,10 +29,21 @@ using NodePayload = std::variant<
 >;
 
 struct GraphNode {
+  GraphNode(
+    foundation::NodeId idValue,
+    NodeKind kindValue,
+    NodePayload payloadValue,
+    bool enabledValue
+  )
+    : id{std::move(idValue)},
+      kind{kindValue},
+      payload{std::move(payloadValue)},
+      enabled{enabledValue} {}
+
   foundation::NodeId id;
-  NodeKind kind = NodeKind::Composition;
-  NodePayload payload = timeline::CompositionPayload{};
-  bool enabled = true;
+  NodeKind kind;
+  NodePayload payload;
+  bool enabled;
 };
 
 } // namespace grapple::graph
