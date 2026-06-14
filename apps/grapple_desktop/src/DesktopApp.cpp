@@ -460,8 +460,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            steward.find("Center the subject with an editable camera transform.") != std::string::npos &&
            steward.find("Editable controls") != std::string::npos &&
            steward.find("- no editable controls yet") != std::string::npos &&
-           steward.find("Applied edits") != std::string::npos &&
-           steward.find("- no applied edits yet") != std::string::npos &&
+           steward.find("Recent Steward runs") != std::string::npos &&
+           steward.find("- no runs yet") != std::string::npos &&
            selectedNodeId.has_value() &&
            selectedNodeId.value() == grapple::foundation::NodeId{"node_camera_4"}
       ? 0

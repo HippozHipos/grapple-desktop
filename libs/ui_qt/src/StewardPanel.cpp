@@ -230,16 +230,6 @@ void StewardPanel::setViewModel(
     }
   }
 
-  lines << "";
-  lines << "Applied edits";
-  if (viewModel.steward.edits.empty()) {
-    lines << "- no applied edits yet";
-  } else {
-    for (auto edit = viewModel.steward.edits.rbegin(); edit != viewModel.steward.edits.rend(); ++edit) {
-      lines << QString{"- %1"}.arg(qString(edit->intent));
-    }
-  }
-
   text_->setPlainText(lines.join('\n'));
 }
 
