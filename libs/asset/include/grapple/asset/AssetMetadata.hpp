@@ -5,6 +5,7 @@
 #include <grapple/foundation/Time.hpp>
 
 #include <optional>
+#include <utility>
 
 namespace grapple::asset {
 
@@ -15,7 +16,22 @@ enum class AssetMediaType {
 };
 
 struct AssetMetadata {
-  AssetMediaType mediaType = AssetMediaType::Video;
+  AssetMetadata(
+    AssetMediaType mediaTypeValue,
+    foundation::FilePath sourcePathValue,
+    std::optional<foundation::FilePath> thumbnailPathValue,
+    std::optional<foundation::TimeSeconds> durationValue,
+    std::optional<foundation::Resolution> dimensionsValue,
+    std::optional<foundation::FrameRate> frameRateValue
+  )
+    : mediaType{mediaTypeValue},
+      sourcePath{std::move(sourcePathValue)},
+      thumbnailPath{std::move(thumbnailPathValue)},
+      duration{durationValue},
+      dimensions{dimensionsValue},
+      frameRate{frameRateValue} {}
+
+  AssetMediaType mediaType;
   foundation::FilePath sourcePath;
   std::optional<foundation::FilePath> thumbnailPath;
   std::optional<foundation::TimeSeconds> duration;
@@ -24,4 +40,3 @@ struct AssetMetadata {
 };
 
 } // namespace grapple::asset
-
