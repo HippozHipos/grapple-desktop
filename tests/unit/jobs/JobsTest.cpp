@@ -1,8 +1,17 @@
+#include <grapple/jobs/JobScheduler.hpp>
 #include <grapple/jobs/JobQueue.hpp>
+#include <grapple/jobs/MainThreadDispatcher.hpp>
 #include <grapple/jobs/ProjectCommandQueue.hpp>
 #include <grapple/project/ProjectController.hpp>
 
 #include <TestAssert.hpp>
+
+#include <atomic>
+#include <chrono>
+#include <condition_variable>
+#include <mutex>
+#include <thread>
+#include <vector>
 
 namespace {
 
@@ -13,6 +22,29 @@ public:
   }
 
   double lastProgress = 0.0;
+};
+
+class ThreadStartGate {
+public:
+  void open() {
+    {
+      std::lock_guard lock{mutex_};
+      open_ = true;
+    }
+    condition_.notify_all();
+  }
+
+  bool waitForOpen() {
+    std::unique_lock lock{mutex_};
+    return condition_.wait_for(lock, std::chrono::seconds{2}, [&] {
+      return open_;
+    });
+  }
+
+private:
+  std::mutex mutex_;
+  std::condition_variable condition_;
+  bool open_ = false;
 };
 
 } // namespace
@@ -111,6 +143,7 @@ int main() {
   GRAPPLE_REQUIRE(jobResults.value().size() == 1);
   GRAPPLE_REQUIRE(jobResults.value()[0].jobId == foundation::JobId{"job_1"});
   GRAPPLE_REQUIRE(jobResults.value()[0].succeeded);
+  GRAPPLE_REQUIRE(jobResults.value()[0].status == jobs::JobRunStatus::Succeeded);
   GRAPPLE_REQUIRE(jobRan);
   GRAPPLE_REQUIRE(progress.lastProgress == 1.0);
 
@@ -168,6 +201,76 @@ int main() {
   GRAPPLE_REQUIRE(!secondMidDrainJobRan);
   GRAPPLE_REQUIRE(midDrainCancelledJobs.size() == 1);
   GRAPPLE_REQUIRE(progress.lastProgress == 0.5);
+
+  jobs::MainThreadDispatcher dispatcher;
+  std::vector<int> dispatchedValues;
+  dispatcher.post([&] { dispatchedValues.push_back(1); });
+  dispatcher.post([&] { dispatchedValues.push_back(2); });
+  GRAPPLE_REQUIRE(dispatcher.size() == 2);
+  GRAPPLE_REQUIRE(dispatcher.drain() == 2);
+  GRAPPLE_REQUIRE(dispatcher.size() == 0);
+  GRAPPLE_REQUIRE(dispatchedValues.size() == 2);
+  GRAPPLE_REQUIRE(dispatchedValues[0] == 1);
+  GRAPPLE_REQUIRE(dispatchedValues[1] == 2);
+
+  jobs::JobScheduler scheduler;
+  const std::thread::id callerThread = std::this_thread::get_id();
+  std::thread::id workerThread;
+  const auto enqueueScheduledJob = scheduler.enqueue(jobs::Job{
+    foundation::JobId{"job_scheduled"},
+    "Scheduled Job",
+    [&](jobs::CancellationToken& token, jobs::IProgressSink& progressSink) {
+      GRAPPLE_REQUIRE(!token.cancelled());
+      workerThread = std::this_thread::get_id();
+      progressSink.reportProgress(0.25);
+      progressSink.reportProgress(1.0);
+      return foundation::Result<void>{};
+    }
+  });
+  GRAPPLE_REQUIRE(enqueueScheduledJob);
+  scheduler.waitUntilIdle();
+  GRAPPLE_REQUIRE(workerThread != callerThread);
+  const auto scheduledRecords = scheduler.runRecords();
+  GRAPPLE_REQUIRE(scheduledRecords.size() == 1);
+  GRAPPLE_REQUIRE(scheduledRecords[0].jobId == foundation::JobId{"job_scheduled"});
+  GRAPPLE_REQUIRE(scheduledRecords[0].succeeded);
+  GRAPPLE_REQUIRE(scheduledRecords[0].status == jobs::JobRunStatus::Succeeded);
+  const auto scheduledProgress = scheduler.progressRecords();
+  GRAPPLE_REQUIRE(scheduledProgress.size() == 2);
+  GRAPPLE_REQUIRE(scheduledProgress[0].jobId == foundation::JobId{"job_scheduled"});
+  GRAPPLE_REQUIRE(scheduledProgress[0].progress == 0.25);
+  GRAPPLE_REQUIRE(scheduledProgress[1].progress == 1.0);
+
+  jobs::JobScheduler cancellableScheduler;
+  ThreadStartGate cancellationGate;
+  std::atomic_bool cancellationObserved = false;
+  const auto enqueueCancellableJob = cancellableScheduler.enqueue(jobs::Job{
+    foundation::JobId{"job_cancellable"},
+    "Cancellable Job",
+    [&](jobs::CancellationToken& token, jobs::IProgressSink& progressSink) {
+      progressSink.reportProgress(0.1);
+      cancellationGate.open();
+      while (!token.cancelled()) {
+        std::this_thread::sleep_for(std::chrono::milliseconds{1});
+      }
+      cancellationObserved = true;
+      return foundation::Result<void>{};
+    }
+  });
+  GRAPPLE_REQUIRE(enqueueCancellableJob);
+  GRAPPLE_REQUIRE(cancellationGate.waitForOpen());
+  cancellableScheduler.cancel(foundation::JobId{"job_cancellable"});
+  cancellableScheduler.waitUntilIdle();
+  GRAPPLE_REQUIRE(cancellationObserved);
+  const auto cancelledRecords = cancellableScheduler.runRecords();
+  GRAPPLE_REQUIRE(cancelledRecords.size() == 1);
+  GRAPPLE_REQUIRE(cancelledRecords[0].jobId == foundation::JobId{"job_cancellable"});
+  GRAPPLE_REQUIRE(!cancelledRecords[0].succeeded);
+  GRAPPLE_REQUIRE(cancelledRecords[0].status == jobs::JobRunStatus::Cancelled);
+  const auto cancelledProgress = cancellableScheduler.progressRecords();
+  GRAPPLE_REQUIRE(cancelledProgress.size() == 1);
+  GRAPPLE_REQUIRE(cancelledProgress[0].jobId == foundation::JobId{"job_cancellable"});
+  GRAPPLE_REQUIRE(cancelledProgress[0].progress == 0.1);
 
   return 0;
 }

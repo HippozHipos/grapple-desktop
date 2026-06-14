@@ -4,13 +4,22 @@
 #include <grapple/jobs/Job.hpp>
 
 #include <deque>
+#include <optional>
 #include <vector>
 
 namespace grapple::jobs {
 
+enum class JobRunStatus {
+  Succeeded,
+  Failed,
+  Cancelled
+};
+
 struct JobRunRecord {
   foundation::JobId jobId;
   bool succeeded = false;
+  JobRunStatus status = JobRunStatus::Failed;
+  std::optional<foundation::Error> error;
 };
 
 class JobQueue {

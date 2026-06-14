@@ -38,7 +38,7 @@ foundation::Result<std::vector<JobRunRecord>> JobQueue::drain(
       return result.error();
     }
 
-    records.push_back(JobRunRecord{job.id, true});
+    records.push_back(JobRunRecord{job.id, true, JobRunStatus::Succeeded});
   }
 
   return records;

@@ -1,6 +1,10 @@
+find_package(Threads REQUIRED)
+
 add_library(grapple_jobs
   src/CancellationToken.cpp
+  src/JobScheduler.cpp
   src/JobQueue.cpp
+  src/MainThreadDispatcher.cpp
   src/ProjectCommandQueue.cpp
 )
 
@@ -15,5 +19,5 @@ target_link_libraries(grapple_jobs
   PUBLIC
     Grapple::Foundation
     Grapple::Project
+    Threads::Threads
 )
-
