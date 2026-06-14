@@ -48,7 +48,14 @@ enum class CommandSourceKind {
 };
 
 struct CommandSource {
-  CommandSourceKind kind = CommandSourceKind::User;
+  CommandSource(
+    CommandSourceKind kindValue,
+    std::optional<foundation::RunId> runIdValue,
+    std::string actorNameValue
+  )
+    : kind{kindValue}, runId{std::move(runIdValue)}, actorName{std::move(actorNameValue)} {}
+
+  CommandSourceKind kind;
   std::optional<foundation::RunId> runId;
   std::string actorName;
 };
