@@ -10,8 +10,7 @@ namespace grapple::storage {
 struct ProjectPackage {
   foundation::ProjectId projectId;
   foundation::FilePath rootPath;
-  int schemaVersion = 1;
+  int schemaVersion;
 };
 
 } // namespace grapple::storage
-
