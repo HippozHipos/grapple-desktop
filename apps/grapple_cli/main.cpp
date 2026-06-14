@@ -69,7 +69,7 @@ int main(int argc, char* argv[]) {
     storage::ProjectPackage{
       foundation::ProjectId{"proj_cli"},
       foundation::FilePath{savePackage ? "/tmp/grapple-cli-package" : "cli.grapple"},
-      1
+      storage::CurrentProjectPackageSchemaVersion
     }
   };
 
@@ -205,7 +205,7 @@ int main(int argc, char* argv[]) {
       auto opened = app::NativeProjectSession::openPackage(storage::ProjectPackage{
         foundation::ProjectId{"proj_cli"},
         foundation::FilePath{"/tmp/grapple-cli-package"},
-        1
+        storage::CurrentProjectPackageSchemaVersion
       });
       if (!opened) {
         printError(opened.error());

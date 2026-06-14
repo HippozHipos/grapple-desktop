@@ -7,6 +7,8 @@
 
 namespace grapple::storage {
 
+inline constexpr int CurrentProjectPackageSchemaVersion = 2;
+
 struct ProjectPackage {
   foundation::ProjectId projectId;
   foundation::FilePath rootPath;

@@ -225,7 +225,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     grapple::storage::ProjectPackage{
       grapple::foundation::ProjectId{"proj_desktop"},
       grapple::foundation::FilePath{"/tmp/grapple-desktop-package"},
-      1
+      grapple::storage::CurrentProjectPackageSchemaVersion
     }
   };
   const auto demoVideo = grapple::demo::ensureStarterDemoVideo();

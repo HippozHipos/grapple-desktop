@@ -28,7 +28,7 @@ struct ProjectPackageHeadManifest {
 
 struct ProjectPackageManifest {
   foundation::ProjectId projectId;
-  int schemaVersion = 1;
+  int schemaVersion = CurrentProjectPackageSchemaVersion;
   foundation::FilePath commandLogPath;
   foundation::FilePath eventLogPath;
   foundation::FilePath schemaMigrationLogPath;

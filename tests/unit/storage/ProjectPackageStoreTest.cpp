@@ -70,7 +70,7 @@ int main() {
   storage::ProjectPackageStore store{storage::ProjectPackage{
     foundation::ProjectId{"proj_storage"},
     foundation::FilePath{"project.grapple"},
-    1
+    storage::CurrentProjectPackageSchemaVersion
   }};
 
   project::ProjectController controller{
@@ -133,7 +133,7 @@ int main() {
   const auto manifest = storage::buildProjectPackageManifest(store.state());
   GRAPPLE_REQUIRE(manifest);
   GRAPPLE_REQUIRE(manifest.value().projectId == foundation::ProjectId{"proj_storage"});
-  GRAPPLE_REQUIRE(manifest.value().schemaVersion == 1);
+  GRAPPLE_REQUIRE(manifest.value().schemaVersion == storage::CurrentProjectPackageSchemaVersion);
   GRAPPLE_REQUIRE(manifest.value().schemaMigrationLogPath == foundation::FilePath{"history/schema_migrations.json"});
   GRAPPLE_REQUIRE(manifest.value().head.has_value());
   GRAPPLE_REQUIRE(manifest.value().head->revision == foundation::RevisionId{"rev_1"});
@@ -146,19 +146,19 @@ int main() {
   GRAPPLE_REQUIRE(manifest.value().snapshots[0].documentPath == foundation::FilePath{"snapshots/rev_1.json"});
   GRAPPLE_REQUIRE(manifest.value().snapshots[0].label == std::optional<std::string>{"first"});
   GRAPPLE_REQUIRE(storage::serializeCanonicalProjectPackageManifest(manifest.value()) ==
-    "{\"schemaVersion\":1,\"projectId\":\"proj_storage\",\"commandLogPath\":\"history/commands.json\",\"eventLogPath\":\"history/events.json\",\"schemaMigrationLogPath\":\"history/schema_migrations.json\",\"head\":{\"revision\":\"rev_1\",\"lastCommandId\":\"cmd_1\",\"lastSnapshotId\":\"snap_1\"},\"snapshots\":[{\"id\":\"snap_1\",\"revision\":\"rev_1\",\"canonicalHash\":\"" +
+    "{\"schemaVersion\":2,\"projectId\":\"proj_storage\",\"commandLogPath\":\"history/commands.json\",\"eventLogPath\":\"history/events.json\",\"schemaMigrationLogPath\":\"history/schema_migrations.json\",\"head\":{\"revision\":\"rev_1\",\"lastCommandId\":\"cmd_1\",\"lastSnapshotId\":\"snap_1\"},\"snapshots\":[{\"id\":\"snap_1\",\"revision\":\"rev_1\",\"canonicalHash\":\"" +
     committedSnapshot.value().canonicalHash.toHex() +
     "\",\"documentPath\":\"snapshots/rev_1.json\",\"label\":\"first\"}]}");
 
   storage::ProjectPackageStore emptyStore{storage::ProjectPackage{
     foundation::ProjectId{"proj_storage"},
     foundation::FilePath{"project.grapple"},
-    1
+    storage::CurrentProjectPackageSchemaVersion
   }};
   const auto emptyManifest = storage::buildProjectPackageManifest(emptyStore.state());
   GRAPPLE_REQUIRE(emptyManifest);
   GRAPPLE_REQUIRE(storage::serializeCanonicalProjectPackageManifest(emptyManifest.value()) ==
-    "{\"schemaVersion\":1,\"projectId\":\"proj_storage\",\"commandLogPath\":\"history/commands.json\",\"eventLogPath\":\"history/events.json\",\"schemaMigrationLogPath\":\"history/schema_migrations.json\",\"head\":null,\"snapshots\":[]}");
+    "{\"schemaVersion\":2,\"projectId\":\"proj_storage\",\"commandLogPath\":\"history/commands.json\",\"eventLogPath\":\"history/events.json\",\"schemaMigrationLogPath\":\"history/schema_migrations.json\",\"head\":null,\"snapshots\":[]}");
 
   const std::filesystem::path packageRoot =
     std::filesystem::temp_directory_path() /
@@ -167,7 +167,7 @@ int main() {
   const storage::ProjectPackage diskPackage{
     foundation::ProjectId{"proj_storage"},
     foundation::FilePath{packageRoot.string()},
-    1
+    storage::CurrentProjectPackageSchemaVersion
   };
   const auto writtenManifestPath = packageWriter.writeManifest(manifest.value(), diskPackage);
   GRAPPLE_REQUIRE(writtenManifestPath);
@@ -181,32 +181,32 @@ int main() {
   GRAPPLE_REQUIRE(parsedManifest);
   GRAPPLE_REQUIRE(storage::serializeCanonicalProjectPackageManifest(parsedManifest.value()) == manifestContents.str());
   const auto manifestWithExtraRootField = storage::deserializeCanonicalProjectPackageManifest(
-    "{\"schemaVersion\":1,\"projectId\":\"proj_storage\",\"commandLogPath\":\"history/commands.json\",\"eventLogPath\":\"history/events.json\",\"schemaMigrationLogPath\":\"history/schema_migrations.json\",\"head\":null,\"snapshots\":[],\"metadata\":{}}"
+    "{\"schemaVersion\":2,\"projectId\":\"proj_storage\",\"commandLogPath\":\"history/commands.json\",\"eventLogPath\":\"history/events.json\",\"schemaMigrationLogPath\":\"history/schema_migrations.json\",\"head\":null,\"snapshots\":[],\"metadata\":{}}"
   );
   GRAPPLE_REQUIRE(!manifestWithExtraRootField);
   GRAPPLE_REQUIRE(manifestWithExtraRootField.error().code == "storage.manifest_json_invalid");
   GRAPPLE_REQUIRE(manifestWithExtraRootField.error().message.find("Unexpected serialized field") != std::string::npos);
   const auto manifestWithEmptyProjectId = storage::deserializeCanonicalProjectPackageManifest(
-    "{\"schemaVersion\":1,\"projectId\":\"\",\"commandLogPath\":\"history/commands.json\",\"eventLogPath\":\"history/events.json\",\"schemaMigrationLogPath\":\"history/schema_migrations.json\",\"head\":null,\"snapshots\":[]}"
+    "{\"schemaVersion\":2,\"projectId\":\"\",\"commandLogPath\":\"history/commands.json\",\"eventLogPath\":\"history/events.json\",\"schemaMigrationLogPath\":\"history/schema_migrations.json\",\"head\":null,\"snapshots\":[]}"
   );
   GRAPPLE_REQUIRE(!manifestWithEmptyProjectId);
   GRAPPLE_REQUIRE(manifestWithEmptyProjectId.error().code == "storage.manifest_json_invalid");
   GRAPPLE_REQUIRE(manifestWithEmptyProjectId.error().message.find("non-empty") != std::string::npos);
   const auto manifestWithExtraHeadField = storage::deserializeCanonicalProjectPackageManifest(
-    "{\"schemaVersion\":1,\"projectId\":\"proj_storage\",\"commandLogPath\":\"history/commands.json\",\"eventLogPath\":\"history/events.json\",\"schemaMigrationLogPath\":\"history/schema_migrations.json\",\"head\":{\"revision\":\"rev_1\",\"lastCommandId\":\"cmd_1\",\"lastSnapshotId\":\"snap_1\",\"metadata\":{}},\"snapshots\":[]}"
+    "{\"schemaVersion\":2,\"projectId\":\"proj_storage\",\"commandLogPath\":\"history/commands.json\",\"eventLogPath\":\"history/events.json\",\"schemaMigrationLogPath\":\"history/schema_migrations.json\",\"head\":{\"revision\":\"rev_1\",\"lastCommandId\":\"cmd_1\",\"lastSnapshotId\":\"snap_1\",\"metadata\":{}},\"snapshots\":[]}"
   );
   GRAPPLE_REQUIRE(!manifestWithExtraHeadField);
   GRAPPLE_REQUIRE(manifestWithExtraHeadField.error().code == "storage.manifest_json_invalid");
   GRAPPLE_REQUIRE(manifestWithExtraHeadField.error().message.find("Unexpected serialized field") != std::string::npos);
   const auto manifestWithEmptyHeadCommandId = storage::deserializeCanonicalProjectPackageManifest(
-    "{\"schemaVersion\":1,\"projectId\":\"proj_storage\",\"commandLogPath\":\"history/commands.json\",\"eventLogPath\":\"history/events.json\",\"schemaMigrationLogPath\":\"history/schema_migrations.json\",\"head\":{\"revision\":\"rev_1\",\"lastCommandId\":\"\",\"lastSnapshotId\":\"snap_1\"},\"snapshots\":[]}"
+    "{\"schemaVersion\":2,\"projectId\":\"proj_storage\",\"commandLogPath\":\"history/commands.json\",\"eventLogPath\":\"history/events.json\",\"schemaMigrationLogPath\":\"history/schema_migrations.json\",\"head\":{\"revision\":\"rev_1\",\"lastCommandId\":\"\",\"lastSnapshotId\":\"snap_1\"},\"snapshots\":[]}"
   );
   GRAPPLE_REQUIRE(!manifestWithEmptyHeadCommandId);
   GRAPPLE_REQUIRE(manifestWithEmptyHeadCommandId.error().code == "storage.manifest_json_invalid");
   GRAPPLE_REQUIRE(manifestWithEmptyHeadCommandId.error().message.find("non-empty") != std::string::npos);
   const auto manifestWithExtraSnapshotField = storage::deserializeCanonicalProjectPackageManifest(
     std::string{
-      "{\"schemaVersion\":1,\"projectId\":\"proj_storage\",\"commandLogPath\":\"history/commands.json\",\"eventLogPath\":\"history/events.json\",\"schemaMigrationLogPath\":\"history/schema_migrations.json\",\"head\":null,\"snapshots\":[{\"id\":\"snap_1\",\"revision\":\"rev_1\",\"canonicalHash\":\""
+      "{\"schemaVersion\":2,\"projectId\":\"proj_storage\",\"commandLogPath\":\"history/commands.json\",\"eventLogPath\":\"history/events.json\",\"schemaMigrationLogPath\":\"history/schema_migrations.json\",\"head\":null,\"snapshots\":[{\"id\":\"snap_1\",\"revision\":\"rev_1\",\"canonicalHash\":\""
     } +
       committedSnapshot.value().canonicalHash.toHex() +
       "\",\"documentPath\":\"snapshots/rev_1.json\",\"label\":null,\"metadata\":{}}]}"
@@ -281,7 +281,7 @@ int main() {
   GRAPPLE_REQUIRE(readPackage);
   GRAPPLE_REQUIRE(readPackage.value().projectId == foundation::ProjectId{"proj_storage"});
   GRAPPLE_REQUIRE(readPackage.value().rootPath == foundation::FilePath{packageRoot.string()});
-  GRAPPLE_REQUIRE(readPackage.value().schemaVersion == 1);
+  GRAPPLE_REQUIRE(readPackage.value().schemaVersion == storage::CurrentProjectPackageSchemaVersion);
   const auto readManifestAtRoot = packageReader.readManifestAtRoot(foundation::FilePath{packageRoot.string()});
   GRAPPLE_REQUIRE(readManifestAtRoot);
   GRAPPLE_REQUIRE(storage::serializeCanonicalProjectPackageManifest(readManifestAtRoot.value()) == manifestContents.str());
@@ -398,7 +398,7 @@ int main() {
   GRAPPLE_REQUIRE(wrongProjectManifestPath.error().code == "storage.manifest_project_id_mismatch");
 
   storage::ProjectPackageManifest wrongSchemaManifest = manifest.value();
-  wrongSchemaManifest.schemaVersion = 2;
+  wrongSchemaManifest.schemaVersion = storage::CurrentProjectPackageSchemaVersion + 1;
   const auto wrongSchemaManifestPath = packageWriter.writeManifest(wrongSchemaManifest, diskPackage);
   GRAPPLE_REQUIRE(!wrongSchemaManifestPath);
   GRAPPLE_REQUIRE(wrongSchemaManifestPath.error().code == "storage.manifest_schema_mismatch");
@@ -407,7 +407,7 @@ int main() {
     storage::ProjectPackage{
       foundation::ProjectId{"proj_storage"},
       foundation::FilePath{packageRoot.string()},
-      1
+      storage::CurrentProjectPackageSchemaVersion
     },
     committedSnapshot.value(),
     storage::SnapshotCommitRecord{
@@ -422,7 +422,7 @@ int main() {
     storage::ProjectPackage{
       foundation::ProjectId{"proj_other"},
       foundation::FilePath{packageRoot.string()},
-      1
+      storage::CurrentProjectPackageSchemaVersion
     },
     committedSnapshot.value(),
     storage::SnapshotCommitRecord{
@@ -574,7 +574,7 @@ int main() {
     storage::ProjectPackage{
       foundation::ProjectId{"proj_session"},
       foundation::FilePath{"session.grapple"},
-      1
+      storage::CurrentProjectPackageSchemaVersion
     }
   };
   const auto sessionInitial = session.snapshot();

@@ -118,7 +118,7 @@ int main() {
   storage::ProjectPackageStore store{storage::ProjectPackage{
     foundation::ProjectId{"proj_native_flow"},
     foundation::FilePath{"native-flow.grapple"},
-    1
+    storage::CurrentProjectPackageSchemaVersion
   }};
 
   const auto initial = controller.snapshot();
@@ -321,7 +321,7 @@ int main() {
     storage::ProjectPackage{
       foundation::ProjectId{"proj_native_flow"},
       foundation::FilePath{packageRoot.string()},
-      1
+      storage::CurrentProjectPackageSchemaVersion
     }
   );
   GRAPPLE_REQUIRE(writtenManifestPath);
@@ -335,7 +335,7 @@ int main() {
     storage::ProjectPackage{
       foundation::ProjectId{"proj_native_flow"},
       foundation::FilePath{packageRoot.string()},
-      1
+      storage::CurrentProjectPackageSchemaVersion
     },
     finalSnapshot.value(),
     storage::SnapshotCommitRecord{

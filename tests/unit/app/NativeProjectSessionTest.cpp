@@ -182,7 +182,7 @@ int main() {
     storage::ProjectPackage{
       foundation::ProjectId{"proj_app"},
       foundation::FilePath{appPackageRoot.string()},
-      1
+      storage::CurrentProjectPackageSchemaVersion
     }
   };
 
@@ -204,7 +204,7 @@ int main() {
     storage::ProjectPackage{
       foundation::ProjectId{"proj_app_saved"},
       foundation::FilePath{packageRoot.string()},
-      1
+      storage::CurrentProjectPackageSchemaVersion
     }
   };
 
@@ -272,7 +272,7 @@ int main() {
     storage::ProjectPackage{
       foundation::ProjectId{"proj_app_command_service"},
       foundation::FilePath{"command-service-app.grapple"},
-      1
+      storage::CurrentProjectPackageSchemaVersion
     }
   };
   app::NativeProjectCommandWriter commandServiceWriter{commandServiceSession};
@@ -385,7 +385,7 @@ int main() {
     storage::ProjectPackage{
       foundation::ProjectId{"proj_app_restore"},
       foundation::FilePath{"restore-app.grapple"},
-      1
+      storage::CurrentProjectPackageSchemaVersion
     }
   };
   app::NativeProjectCommandWriter restoreWriter{restoreSession};
@@ -443,7 +443,7 @@ int main() {
     storage::ProjectPackage{
       foundation::ProjectId{"proj_app_assets"},
       foundation::FilePath{"asset-app.grapple"},
-      1
+      storage::CurrentProjectPackageSchemaVersion
     }
   };
   app::NativeProjectCommandWriter assetWriter{assetSession};
@@ -532,7 +532,7 @@ int main() {
     storage::ProjectPackage{
       foundation::ProjectId{"proj_app_cache"},
       foundation::FilePath{cachePackageRoot.string()},
-      1
+      storage::CurrentProjectPackageSchemaVersion
     }
   };
   app::NativeProjectCommandWriter cacheWriter{cacheProject};
@@ -757,7 +757,7 @@ int main() {
     storage::ProjectPackage{
       foundation::ProjectId{"proj_app_effects"},
       foundation::FilePath{"effect-app.grapple"},
-      1
+      storage::CurrentProjectPackageSchemaVersion
     }
   };
   app::NativeProjectCommandWriter effectWriter{effectSession};
@@ -973,7 +973,7 @@ int main() {
     storage::ProjectPackage{
       foundation::ProjectId{"proj_app_runtime"},
       foundation::FilePath{"runtime-app.grapple"},
-      1
+      storage::CurrentProjectPackageSchemaVersion
     }
   };
   auto runtimeWorkspace = app::NativeWorkspaceSession::fromProject(std::move(runtimeProject));
@@ -1390,7 +1390,7 @@ int main() {
     storage::ProjectPackage{
       foundation::ProjectId{"proj_app_project_only"},
       foundation::FilePath{projectOnlyPackageRoot.string()},
-      1
+      storage::CurrentProjectPackageSchemaVersion
     }
   };
   app::NativeProjectCommandWriter projectOnlyWriter{projectOnlySession};
@@ -1435,7 +1435,7 @@ int main() {
     storage::ProjectPackage{
       foundation::ProjectId{"proj_app_steward"},
       foundation::FilePath{stewardPackageRoot.string()},
-      1
+      storage::CurrentProjectPackageSchemaVersion
     }
   };
   auto stewardWorkspace = app::NativeWorkspaceSession::fromProject(std::move(stewardProject));
@@ -1533,7 +1533,7 @@ int main() {
     storage::ProjectPackage{
       foundation::ProjectId{"proj_app_notes"},
       foundation::FilePath{"notes-app.grapple"},
-      1
+      storage::CurrentProjectPackageSchemaVersion
     }
   };
   app::NativeProjectCommandWriter noteWriter{noteSession};
