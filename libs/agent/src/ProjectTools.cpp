@@ -1,5 +1,6 @@
 #include <grapple/agent/ProjectTools.hpp>
 
+#include <grapple/foundation/Geometry.hpp>
 #include <grapple/foundation/Json.hpp>
 #include <grapple/foundation/Hash.hpp>
 #include <grapple/project/ProjectCommand.hpp>
@@ -168,6 +169,35 @@ constexpr const char TimelineTrimClipSchema[] = R"json({
         "end": {"type": "number"}
       }
     }
+  }
+})json";
+
+constexpr const char TimelineUpdateClipTransformSchema[] = R"json({
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["clipNodeId", "position", "scale", "rotationDegrees", "opacity"],
+  "properties": {
+    "clipNodeId": {"type": "string", "minLength": 1},
+    "position": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y"],
+      "properties": {
+        "x": {"type": "number"},
+        "y": {"type": "number"}
+      }
+    },
+    "scale": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y"],
+      "properties": {
+        "x": {"type": "number"},
+        "y": {"type": "number"}
+      }
+    },
+    "rotationDegrees": {"type": "number"},
+    "opacity": {"type": "number"}
   }
 })json";
 
@@ -523,6 +553,25 @@ foundation::Result<foundation::TimeRange> parseTimeRange(const Json::Value& obje
     return end.error();
   }
   return foundation::TimeRange{foundation::TimeSeconds{start.value()}, foundation::TimeSeconds{end.value()}};
+}
+
+foundation::Result<foundation::Vec2> parseVec2(const Json::Value& object, const std::string& path) {
+  if (!object.isObject()) {
+    return argumentError(path, "Expected vector object.");
+  }
+  auto members = requireOnlyMembers(object, {"x", "y"}, path);
+  if (!members) {
+    return members.error();
+  }
+  auto x = requiredDoubleMember(object, "x", path);
+  if (!x) {
+    return x.error();
+  }
+  auto y = requiredDoubleMember(object, "y", path);
+  if (!y) {
+    return y.error();
+  }
+  return foundation::Vec2{x.value(), y.value()};
 }
 
 foundation::Result<timeline::EffectImplementationKind> parseImplementationKind(const std::string& value, const std::string& path) {
@@ -1741,6 +1790,114 @@ AgentTool makeTimelineTrimClipTool() {
       payload << '{'
               << "\"commandId\":" << foundation::jsonQuoted(commandId.value())
               << ",\"clipNodeId\":" << foundation::jsonQuoted(clipNodeId.value())
+              << ",\"revision\":" << foundation::jsonQuoted(command.value().afterRevision.value())
+              << '}';
+      return ToolResult{
+        call.toolId,
+        ToolResultStatus::Succeeded,
+        command.value().afterRevision,
+        payload.str(),
+        {}
+      };
+    }
+  };
+}
+
+AgentTool makeTimelineUpdateClipTransformTool() {
+  return AgentTool{
+    foundation::ToolId{"tool_timeline_update_clip_transform"},
+    "timeline.update_clip_transform",
+    "Update Clip Transform",
+    "Updates a clip's authored placement, scale, rotation, and opacity through Project Core while preserving its timing, media, and track membership.",
+    TimelineUpdateClipTransformSchema,
+    [](const ToolCall& call, AgentToolContext& context) -> foundation::Result<ToolResult> {
+      auto arguments = parseArguments(call.arguments);
+      if (!arguments) {
+        return arguments.error();
+      }
+      auto members = requireOnlyMembers(
+        arguments.value(),
+        {"clipNodeId", "position", "scale", "rotationDegrees", "opacity"},
+        "$"
+      );
+      if (!members) {
+        return members.error();
+      }
+      auto clipNodeId = requiredStringMember(arguments.value(), "clipNodeId", "$");
+      if (!clipNodeId) {
+        return clipNodeId.error();
+      }
+      auto positionObject = requiredMember(arguments.value(), "position", "$");
+      if (!positionObject) {
+        return positionObject.error();
+      }
+      auto position = parseVec2(positionObject.value(), "$.position");
+      if (!position) {
+        return position.error();
+      }
+      auto scaleObject = requiredMember(arguments.value(), "scale", "$");
+      if (!scaleObject) {
+        return scaleObject.error();
+      }
+      auto scale = parseVec2(scaleObject.value(), "$.scale");
+      if (!scale) {
+        return scale.error();
+      }
+      auto rotationDegrees = requiredDoubleMember(arguments.value(), "rotationDegrees", "$");
+      if (!rotationDegrees) {
+        return rotationDegrees.error();
+      }
+      auto opacity = requiredDoubleMember(arguments.value(), "opacity", "$");
+      if (!opacity) {
+        return opacity.error();
+      }
+
+      auto snapshot = readProjectSnapshot(context, "timeline.update_clip_transform");
+      if (!snapshot) {
+        return snapshot.error();
+      }
+
+      const foundation::NodeId clipId{clipNodeId.value()};
+      const graph::GraphNode* node = snapshot.value().graph.findNode(clipId);
+      if (node == nullptr || node->kind != graph::NodeKind::Clip) {
+        return foundation::Error{"agent.clip_missing", "Clip transform update requires an existing clip node."};
+      }
+      const auto* currentPayload = std::get_if<timeline::ClipPayload>(&node->payload);
+      if (currentPayload == nullptr) {
+        return foundation::Error{"agent.clip_payload_missing", "Clip node must contain a clip payload."};
+      }
+
+      const foundation::CommandId commandId = context.ids.nextCommandId();
+      auto command = context.commands.apply(project::ProjectCommandEnvelope{
+        commandId,
+        call.projectId,
+        call.expectedRevision,
+        project::CommandSource{project::CommandSourceKind::Agent, call.runId, "agent"},
+        project::UpdateClipCommand{
+          clipId,
+          timeline::ClipPayload{
+            currentPayload->kind,
+            currentPayload->timelineRange,
+            currentPayload->sourceRange,
+            currentPayload->playbackRate,
+            currentPayload->assetId,
+            timeline::Transform{
+              position.value(),
+              scale.value(),
+              rotationDegrees.value(),
+              opacity.value()
+            }
+          }
+        }
+      });
+      if (!command) {
+        return command.error();
+      }
+
+      std::ostringstream payload;
+      payload << '{'
+              << "\"commandId\":" << foundation::jsonQuoted(commandId.value())
+              << ",\"clipNodeId\":" << foundation::jsonQuoted(clipId.value())
               << ",\"revision\":" << foundation::jsonQuoted(command.value().afterRevision.value())
               << '}';
       return ToolResult{
