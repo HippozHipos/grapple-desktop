@@ -957,7 +957,9 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     window.clickFirstTimelineClip();
     window.setStewardIntent("Center the walking subject with exposed controls.");
     window.clickStewardCreateCameraEffect();
+    window.clickFirstTimelineClip();
     window.clickStewardCreateCameraEffect();
+    const auto selectedAfterShowControls = window.selectedNodeId();
     const std::string inspector = window.inspectorContents();
     const std::string logText = window.logContents();
     const std::string steward = window.stewardContents();
@@ -999,6 +1001,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            steward.find("project edit -> succeeded") != std::string::npos &&
            steward.find("project edit -> failed") == std::string::npos &&
            steward.find("- Center the walking subject with exposed controls.") != std::string::npos &&
+           selectedAfterShowControls.has_value() &&
+           selectedAfterShowControls.value() == grapple::foundation::NodeId{"node_camera_4"} &&
            logText.find("Preview refreshed") == std::string::npos &&
            logText.find("steward.camera_transform_exists") == std::string::npos &&
            logText.find("runtime.effect_runtime_missing") == std::string::npos

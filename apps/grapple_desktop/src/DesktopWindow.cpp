@@ -596,6 +596,9 @@ public:
     connect(exportButton, &QPushButton::clicked, this, [this] { chooseAndExportVideo(); });
     connect(saveButton, &QPushButton::clicked, this, [this] { savePackage(); });
     steward_->setAddCameraHandler([this] { addCamera(); });
+    steward_->setShowCameraControlsHandler([this](grapple::foundation::NodeId cameraNodeId) {
+      selectNode(std::move(cameraNodeId));
+    });
     steward_->setCreateCameraEffectHandler([this](std::string intent) { addEffectToSelectedTarget(std::move(intent)); });
     connect(mediaBin_, &QListWidget::currentRowChanged, this, [this](int row) { selectMediaAssetAtRow(row); });
     timeline_->setSeekHandler([this](grapple::foundation::TimeSeconds time) { seekTo(time); });
