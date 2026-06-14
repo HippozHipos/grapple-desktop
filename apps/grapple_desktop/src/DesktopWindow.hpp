@@ -35,6 +35,7 @@ public:
   void clickTimelineAtRatio(double ratio);
   void clickFirstTimelineTrack();
   void clickFirstTimelineClip();
+  void clickFirstTimelineAudioClip();
   void clickFirstTimelineCamera();
   void clickSecondTimelineCamera();
   [[nodiscard]] std::optional<foundation::NodeId> selectedNodeId() const;

@@ -151,14 +151,24 @@ QString inspectorText(
     return QString{"Effects\n%1"}.arg(lines.join('\n'));
   };
 
+  auto selectedClipText = [&](const grapple::app::AppClipRow& clip) {
+    return QString{"Inspector\nClip\nAsset: %1\nType: %2\nRange: %3s - %4s\n\n%5"}
+      .arg(qString(clip.assetName))
+      .arg(qString(clip.kind))
+      .arg(clip.timelineRange.start.value)
+      .arg(clip.timelineRange.end.value)
+      .arg(attachedEffectsText(clip.sourceNodeId));
+  };
+
   for (const grapple::app::AppClipRow& clip : viewModel.timeline.clips) {
     if (clip.sourceNodeId == selectedNodeId.value()) {
-      return QString{"Inspector\nClip\nAsset: %1\nType: %2\nRange: %3s - %4s\n\n%5"}
-        .arg(qString(clip.assetName))
-        .arg(qString(clip.kind))
-        .arg(clip.timelineRange.start.value)
-        .arg(clip.timelineRange.end.value)
-        .arg(attachedEffectsText(clip.sourceNodeId));
+      return selectedClipText(clip);
+    }
+  }
+
+  for (const grapple::app::AppClipRow& clip : viewModel.timeline.audioClips) {
+    if (clip.sourceNodeId == selectedNodeId.value()) {
+      return selectedClipText(clip);
     }
   }
 
@@ -673,14 +683,85 @@ public:
   }
 
   void clickFirstTimelineClip() {
+    const auto viewModel = workspace_.project().buildViewModel();
+    if (!viewModel) {
+      appendError(viewModel.error());
+      return;
+    }
+    if (viewModel.value().timeline.clips.empty()) {
+      appendError(grapple::foundation::Error{"desktop.clip_missing", "No visual timeline clip exists."});
+      return;
+    }
+
+    const grapple::app::AppClipRow& clip = viewModel.value().timeline.clips.front();
+    const auto layer = std::find_if(
+      viewModel.value().timeline.layers.begin(),
+      viewModel.value().timeline.layers.end(),
+      [&](const grapple::app::AppLayerRow& row) {
+        return row.sourceNodeId == clip.trackNodeId;
+      }
+    );
+    if (layer == viewModel.value().timeline.layers.end()) {
+      appendError(grapple::foundation::Error{"desktop.clip_track_missing", "Selected visual clip track does not exist."});
+      return;
+    }
+
+    const int row = static_cast<int>(std::distance(viewModel.value().timeline.layers.begin(), layer));
+    clickTimelineClipAt(clip, row, viewModel.value().timeline.duration);
+  }
+
+  void clickTimelineClipAt(
+    const grapple::app::AppClipRow& clip,
+    int row,
+    grapple::foundation::TimeSeconds timelineDuration
+  ) {
+    const int left = 150;
+    const int right = std::max(left + 1, timeline_->width() - 16);
+    const double duration = std::max(0.001, timelineDuration.value);
+    const double midpoint = (clip.timelineRange.start.value + clip.timelineRange.end.value) * 0.5;
+    const double normalized = std::clamp(midpoint / duration, 0.0, 1.0);
     QMouseEvent event{
       QEvent::MouseButtonPress,
-      QPointF{180.0, 56.0},
+      QPointF{
+        static_cast<double>(left) + (normalized * static_cast<double>(right - left)),
+        34.0 + (static_cast<double>(row) * 44.0) + 22.0
+      },
       Qt::LeftButton,
       Qt::LeftButton,
       Qt::NoModifier
     };
     QApplication::sendEvent(timeline_, &event);
+  }
+
+  void clickFirstTimelineAudioClip() {
+    const auto viewModel = workspace_.project().buildViewModel();
+    if (!viewModel) {
+      appendError(viewModel.error());
+      return;
+    }
+    if (viewModel.value().timeline.audioClips.empty()) {
+      appendError(grapple::foundation::Error{"desktop.audio_clip_missing", "No audio timeline clip exists."});
+      return;
+    }
+
+    const grapple::app::AppClipRow& clip = viewModel.value().timeline.audioClips.front();
+    const auto track = std::find_if(
+      viewModel.value().timeline.audioTracks.begin(),
+      viewModel.value().timeline.audioTracks.end(),
+      [&](const grapple::app::AppLayerRow& row) {
+        return row.sourceNodeId == clip.trackNodeId;
+      }
+    );
+    if (track == viewModel.value().timeline.audioTracks.end()) {
+      appendError(grapple::foundation::Error{"desktop.audio_clip_track_missing", "Selected audio clip track does not exist."});
+      return;
+    }
+
+    const int audioRow = static_cast<int>(
+      viewModel.value().timeline.layers.size() +
+      static_cast<std::size_t>(std::distance(viewModel.value().timeline.audioTracks.begin(), track))
+    );
+    clickTimelineClipAt(clip, audioRow, viewModel.value().timeline.duration);
   }
 
   void clickFirstTimelineTrack() {
@@ -713,7 +794,9 @@ public:
       return;
     }
 
-    const int cameraRow = static_cast<int>(viewModel.value().timeline.layers.size());
+    const int cameraRow = static_cast<int>(
+      viewModel.value().timeline.layers.size() + viewModel.value().timeline.audioTracks.size()
+    );
     const std::size_t cameraCount = viewModel.value().timeline.cameras.size();
     const double rowTop = 34.0 + (static_cast<double>(cameraRow) * 44.0);
     const double availableHeight = 32.0;
@@ -1726,6 +1809,10 @@ void DesktopWindow::clickFirstTimelineTrack() {
 
 void DesktopWindow::clickFirstTimelineClip() {
   impl_->clickFirstTimelineClip();
+}
+
+void DesktopWindow::clickFirstTimelineAudioClip() {
+  impl_->clickFirstTimelineAudioClip();
 }
 
 void DesktopWindow::clickFirstTimelineCamera() {
