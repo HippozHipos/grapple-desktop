@@ -2,20 +2,17 @@
 
 #include <grapple/agent/AgentBridge.hpp>
 #include <grapple/agent/AgentToolRegistry.hpp>
+#include <grapple/agent/ProjectTools.hpp>
 #include <grapple/foundation/FilePath.hpp>
-#include <grapple/foundation/Hash.hpp>
 #include <grapple/foundation/Json.hpp>
 #include <grapple/graph/GraphNode.hpp>
 #include <grapple/runtime/BuiltinEffects.hpp>
 #include <grapple/runtime/RuntimeOutputNames.hpp>
 #include <grapple/timeline/EffectPayload.hpp>
 
-#include <json/json.h>
-
 #include <algorithm>
 #include <chrono>
 #include <cctype>
-#include <memory>
 #include <optional>
 #include <sstream>
 #include <string>
@@ -27,37 +24,10 @@ namespace grapple::app {
 
 namespace {
 
-constexpr const char StewardCreateCameraTransformToolId[] = "steward.create_camera_transform";
+constexpr const char CanonicalCreateEffectToolId[] = "effect.create_node";
 constexpr double InitialCameraTransformPositionX = 0.15;
 constexpr double InitialCameraTransformPositionY = 0.0;
 constexpr double InitialCameraTransformZoom = 1.1;
-
-constexpr const char StewardCreateCameraTransformSchema[] = R"json({
-  "type": "object",
-  "additionalProperties": false,
-  "required": ["cameraNodeId", "intent", "activeRange"],
-  "properties": {
-    "cameraNodeId": {"type": "string"},
-    "intent": {"type": "string"},
-    "activeRange": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["start", "end"],
-      "properties": {
-        "start": {"type": "number"},
-        "end": {"type": "number"}
-      }
-    }
-  }
-})json";
-
-project::CommandSource stewardSource(foundation::RunId runId) {
-  return project::CommandSource{
-    project::CommandSourceKind::Agent,
-    std::move(runId),
-    "steward"
-  };
-}
 
 foundation::Result<void> ensureCameraCanReceiveTransformEffect(
   const project::ProjectSnapshot& snapshot,
@@ -94,56 +64,6 @@ foundation::Result<void> ensureCameraCanReceiveTransformEffect(
   return {};
 }
 
-timeline::EffectPayload cameraTransformPayload(foundation::TimeRange activeRange) {
-  return timeline::EffectPayload{
-    runtime::builtin_effect::CameraTransformDisplayName,
-    timeline::EffectImplementation{
-      timeline::EffectImplementationKind::Builtin,
-      runtime::builtin_effect::CameraTransformEntrypoint,
-      timeline::EffectSource{
-        timeline::EffectSourceKind::InlineSource,
-        "builtin",
-        runtime::builtin_effect::CameraTransformSource,
-        std::nullopt,
-        foundation::stableHash(runtime::builtin_effect::CameraTransformSource)
-      }
-    },
-    timeline::EffectPortSet{
-      {timeline::EffectPort{"frame"}},
-      {timeline::EffectPort{runtime::output_name::CameraTransform}}
-    },
-    timeline::ParamSet{
-      {
-        timeline::Param{
-          runtime::builtin_effect::PositionXParam,
-          InitialCameraTransformPositionX,
-          timeline::Param::Control{
-            runtime::builtin_effect::PositionXLabel,
-            timeline::Param::NumericControl{-1.0, 1.0, 0.01}
-          }
-        },
-        timeline::Param{
-          runtime::builtin_effect::PositionYParam,
-          InitialCameraTransformPositionY,
-          timeline::Param::Control{
-            runtime::builtin_effect::PositionYLabel,
-            timeline::Param::NumericControl{-1.0, 1.0, 0.01}
-          }
-        },
-        timeline::Param{
-          runtime::builtin_effect::ZoomParam,
-          InitialCameraTransformZoom,
-          timeline::Param::Control{
-            runtime::builtin_effect::ZoomLabel,
-            timeline::Param::NumericControl{0.25, 4.0, 0.01}
-          }
-        }
-      }
-    },
-    activeRange
-  };
-}
-
 std::string runStartedPayload(const std::string& title) {
   std::ostringstream payload;
   payload << '{';
@@ -162,32 +82,88 @@ std::string modelMessagePayload(std::string role, std::string content) {
   return payload.str();
 }
 
-std::string createCameraTransformArgumentsPayload(
+void writeNumericParamJson(
+  std::ostream& stream,
+  const std::string& name,
+  const std::string& label,
+  double value,
+  double min,
+  double max,
+  double step
+) {
+  stream << '{';
+  foundation::writeJsonStringProperty(stream, "name", name);
+  stream << ',';
+  foundation::writeJsonStringProperty(stream, "label", label);
+  stream << ",\"value\":" << value;
+  stream << ",\"numeric\":{\"min\":" << min
+         << ",\"max\":" << max
+         << ",\"step\":" << step
+         << "}}";
+}
+
+std::string createCameraTransformEffectArgumentsPayload(
   const foundation::NodeId& cameraNodeId,
-  const std::string& intent,
   foundation::TimeRange activeRange
 ) {
   std::ostringstream arguments;
   arguments << '{';
-  foundation::writeJsonStringProperty(arguments, "cameraNodeId", cameraNodeId.value());
+  foundation::writeJsonStringProperty(arguments, "targetNodeId", cameraNodeId.value());
   arguments << ',';
-  foundation::writeJsonStringProperty(arguments, "intent", intent);
+  foundation::writeJsonStringProperty(arguments, "displayName", runtime::builtin_effect::CameraTransformDisplayName);
+  arguments << ',';
+  foundation::writeJsonStringProperty(arguments, "implementationKind", "builtin");
+  arguments << ',';
+  foundation::writeJsonStringProperty(arguments, "language", "builtin");
+  arguments << ',';
+  foundation::writeJsonStringProperty(arguments, "entrypoint", runtime::builtin_effect::CameraTransformEntrypoint);
+  arguments << ',';
+  foundation::writeJsonStringProperty(arguments, "source", runtime::builtin_effect::CameraTransformSource);
+  arguments << ',';
+  foundation::writeJsonStringProperty(arguments, "sourcePort", runtime::output_name::CameraTransform);
+  arguments << ',';
+  foundation::writeJsonStringProperty(arguments, "targetPort", "input");
+  arguments << ",\"inputPorts\":[";
+  arguments << foundation::jsonQuoted("frame");
+  arguments << "],\"outputPorts\":[";
+  arguments << foundation::jsonQuoted(runtime::output_name::CameraTransform);
+  arguments << ']';
   arguments << ",\"activeRange\":{";
   arguments << "\"start\":" << activeRange.start.value;
   arguments << ",\"end\":" << activeRange.end.value;
-  arguments << '}';
+  arguments << "},\"params\":[";
+  writeNumericParamJson(
+    arguments,
+    runtime::builtin_effect::PositionXParam,
+    runtime::builtin_effect::PositionXLabel,
+    InitialCameraTransformPositionX,
+    -1.0,
+    1.0,
+    0.01
+  );
+  arguments << ',';
+  writeNumericParamJson(
+    arguments,
+    runtime::builtin_effect::PositionYParam,
+    runtime::builtin_effect::PositionYLabel,
+    InitialCameraTransformPositionY,
+    -1.0,
+    1.0,
+    0.01
+  );
+  arguments << ',';
+  writeNumericParamJson(
+    arguments,
+    runtime::builtin_effect::ZoomParam,
+    runtime::builtin_effect::ZoomLabel,
+    InitialCameraTransformZoom,
+    0.25,
+    4.0,
+    0.01
+  );
+  arguments << ']';
   arguments << '}';
   return arguments.str();
-}
-
-std::string commandResultJson(const storage::ProjectPackageSessionResult& result) {
-  std::ostringstream payload;
-  payload << '{';
-  foundation::writeJsonStringProperty(payload, "commandId", result.commandResult.commandId.value());
-  payload << ',';
-  foundation::writeJsonStringProperty(payload, "revision", result.snapshot.revision.value());
-  payload << '}';
-  return payload.str();
 }
 
 std::string diagnosticPayload(const foundation::Error& error) {
@@ -200,76 +176,6 @@ std::string diagnosticPayload(const foundation::Error& error) {
   foundation::writeJsonStringProperty(payload, "message", error.message);
   payload << '}';
   return payload.str();
-}
-
-foundation::Error argumentError(const std::string& path, const std::string& message) {
-  return foundation::Error{"steward.tool_argument_invalid", path + ": " + message};
-}
-
-foundation::Result<Json::Value> parseArgumentsJson(const std::string& json) {
-  Json::CharReaderBuilder builder;
-  builder["collectComments"] = false;
-
-  std::string errors;
-  Json::Value root;
-  const std::unique_ptr<Json::CharReader> reader{builder.newCharReader()};
-  if (!reader->parse(json.data(), json.data() + json.size(), &root, &errors)) {
-    return argumentError("$", "Invalid JSON. " + errors);
-  }
-  if (!root.isObject()) {
-    return argumentError("$", "Tool arguments must be a JSON object.");
-  }
-  return root;
-}
-
-foundation::Result<std::string> requiredStringMember(
-  const Json::Value& object,
-  const char* key,
-  const std::string& path
-) {
-  if (!object.isMember(key)) {
-    return argumentError(path + "." + key, "Missing required field.");
-  }
-  if (!object[key].isString()) {
-    return argumentError(path + "." + key, "Expected string.");
-  }
-  return object[key].asString();
-}
-
-foundation::Result<double> requiredDoubleMember(
-  const Json::Value& object,
-  const char* key,
-  const std::string& path
-) {
-  if (!object.isMember(key)) {
-    return argumentError(path + "." + key, "Missing required field.");
-  }
-  if (!object[key].isNumeric()) {
-    return argumentError(path + "." + key, "Expected number.");
-  }
-  return object[key].asDouble();
-}
-
-foundation::Result<foundation::TimeRange> requiredTimeRangeMember(
-  const Json::Value& object,
-  const char* key,
-  const std::string& path
-) {
-  if (!object.isMember(key)) {
-    return argumentError(path + "." + key, "Missing required field.");
-  }
-  if (!object[key].isObject()) {
-    return argumentError(path + "." + key, "Expected object.");
-  }
-  auto start = requiredDoubleMember(object[key], "start", path + "." + key);
-  if (!start) {
-    return start.error();
-  }
-  auto end = requiredDoubleMember(object[key], "end", path + "." + key);
-  if (!end) {
-    return end.error();
-  }
-  return foundation::TimeRange{foundation::TimeSeconds{start.value()}, foundation::TimeSeconds{end.value()}};
 }
 
 std::string runFinishedPayload(const std::string& status, const std::string& summary) {
@@ -300,77 +206,72 @@ foundation::ToolId stewardToolCallIdForRun(const foundation::RunId& runId) {
   return foundation::ToolId{"tool_steward_camera_transform_" + std::to_string(stewardRunNumber(runId))};
 }
 
-agent::AgentTool makeStewardCreateCameraTransformTool(
-  NativeProjectSession& project,
-  NativeProjectCommandWriter& commandWriter,
-  std::optional<storage::ProjectPackageSessionResult>& packageResult
-) {
-  return agent::AgentTool{
-    foundation::ToolId{StewardCreateCameraTransformToolId},
-    StewardCreateCameraTransformToolId,
-    "Create Camera Transform",
-    "Create an editable Camera Transform effect on a camera.",
-    StewardCreateCameraTransformSchema,
-    [&](const agent::ToolCall& call, agent::AgentToolContext&) -> foundation::Result<agent::ToolResult> {
-      auto arguments = parseArgumentsJson(call.arguments);
-      if (!arguments) {
-        return arguments.error();
-      }
-      auto cameraNodeId = requiredStringMember(arguments.value(), "cameraNodeId", "$");
-      if (!cameraNodeId) {
-        return cameraNodeId.error();
-      }
-      auto intent = requiredStringMember(arguments.value(), "intent", "$");
-      if (!intent) {
-        return intent.error();
-      }
-      auto activeRange = requiredTimeRangeMember(arguments.value(), "activeRange", "$");
-      if (!activeRange) {
-        return activeRange.error();
-      }
+class StewardCommandService final : public project::IProjectCommandService {
+public:
+  StewardCommandService(
+    NativeProjectSession& project,
+    NativeProjectCommandWriter& commandWriter,
+    std::string snapshotLabel,
+    std::optional<storage::ProjectPackageSessionResult>& packageResult
+  )
+    : project_{project},
+      commandWriter_{commandWriter},
+      snapshotLabel_{std::move(snapshotLabel)},
+      packageResult_{packageResult} {}
 
-      auto snapshot = project.snapshot();
-      if (!snapshot) {
-        return snapshot.error();
-      }
-      auto targetReady = ensureCameraCanReceiveTransformEffect(snapshot.value(), foundation::NodeId{cameraNodeId.value()});
-      if (!targetReady) {
-        return targetReady.error();
-      }
+  foundation::Result<project::ProjectCommandResult> apply(
+    const project::ProjectCommandEnvelope& command
+  ) override {
+    auto snapshot = project_.snapshot();
+    if (!snapshot) {
+      return snapshot.error();
+    }
 
-      const foundation::SnapshotId snapshotId = commandWriter.nextSnapshotId("steward camera transform");
-      auto created = commandWriter.apply(
-        project::CreateEffectCommand{
-          commandWriter.nextNodeId("effect"),
-          foundation::NodeId{cameraNodeId.value()},
-          commandWriter.nextEdgeId("effect targets"),
-          cameraTransformPayload(activeRange.value()),
-          graph::PortName{runtime::output_name::CameraTransform},
-          graph::PortName{"input"},
-          0
-        },
-        stewardSource(call.runId),
+    const auto* createEffect = std::get_if<project::CreateEffectCommand>(&command.payload);
+    if (createEffect == nullptr) {
+      return foundation::Error{
+        "steward.command_invalid",
+        "Steward camera transform can only commit an effect creation command."
+      };
+    }
+    auto targetReady = ensureCameraCanReceiveTransformEffect(snapshot.value(), createEffect->targetNodeId);
+    if (!targetReady) {
+      return targetReady.error();
+    }
+
+    const foundation::SnapshotId snapshotId = commandWriter_.nextSnapshotId("steward camera transform");
+    project::ProjectCommandEnvelope stewardCommand = command;
+    stewardCommand.source = project::CommandSource{
+      project::CommandSourceKind::Agent,
+      command.source.runId,
+      "steward"
+    };
+
+    auto committed = project_.applyAndCommit(
+      stewardCommand,
+      storage::ProjectCommitRecordOptions{
+        std::chrono::system_clock::now(),
         storage::SnapshotCommitRecord{
           snapshotId,
           foundation::FilePath{"snapshots/" + snapshotId.value() + ".json"},
-          intent.value()
+          snapshotLabel_
         }
-      );
-      if (!created) {
-        return created.error();
       }
-
-      packageResult = created.value();
-      return agent::ToolResult{
-        call.toolId,
-        agent::ToolResultStatus::Succeeded,
-        created.value().snapshot.revision,
-        commandResultJson(created.value()),
-        {}
-      };
+    );
+    if (!committed) {
+      return committed.error();
     }
-  };
-}
+
+    packageResult_ = committed.value();
+    return committed.value().commandResult;
+  }
+
+private:
+  NativeProjectSession& project_;
+  NativeProjectCommandWriter& commandWriter_;
+  std::string snapshotLabel_;
+  std::optional<storage::ProjectPackageSessionResult>& packageResult_;
+};
 
 } // namespace
 
@@ -404,21 +305,22 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::c
 
   const foundation::ToolId toolCallId = stewardToolCallIdForRun(runId.value());
   std::optional<storage::ProjectPackageSessionResult> packageResult;
+  StewardCommandService stewardCommands{project_, commandWriter_, intent, packageResult};
   agent::AgentToolRegistry registry;
-  auto registered = registry.registerTool(makeStewardCreateCameraTransformTool(project_, commandWriter_, packageResult));
+  auto registered = registry.registerTool(agent::makeEffectCreateNodeTool());
   if (!registered) {
     return registered.error();
   }
 
-  agent::AgentToolContext toolContext{commandWriter_, project_, commandWriter_};
+  agent::AgentToolContext toolContext{stewardCommands, project_, commandWriter_};
   agent::AgentBridge bridge{registry, toolContext, events_, nextSequence_};
   auto dispatched = bridge.dispatchToolCall(agent::AgentToolDispatchRequest{
     runId.value(),
     snapshot.value().info.id,
     snapshot.value().revision,
     toolCallId,
-    StewardCreateCameraTransformToolId,
-    createCameraTransformArgumentsPayload(cameraNodeId, intent, activeRange)
+    CanonicalCreateEffectToolId,
+    createCameraTransformEffectArgumentsPayload(cameraNodeId, activeRange)
   });
   if (!dispatched) {
     markRunStatus(runId.value(), agent::AgentRunStatus::Failed);

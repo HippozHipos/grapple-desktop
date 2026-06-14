@@ -915,10 +915,11 @@ int main() {
   GRAPPLE_REQUIRE(stewardConversation.runs[0].title == "Create editable camera transform");
   GRAPPLE_REQUIRE(stewardConversation.runs[0].messages.size() == 1);
   GRAPPLE_REQUIRE(stewardConversation.runs[0].toolCalls.size() == 1);
-  GRAPPLE_REQUIRE(stewardConversation.runs[0].toolCalls[0].toolSerializedId == "steward.create_camera_transform");
+  GRAPPLE_REQUIRE(stewardConversation.runs[0].toolCalls[0].toolSerializedId == "effect.create_node");
   GRAPPLE_REQUIRE(stewardConversation.runs[0].toolCalls[0].status == agent::AgentConversationToolCallStatus::Succeeded);
   GRAPPLE_REQUIRE(stewardConversation.runs[1].status == agent::AgentRunStatus::Failed);
   GRAPPLE_REQUIRE(stewardConversation.runs[1].toolCalls.size() == 1);
+  GRAPPLE_REQUIRE(stewardConversation.runs[1].toolCalls[0].toolSerializedId == "effect.create_node");
   GRAPPLE_REQUIRE(stewardConversation.runs[1].toolCalls[0].status == agent::AgentConversationToolCallStatus::Failed);
   GRAPPLE_REQUIRE(stewardConversation.runs[1].diagnostics.size() == 1);
   GRAPPLE_REQUIRE(stewardConversation.runs[1].diagnostics[0].code == "steward.camera_transform_exists");
@@ -1356,7 +1357,7 @@ int main() {
   GRAPPLE_REQUIRE(reopenedStewardConversation.runs.size() == 1);
   GRAPPLE_REQUIRE(reopenedStewardConversation.runs[0].status == agent::AgentRunStatus::Succeeded);
   GRAPPLE_REQUIRE(reopenedStewardConversation.runs[0].toolCalls.size() == 1);
-  GRAPPLE_REQUIRE(reopenedStewardConversation.runs[0].toolCalls[0].toolSerializedId == "steward.create_camera_transform");
+  GRAPPLE_REQUIRE(reopenedStewardConversation.runs[0].toolCalls[0].toolSerializedId == "effect.create_node");
   GRAPPLE_REQUIRE(reopenedStewardConversation.runs[0].toolCalls[0].toolCallId == foundation::ToolId{"tool_steward_camera_transform_1"});
   const auto reopenedStewardViewModel = reopenedStewardWorkspace.value().project().buildViewModel();
   GRAPPLE_REQUIRE(reopenedStewardViewModel);
