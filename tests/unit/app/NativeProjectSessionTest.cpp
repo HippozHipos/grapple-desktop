@@ -82,6 +82,20 @@ public:
   std::vector<double> records;
 };
 
+class CancellingProgressSink final : public grapple::jobs::IProgressSink {
+public:
+  explicit CancellingProgressSink(grapple::jobs::CancellationToken& cancellation)
+    : cancellation_{cancellation} {}
+
+  void reportProgress(double progress) override {
+    records.push_back(progress);
+    cancellation_.cancel();
+  }
+
+  grapple::jobs::CancellationToken& cancellation_;
+  std::vector<double> records;
+};
+
 std::filesystem::path writeTinyWav(const std::string& stem) {
   const std::filesystem::path path =
     std::filesystem::temp_directory_path() /
@@ -673,6 +687,30 @@ int main() {
   GRAPPLE_REQUIRE(std::filesystem::exists(progressVideoExportPath));
   GRAPPLE_REQUIRE(std::filesystem::file_size(progressVideoExportPath) > 0);
   std::filesystem::remove(progressVideoExportPath);
+  const std::filesystem::path cancelledVideoExportPath =
+    std::filesystem::temp_directory_path() /
+    ("grapple_native_video_export_cancelled_" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".avi");
+  auto cancelledExportPlan = cacheWorkspace.value().project().buildRenderPlan();
+  GRAPPLE_REQUIRE(cancelledExportPlan);
+  jobs::CancellationToken exportCancellation;
+  CancellingProgressSink cancellingProgress{exportCancellation};
+  const auto cancelledVideoExport = cacheWorkspace.value().exportSession().renderPlanToVideo(
+    cancelledExportPlan.value().plan,
+    render::ExportSettings{
+      foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}},
+      foundation::FrameRate{2, 1},
+      foundation::Resolution{16, 16},
+      render::Codec{"mjpeg"},
+      render::RenderQuality::Final,
+      foundation::FilePath{cancelledVideoExportPath.string()}
+    },
+    &cancellingProgress,
+    &exportCancellation
+  );
+  GRAPPLE_REQUIRE(!cancelledVideoExport);
+  GRAPPLE_REQUIRE(cancelledVideoExport.error().code == "app.export_cancelled");
+  GRAPPLE_REQUIRE((cancellingProgress.records == std::vector<double>{0.5}));
+  std::filesystem::remove(cancelledVideoExportPath);
   const auto cacheRefresh = cacheWorkspace.value().preview().refreshFromProject();
   GRAPPLE_REQUIRE(cacheRefresh);
   const auto firstCachedFrame = cacheWorkspace.value().preview().renderFrame(render::RenderFrameRequest{

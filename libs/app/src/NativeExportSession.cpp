@@ -14,13 +14,21 @@ namespace {
 
 class NativeVideoExportSink final : public render::IRenderRangeSink {
 public:
-  NativeVideoExportSink(render::ExportSettings settings, jobs::IProgressSink* progress)
+  NativeVideoExportSink(
+    render::ExportSettings settings,
+    jobs::IProgressSink* progress,
+    jobs::CancellationToken* cancellation
+  )
     : settings_{std::move(settings)},
       progress_{progress},
+      cancellation_{cancellation},
       expectedFrames_{expectedFrameCount(settings_)} {}
 
   foundation::Result<void> writeFrame(std::size_t frameIndex, const render::RenderFrameResult& frame) override {
     (void)frameIndex;
+    if (cancelled()) {
+      return foundation::Error{"app.export_cancelled", "Video export was cancelled."};
+    }
     if (!frame.frame.image.has_value()) {
       return foundation::Error{
         "app.export_frame_image_missing",
@@ -79,6 +87,10 @@ public:
   }
 
 private:
+  [[nodiscard]] bool cancelled() const noexcept {
+    return cancellation_ != nullptr && cancellation_->cancelled();
+  }
+
   static std::size_t expectedFrameCount(const render::ExportSettings& settings) {
     const double frames = settings.range.duration() * settings.frameRate.framesPerSecond();
     if (frames <= 0.0) {
@@ -140,6 +152,7 @@ private:
 
   render::ExportSettings settings_;
   jobs::IProgressSink* progress_ = nullptr;
+  jobs::CancellationToken* cancellation_ = nullptr;
   std::size_t expectedFrames_ = 0;
   cv::VideoWriter writer_;
   std::size_t framesWritten_ = 0;
@@ -177,9 +190,10 @@ foundation::Result<render::FinalRenderResult> NativeExportSession::render(render
 
 foundation::Result<render::FinalRenderResult> NativeExportSession::renderToVideo(
   render::ExportSettings settings,
-  jobs::IProgressSink* progress
+  jobs::IProgressSink* progress,
+  jobs::CancellationToken* cancellation
 ) {
-  NativeVideoExportSink sink{settings, progress};
+  NativeVideoExportSink sink{settings, progress, cancellation};
   auto result = renderSystem_.exportRange(render::ExportRequest{std::move(settings), &sink});
   if (!result) {
     return result.error();
@@ -204,9 +218,10 @@ foundation::Result<render::FinalRenderResult> NativeExportSession::renderPlan(
 foundation::Result<render::FinalRenderResult> NativeExportSession::renderPlanToVideo(
   projection::RenderPlan plan,
   render::ExportSettings settings,
-  jobs::IProgressSink* progress
+  jobs::IProgressSink* progress,
+  jobs::CancellationToken* cancellation
 ) {
-  NativeVideoExportSink sink{settings, progress};
+  NativeVideoExportSink sink{settings, progress, cancellation};
   auto result = renderSystem_.exportPlanRange(render::ExportPlanRequest{
     std::move(plan),
     std::move(settings),

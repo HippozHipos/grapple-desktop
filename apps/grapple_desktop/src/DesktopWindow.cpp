@@ -659,6 +659,7 @@ public:
   }
 
   ~DesktopWindowImpl() override {
+    workspace_.jobs().cancelAll();
     workspace_.jobs().waitUntilIdle();
     drainJobDispatch();
   }
@@ -2215,10 +2216,13 @@ public:
           return grapple::foundation::Result<void>{};
         }
         progress.reportProgress(0.0);
-        auto result = workspace_.exportSession().renderPlanToVideo(std::move(plan), settings, &progress);
+        auto result = workspace_.exportSession().renderPlanToVideo(std::move(plan), settings, &progress, &cancellation);
         jobDispatcher_.post([this, result] {
           completeExport(result);
         });
+        if (!result && cancellation.cancelled()) {
+          return grapple::foundation::Result<void>{};
+        }
         return result ? grapple::foundation::Result<void>{} : result.error();
       }
     });

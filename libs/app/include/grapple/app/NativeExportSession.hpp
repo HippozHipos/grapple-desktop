@@ -3,6 +3,7 @@
 #include <grapple/app/NativeProjectSession.hpp>
 #include <grapple/foundation/Hash.hpp>
 #include <grapple/foundation/Result.hpp>
+#include <grapple/jobs/CancellationToken.hpp>
 #include <grapple/jobs/ProgressSink.hpp>
 #include <grapple/projection/RenderPlan.hpp>
 #include <grapple/render/LocalRenderSystem.hpp>
@@ -22,7 +23,8 @@ public:
   foundation::Result<render::FinalRenderResult> render(render::ExportSettings settings);
   foundation::Result<render::FinalRenderResult> renderToVideo(
     render::ExportSettings settings,
-    jobs::IProgressSink* progress = nullptr
+    jobs::IProgressSink* progress = nullptr,
+    jobs::CancellationToken* cancellation = nullptr
   );
   foundation::Result<render::FinalRenderResult> renderPlan(
     projection::RenderPlan plan,
@@ -31,7 +33,8 @@ public:
   foundation::Result<render::FinalRenderResult> renderPlanToVideo(
     projection::RenderPlan plan,
     render::ExportSettings settings,
-    jobs::IProgressSink* progress = nullptr
+    jobs::IProgressSink* progress = nullptr,
+    jobs::CancellationToken* cancellation = nullptr
   );
   [[nodiscard]] render::FinalRenderShellState state() const;
 
