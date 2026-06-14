@@ -2,6 +2,7 @@
 
 #include <grapple/app/AppViewModel.hpp>
 #include <grapple/app/NativeWorkspaceSession.hpp>
+#include <grapple/foundation/Geometry.hpp>
 #include <grapple/foundation/Hash.hpp>
 #include <grapple/graph/GraphEdge.hpp>
 #include <grapple/render/RenderDiagnostic.hpp>
@@ -451,7 +452,8 @@ public:
     auto* editNoteAction = moreMenu->addAction("Edit Note");
     auto* moveClipAction = moreMenu->addAction("Move Clip +1s");
     auto* trimClipAction = moreMenu->addAction("Trim Clip End -1s");
-    auto* nudgeClipAction = moreMenu->addAction("Nudge Clip X +0.1");
+    auto* nudgeClipXAction = moreMenu->addAction("Nudge Clip X +0.1");
+    auto* nudgeClipYAction = moreMenu->addAction("Nudge Clip Y +0.1");
     auto* deleteClipAction = moreMenu->addAction("Delete Clip");
     auto* deleteTrackAction = moreMenu->addAction("Delete Track");
     moreButton->setMenu(moreMenu);
@@ -542,7 +544,8 @@ public:
     connect(editNoteAction, &QAction::triggered, this, [this] { editSelectedNote(); });
     connect(moveClipAction, &QAction::triggered, this, [this] { moveSelectedClip(grapple::foundation::TimeSeconds{1.0}); });
     connect(trimClipAction, &QAction::triggered, this, [this] { trimSelectedClipEnd(grapple::foundation::TimeSeconds{-1.0}); });
-    connect(nudgeClipAction, &QAction::triggered, this, [this] { nudgeSelectedClipX(0.1); });
+    connect(nudgeClipXAction, &QAction::triggered, this, [this] { nudgeSelectedClipX(0.1); });
+    connect(nudgeClipYAction, &QAction::triggered, this, [this] { nudgeSelectedClipY(0.1); });
     connect(deleteClipAction, &QAction::triggered, this, [this] { deleteSelectedClip(); });
     connect(deleteTrackAction, &QAction::triggered, this, [this] { deleteSelectedTrack(); });
     connect(exportButton, &QPushButton::clicked, this, [this] { chooseAndExportVideo(); });
@@ -1564,7 +1567,7 @@ public:
     log_->append("Trimmed clip");
   }
 
-  void nudgeSelectedClipX(double delta) {
+  void nudgeSelectedClipPosition(grapple::foundation::Vec2 delta) {
     if (!selectedNodeId_.has_value()) {
       appendError(grapple::foundation::Error{"desktop.selection_missing", "Nudge Clip requires a selected clip."});
       return;
@@ -1583,7 +1586,8 @@ public:
     }
 
     grapple::timeline::Transform transform = selectedClip->transform;
-    transform.position.x += delta;
+    transform.position.x += delta.x;
+    transform.position.y += delta.y;
     const auto updated = workspace_.commandWriter().apply(
       grapple::project::UpdateClipCommand{
         selectedClip->sourceNodeId,
@@ -1606,6 +1610,14 @@ public:
     refreshViewModel();
     refreshPreview();
     log_->append("Nudged clip");
+  }
+
+  void nudgeSelectedClipX(double delta) {
+    nudgeSelectedClipPosition(grapple::foundation::Vec2{delta, 0.0});
+  }
+
+  void nudgeSelectedClipY(double delta) {
+    nudgeSelectedClipPosition(grapple::foundation::Vec2{0.0, delta});
   }
 
   void undoLastEdit() {
@@ -2182,6 +2194,10 @@ void DesktopWindow::trimSelectedClipEnd(foundation::TimeSeconds delta) {
 
 void DesktopWindow::nudgeSelectedClipX(double delta) {
   impl_->nudgeSelectedClipX(delta);
+}
+
+void DesktopWindow::nudgeSelectedClipY(double delta) {
+  impl_->nudgeSelectedClipY(delta);
 }
 
 void DesktopWindow::undoLastEdit() {
