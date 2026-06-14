@@ -3,7 +3,7 @@
 namespace grapple::storage {
 
 ProjectPackageStore::ProjectPackageStore(ProjectPackage package)
-  : state_{std::move(package), std::nullopt, {}, {}, {}, {}, std::nullopt} {}
+  : state_{std::move(package), std::nullopt, {}, {}, {}, {}, {}, std::nullopt} {}
 
 ProjectPackageStore::ProjectPackageStore(ProjectPackageState state)
   : state_{std::move(state)} {}

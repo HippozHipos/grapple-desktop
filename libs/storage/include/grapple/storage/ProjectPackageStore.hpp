@@ -7,6 +7,7 @@
 #include <grapple/history/SnapshotStore.hpp>
 #include <grapple/project/ProjectSnapshot.hpp>
 #include <grapple/storage/ProjectPackage.hpp>
+#include <grapple/storage/SchemaMigration.hpp>
 
 #include <optional>
 #include <vector>
@@ -26,6 +27,7 @@ struct ProjectPackageState {
   std::vector<project::ProjectSnapshot> snapshotDocuments;
   history::CommandLogStore commandLog;
   history::EventLogStore eventLog;
+  SchemaMigrationLog schemaMigrationLog;
   history::SnapshotStore snapshots;
   std::optional<history::HistoryHead> head;
 };

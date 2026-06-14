@@ -6,6 +6,7 @@
 #include <grapple/project/ProjectSnapshot.hpp>
 #include <grapple/storage/ProjectPackage.hpp>
 #include <grapple/storage/ProjectPackageManifest.hpp>
+#include <grapple/storage/SchemaMigration.hpp>
 
 #include <vector>
 
@@ -25,6 +26,7 @@ struct ProjectPackageHistoryLogs {
   ProjectPackageManifest manifest;
   history::CommandLogStore commandLog;
   history::EventLogStore eventLog;
+  SchemaMigrationLog schemaMigrationLog;
 };
 
 class ProjectPackageReader {

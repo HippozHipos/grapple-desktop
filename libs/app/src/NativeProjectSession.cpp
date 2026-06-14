@@ -516,11 +516,10 @@ foundation::Result<NativePackageWriteResult> NativeProjectSession::writePackage(
     return eventLogPath.error();
   }
 
-  const storage::SchemaMigrationLog schemaMigrationLog;
   auto schemaMigrationLogPath = writer.writeSchemaMigrationLog(storage::ProjectSchemaMigrationLogWriteRequest{
     state.package,
     manifestResult.value().schemaMigrationLogPath,
-    schemaMigrationLog
+    state.schemaMigrationLog
   });
   if (!schemaMigrationLogPath) {
     return schemaMigrationLogPath.error();

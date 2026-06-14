@@ -255,11 +255,19 @@ int main() {
   std::ostringstream eventLogContents;
   eventLogContents << eventLogFile.rdbuf();
   GRAPPLE_REQUIRE(eventLogContents.str() == history::serializeCanonicalEventLog(store.state().eventLog));
-  const storage::SchemaMigrationLog emptyDiskMigrationLog;
+  storage::SchemaMigrationLog diskMigrationLog;
+  const auto diskMigrationAppliedAt = std::chrono::system_clock::time_point{std::chrono::milliseconds{654321}};
+  const auto appendedDiskMigration = diskMigrationLog.append(storage::SchemaMigrationRecord{
+    "storage.initial_package_schema",
+    1,
+    2,
+    diskMigrationAppliedAt
+  });
+  GRAPPLE_REQUIRE(appendedDiskMigration);
   const auto writtenSchemaMigrationLogPath = packageWriter.writeSchemaMigrationLog(storage::ProjectSchemaMigrationLogWriteRequest{
     diskPackage,
     manifest.value().schemaMigrationLogPath,
-    emptyDiskMigrationLog
+    diskMigrationLog
   });
   GRAPPLE_REQUIRE(writtenSchemaMigrationLogPath);
   GRAPPLE_REQUIRE(writtenSchemaMigrationLogPath.value().value == (packageRoot / "history/schema_migrations.json").lexically_normal().string());
@@ -267,7 +275,7 @@ int main() {
   GRAPPLE_REQUIRE(schemaMigrationLogFile.good());
   std::ostringstream schemaMigrationLogContents;
   schemaMigrationLogContents << schemaMigrationLogFile.rdbuf();
-  GRAPPLE_REQUIRE(schemaMigrationLogContents.str() == "[]");
+  GRAPPLE_REQUIRE(schemaMigrationLogContents.str() == "[{\"operationName\":\"storage.initial_package_schema\",\"fromSchemaVersion\":1,\"toSchemaVersion\":2,\"appliedAtMs\":654321}]");
   const storage::ProjectPackageReader packageReader;
   const auto readPackage = packageReader.readPackage(foundation::FilePath{packageRoot.string()});
   GRAPPLE_REQUIRE(readPackage);
@@ -288,6 +296,7 @@ int main() {
   GRAPPLE_REQUIRE(loadedHistoryLogs);
   GRAPPLE_REQUIRE(history::serializeCanonicalCommandLog(loadedHistoryLogs.value().commandLog) == commandLogContents.str());
   GRAPPLE_REQUIRE(history::serializeCanonicalEventLog(loadedHistoryLogs.value().eventLog) == eventLogContents.str());
+  GRAPPLE_REQUIRE(storage::serializeCanonicalSchemaMigrationLog(loadedHistoryLogs.value().schemaMigrationLog) == schemaMigrationLogContents.str());
   auto openedSession = storage::ProjectPackageSession::open(diskPackage);
   GRAPPLE_REQUIRE(openedSession);
   const auto openedSnapshot = openedSession.value().snapshot();
@@ -295,6 +304,7 @@ int main() {
   GRAPPLE_REQUIRE(project::serializeCanonicalProjectSnapshot(openedSnapshot.value()) == snapshotContents.str());
   GRAPPLE_REQUIRE(openedSession.value().packageState().commandLog.records().size() == 1);
   GRAPPLE_REQUIRE(openedSession.value().packageState().eventLog.records().size() == 2);
+  GRAPPLE_REQUIRE(storage::serializeCanonicalSchemaMigrationLog(openedSession.value().packageState().schemaMigrationLog) == schemaMigrationLogContents.str());
   GRAPPLE_REQUIRE(openedSession.value().packageState().snapshotDocuments.size() == 1);
   GRAPPLE_REQUIRE(project::serializeCanonicalProjectSnapshot(openedSession.value().packageState().snapshotDocuments[0]) == snapshotContents.str());
   GRAPPLE_REQUIRE(openedSession.value().packageState().head.has_value());

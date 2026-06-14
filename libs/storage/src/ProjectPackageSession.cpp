@@ -55,6 +55,7 @@ foundation::Result<ProjectPackageSession> ProjectPackageSession::open(ProjectPac
   state.snapshotDocuments = std::move(snapshotDocuments.value().snapshots);
   state.commandLog = historyLogs.value().commandLog;
   state.eventLog = historyLogs.value().eventLog;
+  state.schemaMigrationLog = historyLogs.value().schemaMigrationLog;
 
   state.head = history::HistoryHead{
     manifest.head->revision,

@@ -253,6 +253,15 @@ foundation::Result<ProjectPackageHistoryLogs> ProjectPackageReader::readHistoryL
   if (!eventLogPath) {
     return eventLogPath.error();
   }
+  auto schemaMigrationLogPath = packageRelativePath(
+    package,
+    manifest.value().schemaMigrationLogPath,
+    "storage.schema_migration_log_path_empty",
+    "storage.schema_migration_log_path_absolute"
+  );
+  if (!schemaMigrationLogPath) {
+    return schemaMigrationLogPath.error();
+  }
 
   auto commandLogContents = readTextFile(commandLogPath.value(), "storage.command_log_open_failed");
   if (!commandLogContents) {
@@ -261,6 +270,10 @@ foundation::Result<ProjectPackageHistoryLogs> ProjectPackageReader::readHistoryL
   auto eventLogContents = readTextFile(eventLogPath.value(), "storage.event_log_open_failed");
   if (!eventLogContents) {
     return eventLogContents.error();
+  }
+  auto schemaMigrationLogContents = readTextFile(schemaMigrationLogPath.value(), "storage.schema_migration_log_open_failed");
+  if (!schemaMigrationLogContents) {
+    return schemaMigrationLogContents.error();
   }
 
   auto commandLog = history::deserializeCanonicalCommandLog(commandLogContents.value());
@@ -271,11 +284,16 @@ foundation::Result<ProjectPackageHistoryLogs> ProjectPackageReader::readHistoryL
   if (!eventLog) {
     return eventLog.error();
   }
+  auto schemaMigrationLog = deserializeCanonicalSchemaMigrationLog(schemaMigrationLogContents.value());
+  if (!schemaMigrationLog) {
+    return schemaMigrationLog.error();
+  }
 
   return ProjectPackageHistoryLogs{
     manifest.value(),
     commandLog.value(),
-    eventLog.value()
+    eventLog.value(),
+    schemaMigrationLog.value()
   };
 }
 
