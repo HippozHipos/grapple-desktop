@@ -1043,7 +1043,7 @@ int main() {
   GRAPPLE_REQUIRE(runtimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].label == "Position X");
   GRAPPLE_REQUIRE(runtimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[1].label == "Position Y");
   GRAPPLE_REQUIRE(runtimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[2].label == "Zoom");
-  GRAPPLE_REQUIRE(std::get<double>(runtimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].value) == 0.15);
+  GRAPPLE_REQUIRE(std::get<double>(runtimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].value) == 0.0);
   GRAPPLE_REQUIRE(std::get<double>(runtimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[2].value) == 1.1);
   GRAPPLE_REQUIRE(runtimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[2].numericMin == 0.25);
   GRAPPLE_REQUIRE(runtimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[2].numericMax == 4.0);
@@ -1062,7 +1062,7 @@ int main() {
   GRAPPLE_REQUIRE(initialRuntimeFrame.value().runtimeDiagnostics.empty());
   GRAPPLE_REQUIRE(initialRuntimeFrame.value().frame.cameras.size() == 1);
   GRAPPLE_REQUIRE(initialRuntimeFrame.value().frame.cameras[0].cameraNodeId == runtimeCameraNodeId);
-  GRAPPLE_REQUIRE(initialRuntimeFrame.value().frame.cameras[0].state.transform.position.x == 0.15);
+  GRAPPLE_REQUIRE(initialRuntimeFrame.value().frame.cameras[0].state.transform.position.x == 0.0);
   GRAPPLE_REQUIRE(initialRuntimeFrame.value().frame.cameras[0].state.transform.position.y == 0.0);
   GRAPPLE_REQUIRE(initialRuntimeFrame.value().frame.cameras[0].state.transform.scale.x == 1.1);
   GRAPPLE_REQUIRE(initialRuntimeFrame.value().frame.cameras[0].state.transform.scale.y == 1.1);

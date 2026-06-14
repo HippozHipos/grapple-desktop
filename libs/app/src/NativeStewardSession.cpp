@@ -25,9 +25,57 @@ namespace grapple::app {
 namespace {
 
 constexpr const char CanonicalCreateEffectToolId[] = "effect.create_node";
-constexpr double InitialCameraTransformPositionX = 0.15;
-constexpr double InitialCameraTransformPositionY = 0.0;
-constexpr double InitialCameraTransformZoom = 1.1;
+constexpr double CenteredCameraTransformPositionX = 0.0;
+constexpr double CenteredCameraTransformPositionY = 0.0;
+constexpr double NormalCameraTransformZoom = 1.0;
+
+struct CameraTransformIntentDefaults {
+  double positionX = CenteredCameraTransformPositionX;
+  double positionY = CenteredCameraTransformPositionY;
+  double zoom = NormalCameraTransformZoom;
+};
+
+std::string lowercaseAscii(std::string value) {
+  for (char& character : value) {
+    character = static_cast<char>(std::tolower(static_cast<unsigned char>(character)));
+  }
+  return value;
+}
+
+bool containsText(const std::string& value, std::string_view text) {
+  return value.find(text) != std::string::npos;
+}
+
+CameraTransformIntentDefaults cameraTransformDefaultsForIntent(const std::string& intent) {
+  const std::string normalized = lowercaseAscii(intent);
+  CameraTransformIntentDefaults defaults;
+
+  if (containsText(normalized, "left")) {
+    defaults.positionX = -0.25;
+  } else if (containsText(normalized, "right")) {
+    defaults.positionX = 0.25;
+  }
+
+  if (containsText(normalized, "up")) {
+    defaults.positionY = -0.2;
+  } else if (containsText(normalized, "down")) {
+    defaults.positionY = 0.2;
+  }
+
+  if (containsText(normalized, "zoom out") ||
+      containsText(normalized, "wide") ||
+      containsText(normalized, "wider")) {
+    defaults.zoom = 0.8;
+  } else if (containsText(normalized, "zoom in") ||
+             containsText(normalized, "closer") ||
+             containsText(normalized, "close")) {
+    defaults.zoom = 1.5;
+  } else if (containsText(normalized, "subject")) {
+    defaults.zoom = 1.1;
+  }
+
+  return defaults;
+}
 
 foundation::Result<void> ensureCameraCanReceiveTransformEffect(
   const project::ProjectSnapshot& snapshot,
@@ -104,7 +152,8 @@ void writeNumericParamJson(
 
 std::string createCameraTransformEffectArgumentsPayload(
   const foundation::NodeId& cameraNodeId,
-  foundation::TimeRange activeRange
+  foundation::TimeRange activeRange,
+  CameraTransformIntentDefaults defaults
 ) {
   std::ostringstream arguments;
   arguments << '{';
@@ -136,7 +185,7 @@ std::string createCameraTransformEffectArgumentsPayload(
     arguments,
     runtime::builtin_effect::PositionXParam,
     runtime::builtin_effect::PositionXLabel,
-    InitialCameraTransformPositionX,
+    defaults.positionX,
     -1.0,
     1.0,
     0.01
@@ -146,7 +195,7 @@ std::string createCameraTransformEffectArgumentsPayload(
     arguments,
     runtime::builtin_effect::PositionYParam,
     runtime::builtin_effect::PositionYLabel,
-    InitialCameraTransformPositionY,
+    defaults.positionY,
     -1.0,
     1.0,
     0.01
@@ -156,7 +205,7 @@ std::string createCameraTransformEffectArgumentsPayload(
     arguments,
     runtime::builtin_effect::ZoomParam,
     runtime::builtin_effect::ZoomLabel,
-    InitialCameraTransformZoom,
+    defaults.zoom,
     0.25,
     4.0,
     0.01
@@ -326,13 +375,14 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::c
 
   agent::AgentToolContext toolContext{stewardCommands, project_, commandWriter_};
   agent::AgentBridge bridge{registry, toolContext, events_, nextSequence_};
+  const CameraTransformIntentDefaults defaults = cameraTransformDefaultsForIntent(intent);
   auto dispatched = bridge.dispatchToolCall(agent::AgentToolDispatchRequest{
     runId.value(),
     snapshot.value().info.id,
     snapshot.value().revision,
     toolCallId,
     CanonicalCreateEffectToolId,
-    createCameraTransformEffectArgumentsPayload(cameraNodeId, activeRange)
+    createCameraTransformEffectArgumentsPayload(cameraNodeId, activeRange, defaults)
   });
   if (!dispatched) {
     auto finished = finishRunWithError(runId.value(), dispatched.error());
