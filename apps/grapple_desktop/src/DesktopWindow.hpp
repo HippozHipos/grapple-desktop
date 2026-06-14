@@ -49,6 +49,7 @@ public:
   void advancePlaybackFrame();
   void addTrack();
   void addCamera();
+  void addNote();
   void importMediaFile(const foundation::FilePath& path);
   void addSelectedMediaToTimeline();
   void deleteSelectedClip();

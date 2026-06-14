@@ -179,6 +179,14 @@ QString inspectorText(
     }
   }
 
+  for (const grapple::app::AppNoteRow& note : viewModel.notes.rows) {
+    if (note.sourceNodeId == selectedNodeId.value()) {
+      return QString{"Inspector\nNote\n%1\n\n%2"}
+        .arg(qString(note.title))
+        .arg(qString(note.markdown));
+    }
+  }
+
   return QString{"Inspector\nUnknown node %1"}.arg(qString(selectedNodeId->value()));
 }
 
@@ -382,6 +390,7 @@ public:
     auto* openPackageAction = moreMenu->addAction("Open Package");
     auto* addTrackAction = moreMenu->addAction("Add Track");
     auto* addCameraAction = moreMenu->addAction("Add Camera");
+    auto* addNoteAction = moreMenu->addAction("Add Note");
     auto* moveClipAction = moreMenu->addAction("Move Clip +1s");
     auto* deleteClipAction = moreMenu->addAction("Delete Clip");
     auto* deleteTrackAction = moreMenu->addAction("Delete Track");
@@ -468,6 +477,7 @@ public:
     connect(openPackageAction, &QAction::triggered, this, [this] { chooseAndOpenPackage(); });
     connect(addTrackAction, &QAction::triggered, this, [this] { addTrack(); });
     connect(addCameraAction, &QAction::triggered, this, [this] { addCamera(); });
+    connect(addNoteAction, &QAction::triggered, this, [this] { addNote(); });
     connect(moveClipAction, &QAction::triggered, this, [this] { moveSelectedClip(grapple::foundation::TimeSeconds{1.0}); });
     connect(deleteClipAction, &QAction::triggered, this, [this] { deleteSelectedClip(); });
     connect(deleteTrackAction, &QAction::triggered, this, [this] { deleteSelectedTrack(); });
@@ -848,6 +858,36 @@ public:
     refreshViewModel();
     refreshPreview();
     log_->append("Added camera");
+  }
+
+  void addNote() {
+    const auto viewModel = workspace_.project().buildViewModel();
+    if (!viewModel) {
+      appendError(viewModel.error());
+      return;
+    }
+
+    const std::size_t noteNumber = viewModel.value().notes.rows.size() + 1;
+    const grapple::foundation::NodeId noteNodeId = workspace_.commandWriter().nextNodeId("note");
+    const auto result = workspace_.commandWriter().apply(
+      grapple::project::CreateNoteCommand{
+        noteNodeId,
+        grapple::timeline::NotePayload{
+          "Note " + std::to_string(noteNumber),
+          "Project note"
+        }
+      },
+      userSource()
+    );
+    if (!result) {
+      appendError(result.error());
+      return;
+    }
+
+    selectedNodeId_ = noteNodeId;
+    selectedAssetId_ = std::nullopt;
+    refreshViewModel();
+    log_->append("Added note");
   }
 
   void importMediaFile(const grapple::foundation::FilePath& path) {
@@ -1593,6 +1633,10 @@ void DesktopWindow::addTrack() {
 
 void DesktopWindow::addCamera() {
   impl_->addCamera();
+}
+
+void DesktopWindow::addNote() {
+  impl_->addNote();
 }
 
 void DesktopWindow::importMediaFile(const foundation::FilePath& path) {
