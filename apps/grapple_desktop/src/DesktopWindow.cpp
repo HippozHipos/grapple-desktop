@@ -8,6 +8,7 @@
 #include <grapple/render/RenderDiagnostic.hpp>
 #include <grapple/runtime/RuntimeDiagnostic.hpp>
 #include <grapple/timeline/Payloads.hpp>
+#include <grapple/ui_qt/CameraPropertyPanel.hpp>
 #include <grapple/ui_qt/ClipTransformPanel.hpp>
 #include <grapple/ui_qt/CompositionViewport.hpp>
 #include <grapple/ui_qt/EffectParamPanel.hpp>
@@ -395,6 +396,15 @@ public:
     inspector_->setObjectName("inspector");
     inspector_->setReadOnly(true);
 
+    cameraProperties_ = new grapple::ui::CameraPropertyPanel;
+    cameraProperties_->setApplyHandler([this](
+      grapple::foundation::NodeId cameraNodeId,
+      std::string name,
+      double focalLength
+    ) {
+      updateCameraProperties(cameraNodeId, std::move(name), focalLength);
+    });
+
     clipTransform_ = new grapple::ui::ClipTransformPanel;
     clipTransform_->setApplyHandler([this](
       grapple::foundation::NodeId clipNodeId,
@@ -525,6 +535,7 @@ public:
     detailsTabs->addTab(summary_, "Project");
     detailsTabs->addTab(log_, "Log");
     sideLayout->addWidget(steward_, 3);
+    sideLayout->addWidget(cameraProperties_, 2);
     sideLayout->addWidget(clipTransform_, 2);
     sideLayout->addWidget(effectParams_, 2);
     sideLayout->addWidget(detailsTabs, 2);
@@ -577,7 +588,7 @@ public:
     setStyleSheet(R"(
       QMainWindow { background: #15171c; color: #e9edf5; }
       QWidget { background: #15171c; color: #e9edf5; font-family: "DejaVu Sans"; font-size: 14px; }
-      QLabel#summary, QListWidget#mediaBin, QTextEdit#timeline, QTextEdit#inspector, QWidget#clipTransformPanel, QWidget#effectParams, QTextEdit#log, QWidget#actions, QWidget#assetStrip {
+      QLabel#summary, QListWidget#mediaBin, QTextEdit#timeline, QTextEdit#inspector, QWidget#cameraPropertyPanel, QWidget#clipTransformPanel, QWidget#effectParams, QTextEdit#log, QWidget#actions, QWidget#assetStrip {
         background: #20242d; border: 1px solid #343b4a; border-radius: 10px; padding: 12px;
       }
       QTabWidget#detailsTabs::pane { background: #20242d; border: 1px solid #343b4a; border-radius: 10px; }
@@ -604,6 +615,8 @@ public:
       QLabel#productSubtitle { color: #9fb0c8; font-size: 12px; }
       QLabel#effectParamTitle { color: #e8f4ff; font-weight: 800; }
       QLabel#effectParamHelp { color: #9fb0c8; }
+      QLabel#cameraPropertyTitle { color: #e8f4ff; font-weight: 800; }
+      QLabel#cameraPropertyHelp { color: #9fb0c8; }
       QLabel#clipTransformTitle { color: #e8f4ff; font-weight: 800; }
       QLabel#clipTransformHelp { color: #9fb0c8; }
       QLabel#playheadLabel { color: #d8f3ff; font-weight: 800; padding: 0 8px; }
@@ -1099,6 +1112,52 @@ public:
     refreshViewModel();
     refreshPreview();
     log_->append("Updated camera focal length");
+  }
+
+  void updateCameraProperties(
+    const grapple::foundation::NodeId& cameraNodeId,
+    std::string name,
+    double focalLength
+  ) {
+    const auto viewModel = workspace_.project().buildViewModel();
+    if (!viewModel) {
+      appendError(viewModel.error());
+      return;
+    }
+
+    const auto selectedCamera = std::find_if(
+      viewModel.value().timeline.cameras.begin(),
+      viewModel.value().timeline.cameras.end(),
+      [&](const grapple::app::AppCameraRow& camera) {
+        return camera.sourceNodeId == cameraNodeId;
+      }
+    );
+    if (selectedCamera == viewModel.value().timeline.cameras.end()) {
+      appendError(grapple::foundation::Error{"desktop.camera_missing", "Camera property update requires an existing camera."});
+      return;
+    }
+
+    const auto result = workspace_.commandWriter().apply(
+      grapple::project::UpdateCameraCommand{
+        cameraNodeId,
+        grapple::timeline::CameraPayload{
+          std::move(name),
+          selectedCamera->transform,
+          grapple::timeline::CameraLens{focalLength}
+        }
+      },
+      userSource()
+    );
+    if (!result) {
+      appendError(result.error());
+      return;
+    }
+
+    selectedNodeId_ = cameraNodeId;
+    selectedAssetId_ = std::nullopt;
+    refreshViewModel();
+    refreshPreview();
+    log_->append("Updated camera properties");
   }
 
   void renameSelectedCamera() {
@@ -1808,6 +1867,30 @@ public:
     QApplication::processEvents();
   }
 
+  void setSelectedCameraNameControlValue(std::string name) {
+    auto* editor = findChild<QLineEdit*>("cameraPropertyName");
+    if (editor == nullptr) {
+      appendError(grapple::foundation::Error{"desktop.camera_name_control_missing", "Camera name control not found."});
+      return;
+    }
+
+    editor->setText(qString(name));
+    Q_EMIT editor->editingFinished();
+    QApplication::processEvents();
+  }
+
+  void setSelectedCameraFocalLengthControlValue(double focalLength) {
+    auto* editor = findChild<QDoubleSpinBox*>("cameraPropertyFocalLength");
+    if (editor == nullptr) {
+      appendError(grapple::foundation::Error{"desktop.camera_focal_length_control_missing", "Camera focal length control not found."});
+      return;
+    }
+
+    editor->setValue(focalLength);
+    Q_EMIT editor->editingFinished();
+    QApplication::processEvents();
+  }
+
   void setSelectedClipTransformControlValue(std::string controlName, double value) {
     auto* editor = findChild<QDoubleSpinBox*>(qString(controlName));
     if (editor == nullptr) {
@@ -2114,6 +2197,7 @@ private:
 
   void updateInspector(const grapple::app::AppViewModel& viewModel) {
     inspector_->setPlainText(inspectorText(viewModel, selectedNodeId_, selectedAssetId_));
+    cameraProperties_->setSelection(viewModel, selectedNodeId_);
     clipTransform_->setSelection(viewModel, selectedNodeId_);
     effectParams_->setSelection(viewModel, selectedNodeId_, workspace_.preview().state().playhead);
   }
@@ -2205,6 +2289,7 @@ private:
   grapple::ui::CompositionViewport* compositionViewport_ = nullptr;
   grapple::ui::TimelinePanel* timeline_ = nullptr;
   QTextEdit* inspector_ = nullptr;
+  grapple::ui::CameraPropertyPanel* cameraProperties_ = nullptr;
   grapple::ui::ClipTransformPanel* clipTransform_ = nullptr;
   grapple::ui::EffectParamPanel* effectParams_ = nullptr;
   grapple::ui::StewardPanel* steward_ = nullptr;
@@ -2320,6 +2405,14 @@ void DesktopWindow::updateSelectedCameraName(std::string name) {
 
 void DesktopWindow::updateSelectedCameraFocalLength(double focalLength) {
   impl_->updateSelectedCameraFocalLength(focalLength);
+}
+
+void DesktopWindow::setSelectedCameraNameControlValue(std::string name) {
+  impl_->setSelectedCameraNameControlValue(std::move(name));
+}
+
+void DesktopWindow::setSelectedCameraFocalLengthControlValue(double focalLength) {
+  impl_->setSelectedCameraFocalLengthControlValue(focalLength);
 }
 
 void DesktopWindow::addNote() {

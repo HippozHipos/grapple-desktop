@@ -645,9 +645,11 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   }
 
   if (updateCameraSmoke) {
+    window.show();
+    app.processEvents();
     window.clickFirstTimelineCamera();
-    window.updateSelectedCameraName("Renamed Camera");
-    window.updateSelectedCameraFocalLength(85.0);
+    window.setSelectedCameraNameControlValue("Renamed Camera");
+    window.setSelectedCameraFocalLengthControlValue(85.0);
     const auto viewModel = workspace.value().project().buildViewModel();
     if (!viewModel) {
       printError(viewModel.error());
