@@ -397,9 +397,8 @@ constexpr const char EffectDeleteParamKeyframeSchema[] = R"json({
 constexpr const char EffectConnectPortsSchema[] = R"json({
   "type": "object",
   "additionalProperties": false,
-  "required": ["edgeId", "sourceNodeId", "sourcePort", "targetNodeId", "targetPort"],
+  "required": ["sourceNodeId", "sourcePort", "targetNodeId", "targetPort"],
   "properties": {
-    "edgeId": {"type": "string", "minLength": 1},
     "sourceNodeId": {"type": "string", "minLength": 1},
     "sourcePort": {"type": "string", "minLength": 1},
     "targetNodeId": {"type": "string", "minLength": 1},
@@ -3026,15 +3025,11 @@ AgentTool makeEffectConnectPortsTool() {
       }
       auto members = requireOnlyMembers(
         arguments.value(),
-        {"edgeId", "sourceNodeId", "sourcePort", "targetNodeId", "targetPort", "order"},
+        {"sourceNodeId", "sourcePort", "targetNodeId", "targetPort", "order"},
         "$"
       );
       if (!members) {
         return members.error();
-      }
-      auto edgeId = requiredStringMember(arguments.value(), "edgeId", "$");
-      if (!edgeId) {
-        return edgeId.error();
       }
       auto sourceNodeId = requiredStringMember(arguments.value(), "sourceNodeId", "$");
       if (!sourceNodeId) {
@@ -3063,13 +3058,14 @@ AgentTool makeEffectConnectPortsTool() {
       }
 
       const foundation::CommandId commandId = context.ids.nextCommandId();
+      const foundation::EdgeId edgeId = context.ids.nextEdgeId("effect_connection");
       auto command = context.commands.apply(project::ProjectCommandEnvelope{
         commandId,
         call.projectId,
         call.expectedRevision,
         project::CommandSource{project::CommandSourceKind::Agent, call.runId, "agent"},
         project::ConnectPortsCommand{
-          foundation::EdgeId{edgeId.value()},
+          edgeId,
           foundation::NodeId{sourceNodeId.value()},
           graph::PortName{sourcePort.value()},
           foundation::NodeId{targetNodeId.value()},
@@ -3083,7 +3079,8 @@ AgentTool makeEffectConnectPortsTool() {
 
       std::ostringstream payload;
       payload << '{'
-              << "\"edgeId\":" << foundation::jsonQuoted(edgeId.value())
+              << "\"commandId\":" << foundation::jsonQuoted(commandId.value())
+              << ",\"edgeId\":" << foundation::jsonQuoted(edgeId.value())
               << ",\"revision\":" << foundation::jsonQuoted(command.value().afterRevision.value())
               << '}';
       return ToolResult{
@@ -3132,7 +3129,8 @@ AgentTool makeEffectDisconnectPortsTool() {
 
       std::ostringstream payload;
       payload << '{'
-              << "\"edgeId\":" << foundation::jsonQuoted(edgeId.value())
+              << "\"commandId\":" << foundation::jsonQuoted(commandId.value())
+              << ",\"edgeId\":" << foundation::jsonQuoted(edgeId.value())
               << ",\"revision\":" << foundation::jsonQuoted(command.value().afterRevision.value())
               << '}';
       return ToolResult{
