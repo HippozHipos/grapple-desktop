@@ -34,6 +34,7 @@ public:
   void seekTo(foundation::TimeSeconds time);
   void clickTimelineAtRatio(double ratio);
   void clickFirstTimelineTrack();
+  void clickFirstTimelineAudioTrack();
   void clickFirstTimelineClip();
   void clickFirstTimelineAudioClip();
   void clickFirstTimelineCamera();

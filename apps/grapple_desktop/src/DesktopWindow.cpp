@@ -189,6 +189,15 @@ QString inspectorText(
     }
   }
 
+  for (const grapple::app::AppLayerRow& track : viewModel.timeline.audioTracks) {
+    if (track.sourceNodeId == selectedNodeId.value()) {
+      return QString{"Inspector\nAudio Track\n%1\nClips: %2\n\n%3"}
+        .arg(qString(track.name))
+        .arg(track.clipCount)
+        .arg(attachedEffectsText(track.sourceNodeId));
+    }
+  }
+
   for (const grapple::app::AppNoteRow& note : viewModel.notes.rows) {
     if (note.sourceNodeId == selectedNodeId.value()) {
       return QString{"Inspector\nNote\n%1\n\n%2"}
@@ -768,6 +777,28 @@ public:
     QMouseEvent event{
       QEvent::MouseButtonPress,
       QPointF{24.0, 56.0},
+      Qt::LeftButton,
+      Qt::LeftButton,
+      Qt::NoModifier
+    };
+    QApplication::sendEvent(timeline_, &event);
+  }
+
+  void clickFirstTimelineAudioTrack() {
+    const auto viewModel = workspace_.project().buildViewModel();
+    if (!viewModel) {
+      appendError(viewModel.error());
+      return;
+    }
+    if (viewModel.value().timeline.audioTracks.empty()) {
+      appendError(grapple::foundation::Error{"desktop.audio_track_missing", "No audio timeline track exists."});
+      return;
+    }
+
+    const int audioRow = static_cast<int>(viewModel.value().timeline.layers.size());
+    QMouseEvent event{
+      QEvent::MouseButtonPress,
+      QPointF{24.0, 34.0 + (static_cast<double>(audioRow) * 44.0) + 22.0},
       Qt::LeftButton,
       Qt::LeftButton,
       Qt::NoModifier
@@ -1805,6 +1836,10 @@ void DesktopWindow::clickTimelineAtRatio(double ratio) {
 
 void DesktopWindow::clickFirstTimelineTrack() {
   impl_->clickFirstTimelineTrack();
+}
+
+void DesktopWindow::clickFirstTimelineAudioTrack() {
+  impl_->clickFirstTimelineAudioTrack();
 }
 
 void DesktopWindow::clickFirstTimelineClip() {

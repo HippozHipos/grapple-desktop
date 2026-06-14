@@ -111,6 +111,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   bool timelineSeekSmoke = false;
   bool selectSmoke = false;
   bool selectAudioClipSmoke = false;
+  bool selectAudioTrackSmoke = false;
   bool selectCameraSmoke = false;
   bool selectSecondCameraSmoke = false;
   bool stewardSmoke = false;
@@ -149,6 +150,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       selectSmoke = true;
     } else if (argument == "--select-audio-clip-smoke") {
       selectAudioClipSmoke = true;
+    } else if (argument == "--select-audio-track-smoke") {
+      selectAudioTrackSmoke = true;
     } else if (argument == "--select-camera-smoke") {
       selectCameraSmoke = true;
     } else if (argument == "--select-second-camera-smoke") {
@@ -198,7 +201,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     } else if (argument == "--effect-screenshot" && index + 1 < argc) {
       effectScreenshotPath = argv[++index];
     } else {
-      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --select-audio-clip-smoke, --select-camera-smoke, --select-second-camera-smoke, --steward-smoke, --import-smoke, --import-media-types-smoke, --add-video-smoke, --empty-add-video-smoke, --empty-add-track-smoke, --empty-add-camera-smoke, --add-note-smoke, --move-clip-smoke, --trim-clip-smoke, --undo-redo-smoke, --add-effect-smoke, --set-effect-param-smoke, --effect-keyframe-smoke, --delete-effect-smoke, --delete-smoke, --delete-track-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, --screenshot <path>, or --effect-screenshot <path>.\n";
+      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --select-audio-clip-smoke, --select-audio-track-smoke, --select-camera-smoke, --select-second-camera-smoke, --steward-smoke, --import-smoke, --import-media-types-smoke, --add-video-smoke, --empty-add-video-smoke, --empty-add-track-smoke, --empty-add-camera-smoke, --add-note-smoke, --move-clip-smoke, --trim-clip-smoke, --undo-redo-smoke, --add-effect-smoke, --set-effect-param-smoke, --effect-keyframe-smoke, --delete-effect-smoke, --delete-smoke, --delete-track-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, --screenshot <path>, or --effect-screenshot <path>.\n";
       return 1;
     }
   }
@@ -339,6 +342,47 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            selectedNodeId.value() == viewModel.value().timeline.audioClips.front().sourceNodeId &&
            inspector.find("Inspector\nClip") != std::string::npos &&
            inspector.find("Type: audio") != std::string::npos
+      ? 0
+      : 1;
+  }
+
+  if (selectAudioTrackSmoke) {
+    const std::filesystem::path audioPath{"/tmp/grapple-desktop-select-audio-track.wav"};
+    const auto audioWrite = writeDummyAudioFile(audioPath);
+    if (!audioWrite) {
+      printError(audioWrite.error());
+      return 1;
+    }
+
+    window.importMediaFile(grapple::foundation::FilePath{audioPath.string()});
+    window.addSelectedMediaToTimeline();
+    window.show();
+    app.processEvents();
+    window.clickFirstTimelineAudioTrack();
+
+    const auto viewModel = workspace.value().project().buildViewModel();
+    if (!viewModel) {
+      printError(viewModel.error());
+      std::filesystem::remove(audioPath);
+      return 1;
+    }
+    if (viewModel.value().timeline.audioTracks.empty()) {
+      std::cerr << "No audio tracks.\n";
+      std::filesystem::remove(audioPath);
+      return 1;
+    }
+
+    const std::string inspector = window.inspectorContents();
+    const auto selectedNodeId = window.selectedNodeId();
+    std::cout << "inspector=" << inspector << '\n';
+    if (selectedNodeId.has_value()) {
+      std::cout << "selected=" << selectedNodeId->value() << '\n';
+    }
+    std::filesystem::remove(audioPath);
+    return selectedNodeId.has_value() &&
+           selectedNodeId.value() == viewModel.value().timeline.audioTracks.front().sourceNodeId &&
+           inspector.find("Inspector\nAudio Track") != std::string::npos &&
+           inspector.find("Clips: 1") != std::string::npos
       ? 0
       : 1;
   }
