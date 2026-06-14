@@ -142,7 +142,6 @@ int main() {
   GRAPPLE_REQUIRE(jobResults);
   GRAPPLE_REQUIRE(jobResults.value().size() == 1);
   GRAPPLE_REQUIRE(jobResults.value()[0].jobId == foundation::JobId{"job_1"});
-  GRAPPLE_REQUIRE(jobResults.value()[0].succeeded);
   GRAPPLE_REQUIRE(jobResults.value()[0].status == jobs::JobRunStatus::Succeeded);
   GRAPPLE_REQUIRE(jobRan);
   GRAPPLE_REQUIRE(progress.lastProgress == 1.0);
@@ -233,7 +232,6 @@ int main() {
   const auto scheduledRecords = scheduler.runRecords();
   GRAPPLE_REQUIRE(scheduledRecords.size() == 1);
   GRAPPLE_REQUIRE(scheduledRecords[0].jobId == foundation::JobId{"job_scheduled"});
-  GRAPPLE_REQUIRE(scheduledRecords[0].succeeded);
   GRAPPLE_REQUIRE(scheduledRecords[0].status == jobs::JobRunStatus::Succeeded);
   const auto scheduledProgress = scheduler.progressRecords();
   GRAPPLE_REQUIRE(scheduledProgress.size() == 2);
@@ -265,7 +263,6 @@ int main() {
   const auto cancelledRecords = cancellableScheduler.runRecords();
   GRAPPLE_REQUIRE(cancelledRecords.size() == 1);
   GRAPPLE_REQUIRE(cancelledRecords[0].jobId == foundation::JobId{"job_cancellable"});
-  GRAPPLE_REQUIRE(!cancelledRecords[0].succeeded);
   GRAPPLE_REQUIRE(cancelledRecords[0].status == jobs::JobRunStatus::Cancelled);
   const auto cancelledProgress = cancellableScheduler.progressRecords();
   GRAPPLE_REQUIRE(cancelledProgress.size() == 1);

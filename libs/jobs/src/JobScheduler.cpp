@@ -152,7 +152,6 @@ void JobScheduler::workerLoop() {
       } else if (scheduled.cancellation.cancelled()) {
         record.status = JobRunStatus::Cancelled;
       } else {
-        record.succeeded = true;
         record.status = JobRunStatus::Succeeded;
       }
     }

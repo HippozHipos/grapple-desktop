@@ -17,7 +17,6 @@ enum class JobRunStatus {
 
 struct JobRunRecord {
   foundation::JobId jobId;
-  bool succeeded = false;
   JobRunStatus status = JobRunStatus::Failed;
   std::optional<foundation::Error> error;
 };
