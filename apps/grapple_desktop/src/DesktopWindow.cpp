@@ -357,6 +357,21 @@ public:
     ) {
       setEffectParamValue(effectNodeId, paramName, std::move(value));
     });
+    effectParams_->setKeyframeHandler([this](
+      grapple::foundation::NodeId effectNodeId,
+      std::string paramName,
+      grapple::timeline::ParamValue value,
+      std::optional<grapple::foundation::KeyframeId> keyframeId
+    ) {
+      setEffectParamKeyframe(effectNodeId, paramName, std::move(value), std::move(keyframeId));
+    });
+    effectParams_->setDeleteKeyframeHandler([this](
+      grapple::foundation::NodeId effectNodeId,
+      std::string paramName,
+      grapple::foundation::KeyframeId keyframeId
+    ) {
+      deleteEffectParamKeyframe(effectNodeId, paramName, keyframeId);
+    });
     effectParams_->setDeleteHandler([this](grapple::foundation::NodeId effectNodeId) {
       deleteEffect(effectNodeId);
     });
@@ -1225,6 +1240,30 @@ public:
     QApplication::processEvents();
   }
 
+  void setEffectParamKeyframeAtPlayhead(const std::string& paramName) {
+    auto* button = findChild<QPushButton*>(QString{"effectParamKeyframe_%1"}.arg(qString(paramName)));
+    if (button == nullptr) {
+      appendError(grapple::foundation::Error{"desktop.effect_keyframe_control_missing", "Effect keyframe control not found."});
+      return;
+    }
+
+    button->click();
+    QApplication::processEvents();
+  }
+
+  void deleteEffectParamKeyframeControl(const std::string& paramName, int keyframeIndex) {
+    auto* button = findChild<QPushButton*>(QString{"effectParamDeleteKeyframe_%1_%2"}
+      .arg(qString(paramName))
+      .arg(keyframeIndex));
+    if (button == nullptr) {
+      appendError(grapple::foundation::Error{"desktop.effect_keyframe_delete_control_missing", "Effect keyframe delete control not found."});
+      return;
+    }
+
+    button->click();
+    QApplication::processEvents();
+  }
+
   void addEffectToSelectedTarget(std::string intent) {
     if (!selectedNodeId_.has_value()) {
       appendError(grapple::foundation::Error{"desktop.selection_missing", "Add Effect requires a selected camera."});
@@ -1336,6 +1375,56 @@ public:
     log_->append("Updated effect parameter");
   }
 
+  void setEffectParamKeyframe(
+    grapple::foundation::NodeId effectNodeId,
+    std::string paramName,
+    grapple::timeline::ParamValue value,
+    std::optional<grapple::foundation::KeyframeId> keyframeId
+  ) {
+    const grapple::foundation::KeyframeId durableKeyframeId = keyframeId.has_value()
+      ? keyframeId.value()
+      : workspace_.commandWriter().nextKeyframeId(paramName);
+    const auto updated = workspace_.effects().upsertParamKeyframe(
+      std::move(effectNodeId),
+      paramName,
+      grapple::timeline::Param::Keyframe{
+        durableKeyframeId,
+        workspace_.preview().state().playhead,
+        std::move(value)
+      },
+      userSource()
+    );
+    if (!updated) {
+      appendError(updated.error());
+      return;
+    }
+
+    refreshViewModel();
+    refreshPreview();
+    log_->append("Set effect keyframe");
+  }
+
+  void deleteEffectParamKeyframe(
+    grapple::foundation::NodeId effectNodeId,
+    std::string paramName,
+    grapple::foundation::KeyframeId keyframeId
+  ) {
+    const auto deleted = workspace_.effects().deleteParamKeyframe(
+      std::move(effectNodeId),
+      std::move(paramName),
+      std::move(keyframeId),
+      userSource()
+    );
+    if (!deleted) {
+      appendError(deleted.error());
+      return;
+    }
+
+    refreshViewModel();
+    refreshPreview();
+    log_->append("Deleted effect keyframe");
+  }
+
   void deleteEffect(const grapple::foundation::NodeId& effectNodeId) {
     const auto deleted = workspace_.effects().deleteEffect(
       effectNodeId,
@@ -1445,7 +1534,7 @@ private:
 
   void updateInspector(const grapple::app::AppViewModel& viewModel) {
     inspector_->setPlainText(inspectorText(viewModel, selectedNodeId_, selectedAssetId_));
-    effectParams_->setSelection(viewModel, selectedNodeId_);
+    effectParams_->setSelection(viewModel, selectedNodeId_, workspace_.preview().state().playhead);
   }
 
   void updateSelectionPanels(const grapple::app::AppViewModel& viewModel) {
@@ -1673,6 +1762,14 @@ void DesktopWindow::exportVideoFile(const foundation::FilePath& path) {
 
 void DesktopWindow::setEffectParamControlValue(const std::string& paramName, double value) {
   impl_->setEffectParamControlValue(paramName, value);
+}
+
+void DesktopWindow::setEffectParamKeyframeAtPlayhead(const std::string& paramName) {
+  impl_->setEffectParamKeyframeAtPlayhead(paramName);
+}
+
+void DesktopWindow::deleteEffectParamKeyframeControl(const std::string& paramName, int keyframeIndex) {
+  impl_->deleteEffectParamKeyframeControl(paramName, keyframeIndex);
 }
 
 void DesktopWindow::setSelectedTargetNumericEffectParam(const std::string& paramName, double value) {

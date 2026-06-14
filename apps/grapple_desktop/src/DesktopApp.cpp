@@ -21,6 +21,7 @@
 #include <optional>
 #include <string>
 #include <utility>
+#include <variant>
 
 namespace {
 
@@ -123,6 +124,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   bool undoRedoSmoke = false;
   bool addEffectSmoke = false;
   bool setEffectParamSmoke = false;
+  bool effectKeyframeSmoke = false;
   bool deleteEffectSmoke = false;
   bool deleteSmoke = false;
   bool deleteTrackSmoke = false;
@@ -171,6 +173,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       addEffectSmoke = true;
     } else if (argument == "--set-effect-param-smoke") {
       setEffectParamSmoke = true;
+    } else if (argument == "--effect-keyframe-smoke") {
+      effectKeyframeSmoke = true;
     } else if (argument == "--delete-effect-smoke") {
       deleteEffectSmoke = true;
     } else if (argument == "--delete-smoke") {
@@ -188,7 +192,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     } else if (argument == "--effect-screenshot" && index + 1 < argc) {
       effectScreenshotPath = argv[++index];
     } else {
-      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --select-camera-smoke, --select-second-camera-smoke, --steward-smoke, --import-smoke, --import-media-types-smoke, --add-video-smoke, --empty-add-video-smoke, --empty-add-track-smoke, --empty-add-camera-smoke, --add-note-smoke, --move-clip-smoke, --undo-redo-smoke, --add-effect-smoke, --set-effect-param-smoke, --delete-effect-smoke, --delete-smoke, --delete-track-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, --screenshot <path>, or --effect-screenshot <path>.\n";
+      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --select-camera-smoke, --select-second-camera-smoke, --steward-smoke, --import-smoke, --import-media-types-smoke, --add-video-smoke, --empty-add-video-smoke, --empty-add-track-smoke, --empty-add-camera-smoke, --add-note-smoke, --move-clip-smoke, --undo-redo-smoke, --add-effect-smoke, --set-effect-param-smoke, --effect-keyframe-smoke, --delete-effect-smoke, --delete-smoke, --delete-track-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, --screenshot <path>, or --effect-screenshot <path>.\n";
       return 1;
     }
   }
@@ -661,6 +665,54 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_7"} &&
            viewModel.value().timeline.effectGraphs.empty() &&
            inspector.find("No effects attached.") != std::string::npos
+      ? 0
+      : 1;
+  }
+
+  if (effectKeyframeSmoke) {
+    window.show();
+    app.processEvents();
+    window.clickFirstTimelineCamera();
+    window.setStewardIntent("Animate camera position with editable controls.");
+    window.clickStewardCreateCameraEffect();
+    window.seekTo(grapple::foundation::TimeSeconds{2.0});
+    window.setEffectParamControlValue(grapple::runtime::builtin_effect::PositionXParam, 0.25);
+    window.setEffectParamKeyframeAtPlayhead(grapple::runtime::builtin_effect::PositionXParam);
+    const auto afterKeyframe = workspace.value().project().buildViewModel();
+    if (!afterKeyframe) {
+      printError(afterKeyframe.error());
+      return 1;
+    }
+    window.setEffectParamControlValue(grapple::runtime::builtin_effect::PositionXParam, 0.5);
+    window.setEffectParamKeyframeAtPlayhead(grapple::runtime::builtin_effect::PositionXParam);
+    const auto afterKeyframeUpdate = workspace.value().project().buildViewModel();
+    if (!afterKeyframeUpdate) {
+      printError(afterKeyframeUpdate.error());
+      return 1;
+    }
+    window.deleteEffectParamKeyframeControl(grapple::runtime::builtin_effect::PositionXParam, 0);
+    const auto afterKeyframeDelete = workspace.value().project().buildViewModel();
+    if (!afterKeyframeDelete) {
+      printError(afterKeyframeDelete.error());
+      return 1;
+    }
+
+    const auto keyframesAfterSet = afterKeyframe.value().timeline.effectGraphs[0].effects[0].params[0].keyframes;
+    const auto keyframesAfterUpdate = afterKeyframeUpdate.value().timeline.effectGraphs[0].effects[0].params[0].keyframes;
+    const auto keyframesAfterDelete = afterKeyframeDelete.value().timeline.effectGraphs[0].effects[0].params[0].keyframes;
+    std::cout << "afterSetRevision=" << afterKeyframe.value().project.revision.value() << '\n';
+    std::cout << "afterSetKeyframes=" << keyframesAfterSet.size() << '\n';
+    std::cout << "afterUpdateRevision=" << afterKeyframeUpdate.value().project.revision.value() << '\n';
+    std::cout << "afterUpdateKeyframes=" << keyframesAfterUpdate.size() << '\n';
+    std::cout << "afterDeleteRevision=" << afterKeyframeDelete.value().project.revision.value() << '\n';
+    std::cout << "afterDeleteKeyframes=" << keyframesAfterDelete.size() << '\n';
+    return keyframesAfterSet.size() == 1 &&
+           keyframesAfterSet[0].time == grapple::foundation::TimeSeconds{2.0} &&
+           std::get<double>(keyframesAfterSet[0].value) == 0.25 &&
+           keyframesAfterUpdate.size() == 1 &&
+           keyframesAfterUpdate[0].keyframeId == keyframesAfterSet[0].keyframeId &&
+           std::get<double>(keyframesAfterUpdate[0].value) == 0.5 &&
+           keyframesAfterDelete.empty()
       ? 0
       : 1;
   }

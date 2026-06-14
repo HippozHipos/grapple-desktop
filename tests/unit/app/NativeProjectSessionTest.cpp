@@ -770,7 +770,7 @@ int main() {
     effectNodeId,
     "target_x",
     timeline::Param::Keyframe{
-      foundation::KeyframeId{"key_app_target_x"},
+      foundation::KeyframeId{"key_target_x_2"},
       foundation::TimeSeconds{1.25},
       0.8
     },
@@ -780,9 +780,11 @@ int main() {
   const auto keyframedEffectViewModel = effectSession.buildViewModel();
   GRAPPLE_REQUIRE(keyframedEffectViewModel);
   GRAPPLE_REQUIRE(keyframedEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].keyframes.size() == 1);
-  GRAPPLE_REQUIRE(keyframedEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].keyframes[0].keyframeId == foundation::KeyframeId{"key_app_target_x"});
+  GRAPPLE_REQUIRE(keyframedEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].keyframes[0].keyframeId == foundation::KeyframeId{"key_target_x_2"});
   GRAPPLE_REQUIRE(keyframedEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].keyframes[0].time == foundation::TimeSeconds{1.25});
   GRAPPLE_REQUIRE(std::get<double>(keyframedEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].keyframes[0].value) == 0.8);
+  app::NativeProjectCommandWriter sparseKeyframeWriter{effectSession};
+  GRAPPLE_REQUIRE(sparseKeyframeWriter.nextKeyframeId("target x") == foundation::KeyframeId{"key_target_x_3"});
   const auto appParamValueUpdate = effectEdits.setParamValue(
     effectNodeId,
     "target_x",
@@ -794,7 +796,7 @@ int main() {
   GRAPPLE_REQUIRE(valueUpdatedEffectViewModel);
   GRAPPLE_REQUIRE(std::get<double>(valueUpdatedEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].value) == 0.6);
   GRAPPLE_REQUIRE(valueUpdatedEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].keyframes.size() == 1);
-  GRAPPLE_REQUIRE(valueUpdatedEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].keyframes[0].keyframeId == foundation::KeyframeId{"key_app_target_x"});
+  GRAPPLE_REQUIRE(valueUpdatedEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].keyframes[0].keyframeId == foundation::KeyframeId{"key_target_x_2"});
   const auto boolParamUpdate = effectEdits.setParamValue(
     effectNodeId,
     "lock_subject",
@@ -808,7 +810,7 @@ int main() {
   const auto appKeyframeDelete = effectEdits.deleteParamKeyframe(
     effectNodeId,
     "target_x",
-    foundation::KeyframeId{"key_app_target_x"},
+    foundation::KeyframeId{"key_target_x_2"},
     userSource()
   );
   GRAPPLE_REQUIRE(appKeyframeDelete);

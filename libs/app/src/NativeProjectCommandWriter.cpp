@@ -1,8 +1,10 @@
 #include <grapple/app/NativeProjectCommandWriter.hpp>
 
+#include <grapple/graph/GraphNode.hpp>
 #include <grapple/history/CommandRecord.hpp>
 #include <grapple/history/SnapshotRecord.hpp>
 #include <grapple/project/ProjectSerializer.hpp>
+#include <grapple/timeline/EffectPayload.hpp>
 
 #include <algorithm>
 #include <chrono>
@@ -12,6 +14,28 @@
 #include <variant>
 
 namespace grapple::app {
+
+namespace {
+
+bool keyframeIdExists(const project::ProjectSnapshot& snapshot, const foundation::KeyframeId& keyframeId) {
+  for (const graph::GraphNode& node : snapshot.graph.nodes()) {
+    const auto* effect = std::get_if<timeline::EffectPayload>(&node.payload);
+    if (effect == nullptr) {
+      continue;
+    }
+    for (const timeline::Param& param : effect->params.values) {
+      const auto keyframe = std::find_if(param.keyframes.begin(), param.keyframes.end(), [&](const timeline::Param::Keyframe& current) {
+        return current.id == keyframeId;
+      });
+      if (keyframe != param.keyframes.end()) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+} // namespace
 
 NativeProjectCommandWriter::NativeProjectCommandWriter(NativeProjectSession& session)
   : session_{session} {
@@ -23,6 +47,17 @@ NativeProjectCommandWriter::NativeProjectCommandWriter(NativeProjectSession& ses
     assetSequence_ = static_cast<std::int64_t>(snapshot.value().assets.assets().size()) + 1;
     nodeSequence_ = static_cast<std::int64_t>(snapshot.value().graph.nodes().size()) + 1;
     edgeSequence_ = static_cast<std::int64_t>(snapshot.value().graph.edges().size()) + 1;
+    std::size_t keyframeCount = 0;
+    for (const graph::GraphNode& node : snapshot.value().graph.nodes()) {
+      const auto* effect = std::get_if<timeline::EffectPayload>(&node.payload);
+      if (effect == nullptr) {
+        continue;
+      }
+      for (const timeline::Param& param : effect->params.values) {
+        keyframeCount += param.keyframes.size();
+      }
+    }
+    keyframeSequence_ = static_cast<std::int64_t>(keyframeCount) + 1;
   }
 }
 
@@ -39,6 +74,21 @@ foundation::NodeId NativeProjectCommandWriter::nextNodeId(const std::string& ste
 foundation::EdgeId NativeProjectCommandWriter::nextEdgeId(const std::string& stem) {
   const std::string sanitized = sanitizeStem(stem);
   return foundation::EdgeId{"edge_" + sanitized + "_" + std::to_string(edgeSequence_++)};
+}
+
+foundation::KeyframeId NativeProjectCommandWriter::nextKeyframeId(const std::string& stem) {
+  const std::string sanitized = sanitizeStem(stem);
+  const auto snapshot = session_.snapshot();
+  if (!snapshot) {
+    throw std::runtime_error{"Cannot allocate keyframe id without a project snapshot."};
+  }
+
+  while (true) {
+    foundation::KeyframeId candidate{"key_" + sanitized + "_" + std::to_string(keyframeSequence_++)};
+    if (!keyframeIdExists(snapshot.value(), candidate)) {
+      return candidate;
+    }
+  }
 }
 
 foundation::SnapshotId NativeProjectCommandWriter::nextSnapshotId(const std::string& stem) {

@@ -59,6 +59,8 @@ public:
   void redoLastEdit();
   void exportVideoFile(const foundation::FilePath& path);
   void setEffectParamControlValue(const std::string& paramName, double value);
+  void setEffectParamKeyframeAtPlayhead(const std::string& paramName);
+  void deleteEffectParamKeyframeControl(const std::string& paramName, int keyframeIndex);
   void setSelectedTargetNumericEffectParam(const std::string& paramName, double value);
   void deleteSelectedTargetEffect();
   void openPackageRoot(const foundation::FilePath& rootPath);

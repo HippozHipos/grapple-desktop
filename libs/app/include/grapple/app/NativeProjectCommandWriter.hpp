@@ -21,6 +21,7 @@ public:
   [[nodiscard]] foundation::AssetId nextAssetId(const std::string& stem) override;
   [[nodiscard]] foundation::NodeId nextNodeId(const std::string& stem) override;
   [[nodiscard]] foundation::EdgeId nextEdgeId(const std::string& stem) override;
+  [[nodiscard]] foundation::KeyframeId nextKeyframeId(const std::string& stem);
   [[nodiscard]] foundation::SnapshotId nextSnapshotId(const std::string& stem);
 
   foundation::Result<storage::ProjectPackageSessionResult> apply(
@@ -53,6 +54,7 @@ private:
   std::int64_t assetSequence_ = 1;
   std::int64_t nodeSequence_ = 1;
   std::int64_t edgeSequence_ = 1;
+  std::int64_t keyframeSequence_ = 1;
   std::int64_t snapshotSequence_ = 1;
 };
 
