@@ -608,6 +608,24 @@ int main() {
   GRAPPLE_REQUIRE((systemStateAfterExport.lastExportSettings->resolution == foundation::Resolution{1920, 1080}));
   GRAPPLE_REQUIRE(systemStateAfterExport.core.preparedPlanHash == systemStateAfterLoad.core.preparedPlanHash);
 
+  grapple::projection::RenderPlan emptyLoadedPlan = plan;
+  emptyLoadedPlan.layers.clear();
+  emptyLoadedPlan.audioTracks.clear();
+  emptyLoadedPlan.clips.clear();
+  emptyLoadedPlan.audioClips.clear();
+  const auto systemLoadEmpty = localRenderSystem.loadPlan(emptyLoadedPlan);
+  GRAPPLE_REQUIRE(systemLoadEmpty);
+  CapturingRangeSink exactPlanExportSink;
+  const auto exactPlanExport = localRenderSystem.exportPlanRange(render::ExportPlanRequest{
+    plan,
+    makeExportSettings(foundation::Resolution{1920, 1080}),
+    &exactPlanExportSink
+  });
+  GRAPPLE_REQUIRE(exactPlanExport);
+  GRAPPLE_REQUIRE(exactPlanExport.value().framesEvaluated == 2);
+  GRAPPLE_REQUIRE(!exactPlanExportSink.frameDescriptions.empty());
+  GRAPPLE_REQUIRE(exactPlanExportSink.frameDescriptions[0] == "layers=1 clips=1 audioClips=1 cameras=0 effects=0");
+
   TestFrameSource frameSource;
   render::LocalRenderCore imageCore{runtime, frameSource};
   render::PreviewRenderShell imagePreview{imageCore};

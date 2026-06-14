@@ -1117,6 +1117,18 @@ int main() {
   GRAPPLE_REQUIRE(exportPrepare.value().revision == foundation::RevisionId{"rev_1"});
   GRAPPLE_REQUIRE(exportSession.state().core.hasPlan);
   GRAPPLE_REQUIRE(exportSession.state().core.preparedPlanHash == exportPrepare.value().preparedPlanHash);
+  const auto exportPlan = session.buildRenderPlan();
+  GRAPPLE_REQUIRE(exportPlan);
+  const auto explicitPlanExport = exportSession.renderPlan(exportPlan.value().plan, render::ExportSettings{
+    foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}},
+    foundation::FrameRate{2, 1},
+    foundation::Resolution{1920, 1080},
+    render::Codec{"mjpeg"},
+    render::RenderQuality::Final,
+    foundation::FilePath{"/tmp/app-explicit-plan-export.mov"}
+  });
+  GRAPPLE_REQUIRE(explicitPlanExport);
+  GRAPPLE_REQUIRE(explicitPlanExport.value().framesEvaluated == 2);
   const auto projectBeforeExport = session.snapshot();
   GRAPPLE_REQUIRE(projectBeforeExport);
   GRAPPLE_REQUIRE(projectBeforeExport.value().revision == foundation::RevisionId{"rev_1"});

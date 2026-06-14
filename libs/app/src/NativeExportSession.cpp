@@ -168,6 +168,36 @@ foundation::Result<render::FinalRenderResult> NativeExportSession::renderToVideo
   return result;
 }
 
+foundation::Result<render::FinalRenderResult> NativeExportSession::renderPlan(
+  projection::RenderPlan plan,
+  render::ExportSettings settings
+) {
+  return renderSystem_.exportPlanRange(render::ExportPlanRequest{
+    std::move(plan),
+    std::move(settings)
+  });
+}
+
+foundation::Result<render::FinalRenderResult> NativeExportSession::renderPlanToVideo(
+  projection::RenderPlan plan,
+  render::ExportSettings settings
+) {
+  NativeVideoExportSink sink{settings};
+  auto result = renderSystem_.exportPlanRange(render::ExportPlanRequest{
+    std::move(plan),
+    std::move(settings),
+    &sink
+  });
+  if (!result) {
+    return result.error();
+  }
+  auto close = sink.close();
+  if (!close) {
+    return close.error();
+  }
+  return result;
+}
+
 render::FinalRenderShellState NativeExportSession::state() const {
   const render::LocalRenderSystemState renderState = renderSystem_.state();
   return render::FinalRenderShellState{

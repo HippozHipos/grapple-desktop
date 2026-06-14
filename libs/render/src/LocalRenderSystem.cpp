@@ -47,6 +47,18 @@ foundation::Result<ExportResult> LocalRenderSystem::exportRange(const ExportRequ
   });
 }
 
+foundation::Result<ExportResult> LocalRenderSystem::exportPlanRange(const ExportPlanRequest& request) {
+  std::lock_guard lock{mutex_};
+  auto loadResult = core_.loadPlan(request.plan);
+  if (!loadResult) {
+    return loadResult.error();
+  }
+  return finalRender_.render(FinalRenderRequest{
+    request.settings,
+    request.sink
+  });
+}
+
 LocalRenderSystemState LocalRenderSystem::state() const {
   std::lock_guard lock{mutex_};
   const PreviewRenderShellState previewState = preview_.state();

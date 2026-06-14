@@ -23,6 +23,12 @@ struct ExportRequest {
   IRenderRangeSink* sink = nullptr;
 };
 
+struct ExportPlanRequest {
+  projection::RenderPlan plan;
+  ExportSettings settings;
+  IRenderRangeSink* sink = nullptr;
+};
+
 using ExportResult = FinalRenderResult;
 
 struct LocalRenderSystemState {
@@ -43,6 +49,7 @@ public:
   foundation::Result<void> pause();
   foundation::Result<PlaybackFrameResult> renderPlaybackFrame(const PlaybackFrameRequest& request) const;
   foundation::Result<ExportResult> exportRange(const ExportRequest& request);
+  foundation::Result<ExportResult> exportPlanRange(const ExportPlanRequest& request);
   [[nodiscard]] LocalRenderSystemState state() const;
 
 private:
