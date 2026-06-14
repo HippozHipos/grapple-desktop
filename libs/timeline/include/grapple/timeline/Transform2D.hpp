@@ -4,6 +4,6 @@
 
 namespace grapple::timeline {
 
-using Transform = foundation::Transform2D;
+using Transform2D = foundation::Transform2D;
 
 } // namespace grapple::timeline

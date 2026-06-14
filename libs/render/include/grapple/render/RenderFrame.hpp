@@ -28,7 +28,7 @@ struct RenderedMediaFrame {
   foundation::AssetId assetId;
   RenderedMediaKind kind = RenderedMediaKind::Video;
   foundation::TimeSeconds sourceTime;
-  timeline::Transform transform;
+  timeline::Transform2D transform;
 };
 
 struct RenderedAudioClip {
@@ -47,7 +47,7 @@ struct RenderedImage {
 
 struct RenderedCamera {
   foundation::NodeId cameraNodeId;
-  timeline::Transform transform;
+  timeline::Transform2D transform;
   timeline::CameraLens lens;
 };
 

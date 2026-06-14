@@ -449,7 +449,7 @@ int main() {
         foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{5.0}},
         1.0,
         foundation::AssetId{"asset_missing_clip"},
-        timeline::Transform{}
+        timeline::Transform2D{}
       }
     }
   });
@@ -478,7 +478,7 @@ int main() {
         foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{5.0}},
         1.0,
         foundation::AssetId{"asset_clip"},
-        timeline::Transform{}
+        timeline::Transform2D{}
       }
     }
   });
@@ -499,7 +499,7 @@ int main() {
         foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{5.0}},
         1.0,
         foundation::AssetId{"asset_clip"},
-        timeline::Transform{}
+        timeline::Transform2D{}
       }
     }
   });
@@ -511,7 +511,7 @@ int main() {
     foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{5.0}},
     1.0,
     foundation::AssetId{"asset_clip"},
-    timeline::Transform{}
+    timeline::Transform2D{}
   };
   const auto createClip = clipProject.apply(project::ProjectCommandEnvelope{
     foundation::CommandId{"cmd_create_clip"},
@@ -532,7 +532,7 @@ int main() {
     foundation::TimeRange{foundation::TimeSeconds{1.0}, foundation::TimeSeconds{11.0}},
     0.5,
     foundation::AssetId{"asset_clip"},
-    timeline::Transform{
+    timeline::Transform2D{
       foundation::Vec2{3.0, 4.0},
       foundation::Vec2{2.0, 2.0},
       0.0,
@@ -565,7 +565,7 @@ int main() {
         foundation::TimeRange{foundation::TimeSeconds{1.0}, foundation::TimeSeconds{11.0}},
         0.5,
         foundation::AssetId{"asset_missing_updated_clip"},
-        timeline::Transform{}
+        timeline::Transform2D{}
       }
     }
   });
@@ -584,7 +584,7 @@ int main() {
         foundation::TimeRange{foundation::TimeSeconds{1.0}, foundation::TimeSeconds{11.0}},
         0.5,
         foundation::AssetId{"asset_clip"},
-        timeline::Transform{}
+        timeline::Transform2D{}
       }
     }
   });
@@ -647,7 +647,7 @@ int main() {
       foundation::TimeRange{foundation::TimeSeconds{1.0}, foundation::TimeSeconds{11.0}},
       0.5,
       foundation::AssetId{"asset_clip"},
-      timeline::Transform{}
+      timeline::Transform2D{}
     }
   );
   GRAPPLE_REQUIRE(replaceInvalidRestoredClipKindPayload);
@@ -814,7 +814,7 @@ int main() {
         foundation::TimeRange{foundation::TimeSeconds{3.0}, foundation::TimeSeconds{8.0}},
         0.5,
         foundation::AssetId{"asset_move_clip"},
-        timeline::Transform{
+        timeline::Transform2D{
           foundation::Vec2{2.0, 3.0},
           foundation::Vec2{1.5, 1.5},
           10.0,
@@ -948,7 +948,7 @@ int main() {
       foundation::EdgeId{"edge_camera_contains_camera"},
       timeline::CameraPayload{
         "Camera",
-        timeline::Transform{},
+        timeline::Transform2D{},
         timeline::CameraLens{35.0}
       }
     }
@@ -963,7 +963,7 @@ int main() {
       foundation::NodeId{"node_camera"},
       timeline::CameraPayload{
         "Updated Camera",
-        timeline::Transform{
+        timeline::Transform2D{
           foundation::Vec2{1.0, 2.0},
           foundation::Vec2{1.5, 1.5},
           12.0,
@@ -1507,7 +1507,7 @@ int main() {
     foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{5.0}},
     1.0,
     foundation::AssetId{"asset_target_delete"},
-    timeline::Transform{}
+    timeline::Transform2D{}
   };
   const auto targetDeleteClip = targetDeleteProject.apply(project::ProjectCommandEnvelope{
     foundation::CommandId{"cmd_target_delete_clip"},

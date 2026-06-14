@@ -91,7 +91,7 @@ void applyCameraTransformOutputs(
         continue;
       }
 
-      const auto* transform = std::get_if<timeline::Transform>(&value.value);
+      const auto* transform = std::get_if<timeline::Transform2D>(&value.value);
       if (transform == nullptr) {
         sample.diagnostics.push_back(runtime::RuntimeDiagnostic{
           "runtime.camera_transform_output_invalid",
@@ -101,7 +101,7 @@ void applyCameraTransformOutputs(
             revision,
             output.sourceNodeId
           },
-          "Runtime output camera_transform must be a Transform value."
+          "Runtime output camera_transform must be a Transform2D value."
         });
         continue;
       }

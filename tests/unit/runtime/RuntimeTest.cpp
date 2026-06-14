@@ -107,7 +107,7 @@ grapple::projection::RenderPlan makeClipPlan(double playbackRate) {
       grapple::foundation::TimeRange{grapple::foundation::TimeSeconds{1.0}, grapple::foundation::TimeSeconds{11.0}},
       playbackRate,
       grapple::foundation::AssetId{"asset_video"},
-      grapple::timeline::Transform{}
+      grapple::timeline::Transform2D{}
     }
   });
   return plan;
@@ -140,7 +140,7 @@ grapple::projection::RenderPlan makeAudioClipPlan() {
       grapple::foundation::TimeRange{grapple::foundation::TimeSeconds{10.0}, grapple::foundation::TimeSeconds{13.0}},
       1.0,
       grapple::foundation::AssetId{"asset_audio"},
-      grapple::timeline::Transform{}
+      grapple::timeline::Transform2D{}
     }
   });
   return plan;
@@ -151,7 +151,7 @@ grapple::projection::RenderPlan makeEffectPlan(std::string source) {
   plan.cameras.push_back(grapple::projection::RenderCamera{
     grapple::foundation::NodeId{"node_camera"},
     "Camera",
-    grapple::timeline::Transform{},
+    grapple::timeline::Transform2D{},
     grapple::timeline::CameraLens{}
   });
   plan.effectGraphs.push_back(grapple::projection::RenderEffectGraph{
@@ -204,7 +204,7 @@ grapple::projection::RenderPlan makeBuiltinCameraTransformPlan(bool includePosit
   plan.cameras.push_back(grapple::projection::RenderCamera{
     grapple::foundation::NodeId{"node_camera"},
     "Camera",
-    grapple::timeline::Transform{},
+    grapple::timeline::Transform2D{},
     grapple::timeline::CameraLens{}
   });
   grapple::timeline::ParamSet params{

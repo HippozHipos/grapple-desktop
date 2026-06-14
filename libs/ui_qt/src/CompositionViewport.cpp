@@ -139,7 +139,7 @@ void CompositionViewport::drawClip(QPainter& painter, const app::AppClipRow& cli
 }
 
 void CompositionViewport::drawCamera(QPainter& painter, const app::AppCameraRow& camera, const QRectF& world) const {
-  const timeline::Transform transform = evaluatedCameraTransform(camera);
+  const timeline::Transform2D transform = evaluatedCameraTransform(camera);
   QRectF cameraRect = worldRect(2.1, 1.18, transform, world);
   const bool isSelected = selected(camera.sourceNodeId);
 
@@ -173,7 +173,7 @@ void CompositionViewport::drawCamera(QPainter& painter, const app::AppCameraRow&
   painter.restore();
 }
 
-timeline::Transform CompositionViewport::evaluatedCameraTransform(const app::AppCameraRow& camera) const {
+timeline::Transform2D CompositionViewport::evaluatedCameraTransform(const app::AppCameraRow& camera) const {
   if (!frame_.has_value() || frame_->time != playhead_) {
     return camera.transform;
   }

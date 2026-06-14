@@ -458,7 +458,7 @@ foundation::Result<foundation::TimeRange> parseTimeRange(const Json::Value& obje
   return foundation::TimeRange{foundation::TimeSeconds{start.value()}, foundation::TimeSeconds{end.value()}};
 }
 
-foundation::Result<timeline::Transform> parseTransform(const Json::Value& object, const std::string& path) {
+foundation::Result<timeline::Transform2D> parseTransform(const Json::Value& object, const std::string& path) {
   auto members = requireOnlyMembers(object, {"position", "scale", "rotationDegrees", "opacity"}, path);
   if (!members) {
     return members.error();
@@ -487,7 +487,7 @@ foundation::Result<timeline::Transform> parseTransform(const Json::Value& object
   if (!opacity) {
     return opacity.error();
   }
-  return timeline::Transform{position.value(), scale.value(), rotation.value(), opacity.value()};
+  return timeline::Transform2D{position.value(), scale.value(), rotation.value(), opacity.value()};
 }
 
 foundation::Result<timeline::ParamValue> parseParamValue(const Json::Value& value, const std::string& path) {

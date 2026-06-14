@@ -107,7 +107,7 @@ int main() {
     foundation::TimeRange{foundation::TimeSeconds{1.0}, foundation::TimeSeconds{11.0}},
     1.0,
     foundation::AssetId{"asset_walking_woman"},
-    timeline::Transform{}
+    timeline::Transform2D{}
   };
   const auto createClip = controller.apply(project::ProjectCommandEnvelope{
     foundation::CommandId{"cmd_clip"},
@@ -125,7 +125,7 @@ int main() {
 
   const timeline::CameraPayload cameraPayload{
     "Camera",
-    timeline::Transform{},
+    timeline::Transform2D{},
     timeline::CameraLens{35.0}
   };
   const auto createCamera = controller.apply(project::ProjectCommandEnvelope{
@@ -384,7 +384,7 @@ int main() {
         foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{3.0}},
         1.0,
         foundation::AssetId{"asset_projection_audio"},
-        timeline::Transform{}
+        timeline::Transform2D{}
       }
     }
   });

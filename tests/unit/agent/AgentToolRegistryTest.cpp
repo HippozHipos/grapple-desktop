@@ -433,7 +433,7 @@ int main() {
       foundation::NodeId{"node_camera"},
       foundation::NodeId{"node_composition"},
       foundation::EdgeId{"edge_contains_camera"},
-      timeline::CameraPayload{"Camera", timeline::Transform{}, timeline::CameraLens{35.0}}
+      timeline::CameraPayload{"Camera", timeline::Transform2D{}, timeline::CameraLens{35.0}}
     }
   });
   GRAPPLE_REQUIRE(camera);
@@ -1269,7 +1269,7 @@ int main() {
         foundation::TimeRange{foundation::TimeSeconds{1.0}, foundation::TimeSeconds{5.0}},
         1.25,
         foundation::AssetId{"asset_clip_transform_video"},
-        timeline::Transform{
+        timeline::Transform2D{
           foundation::Vec2{0.0, 0.0},
           foundation::Vec2{1.0, 1.0},
           0.0,

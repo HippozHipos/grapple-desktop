@@ -19,7 +19,7 @@ int main() {
     foundation::TimeRange{foundation::TimeSeconds{1.0}, foundation::TimeSeconds{6.0}},
     1.0,
     foundation::AssetId{"asset_video"},
-    timeline::Transform{}
+    timeline::Transform2D{}
   };
   GRAPPLE_REQUIRE(clip.timelineRange.duration() == 5.0);
   GRAPPLE_REQUIRE(clip.sourceRange.start == foundation::TimeSeconds{1.0});
@@ -51,7 +51,7 @@ int main() {
   GRAPPLE_REQUIRE(effect.implementation.kind == timeline::EffectImplementationKind::Python);
   GRAPPLE_REQUIRE(effect.implementation.source.language == "python");
   GRAPPLE_REQUIRE(effect.implementation.source.sourceHash == foundation::stableHash("def process(): pass"));
-  GRAPPLE_REQUIRE(timeline::serializeCanonicalCameraPayload(timeline::CameraPayload{"Camera", timeline::Transform{}, timeline::CameraLens{35.0}}).find("\"focalLength\":35") != std::string::npos);
+  GRAPPLE_REQUIRE(timeline::serializeCanonicalCameraPayload(timeline::CameraPayload{"Camera", timeline::Transform2D{}, timeline::CameraLens{35.0}}).find("\"focalLength\":35") != std::string::npos);
   GRAPPLE_REQUIRE(timeline::serializeCanonicalClipPayload(clip).find("\"assetId\":\"asset_video\"") != std::string::npos);
   GRAPPLE_REQUIRE(timeline::serializeCanonicalEffectPayload(effect).find("\"inlineSource\":\"def process(): pass\"") != std::string::npos);
   GRAPPLE_REQUIRE(timeline::serializeCanonicalEffectPayload(effect).find("\"modelDependencies\":[{\"modelId\":\"model_segmenter\",\"versionHash\":\"") != std::string::npos);

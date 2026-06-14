@@ -159,7 +159,7 @@ std::string serializeCanonicalTrackPayload(const TrackPayload& payload) {
   return stream.str();
 }
 
-std::string serializeCanonicalTransform(const Transform& transform) {
+std::string serializeCanonicalTransform(const Transform2D& transform) {
   std::ostringstream stream;
   stream << "{\"position\":";
   writeVec2(stream, transform.position);

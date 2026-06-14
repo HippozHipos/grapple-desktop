@@ -271,7 +271,7 @@ int main() {
       foundation::TimeRange{foundation::TimeSeconds{1.0}, foundation::TimeSeconds{11.0}},
       0.5,
       foundation::AssetId{"asset_clip_payload"},
-      timeline::Transform{
+      timeline::Transform2D{
         foundation::Vec2{3.0, 4.0},
         foundation::Vec2{2.0, 2.0},
         15.0,
@@ -285,7 +285,7 @@ int main() {
     graph::NodeKind::Camera,
     timeline::CameraPayload{
       "Camera",
-      timeline::Transform{
+      timeline::Transform2D{
         foundation::Vec2{1.0, 2.0},
         foundation::Vec2{1.5, 1.5},
         12.0,

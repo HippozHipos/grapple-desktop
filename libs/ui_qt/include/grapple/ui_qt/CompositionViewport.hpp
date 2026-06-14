@@ -28,7 +28,7 @@ private:
   void drawGrid(QPainter& painter, const QRectF& world) const;
   void drawClip(QPainter& painter, const app::AppClipRow& clip, const QRectF& world) const;
   void drawCamera(QPainter& painter, const app::AppCameraRow& camera, const QRectF& world) const;
-  [[nodiscard]] timeline::Transform evaluatedCameraTransform(const app::AppCameraRow& camera) const;
+  [[nodiscard]] timeline::Transform2D evaluatedCameraTransform(const app::AppCameraRow& camera) const;
   [[nodiscard]] QRectF worldRect(
     double width,
     double height,

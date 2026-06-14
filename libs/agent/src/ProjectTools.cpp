@@ -1470,7 +1470,7 @@ AgentTool makeCameraCreateTool() {
           containmentEdgeId,
           timeline::CameraPayload{
             name.value(),
-            timeline::Transform{},
+            timeline::Transform2D{},
             timeline::CameraLens{focalLength.value()}
           },
           0
@@ -1727,7 +1727,7 @@ AgentTool makeTimelineCreateClipTool() {
             sourceRange.value(),
             playbackRate.value(),
             foundation::AssetId{assetId.value()},
-            timeline::Transform{}
+            timeline::Transform2D{}
           },
           0
         }
@@ -1962,7 +1962,7 @@ AgentTool makeTimelineUpdateClipTransformTool() {
             currentPayload->sourceRange,
             currentPayload->playbackRate,
             currentPayload->assetId,
-            timeline::Transform{
+            timeline::Transform2D{
               position.value(),
               scale.value(),
               rotationDegrees.value(),

@@ -47,7 +47,7 @@ struct RenderAudioClip {
 struct RenderCamera {
   foundation::NodeId sourceNodeId;
   std::string name;
-  timeline::Transform transform;
+  timeline::Transform2D transform;
   timeline::CameraLens lens;
 };
 

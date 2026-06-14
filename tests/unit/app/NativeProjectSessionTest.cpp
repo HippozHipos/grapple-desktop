@@ -466,7 +466,7 @@ int main() {
     userSource()
   );
   GRAPPLE_REQUIRE(assetTrack);
-  const timeline::Transform clipTransform{
+  const timeline::Transform2D clipTransform{
     foundation::Vec2{0.2, -0.3},
     foundation::Vec2{1.4, 0.8},
     12.0,
@@ -570,7 +570,7 @@ int main() {
         foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}},
         1.0,
         foundation::AssetId{"asset_cache_image"},
-        timeline::Transform{}
+        timeline::Transform2D{}
       },
       0
     },
@@ -671,7 +671,7 @@ int main() {
   );
   GRAPPLE_REQUIRE(effectComposition);
   const foundation::NodeId effectCameraNodeId = effectWriter.nextNodeId("camera");
-  const timeline::Transform effectCameraTransform{
+  const timeline::Transform2D effectCameraTransform{
     foundation::Vec2{0.4, 0.1},
     foundation::Vec2{1.2, 1.1},
     -5.0,
@@ -887,7 +887,7 @@ int main() {
       runtimeCameraNodeId,
       runtimeCompositionNodeId,
       runtimeWorkspace.value().commandWriter().nextEdgeId("contains camera"),
-      timeline::CameraPayload{"Camera", timeline::Transform{}, timeline::CameraLens{35.0}}
+      timeline::CameraPayload{"Camera", timeline::Transform2D{}, timeline::CameraLens{35.0}}
     },
     userSource()
   );
@@ -1331,7 +1331,7 @@ int main() {
       stewardCameraNodeId,
       stewardCompositionNodeId,
       stewardWorkspace.value().commandWriter().nextEdgeId("contains camera"),
-      timeline::CameraPayload{"Camera", timeline::Transform{}, timeline::CameraLens{35.0}}
+      timeline::CameraPayload{"Camera", timeline::Transform2D{}, timeline::CameraLens{35.0}}
     },
     userSource()
   );
@@ -1374,7 +1374,7 @@ int main() {
       reopenedSecondCameraNodeId,
       stewardCompositionNodeId,
       reopenedStewardWorkspace.value().commandWriter().nextEdgeId("contains camera"),
-      timeline::CameraPayload{"Second Camera", timeline::Transform{}, timeline::CameraLens{35.0}}
+      timeline::CameraPayload{"Second Camera", timeline::Transform2D{}, timeline::CameraLens{35.0}}
     },
     userSource()
   );

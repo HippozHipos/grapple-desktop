@@ -128,7 +128,7 @@ foundation::Result<void> populateStarterDemo(
         foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{10.0}},
         1.0,
         foundation::AssetId{"asset_video"},
-        timeline::Transform{}
+        timeline::Transform2D{}
       }
     },
     userSource()
@@ -145,7 +145,7 @@ foundation::Result<void> populateStarterDemo(
       writer.nextEdgeId("contains_camera"),
       timeline::CameraPayload{
         "Camera",
-        timeline::Transform{},
+        timeline::Transform2D{},
         timeline::CameraLens{35.0}
       }
     },

@@ -1049,7 +1049,7 @@ public:
         workspace_.commandWriter().nextEdgeId("contains_camera"),
         grapple::timeline::CameraPayload{
           "Camera " + std::to_string(cameraNumber),
-          grapple::timeline::Transform{},
+          grapple::timeline::Transform2D{},
           grapple::timeline::CameraLens{35.0}
         }
       },
@@ -1483,7 +1483,7 @@ public:
           workspace_.commandWriter().nextEdgeId("contains_camera"),
           grapple::timeline::CameraPayload{
             "Camera",
-            grapple::timeline::Transform{},
+            grapple::timeline::Transform2D{},
             grapple::timeline::CameraLens{35.0}
           }
         },
@@ -1527,7 +1527,7 @@ public:
           },
           1.0,
           assetId,
-          grapple::timeline::Transform{}
+          grapple::timeline::Transform2D{}
         },
         clipOrder
       },
@@ -1721,7 +1721,7 @@ public:
       return;
     }
 
-    grapple::timeline::Transform transform = selectedClip.value().transform;
+    grapple::timeline::Transform2D transform = selectedClip.value().transform;
     transform.position.x += delta.x;
     transform.position.y += delta.y;
     updateSelectedClipTransform(selectedClip.value(), transform, "Nudged clip");
@@ -1734,7 +1734,7 @@ public:
       return;
     }
 
-    grapple::timeline::Transform transform = selectedClip.value().transform;
+    grapple::timeline::Transform2D transform = selectedClip.value().transform;
     transform.scale = grapple::foundation::Vec2{scale, scale};
     updateSelectedClipTransform(selectedClip.value(), transform, "Scaled clip");
   }
@@ -1746,14 +1746,14 @@ public:
       return;
     }
 
-    grapple::timeline::Transform transform = selectedClip.value().transform;
+    grapple::timeline::Transform2D transform = selectedClip.value().transform;
     transform.opacity = opacity;
     updateSelectedClipTransform(selectedClip.value(), transform, "Updated clip opacity");
   }
 
   void updateSelectedClipTransform(
     const grapple::app::AppClipRow& selectedClip,
-    grapple::timeline::Transform transform,
+    grapple::timeline::Transform2D transform,
     const QString& logMessage
   ) {
     const auto updated = workspace_.commandWriter().apply(
@@ -1782,7 +1782,7 @@ public:
 
   void updateClipTransform(
     const grapple::foundation::NodeId& clipNodeId,
-    grapple::timeline::Transform transform,
+    grapple::timeline::Transform2D transform,
     const QString& logMessage
   ) {
     const auto viewModel = workspace_.project().buildViewModel();

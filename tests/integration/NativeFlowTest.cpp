@@ -185,7 +185,7 @@ int main() {
         foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{2.0}},
         1.0,
         foundation::AssetId{"asset_video"},
-        timeline::Transform{}
+        timeline::Transform2D{}
       }
     }
   });
@@ -202,7 +202,7 @@ int main() {
       foundation::EdgeId{"edge_contains_camera"},
       timeline::CameraPayload{
         "Camera",
-        timeline::Transform{},
+        timeline::Transform2D{},
         timeline::CameraLens{35.0}
       }
     }

@@ -42,7 +42,7 @@ public:
     const grapple::runtime::EffectProcessRequest& request
   ) override {
     ++processCount;
-    grapple::runtime::RuntimeValue transformValue = grapple::timeline::Transform{
+    grapple::runtime::RuntimeValue transformValue = grapple::timeline::Transform2D{
       grapple::foundation::Vec2{request.time.value, request.time.value * 2.0},
       grapple::foundation::Vec2{1.0, 1.0},
       request.time.value * 10.0,
@@ -222,7 +222,7 @@ public:
           grapple::runtime::RuntimeNamedValue{
             grapple::runtime::output_name::CameraTransform,
             grapple::runtime::RuntimeValue{
-              grapple::timeline::Transform{
+              grapple::timeline::Transform2D{
                 grapple::foundation::Vec2{0.5, 0.0},
                 grapple::foundation::Vec2{1.0, 1.0},
                 0.0,
@@ -272,7 +272,7 @@ public:
           grapple::runtime::RuntimeNamedValue{
             grapple::runtime::output_name::CameraTransform,
             grapple::runtime::RuntimeValue{
-              grapple::timeline::Transform{
+              grapple::timeline::Transform2D{
                 grapple::foundation::Vec2{0.0, 0.0},
                 grapple::foundation::Vec2{2.0, 2.0},
                 0.0,
@@ -317,7 +317,7 @@ grapple::projection::RenderPlan makeRenderPlan() {
           },
           1.0,
           grapple::foundation::AssetId{"asset_video"},
-          grapple::timeline::Transform{}
+          grapple::timeline::Transform2D{}
         }
       }
     },
@@ -337,7 +337,7 @@ grapple::projection::RenderPlan makeRenderPlan() {
           },
           1.0,
           grapple::foundation::AssetId{"asset_audio"},
-          grapple::timeline::Transform{}
+          grapple::timeline::Transform2D{}
         }
       }
     },
@@ -352,7 +352,7 @@ grapple::projection::RenderPlan makeCameraEffectRenderPlan() {
   plan.cameras.push_back(grapple::projection::RenderCamera{
     grapple::foundation::NodeId{"node_camera"},
     "Camera",
-    grapple::timeline::Transform{},
+    grapple::timeline::Transform2D{},
     grapple::timeline::CameraLens{35.0}
   });
   const std::string source = "def prepare(ctx): return {'camera_transform': ctx.camera.transform}\n";
@@ -400,14 +400,14 @@ grapple::projection::RenderPlan makeCameraEffectRenderPlan() {
   return plan;
 }
 
-grapple::projection::RenderPlan makeClipTransformRenderPlan(grapple::timeline::Transform transform) {
+grapple::projection::RenderPlan makeClipTransformRenderPlan(grapple::timeline::Transform2D transform) {
   grapple::projection::RenderPlan plan = makeRenderPlan();
   plan.clips[0].payload.transform = transform;
   return plan;
 }
 
 grapple::projection::RenderPlan makeClipTransformRenderPlan() {
-  return makeClipTransformRenderPlan(grapple::timeline::Transform{
+  return makeClipTransformRenderPlan(grapple::timeline::Transform2D{
     grapple::foundation::Vec2{0.5, 0.0},
     grapple::foundation::Vec2{1.0, 1.0},
     0.0,
@@ -488,7 +488,7 @@ int main() {
   GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.mediaFrames[0].assetId == foundation::AssetId{"asset_video"});
   GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.mediaFrames[0].kind == render::RenderedMediaKind::Video);
   GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.mediaFrames[0].sourceTime == foundation::TimeSeconds{4.0});
-  GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.mediaFrames[0].transform == timeline::Transform{});
+  GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.mediaFrames[0].transform == timeline::Transform2D{});
   GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.audioClips[0].clipNodeId == foundation::NodeId{"node_audio_clip"});
   GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.audioClips[0].trackNodeId == foundation::NodeId{"node_track"});
   GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.audioClips[0].assetId == foundation::AssetId{"asset_audio"});
@@ -608,7 +608,7 @@ int main() {
   TwoRowFrameSource yShiftClipFrameSource;
   render::LocalRenderCore yShiftClipImageCore{runtime, yShiftClipFrameSource};
   render::PreviewRenderShell yShiftClipImagePreview{yShiftClipImageCore};
-  const auto yShiftClipImageLoad = yShiftClipImageCore.loadPlan(makeClipTransformRenderPlan(grapple::timeline::Transform{
+  const auto yShiftClipImageLoad = yShiftClipImageCore.loadPlan(makeClipTransformRenderPlan(grapple::timeline::Transform2D{
     grapple::foundation::Vec2{0.0, 0.5},
     grapple::foundation::Vec2{1.0, 1.0},
     0.0,
@@ -626,7 +626,7 @@ int main() {
   TestFrameSource opacityClipFrameSource;
   render::LocalRenderCore opacityClipImageCore{runtime, opacityClipFrameSource};
   render::PreviewRenderShell opacityClipImagePreview{opacityClipImageCore};
-  const auto opacityClipImageLoad = opacityClipImageCore.loadPlan(makeClipTransformRenderPlan(grapple::timeline::Transform{
+  const auto opacityClipImageLoad = opacityClipImageCore.loadPlan(makeClipTransformRenderPlan(grapple::timeline::Transform2D{
     grapple::foundation::Vec2{0.0, 0.0},
     grapple::foundation::Vec2{1.0, 1.0},
     0.0,
@@ -644,7 +644,7 @@ int main() {
   FourPixelFrameSource rotatedClipFrameSource;
   render::LocalRenderCore rotatedClipImageCore{runtime, rotatedClipFrameSource};
   render::PreviewRenderShell rotatedClipImagePreview{rotatedClipImageCore};
-  const auto rotatedClipImageLoad = rotatedClipImageCore.loadPlan(makeClipTransformRenderPlan(grapple::timeline::Transform{
+  const auto rotatedClipImageLoad = rotatedClipImageCore.loadPlan(makeClipTransformRenderPlan(grapple::timeline::Transform2D{
     grapple::foundation::Vec2{0.0, 0.0},
     grapple::foundation::Vec2{1.0, 1.0},
     180.0,

@@ -3,7 +3,7 @@
 #include <grapple/foundation/StrongId.hpp>
 #include <grapple/foundation/Time.hpp>
 #include <grapple/timeline/EffectPayload.hpp>
-#include <grapple/timeline/Transform.hpp>
+#include <grapple/timeline/Transform2D.hpp>
 
 #include <optional>
 #include <string>
@@ -45,7 +45,7 @@ struct ClipPayload {
     foundation::TimeRange sourceRangeValue,
     double playbackRateValue,
     foundation::AssetId assetIdValue,
-    Transform transformValue
+    Transform2D transformValue
   )
     : kind{kindValue},
       timelineRange{timelineRangeValue},
@@ -59,7 +59,7 @@ struct ClipPayload {
   foundation::TimeRange sourceRange;
   double playbackRate;
   foundation::AssetId assetId;
-  Transform transform;
+  Transform2D transform;
 
   friend bool operator==(const ClipPayload&, const ClipPayload&) = default;
 };
@@ -72,7 +72,7 @@ struct CameraLens {
 
 struct CameraPayload {
   std::string name;
-  Transform transform;
+  Transform2D transform;
   CameraLens lens;
 
   friend bool operator==(const CameraPayload&, const CameraPayload&) = default;

@@ -335,7 +335,7 @@ int main() {
       foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}},
       1.0,
       foundation::AssetId{"asset_missing_clip"},
-      timeline::Transform{}
+      timeline::Transform2D{}
     },
     true
   }));
