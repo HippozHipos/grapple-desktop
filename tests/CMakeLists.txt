@@ -66,6 +66,8 @@ add_test(NAME grapple_desktop_delete_effect_smoke COMMAND grapple_desktop --dele
 set_tests_properties(grapple_desktop_delete_effect_smoke PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 add_test(NAME grapple_desktop_delete_smoke COMMAND grapple_desktop --delete-smoke)
 set_tests_properties(grapple_desktop_delete_smoke PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+add_test(NAME grapple_desktop_delete_track_smoke COMMAND grapple_desktop --delete-track-smoke)
+set_tests_properties(grapple_desktop_delete_track_smoke PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 add_test(NAME grapple_desktop_playback_smoke COMMAND grapple_desktop --playback-smoke)
 set_tests_properties(grapple_desktop_playback_smoke PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 add_test(NAME grapple_desktop_open_package_smoke COMMAND grapple_desktop --open-package-smoke)

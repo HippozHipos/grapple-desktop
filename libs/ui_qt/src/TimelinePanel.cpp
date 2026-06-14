@@ -176,10 +176,10 @@ std::optional<foundation::NodeId> TimelinePanel::nodeAt(const QPoint& point) con
     return std::nullopt;
   }
 
-  const int row = (point.y() - rulerHeight()) / rowHeight();
-  if (row < 0) {
+  if (point.y() < rulerHeight()) {
     return std::nullopt;
   }
+  const int row = (point.y() - rulerHeight()) / rowHeight();
 
   if (row < static_cast<int>(viewModel_->timeline.layers.size())) {
     const app::AppLayerRow& layer = viewModel_->timeline.layers[static_cast<std::size_t>(row)];
@@ -191,7 +191,7 @@ std::optional<foundation::NodeId> TimelinePanel::nodeAt(const QPoint& point) con
         return clip.sourceNodeId;
       }
     }
-    return std::nullopt;
+    return layer.sourceNodeId;
   }
 
   const int firstAudioRow = static_cast<int>(viewModel_->timeline.layers.size());
@@ -206,7 +206,7 @@ std::optional<foundation::NodeId> TimelinePanel::nodeAt(const QPoint& point) con
         return clip.sourceNodeId;
       }
     }
-    return std::nullopt;
+    return track.sourceNodeId;
   }
 
   if (row == firstCameraRow && !viewModel_->timeline.cameras.empty()) {

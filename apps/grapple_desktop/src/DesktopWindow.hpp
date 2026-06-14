@@ -33,6 +33,7 @@ public:
 
   void seekTo(foundation::TimeSeconds time);
   void clickTimelineAtRatio(double ratio);
+  void clickFirstTimelineTrack();
   void clickFirstTimelineClip();
   void clickFirstTimelineCamera();
   void clickSecondTimelineCamera();
@@ -51,6 +52,7 @@ public:
   void importMediaFile(const foundation::FilePath& path);
   void addSelectedMediaToTimeline();
   void deleteSelectedClip();
+  void deleteSelectedTrack();
   void moveSelectedClip(foundation::TimeSeconds delta);
   void undoLastEdit();
   void redoLastEdit();

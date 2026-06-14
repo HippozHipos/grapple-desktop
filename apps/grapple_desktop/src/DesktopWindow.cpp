@@ -384,6 +384,7 @@ public:
     auto* addCameraAction = moreMenu->addAction("Add Camera");
     auto* moveClipAction = moreMenu->addAction("Move Clip +1s");
     auto* deleteClipAction = moreMenu->addAction("Delete Clip");
+    auto* deleteTrackAction = moreMenu->addAction("Delete Track");
     moreButton->setMenu(moreMenu);
     auto* productTitle = new QLabel{"Grapple"};
     productTitle->setObjectName("productTitle");
@@ -469,6 +470,7 @@ public:
     connect(addCameraAction, &QAction::triggered, this, [this] { addCamera(); });
     connect(moveClipAction, &QAction::triggered, this, [this] { moveSelectedClip(grapple::foundation::TimeSeconds{1.0}); });
     connect(deleteClipAction, &QAction::triggered, this, [this] { deleteSelectedClip(); });
+    connect(deleteTrackAction, &QAction::triggered, this, [this] { deleteSelectedTrack(); });
     connect(exportButton, &QPushButton::clicked, this, [this] { chooseAndExportVideo(); });
     connect(saveButton, &QPushButton::clicked, this, [this] { savePackage(); });
     steward_->setCreateCameraEffectHandler([this](std::string intent) { addEffectToSelectedTarget(std::move(intent)); });
@@ -630,6 +632,17 @@ public:
     QMouseEvent event{
       QEvent::MouseButtonPress,
       QPointF{180.0, 56.0},
+      Qt::LeftButton,
+      Qt::LeftButton,
+      Qt::NoModifier
+    };
+    QApplication::sendEvent(timeline_, &event);
+  }
+
+  void clickFirstTimelineTrack() {
+    QMouseEvent event{
+      QEvent::MouseButtonPress,
+      QPointF{24.0, 56.0},
       Qt::LeftButton,
       Qt::LeftButton,
       Qt::NoModifier
@@ -1038,6 +1051,53 @@ public:
     refreshViewModel();
     refreshPreview();
     log_->append("Deleted clip");
+  }
+
+  void deleteSelectedTrack() {
+    if (!selectedNodeId_.has_value()) {
+      appendError(grapple::foundation::Error{"desktop.selection_missing", "Delete Track requires a selected track."});
+      return;
+    }
+
+    const auto viewModel = workspace_.project().buildViewModel();
+    if (!viewModel) {
+      appendError(viewModel.error());
+      return;
+    }
+
+    const auto selectedLayer = std::find_if(
+      viewModel.value().timeline.layers.begin(),
+      viewModel.value().timeline.layers.end(),
+      [&](const grapple::app::AppLayerRow& layer) {
+        return layer.sourceNodeId == selectedNodeId_.value();
+      }
+    );
+    const auto selectedAudioTrack = std::find_if(
+      viewModel.value().timeline.audioTracks.begin(),
+      viewModel.value().timeline.audioTracks.end(),
+      [&](const grapple::app::AppLayerRow& track) {
+        return track.sourceNodeId == selectedNodeId_.value();
+      }
+    );
+    if (selectedLayer == viewModel.value().timeline.layers.end() && selectedAudioTrack == viewModel.value().timeline.audioTracks.end()) {
+      appendError(grapple::foundation::Error{"desktop.selected_node_not_track", "Delete Track only applies to selected tracks."});
+      return;
+    }
+
+    const auto deleted = workspace_.commandWriter().apply(
+      grapple::project::DeleteTrackCommand{selectedNodeId_.value()},
+      userSource()
+    );
+    if (!deleted) {
+      appendError(deleted.error());
+      return;
+    }
+
+    selectedNodeId_ = std::nullopt;
+    selectedAssetId_ = std::nullopt;
+    refreshViewModel();
+    refreshPreview();
+    log_->append("Deleted track");
   }
 
   void moveSelectedClip(grapple::foundation::TimeSeconds delta) {
@@ -1471,6 +1531,10 @@ void DesktopWindow::clickTimelineAtRatio(double ratio) {
   impl_->clickTimelineAtRatio(ratio);
 }
 
+void DesktopWindow::clickFirstTimelineTrack() {
+  impl_->clickFirstTimelineTrack();
+}
+
 void DesktopWindow::clickFirstTimelineClip() {
   impl_->clickFirstTimelineClip();
 }
@@ -1541,6 +1605,10 @@ void DesktopWindow::addSelectedMediaToTimeline() {
 
 void DesktopWindow::deleteSelectedClip() {
   impl_->deleteSelectedClip();
+}
+
+void DesktopWindow::deleteSelectedTrack() {
+  impl_->deleteSelectedTrack();
 }
 
 void DesktopWindow::moveSelectedClip(foundation::TimeSeconds delta) {

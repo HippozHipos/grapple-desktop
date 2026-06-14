@@ -124,6 +124,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   bool setEffectParamSmoke = false;
   bool deleteEffectSmoke = false;
   bool deleteSmoke = false;
+  bool deleteTrackSmoke = false;
   bool playbackSmoke = false;
   bool openPackageSmoke = false;
   bool editSaveSmoke = false;
@@ -171,6 +172,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       deleteEffectSmoke = true;
     } else if (argument == "--delete-smoke") {
       deleteSmoke = true;
+    } else if (argument == "--delete-track-smoke") {
+      deleteTrackSmoke = true;
     } else if (argument == "--playback-smoke") {
       playbackSmoke = true;
     } else if (argument == "--open-package-smoke") {
@@ -182,7 +185,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     } else if (argument == "--effect-screenshot" && index + 1 < argc) {
       effectScreenshotPath = argv[++index];
     } else {
-      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --select-camera-smoke, --select-second-camera-smoke, --steward-smoke, --import-smoke, --import-media-types-smoke, --add-video-smoke, --empty-add-video-smoke, --empty-add-track-smoke, --empty-add-camera-smoke, --move-clip-smoke, --undo-redo-smoke, --add-effect-smoke, --set-effect-param-smoke, --delete-effect-smoke, --delete-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, --screenshot <path>, or --effect-screenshot <path>.\n";
+      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --select-camera-smoke, --select-second-camera-smoke, --steward-smoke, --import-smoke, --import-media-types-smoke, --add-video-smoke, --empty-add-video-smoke, --empty-add-track-smoke, --empty-add-camera-smoke, --move-clip-smoke, --undo-redo-smoke, --add-effect-smoke, --set-effect-param-smoke, --delete-effect-smoke, --delete-smoke, --delete-track-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, --screenshot <path>, or --effect-screenshot <path>.\n";
       return 1;
     }
   }
@@ -705,6 +708,21 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     }
     std::cout << "clips=" << viewModel.value().timeline.clips.size() << '\n';
     return viewModel.value().timeline.clips.empty() ? 0 : 1;
+  }
+
+  if (deleteTrackSmoke) {
+    window.show();
+    app.processEvents();
+    window.clickFirstTimelineTrack();
+    window.deleteSelectedTrack();
+    const auto viewModel = workspace.value().project().buildViewModel();
+    if (!viewModel) {
+      printError(viewModel.error());
+      return 1;
+    }
+    std::cout << "tracks=" << viewModel.value().timeline.layers.size()
+              << " clips=" << viewModel.value().timeline.clips.size() << '\n';
+    return viewModel.value().timeline.layers.empty() && viewModel.value().timeline.clips.empty() ? 0 : 1;
   }
 
   if (playbackSmoke) {
