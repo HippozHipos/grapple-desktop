@@ -175,11 +175,11 @@ void EffectParamPanel::setSelection(
           editor->setValue(*numericValue);
           editor->setToolTip(QString{"%1..%2"}.arg(*param.numericMin).arg(*param.numericMax));
 
-          connect(editor, &QDoubleSpinBox::editingFinished, this, [this, editor, parameterEffectNodeId, paramName] {
+          connect(editor, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, [this, parameterEffectNodeId, paramName](double value) {
             if (applyHandler_) {
-              applyHandler_(parameterEffectNodeId, paramName, timeline::ParamValue{editor->value()});
+              applyHandler_(parameterEffectNodeId, paramName, timeline::ParamValue{value});
             }
-          });
+          }, Qt::QueuedConnection);
           auto* setKeyframe = new QPushButton{currentKeyframeId.has_value() ? "Update Keyframe" : "Set Keyframe"};
           setKeyframe->setObjectName(QString{"effectParamKeyframe_%1"}.arg(qString(param.name)));
           connect(setKeyframe, &QPushButton::clicked, this, [this, editor, parameterEffectNodeId, paramName, currentKeyframeId] {

@@ -1006,6 +1006,18 @@ int main() {
   GRAPPLE_REQUIRE(roundTrippedCamera->name == "Updated Camera");
   GRAPPLE_REQUIRE(roundTrippedCamera->state.transform.rotationDegrees == 12.0);
   GRAPPLE_REQUIRE(roundTrippedCamera->state.lens.focalLength == 85.0);
+  const auto oldShapeCameraSnapshot = project::deserializeCanonicalProjectSnapshot(
+    "{\"projectId\":\"proj_camera\",\"name\":\"Camera Project\",\"revision\":\"rev_3\",\"revisionNumber\":3,"
+    "\"settings\":{\"defaultDuration\":null},\"assets\":[],\"graph\":{\"nodes\":["
+    "{\"id\":\"node_camera\",\"kind\":\"camera\",\"enabled\":true,\"payload\":{\"type\":\"camera\",\"payload\":{"
+    "\"name\":\"Camera\","
+    "\"transform\":{\"position\":{\"x\":0,\"y\":0},\"scale\":{\"x\":1,\"y\":1},\"rotationDegrees\":0,\"opacity\":1},"
+    "\"lens\":{\"focalLength\":35}"
+    "}}}"
+    "],\"edges\":[]}}"
+  );
+  GRAPPLE_REQUIRE(!oldShapeCameraSnapshot);
+  GRAPPLE_REQUIRE(oldShapeCameraSnapshot.error().message.find("Unexpected serialized field") != std::string::npos);
   const auto updateMissingCamera = cameraProject.apply(project::ProjectCommandEnvelope{
     foundation::CommandId{"cmd_update_missing_camera"},
     foundation::ProjectId{"proj_camera"},
