@@ -35,6 +35,11 @@ RenderedMediaKind renderedMediaKindFor(timeline::ClipKind kind) {
     : RenderedMediaKind::Video;
 }
 
+std::uint8_t opacityAdjustedAlpha(std::uint8_t alpha, double opacity) {
+  const double clampedOpacity = std::clamp(opacity, 0.0, 1.0);
+  return static_cast<std::uint8_t>(std::lround(static_cast<double>(alpha) * clampedOpacity));
+}
+
 std::vector<RenderedMediaFrame> buildMediaFrames(const runtime::RuntimeSample& sample) {
   std::vector<RenderedMediaFrame> frames;
   frames.reserve(sample.clips.size());
@@ -164,9 +169,11 @@ foundation::Result<std::optional<RenderedImage>> buildRenderedImage(
   }};
 }
 
-std::optional<RenderedImage> applyTransformToImage(
+std::optional<RenderedImage> sampleTransformedImage(
   std::optional<RenderedImage> image,
-  const foundation::Transform2D& transform
+  const foundation::Transform2D& transform,
+  foundation::Vec2 sourceOffsetPixels,
+  foundation::Vec2 destinationOffsetPixels
 ) {
   if (!image.has_value()) {
     return image;
@@ -184,9 +191,17 @@ std::optional<RenderedImage> applyTransformToImage(
     return image;
   }
 
-  const int offsetX = static_cast<int>(std::lround(transform.position.x * static_cast<double>(width)));
-  const int offsetY = static_cast<int>(std::lround(transform.position.y * static_cast<double>(height)));
-  if (offsetX == 0 && offsetY == 0 && scaleX == 1.0 && scaleY == 1.0) {
+  const double rotationRadians = transform.rotationDegrees * (std::acos(-1.0) / 180.0);
+  const double cosTheta = std::cos(rotationRadians);
+  const double sinTheta = std::sin(rotationRadians);
+  if (sourceOffsetPixels.x == 0.0 &&
+      sourceOffsetPixels.y == 0.0 &&
+      destinationOffsetPixels.x == 0.0 &&
+      destinationOffsetPixels.y == 0.0 &&
+      scaleX == 1.0 &&
+      scaleY == 1.0 &&
+      transform.rotationDegrees == 0.0 &&
+      transform.opacity == 1.0) {
     return image;
   }
 
@@ -195,8 +210,12 @@ std::optional<RenderedImage> applyTransformToImage(
   std::vector<std::uint8_t> transformed(image->rgbaPixels.size(), 0);
   for (int y = 0; y < height; ++y) {
     for (int x = 0; x < width; ++x) {
-      const int sourceX = static_cast<int>(std::lround(((static_cast<double>(x) - centerX) / scaleX) + centerX + offsetX));
-      const int sourceY = static_cast<int>(std::lround(((static_cast<double>(y) - centerY) / scaleY) + centerY + offsetY));
+      const double destinationX = static_cast<double>(x) - centerX - destinationOffsetPixels.x;
+      const double destinationY = static_cast<double>(y) - centerY - destinationOffsetPixels.y;
+      const double rotatedX = (cosTheta * destinationX) + (sinTheta * destinationY);
+      const double rotatedY = (-sinTheta * destinationX) + (cosTheta * destinationY);
+      const int sourceX = static_cast<int>(std::lround((rotatedX / scaleX) + centerX + sourceOffsetPixels.x));
+      const int sourceY = static_cast<int>(std::lround((rotatedY / scaleY) + centerY + sourceOffsetPixels.y));
       if (sourceX < 0 || sourceX >= width || sourceY < 0 || sourceY >= height) {
         continue;
       }
@@ -205,7 +224,7 @@ std::optional<RenderedImage> applyTransformToImage(
       transformed[destinationIndex] = image->rgbaPixels[sourceIndex];
       transformed[destinationIndex + 1] = image->rgbaPixels[sourceIndex + 1];
       transformed[destinationIndex + 2] = image->rgbaPixels[sourceIndex + 2];
-      transformed[destinationIndex + 3] = image->rgbaPixels[sourceIndex + 3];
+      transformed[destinationIndex + 3] = opacityAdjustedAlpha(image->rgbaPixels[sourceIndex + 3], transform.opacity);
     }
   }
 
@@ -221,7 +240,18 @@ std::optional<RenderedImage> applyMediaTransformToImage(
     return image;
   }
 
-  return applyTransformToImage(std::move(image), mediaFrames.front().transform);
+  const RenderedMediaFrame& mediaFrame = mediaFrames.front();
+  const foundation::Transform2D& transform = mediaFrame.transform;
+  const foundation::Vec2 destinationOffsetPixels{
+    transform.position.x * static_cast<double>(image->resolution.width),
+    -transform.position.y * static_cast<double>(image->resolution.height)
+  };
+  return sampleTransformedImage(
+    std::move(image),
+    transform,
+    foundation::Vec2{},
+    destinationOffsetPixels
+  );
 }
 
 std::optional<RenderedImage> applyCameraTransformToImage(
@@ -232,7 +262,17 @@ std::optional<RenderedImage> applyCameraTransformToImage(
     return image;
   }
 
-  return applyTransformToImage(std::move(image), cameras.front().transform);
+  const foundation::Transform2D& transform = cameras.front().transform;
+  const foundation::Vec2 sourceOffsetPixels{
+    transform.position.x * static_cast<double>(image->resolution.width),
+    transform.position.y * static_cast<double>(image->resolution.height)
+  };
+  return sampleTransformedImage(
+    std::move(image),
+    transform,
+    sourceOffsetPixels,
+    foundation::Vec2{}
+  );
 }
 
 foundation::Result<RenderFrameResult> renderSampleFrame(

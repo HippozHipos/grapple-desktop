@@ -112,6 +112,42 @@ public:
   }
 };
 
+class TwoRowFrameSource final : public grapple::render::IRenderFrameSource {
+public:
+  grapple::foundation::Result<grapple::render::SourceFrame> frameAt(
+    const grapple::render::SourceFrameRequest& request
+  ) override {
+    return grapple::render::SourceFrame{
+      request.assetId,
+      request.sourceTime,
+      grapple::foundation::Resolution{1, 2},
+      {
+        10, 20, 30, 255,
+        40, 50, 60, 255
+      }
+    };
+  }
+};
+
+class FourPixelFrameSource final : public grapple::render::IRenderFrameSource {
+public:
+  grapple::foundation::Result<grapple::render::SourceFrame> frameAt(
+    const grapple::render::SourceFrameRequest& request
+  ) override {
+    return grapple::render::SourceFrame{
+      request.assetId,
+      request.sourceTime,
+      grapple::foundation::Resolution{2, 2},
+      {
+        10, 20, 30, 255,
+        40, 50, 60, 255,
+        70, 80, 90, 255,
+        100, 110, 120, 255
+      }
+    };
+  }
+};
+
 class CapturingRangeSink final : public grapple::render::IRenderRangeSink {
 public:
   grapple::foundation::Result<void> writeFrame(
@@ -364,15 +400,19 @@ grapple::projection::RenderPlan makeCameraEffectRenderPlan() {
   return plan;
 }
 
-grapple::projection::RenderPlan makeClipTransformRenderPlan() {
+grapple::projection::RenderPlan makeClipTransformRenderPlan(grapple::timeline::Transform transform) {
   grapple::projection::RenderPlan plan = makeRenderPlan();
-  plan.clips[0].payload.transform = grapple::timeline::Transform{
+  plan.clips[0].payload.transform = transform;
+  return plan;
+}
+
+grapple::projection::RenderPlan makeClipTransformRenderPlan() {
+  return makeClipTransformRenderPlan(grapple::timeline::Transform{
     grapple::foundation::Vec2{0.5, 0.0},
     grapple::foundation::Vec2{1.0, 1.0},
     0.0,
     1.0
-  };
-  return plan;
+  });
 }
 
 grapple::render::ExportSettings makeExportSettings(grapple::foundation::Resolution resolution) {
@@ -548,7 +588,66 @@ int main() {
   GRAPPLE_REQUIRE(shiftedClipImageFrame.value().frame.image.has_value());
   GRAPPLE_REQUIRE(shiftedClipImageFrame.value().frame.mediaFrames.size() == 1);
   GRAPPLE_REQUIRE(shiftedClipImageFrame.value().frame.mediaFrames[0].transform.position.x == 0.5);
-  GRAPPLE_REQUIRE((shiftedClipImageFrame.value().frame.image->rgbaPixels == std::vector<std::uint8_t>{40, 50, 60, 255, 0, 0, 0, 0}));
+  GRAPPLE_REQUIRE((shiftedClipImageFrame.value().frame.image->rgbaPixels == std::vector<std::uint8_t>{0, 0, 0, 0, 10, 20, 30, 255}));
+
+  TwoRowFrameSource yShiftClipFrameSource;
+  render::LocalRenderCore yShiftClipImageCore{runtime, yShiftClipFrameSource};
+  render::PreviewRenderShell yShiftClipImagePreview{yShiftClipImageCore};
+  const auto yShiftClipImageLoad = yShiftClipImageCore.loadPlan(makeClipTransformRenderPlan(grapple::timeline::Transform{
+    grapple::foundation::Vec2{0.0, 0.5},
+    grapple::foundation::Vec2{1.0, 1.0},
+    0.0,
+    1.0
+  }));
+  GRAPPLE_REQUIRE(yShiftClipImageLoad);
+  const auto yShiftClipImageFrame = yShiftClipImagePreview.renderFrame(render::RenderFrameRequest{
+    foundation::TimeSeconds{4.0},
+    render::RenderQuality::Draft
+  });
+  GRAPPLE_REQUIRE(yShiftClipImageFrame);
+  GRAPPLE_REQUIRE(yShiftClipImageFrame.value().frame.image.has_value());
+  GRAPPLE_REQUIRE((yShiftClipImageFrame.value().frame.image->rgbaPixels == std::vector<std::uint8_t>{40, 50, 60, 255, 0, 0, 0, 0}));
+
+  TestFrameSource opacityClipFrameSource;
+  render::LocalRenderCore opacityClipImageCore{runtime, opacityClipFrameSource};
+  render::PreviewRenderShell opacityClipImagePreview{opacityClipImageCore};
+  const auto opacityClipImageLoad = opacityClipImageCore.loadPlan(makeClipTransformRenderPlan(grapple::timeline::Transform{
+    grapple::foundation::Vec2{0.0, 0.0},
+    grapple::foundation::Vec2{1.0, 1.0},
+    0.0,
+    0.5
+  }));
+  GRAPPLE_REQUIRE(opacityClipImageLoad);
+  const auto opacityClipImageFrame = opacityClipImagePreview.renderFrame(render::RenderFrameRequest{
+    foundation::TimeSeconds{4.0},
+    render::RenderQuality::Draft
+  });
+  GRAPPLE_REQUIRE(opacityClipImageFrame);
+  GRAPPLE_REQUIRE(opacityClipImageFrame.value().frame.image.has_value());
+  GRAPPLE_REQUIRE((opacityClipImageFrame.value().frame.image->rgbaPixels == std::vector<std::uint8_t>{10, 20, 30, 128, 40, 50, 60, 128}));
+
+  FourPixelFrameSource rotatedClipFrameSource;
+  render::LocalRenderCore rotatedClipImageCore{runtime, rotatedClipFrameSource};
+  render::PreviewRenderShell rotatedClipImagePreview{rotatedClipImageCore};
+  const auto rotatedClipImageLoad = rotatedClipImageCore.loadPlan(makeClipTransformRenderPlan(grapple::timeline::Transform{
+    grapple::foundation::Vec2{0.0, 0.0},
+    grapple::foundation::Vec2{1.0, 1.0},
+    180.0,
+    1.0
+  }));
+  GRAPPLE_REQUIRE(rotatedClipImageLoad);
+  const auto rotatedClipImageFrame = rotatedClipImagePreview.renderFrame(render::RenderFrameRequest{
+    foundation::TimeSeconds{4.0},
+    render::RenderQuality::Draft
+  });
+  GRAPPLE_REQUIRE(rotatedClipImageFrame);
+  GRAPPLE_REQUIRE(rotatedClipImageFrame.value().frame.image.has_value());
+  GRAPPLE_REQUIRE((rotatedClipImageFrame.value().frame.image->rgbaPixels == std::vector<std::uint8_t>{
+    100, 110, 120, 255,
+    70, 80, 90, 255,
+    40, 50, 60, 255,
+    10, 20, 30, 255
+  }));
 
   ImageShiftCameraRuntime imageShiftRuntime;
   runtime::RuntimeEvaluator imageShiftEvaluator{{&imageShiftRuntime}};
