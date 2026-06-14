@@ -7,6 +7,7 @@
 
 #include <functional>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace grapple::agent {
@@ -25,8 +26,21 @@ struct ToolCall {
 };
 
 struct ToolResult {
+  ToolResult(
+    foundation::ToolId toolIdValue,
+    ToolResultStatus statusValue,
+    foundation::RevisionId observedRevisionValue,
+    std::string payloadValue,
+    std::vector<AgentDiagnostic> diagnosticsValue
+  )
+    : toolId{std::move(toolIdValue)},
+      status{statusValue},
+      observedRevision{std::move(observedRevisionValue)},
+      payload{std::move(payloadValue)},
+      diagnostics{std::move(diagnosticsValue)} {}
+
   foundation::ToolId toolId;
-  ToolResultStatus status = ToolResultStatus::Succeeded;
+  ToolResultStatus status;
   foundation::RevisionId observedRevision;
   std::string payload;
   std::vector<AgentDiagnostic> diagnostics;
@@ -47,4 +61,3 @@ struct AgentTool {
 };
 
 } // namespace grapple::agent
-
