@@ -1,5 +1,6 @@
 #include <grapple/agent/ProjectTools.hpp>
 
+#include <grapple/agent/AgentToolRegistry.hpp>
 #include <grapple/foundation/Geometry.hpp>
 #include <grapple/foundation/Json.hpp>
 #include <grapple/foundation/Hash.hpp>
@@ -1099,6 +1100,86 @@ void writeRuntimeInspectDiagnosticsJson(
 }
 
 } // namespace
+
+foundation::Result<void> registerProjectTools(AgentToolRegistry& registry) {
+  auto registered = registry.registerTool(makeProjectInspectTool());
+  if (!registered) {
+    return registered.error();
+  }
+  registered = registry.registerTool(makeAssetListTool());
+  if (!registered) {
+    return registered.error();
+  }
+  registered = registry.registerTool(makeAssetImportTool());
+  if (!registered) {
+    return registered.error();
+  }
+  registered = registry.registerTool(makeCompositionInspectTool());
+  if (!registered) {
+    return registered.error();
+  }
+  registered = registry.registerTool(makeCameraCreateTool());
+  if (!registered) {
+    return registered.error();
+  }
+  registered = registry.registerTool(makeCameraUpdateTool());
+  if (!registered) {
+    return registered.error();
+  }
+  registered = registry.registerTool(makeTimelineCreateTrackTool());
+  if (!registered) {
+    return registered.error();
+  }
+  registered = registry.registerTool(makeTimelineCreateClipTool());
+  if (!registered) {
+    return registered.error();
+  }
+  registered = registry.registerTool(makeTimelineMoveClipTool());
+  if (!registered) {
+    return registered.error();
+  }
+  registered = registry.registerTool(makeTimelineTrimClipTool());
+  if (!registered) {
+    return registered.error();
+  }
+  registered = registry.registerTool(makeTimelineUpdateClipTransformTool());
+  if (!registered) {
+    return registered.error();
+  }
+  registered = registry.registerTool(makeEffectCreateNodeTool());
+  if (!registered) {
+    return registered.error();
+  }
+  registered = registry.registerTool(makeEffectUpdateParamValueTool());
+  if (!registered) {
+    return registered.error();
+  }
+  registered = registry.registerTool(makeEffectConnectPortsTool());
+  if (!registered) {
+    return registered.error();
+  }
+  registered = registry.registerTool(makeEffectDisconnectPortsTool());
+  if (!registered) {
+    return registered.error();
+  }
+  registered = registry.registerTool(makeRenderPlanInspectTool());
+  if (!registered) {
+    return registered.error();
+  }
+  registered = registry.registerTool(makeRuntimeInspectDiagnosticsTool());
+  if (!registered) {
+    return registered.error();
+  }
+  registered = registry.registerTool(makeNoteCreateTool());
+  if (!registered) {
+    return registered.error();
+  }
+  registered = registry.registerTool(makeNoteUpdateTool());
+  if (!registered) {
+    return registered.error();
+  }
+  return {};
+}
 
 AgentTool makeProjectInspectTool() {
   return AgentTool{
