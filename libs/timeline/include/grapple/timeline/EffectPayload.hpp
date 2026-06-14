@@ -7,6 +7,7 @@
 
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace grapple::timeline {
@@ -23,7 +24,20 @@ enum class EffectSourceKind {
 };
 
 struct EffectSource {
-  EffectSourceKind kind = EffectSourceKind::InlineSource;
+  EffectSource(
+    EffectSourceKind kindValue,
+    std::string languageValue,
+    std::string inlineSourceValue,
+    std::optional<foundation::AssetId> sourceAssetIdValue,
+    foundation::Hash256 sourceHashValue
+  )
+    : kind{kindValue},
+      language{std::move(languageValue)},
+      inlineSource{std::move(inlineSourceValue)},
+      sourceAssetId{std::move(sourceAssetIdValue)},
+      sourceHash{sourceHashValue} {}
+
+  EffectSourceKind kind;
   std::string language;
   std::string inlineSource;
   std::optional<foundation::AssetId> sourceAssetId;
@@ -40,7 +54,14 @@ struct EffectModelDependency {
 };
 
 struct EffectImplementation {
-  EffectImplementationKind kind = EffectImplementationKind::Builtin;
+  EffectImplementation(
+    EffectImplementationKind kindValue,
+    std::string entrypointValue,
+    EffectSource sourceValue
+  )
+    : kind{kindValue}, entrypoint{std::move(entrypointValue)}, source{std::move(sourceValue)} {}
+
+  EffectImplementationKind kind;
   std::string entrypoint;
   EffectSource source;
 
