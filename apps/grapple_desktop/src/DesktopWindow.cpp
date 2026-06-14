@@ -124,12 +124,7 @@ QString inspectorText(
         continue;
       }
       for (const grapple::app::AppEffectRow& effect : graph.effects) {
-        lines << QString{"Effect: %1 [%2]"}
-          .arg(qString(effect.displayName))
-          .arg(qString(effect.implementationKind));
-        if (!effect.entrypoint.empty()) {
-          lines << QString{"Entrypoint: %1"}.arg(qString(effect.entrypoint));
-        }
+        lines << QString{"Effect: %1"}.arg(qString(effect.displayName));
         lines << QString{"Range: %1 - %2"}
           .arg(timeText(effect.activeRange.start))
           .arg(timeText(effect.activeRange.end));

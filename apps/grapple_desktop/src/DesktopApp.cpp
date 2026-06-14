@@ -1008,6 +1008,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_6"} &&
            cameraHasEffect &&
            inspector.find("Camera Transform") != std::string::npos &&
+           inspector.find("[builtin]") == std::string::npos &&
+           inspector.find("Entrypoint:") == std::string::npos &&
            inspector.find("Position X (position_x)=0") != std::string::npos &&
            intentRecorded &&
            steward.find("Position X=0 [-1..1 step 0.01]") != std::string::npos &&
