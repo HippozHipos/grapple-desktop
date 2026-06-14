@@ -2145,7 +2145,6 @@ public:
 
     refreshViewModel();
     refreshPreview();
-    log_->append("Updated effect parameter");
   }
 
   void setEffectParamKeyframe(

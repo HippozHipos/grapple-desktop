@@ -869,6 +869,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     window.setEffectParamControlValue(grapple::runtime::builtin_effect::PositionXParam, 0.25);
     window.setEffectParamControlValue(grapple::runtime::builtin_effect::ZoomParam, 1.5);
     const std::string inspector = window.inspectorContents();
+    const std::string log = window.logContents();
     const auto viewModel = workspace.value().project().buildViewModel();
     if (!viewModel) {
       printError(viewModel.error());
@@ -876,9 +877,11 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     }
     std::cout << "revision=" << viewModel.value().project.revision.value() << '\n';
     std::cout << "inspector=" << inspector << '\n';
+    std::cout << "log=" << log << '\n';
     return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_7"} &&
            inspector.find("Position X (position_x)=0.25") != std::string::npos &&
-           inspector.find("Zoom (zoom)=1.5") != std::string::npos
+           inspector.find("Zoom (zoom)=1.5") != std::string::npos &&
+           log.find("Updated effect parameter") == std::string::npos
       ? 0
       : 1;
   }
