@@ -195,7 +195,7 @@ foundation::Result<CompositionCameraSummary> inspectCamera(const graph::GraphNod
     return foundation::Error{"project.camera_payload_invalid", "Camera node must carry a camera payload."};
   }
 
-  return CompositionCameraSummary{node.id, payload->name, payload->transform, payload->lens, node.enabled};
+  return CompositionCameraSummary{node.id, payload->name, payload->state, node.enabled};
 }
 
 foundation::Result<CompositionEffectSummary> inspectEffect(

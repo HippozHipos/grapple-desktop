@@ -508,7 +508,13 @@ int main() {
       foundation::NodeId{"node_camera"},
       foundation::NodeId{"node_composition"},
       foundation::EdgeId{"edge_contains_camera"},
-      timeline::CameraPayload{"Camera", timeline::Transform2D{}, timeline::CameraLens{35.0}}
+      timeline::CameraPayload{
+        "Camera",
+        timeline::CameraState{
+          timeline::Transform2D{},
+          timeline::CameraLens{35.0}
+        }
+      }
     }
   });
   GRAPPLE_REQUIRE(camera);
@@ -1156,7 +1162,7 @@ int main() {
   GRAPPLE_REQUIRE(inspectCompositionResult.value().payload.find("\"playbackRate\":1") != std::string::npos);
   GRAPPLE_REQUIRE(inspectCompositionResult.value().payload.find("\"transform\":{\"position\":{\"x\":0,\"y\":0},\"scale\":{\"x\":1,\"y\":1},\"rotationDegrees\":0,\"opacity\":1}") != std::string::npos);
   GRAPPLE_REQUIRE(inspectCompositionResult.value().payload.find("\"cameras\":[{\"nodeId\":\"node_camera\"") != std::string::npos);
-  GRAPPLE_REQUIRE(inspectCompositionResult.value().payload.find("\"lens\":{\"focalLength\":35}") != std::string::npos);
+  GRAPPLE_REQUIRE(inspectCompositionResult.value().payload.find("\"state\":{\"transform\":{\"position\":{\"x\":0,\"y\":0},\"scale\":{\"x\":1,\"y\":1},\"rotationDegrees\":0,\"opacity\":1},\"lens\":{\"focalLength\":35}}") != std::string::npos);
   GRAPPLE_REQUIRE(inspectCompositionResult.value().payload.find("\"effects\":[{\"nodeId\":\"node_agent_effect_1\"") != std::string::npos);
   GRAPPLE_REQUIRE(inspectCompositionResult.value().payload.find("\"targetNodeId\":\"node_camera\"") != std::string::npos);
   GRAPPLE_REQUIRE(inspectCompositionResult.value().payload.find("\"commandId\"") == std::string::npos);
@@ -1303,7 +1309,7 @@ int main() {
   const auto* createdCameraPayload = std::get_if<timeline::CameraPayload>(&createdCameraNode->payload);
   GRAPPLE_REQUIRE(createdCameraPayload != nullptr);
   GRAPPLE_REQUIRE(createdCameraPayload->name == "Agent Camera");
-  GRAPPLE_REQUIRE(createdCameraPayload->lens.focalLength == 50.0);
+  GRAPPLE_REQUIRE(createdCameraPayload->state.lens.focalLength == 50.0);
 
   const graph::GraphEdge* createdCameraEdge = nullptr;
   for (const graph::GraphEdge& edge : afterCreateCameraSnapshot.value().graph.edges()) {
@@ -1345,8 +1351,8 @@ int main() {
   const auto* updatedCameraPayload = std::get_if<timeline::CameraPayload>(&updatedCameraNode->payload);
   GRAPPLE_REQUIRE(updatedCameraPayload != nullptr);
   GRAPPLE_REQUIRE(updatedCameraPayload->name == "Renamed Agent Camera");
-  GRAPPLE_REQUIRE(updatedCameraPayload->lens.focalLength == 85.0);
-  GRAPPLE_REQUIRE(updatedCameraPayload->transform == createdCameraPayload->transform);
+  GRAPPLE_REQUIRE(updatedCameraPayload->state.lens.focalLength == 85.0);
+  GRAPPLE_REQUIRE(updatedCameraPayload->state.transform == createdCameraPayload->state.transform);
   GRAPPLE_REQUIRE(cameraCommands.applyCount() == 2);
   GRAPPLE_REQUIRE(cameraQueries.snapshotQueryCount() == 1);
 
@@ -1372,7 +1378,13 @@ int main() {
       foundation::NodeId{"node_effect_delete_camera"},
       foundation::NodeId{"node_effect_delete_composition"},
       foundation::EdgeId{"edge_effect_delete_contains_camera"},
-      timeline::CameraPayload{"Effect Delete Camera", timeline::Transform2D{}, timeline::CameraLens{35.0}}
+      timeline::CameraPayload{
+        "Effect Delete Camera",
+        timeline::CameraState{
+          timeline::Transform2D{},
+          timeline::CameraLens{35.0}
+        }
+      }
     }
   });
   GRAPPLE_REQUIRE(effectDeleteCamera);
@@ -1483,7 +1495,13 @@ int main() {
       foundation::NodeId{"node_effect_keyframe_camera"},
       foundation::NodeId{"node_effect_keyframe_composition"},
       foundation::EdgeId{"edge_effect_keyframe_contains_camera"},
-      timeline::CameraPayload{"Effect Keyframe Camera", timeline::Transform2D{}, timeline::CameraLens{35.0}}
+      timeline::CameraPayload{
+        "Effect Keyframe Camera",
+        timeline::CameraState{
+          timeline::Transform2D{},
+          timeline::CameraLens{35.0}
+        }
+      }
     }
   });
   GRAPPLE_REQUIRE(effectKeyframeCamera);

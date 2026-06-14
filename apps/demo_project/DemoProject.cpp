@@ -145,8 +145,10 @@ foundation::Result<void> populateStarterDemo(
       writer.nextEdgeId("contains_camera"),
       timeline::CameraPayload{
         "Camera",
-        timeline::Transform2D{},
-        timeline::CameraLens{35.0}
+        timeline::CameraState{
+          timeline::Transform2D{},
+          timeline::CameraLens{35.0}
+        }
       }
     },
     userSource(),

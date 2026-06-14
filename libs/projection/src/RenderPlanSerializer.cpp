@@ -193,11 +193,11 @@ std::string serializeCanonicalRenderPlan(const RenderPlan& plan) {
     foundation::writeJsonStringProperty(stream, "sourceNodeId", camera.sourceNodeId.value());
     stream << ',';
     foundation::writeJsonStringProperty(stream, "name", camera.name);
-    stream << ",\"transform\":";
-    stream << timeline::serializeCanonicalTransform(camera.transform);
+    stream << ",\"state\":{\"transform\":";
+    stream << timeline::serializeCanonicalTransform(camera.state.transform);
     stream << ",\"lens\":{\"focalLength\":";
-    writeNumber(stream, camera.lens.focalLength);
-    stream << "}}";
+    writeNumber(stream, camera.state.lens.focalLength);
+    stream << "}}}";
   }
   stream << "],\"effectGraphs\":[";
   for (std::size_t graphIndex = 0; graphIndex < effectGraphs.size(); ++graphIndex) {

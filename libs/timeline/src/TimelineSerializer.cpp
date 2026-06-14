@@ -263,10 +263,10 @@ std::string serializeCanonicalCameraPayload(const CameraPayload& payload) {
   std::ostringstream stream;
   stream << '{';
   foundation::writeJsonStringProperty(stream, "name", payload.name);
-  stream << ",\"transform\":" << serializeCanonicalTransform(payload.transform);
+  stream << ",\"state\":{\"transform\":" << serializeCanonicalTransform(payload.state.transform);
   stream << ",\"lens\":{\"focalLength\":";
-  writeNumber(stream, payload.lens.focalLength);
-  stream << "}}";
+  writeNumber(stream, payload.state.lens.focalLength);
+  stream << "}}}";
   return stream.str();
 }
 

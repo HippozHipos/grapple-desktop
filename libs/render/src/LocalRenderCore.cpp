@@ -109,7 +109,7 @@ void applyCameraTransformOutputs(
       bool matchedCamera = false;
       for (runtime::ResolvedCamera& camera : sample.cameras) {
         if (camera.sourceNodeId == output.targetNodeId) {
-          camera.transform = *transform;
+          camera.state.transform = *transform;
           matchedCamera = true;
         }
       }
@@ -136,8 +136,7 @@ std::vector<RenderedCamera> buildRenderedCameras(const runtime::RuntimeSample& s
   for (const runtime::ResolvedCamera& camera : sample.cameras) {
     cameras.push_back(RenderedCamera{
       camera.sourceNodeId,
-      camera.transform,
-      camera.lens
+      camera.state
     });
   }
 
@@ -262,7 +261,7 @@ std::optional<RenderedImage> applyCameraTransformToImage(
     return image;
   }
 
-  const foundation::Transform2D& transform = cameras.front().transform;
+  const foundation::Transform2D& transform = cameras.front().state.transform;
   const foundation::Vec2 sourceOffsetPixels{
     transform.position.x * static_cast<double>(image->resolution.width),
     transform.position.y * static_cast<double>(image->resolution.height)

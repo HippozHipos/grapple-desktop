@@ -285,13 +285,15 @@ int main() {
     graph::NodeKind::Camera,
     timeline::CameraPayload{
       "Camera",
-      timeline::Transform2D{
-        foundation::Vec2{1.0, 2.0},
-        foundation::Vec2{1.5, 1.5},
-        12.0,
-        0.7
-      },
-      timeline::CameraLens{85.0}
+      timeline::CameraState{
+        timeline::Transform2D{
+          foundation::Vec2{1.0, 2.0},
+          foundation::Vec2{1.5, 1.5},
+          12.0,
+          0.7
+        },
+        timeline::CameraLens{85.0}
+      }
     },
     true
   }));

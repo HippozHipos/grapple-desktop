@@ -175,16 +175,16 @@ void CompositionViewport::drawCamera(QPainter& painter, const app::AppCameraRow&
 
 timeline::Transform2D CompositionViewport::evaluatedCameraTransform(const app::AppCameraRow& camera) const {
   if (!frame_.has_value() || frame_->time != playhead_) {
-    return camera.transform;
+    return camera.state.transform;
   }
 
   for (const render::RenderedCamera& renderedCamera : frame_->cameras) {
     if (renderedCamera.cameraNodeId == camera.sourceNodeId) {
-      return renderedCamera.transform;
+      return renderedCamera.state.transform;
     }
   }
 
-  return camera.transform;
+  return camera.state.transform;
 }
 
 QRectF CompositionViewport::worldRect(

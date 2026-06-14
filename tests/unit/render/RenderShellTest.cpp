@@ -819,9 +819,9 @@ int main() {
   GRAPPLE_REQUIRE(cameraFrame.value().frame.description == "layers=1 clips=1 audioClips=1 cameras=1 effects=1");
   GRAPPLE_REQUIRE(cameraFrame.value().frame.cameras.size() == 1);
   GRAPPLE_REQUIRE(cameraFrame.value().frame.cameras[0].cameraNodeId == foundation::NodeId{"node_camera"});
-  GRAPPLE_REQUIRE(cameraFrame.value().frame.cameras[0].transform.position.x == 2.5);
-  GRAPPLE_REQUIRE(cameraFrame.value().frame.cameras[0].transform.position.y == 5.0);
-  GRAPPLE_REQUIRE(cameraFrame.value().frame.cameras[0].transform.rotationDegrees == 25.0);
+  GRAPPLE_REQUIRE(cameraFrame.value().frame.cameras[0].state.transform.position.x == 2.5);
+  GRAPPLE_REQUIRE(cameraFrame.value().frame.cameras[0].state.transform.position.y == 5.0);
+  GRAPPLE_REQUIRE(cameraFrame.value().frame.cameras[0].state.transform.rotationDegrees == 25.0);
   GRAPPLE_REQUIRE(cameraFrame.value().runtimeDiagnostics.empty());
   GRAPPLE_REQUIRE(cameraRuntime.processCount == 1);
   const auto cameraFinalResult = cameraFinal.render(render::FinalRenderRequest{

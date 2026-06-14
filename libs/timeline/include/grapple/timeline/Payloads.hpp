@@ -70,10 +70,16 @@ struct CameraLens {
   friend bool operator==(const CameraLens&, const CameraLens&) = default;
 };
 
-struct CameraPayload {
-  std::string name;
+struct CameraState {
   Transform2D transform;
   CameraLens lens;
+
+  friend bool operator==(const CameraState&, const CameraState&) = default;
+};
+
+struct CameraPayload {
+  std::string name;
+  CameraState state;
 
   friend bool operator==(const CameraPayload&, const CameraPayload&) = default;
 };

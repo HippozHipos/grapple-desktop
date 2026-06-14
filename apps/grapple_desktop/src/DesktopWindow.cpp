@@ -190,7 +190,7 @@ QString inspectorText(
     if (camera.sourceNodeId == selectedNodeId.value()) {
       return QString{"Inspector\nCamera\nName: %1\nFocal Length: %2\n\n%3"}
         .arg(qString(camera.name))
-        .arg(camera.lens.focalLength, 0, 'f', 1)
+        .arg(camera.state.lens.focalLength, 0, 'f', 1)
         .arg(attachedEffectsText(camera.sourceNodeId));
     }
   }
@@ -1060,8 +1060,10 @@ public:
         workspace_.commandWriter().nextEdgeId("contains_camera"),
         grapple::timeline::CameraPayload{
           "Camera " + std::to_string(cameraNumber),
-          grapple::timeline::Transform2D{},
-          grapple::timeline::CameraLens{35.0}
+          grapple::timeline::CameraState{
+            grapple::timeline::Transform2D{},
+            grapple::timeline::CameraLens{35.0}
+          }
         }
       },
       userSource()
@@ -1090,8 +1092,7 @@ public:
         selectedCamera.value().sourceNodeId,
         grapple::timeline::CameraPayload{
           std::move(name),
-          selectedCamera.value().transform,
-          selectedCamera.value().lens
+          selectedCamera.value().state
         }
       },
       userSource()
@@ -1119,8 +1120,10 @@ public:
         selectedCamera.value().sourceNodeId,
         grapple::timeline::CameraPayload{
           selectedCamera.value().name,
-          selectedCamera.value().transform,
-          grapple::timeline::CameraLens{focalLength}
+          grapple::timeline::CameraState{
+            selectedCamera.value().state.transform,
+            grapple::timeline::CameraLens{focalLength}
+          }
         }
       },
       userSource()
@@ -1164,8 +1167,10 @@ public:
         cameraNodeId,
         grapple::timeline::CameraPayload{
           std::move(name),
-          selectedCamera->transform,
-          grapple::timeline::CameraLens{focalLength}
+          grapple::timeline::CameraState{
+            selectedCamera->state.transform,
+            grapple::timeline::CameraLens{focalLength}
+          }
         }
       },
       userSource()
@@ -1217,7 +1222,7 @@ public:
       this,
       "Set Camera Focal Length",
       "Focal length",
-      selectedCamera.value().lens.focalLength,
+      selectedCamera.value().state.lens.focalLength,
       1.0,
       1000.0,
       1,
@@ -1494,8 +1499,10 @@ public:
           workspace_.commandWriter().nextEdgeId("contains_camera"),
           grapple::timeline::CameraPayload{
             "Camera",
-            grapple::timeline::Transform2D{},
-            grapple::timeline::CameraLens{35.0}
+            grapple::timeline::CameraState{
+              grapple::timeline::Transform2D{},
+              grapple::timeline::CameraLens{35.0}
+            }
           }
         },
         userSource()

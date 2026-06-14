@@ -779,7 +779,13 @@ int main() {
       effectCameraNodeId,
       effectCompositionNodeId,
       effectWriter.nextEdgeId("contains camera"),
-      timeline::CameraPayload{"Camera", effectCameraTransform, timeline::CameraLens{35.0}}
+      timeline::CameraPayload{
+        "Camera",
+        timeline::CameraState{
+          effectCameraTransform,
+          timeline::CameraLens{35.0}
+        }
+      }
     },
     userSource()
   );
@@ -838,7 +844,7 @@ int main() {
   GRAPPLE_REQUIRE(effectViewModel);
   GRAPPLE_REQUIRE(effectViewModel.value().timeline.cameras.size() == 1);
   GRAPPLE_REQUIRE(effectViewModel.value().timeline.cameras[0].sourceNodeId == effectCameraNodeId);
-  GRAPPLE_REQUIRE(effectViewModel.value().timeline.cameras[0].transform == effectCameraTransform);
+  GRAPPLE_REQUIRE(effectViewModel.value().timeline.cameras[0].state.transform == effectCameraTransform);
   GRAPPLE_REQUIRE(effectViewModel.value().timeline.effectGraphs.size() == 1);
   GRAPPLE_REQUIRE(effectViewModel.value().timeline.effectCount == 1);
   GRAPPLE_REQUIRE(effectViewModel.value().timeline.effectGraphs[0].targetNodeId == effectCameraNodeId);
@@ -984,7 +990,13 @@ int main() {
       runtimeCameraNodeId,
       runtimeCompositionNodeId,
       runtimeWorkspace.value().commandWriter().nextEdgeId("contains camera"),
-      timeline::CameraPayload{"Camera", timeline::Transform2D{}, timeline::CameraLens{35.0}}
+      timeline::CameraPayload{
+        "Camera",
+        timeline::CameraState{
+          timeline::Transform2D{},
+          timeline::CameraLens{35.0}
+        }
+      }
     },
     userSource()
   );
@@ -1050,10 +1062,10 @@ int main() {
   GRAPPLE_REQUIRE(initialRuntimeFrame.value().runtimeDiagnostics.empty());
   GRAPPLE_REQUIRE(initialRuntimeFrame.value().frame.cameras.size() == 1);
   GRAPPLE_REQUIRE(initialRuntimeFrame.value().frame.cameras[0].cameraNodeId == runtimeCameraNodeId);
-  GRAPPLE_REQUIRE(initialRuntimeFrame.value().frame.cameras[0].transform.position.x == 0.15);
-  GRAPPLE_REQUIRE(initialRuntimeFrame.value().frame.cameras[0].transform.position.y == 0.0);
-  GRAPPLE_REQUIRE(initialRuntimeFrame.value().frame.cameras[0].transform.scale.x == 1.1);
-  GRAPPLE_REQUIRE(initialRuntimeFrame.value().frame.cameras[0].transform.scale.y == 1.1);
+  GRAPPLE_REQUIRE(initialRuntimeFrame.value().frame.cameras[0].state.transform.position.x == 0.15);
+  GRAPPLE_REQUIRE(initialRuntimeFrame.value().frame.cameras[0].state.transform.position.y == 0.0);
+  GRAPPLE_REQUIRE(initialRuntimeFrame.value().frame.cameras[0].state.transform.scale.x == 1.1);
+  GRAPPLE_REQUIRE(initialRuntimeFrame.value().frame.cameras[0].state.transform.scale.y == 1.1);
   const auto updatedRuntimeEffect = runtimeWorkspace.value().effects().setParamValue(
     runtimeEffectNodeId,
     runtime::builtin_effect::PositionXParam,
@@ -1125,10 +1137,10 @@ int main() {
   GRAPPLE_REQUIRE(runtimeFrame.value().runtimeDiagnostics.empty());
   GRAPPLE_REQUIRE(runtimeFrame.value().frame.cameras.size() == 1);
   GRAPPLE_REQUIRE(runtimeFrame.value().frame.cameras[0].cameraNodeId == runtimeCameraNodeId);
-  GRAPPLE_REQUIRE(runtimeFrame.value().frame.cameras[0].transform.position.x == 0.25);
-  GRAPPLE_REQUIRE(runtimeFrame.value().frame.cameras[0].transform.position.y == 0.0);
-  GRAPPLE_REQUIRE(runtimeFrame.value().frame.cameras[0].transform.scale.x == 1.5);
-  GRAPPLE_REQUIRE(runtimeFrame.value().frame.cameras[0].transform.scale.y == 1.5);
+  GRAPPLE_REQUIRE(runtimeFrame.value().frame.cameras[0].state.transform.position.x == 0.25);
+  GRAPPLE_REQUIRE(runtimeFrame.value().frame.cameras[0].state.transform.position.y == 0.0);
+  GRAPPLE_REQUIRE(runtimeFrame.value().frame.cameras[0].state.transform.scale.x == 1.5);
+  GRAPPLE_REQUIRE(runtimeFrame.value().frame.cameras[0].state.transform.scale.y == 1.5);
   const auto runtimeExportPrepare = runtimeWorkspace.value().exportSession().prepareFromProject();
   GRAPPLE_REQUIRE(runtimeExportPrepare);
   const auto runtimeExport = runtimeWorkspace.value().exportSession().render(render::ExportSettings{
@@ -1440,7 +1452,13 @@ int main() {
       stewardCameraNodeId,
       stewardCompositionNodeId,
       stewardWorkspace.value().commandWriter().nextEdgeId("contains camera"),
-      timeline::CameraPayload{"Camera", timeline::Transform2D{}, timeline::CameraLens{35.0}}
+      timeline::CameraPayload{
+        "Camera",
+        timeline::CameraState{
+          timeline::Transform2D{},
+          timeline::CameraLens{35.0}
+        }
+      }
     },
     userSource()
   );
@@ -1483,7 +1501,13 @@ int main() {
       reopenedSecondCameraNodeId,
       stewardCompositionNodeId,
       reopenedStewardWorkspace.value().commandWriter().nextEdgeId("contains camera"),
-      timeline::CameraPayload{"Second Camera", timeline::Transform2D{}, timeline::CameraLens{35.0}}
+      timeline::CameraPayload{
+        "Second Camera",
+        timeline::CameraState{
+          timeline::Transform2D{},
+          timeline::CameraLens{35.0}
+        }
+      }
     },
     userSource()
   );

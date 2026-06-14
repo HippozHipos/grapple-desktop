@@ -49,8 +49,7 @@ struct CompositionTrackSummary {
 struct CompositionCameraSummary {
   foundation::NodeId nodeId;
   std::string name;
-  timeline::Transform2D transform;
-  timeline::CameraLens lens;
+  timeline::CameraState state;
   bool enabled = true;
 };
 

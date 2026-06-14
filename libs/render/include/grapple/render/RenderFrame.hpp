@@ -47,8 +47,7 @@ struct RenderedImage {
 
 struct RenderedCamera {
   foundation::NodeId cameraNodeId;
-  timeline::Transform2D transform;
-  timeline::CameraLens lens;
+  timeline::CameraState state;
 };
 
 struct SourceFrameRequest {

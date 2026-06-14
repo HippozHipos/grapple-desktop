@@ -86,8 +86,7 @@ struct AppClipRow {
 struct AppCameraRow {
   foundation::NodeId sourceNodeId;
   std::string name;
-  foundation::Transform2D transform;
-  timeline::CameraLens lens;
+  timeline::CameraState state;
 };
 
 struct AppEffectParamRow {

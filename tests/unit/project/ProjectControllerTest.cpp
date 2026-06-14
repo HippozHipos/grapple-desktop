@@ -948,8 +948,10 @@ int main() {
       foundation::EdgeId{"edge_camera_contains_camera"},
       timeline::CameraPayload{
         "Camera",
-        timeline::Transform2D{},
-        timeline::CameraLens{35.0}
+        timeline::CameraState{
+          timeline::Transform2D{},
+          timeline::CameraLens{35.0}
+        }
       }
     }
   });
@@ -963,13 +965,15 @@ int main() {
       foundation::NodeId{"node_camera"},
       timeline::CameraPayload{
         "Updated Camera",
-        timeline::Transform2D{
-          foundation::Vec2{1.0, 2.0},
-          foundation::Vec2{1.5, 1.5},
-          12.0,
-          0.8
-        },
-        timeline::CameraLens{85.0}
+        timeline::CameraState{
+          timeline::Transform2D{
+            foundation::Vec2{1.0, 2.0},
+            foundation::Vec2{1.5, 1.5},
+            12.0,
+            0.8
+          },
+          timeline::CameraLens{85.0}
+        }
       }
     }
   };
@@ -986,7 +990,7 @@ int main() {
   const auto* updatedCameraPayload = std::get_if<timeline::CameraPayload>(&updatedCameraNode->payload);
   GRAPPLE_REQUIRE(updatedCameraPayload != nullptr);
   GRAPPLE_REQUIRE(updatedCameraPayload->name == "Updated Camera");
-  GRAPPLE_REQUIRE(updatedCameraPayload->lens.focalLength == 85.0);
+  GRAPPLE_REQUIRE(updatedCameraPayload->state.lens.focalLength == 85.0);
   const auto cameraSnapshotRoundTrip = project::deserializeCanonicalProjectSnapshot(
     project::serializeCanonicalProjectSnapshot(afterCameraUpdate.value())
   );
@@ -1000,8 +1004,8 @@ int main() {
   const auto* roundTrippedCamera = std::get_if<timeline::CameraPayload>(&roundTrippedCameraNode->payload);
   GRAPPLE_REQUIRE(roundTrippedCamera != nullptr);
   GRAPPLE_REQUIRE(roundTrippedCamera->name == "Updated Camera");
-  GRAPPLE_REQUIRE(roundTrippedCamera->transform.rotationDegrees == 12.0);
-  GRAPPLE_REQUIRE(roundTrippedCamera->lens.focalLength == 85.0);
+  GRAPPLE_REQUIRE(roundTrippedCamera->state.transform.rotationDegrees == 12.0);
+  GRAPPLE_REQUIRE(roundTrippedCamera->state.lens.focalLength == 85.0);
   const auto updateMissingCamera = cameraProject.apply(project::ProjectCommandEnvelope{
     foundation::CommandId{"cmd_update_missing_camera"},
     foundation::ProjectId{"proj_camera"},

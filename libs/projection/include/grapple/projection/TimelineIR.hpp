@@ -47,8 +47,7 @@ struct TimelineAudioClip {
 struct TimelineCamera {
   foundation::NodeId sourceNodeId;
   std::string name;
-  timeline::Transform2D transform;
-  timeline::CameraLens lens;
+  timeline::CameraState state;
 };
 
 struct TimelineEffectNode {

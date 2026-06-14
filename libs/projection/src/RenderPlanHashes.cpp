@@ -42,8 +42,7 @@ foundation::Hash256 hashRenderCameraParams(const RenderCamera& camera) {
   stream << "camera|" << camera.sourceNodeId.value() << '|'
          << timeline::serializeCanonicalCameraPayload(timeline::CameraPayload{
               camera.name,
-              camera.transform,
-              camera.lens
+              camera.state
             });
   return foundation::stableHash(stream.str());
 }

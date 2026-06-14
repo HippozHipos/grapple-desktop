@@ -43,7 +43,7 @@ foundation::Result<BuildRenderPlanResult> RenderPlanBuilder::buildRenderPlan(
   }
 
   for (const TimelineCamera& camera : request.timeline.cameras) {
-    plan.cameras.push_back(RenderCamera{camera.sourceNodeId, camera.name, camera.transform, camera.lens});
+    plan.cameras.push_back(RenderCamera{camera.sourceNodeId, camera.name, camera.state});
   }
 
   for (const TimelineEffectGraph& effectGraph : request.timeline.effectGraphs) {

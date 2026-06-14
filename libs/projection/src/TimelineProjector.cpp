@@ -153,7 +153,7 @@ foundation::Result<BuildTimelineIRResult> TimelineProjector::buildTimelineIR(
         return foundation::Error{"projection.camera_payload_invalid", "Camera node must carry a camera payload."};
       }
 
-      timeline.cameras.push_back(TimelineCamera{node.id, payload->name, payload->transform, payload->lens});
+      timeline.cameras.push_back(TimelineCamera{node.id, payload->name, payload->state});
     }
 
     if (node.kind == graph::NodeKind::Effect) {

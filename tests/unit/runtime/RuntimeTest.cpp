@@ -283,7 +283,7 @@ grapple::projection::RenderPlan makeKeyframedBuiltinCameraTransformPlan() {
 
 grapple::projection::RenderPlan makeEffectPlanWithCameraX(double cameraX) {
   grapple::projection::RenderPlan plan = makeEffectPlan("def prepare(): pass");
-  plan.cameras[0].transform.position.x = cameraX;
+  plan.cameras[0].state.transform.position.x = cameraX;
   return plan;
 }
 

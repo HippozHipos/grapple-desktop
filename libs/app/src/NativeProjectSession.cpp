@@ -386,8 +386,7 @@ foundation::Result<AppViewModel> NativeProjectSession::buildViewModel() const {
     viewModel.timeline.cameras.push_back(AppCameraRow{
       camera.sourceNodeId,
       camera.name,
-      camera.transform,
-      camera.lens
+      camera.state
     });
   }
 

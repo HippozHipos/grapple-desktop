@@ -93,7 +93,7 @@ void CameraPropertyPanel::setSelection(
   focalLength_->setDecimals(1);
   focalLength_->setSingleStep(1.0);
   focalLength_->setKeyboardTracking(false);
-  focalLength_->setValue(camera->lens.focalLength);
+  focalLength_->setValue(camera->state.lens.focalLength);
   connect(focalLength_, &QDoubleSpinBox::editingFinished, this, [this] { emitCurrentCamera(); });
   focalLengthLayout->addWidget(focalLengthLabel);
   focalLengthLayout->addWidget(focalLength_, 1);

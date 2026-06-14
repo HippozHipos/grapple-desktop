@@ -665,11 +665,11 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     const std::string inspector = window.inspectorContents();
     std::cout << "revision=" << viewModel.value().project.revision.value() << '\n';
     std::cout << "cameraName=" << viewModel.value().timeline.cameras.front().name << '\n';
-    std::cout << "focalLength=" << viewModel.value().timeline.cameras.front().lens.focalLength << '\n';
+    std::cout << "focalLength=" << viewModel.value().timeline.cameras.front().state.lens.focalLength << '\n';
     std::cout << "inspector=" << inspector << '\n';
     return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_7"} &&
            viewModel.value().timeline.cameras.front().name == "Renamed Camera" &&
-           viewModel.value().timeline.cameras.front().lens.focalLength == 85.0 &&
+           viewModel.value().timeline.cameras.front().state.lens.focalLength == 85.0 &&
            inspector.find("Inspector\nCamera\nName: Renamed Camera") != std::string::npos &&
            inspector.find("Focal Length: 85.0") != std::string::npos
       ? 0

@@ -125,8 +125,10 @@ int main() {
 
   const timeline::CameraPayload cameraPayload{
     "Camera",
-    timeline::Transform2D{},
-    timeline::CameraLens{35.0}
+    timeline::CameraState{
+      timeline::Transform2D{},
+      timeline::CameraLens{35.0}
+    }
   };
   const auto createCamera = controller.apply(project::ProjectCommandEnvelope{
     foundation::CommandId{"cmd_camera"},
@@ -216,7 +218,7 @@ int main() {
   GRAPPLE_REQUIRE(timelineResult.value().timeline.clips[0].payload.assetId == foundation::AssetId{"asset_walking_woman"});
   GRAPPLE_REQUIRE(timelineResult.value().timeline.cameras.size() == 1);
   GRAPPLE_REQUIRE(timelineResult.value().timeline.cameras[0].sourceNodeId == foundation::NodeId{"node_camera"});
-  GRAPPLE_REQUIRE(timelineResult.value().timeline.cameras[0].lens.focalLength == 35.0);
+  GRAPPLE_REQUIRE(timelineResult.value().timeline.cameras[0].state.lens.focalLength == 35.0);
   GRAPPLE_REQUIRE(timelineResult.value().timeline.effectGraphs.size() == 1);
   GRAPPLE_REQUIRE(timelineResult.value().timeline.effectGraphs[0].targetNodeId == foundation::NodeId{"node_camera"});
   GRAPPLE_REQUIRE(timelineResult.value().timeline.effectGraphs[0].nodes.size() == 1);
@@ -425,8 +427,7 @@ int main() {
   orderedPlan.cameras.push_back(projection::RenderCamera{
     foundation::NodeId{"node_alpha_camera"},
     "Alpha Camera",
-    cameraPayload.transform,
-    cameraPayload.lens
+    cameraPayload.state
   });
   orderedPlan.effectGraphs.push_back(projection::RenderEffectGraph{
     foundation::GraphId{"effect_graph_node_alpha_camera"},

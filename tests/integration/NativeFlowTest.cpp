@@ -202,8 +202,10 @@ int main() {
       foundation::EdgeId{"edge_contains_camera"},
       timeline::CameraPayload{
         "Camera",
-        timeline::Transform2D{},
-        timeline::CameraLens{35.0}
+        timeline::CameraState{
+          timeline::Transform2D{},
+          timeline::CameraLens{35.0}
+        }
       }
     }
   });

@@ -1131,11 +1131,11 @@ void writeCompositionCameraJson(std::ostream& stream, const project::Composition
   stream << '{'
          << "\"nodeId\":" << foundation::jsonQuoted(camera.nodeId.value())
          << ",\"name\":" << foundation::jsonQuoted(camera.name)
-         << ",\"transform\":";
-  writeTransformJson(stream, camera.transform);
+         << ",\"state\":{\"transform\":";
+  writeTransformJson(stream, camera.state.transform);
   stream << ",\"lens\":{\"focalLength\":";
-  writeNumber(stream, camera.lens.focalLength);
-  stream << "},\"enabled\":" << (camera.enabled ? "true" : "false")
+  writeNumber(stream, camera.state.lens.focalLength);
+  stream << "}},\"enabled\":" << (camera.enabled ? "true" : "false")
          << '}';
 }
 
@@ -1862,8 +1862,10 @@ AgentTool makeCameraCreateTool() {
           containmentEdgeId,
           timeline::CameraPayload{
             name.value(),
-            timeline::Transform2D{},
-            timeline::CameraLens{focalLength.value()}
+            timeline::CameraState{
+              timeline::Transform2D{},
+              timeline::CameraLens{focalLength.value()}
+            }
           },
           0
         }
@@ -1945,8 +1947,10 @@ AgentTool makeCameraUpdateTool() {
           cameraId,
           timeline::CameraPayload{
             name.value(),
-            currentPayload->transform,
-            timeline::CameraLens{focalLength.value()}
+            timeline::CameraState{
+              currentPayload->state.transform,
+              timeline::CameraLens{focalLength.value()}
+            }
           }
         }
       });

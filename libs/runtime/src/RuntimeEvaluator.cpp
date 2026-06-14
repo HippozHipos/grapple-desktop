@@ -182,8 +182,7 @@ foundation::Result<RuntimeSampleResult> RuntimeEvaluator::sample(
     sample.cameras.push_back(ResolvedCamera{
       camera.sourceNodeId,
       camera.name,
-      camera.transform,
-      camera.lens
+      camera.state
     });
   }
 

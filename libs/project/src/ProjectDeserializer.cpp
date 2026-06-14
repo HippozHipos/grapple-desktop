@@ -849,7 +849,7 @@ foundation::Result<timeline::ClipPayload> parseClipPayload(const Json::Value& ob
 }
 
 foundation::Result<timeline::CameraPayload> parseCameraPayload(const Json::Value& object, const std::string& path) {
-  auto members = requireOnlyMembers(object, {"name", "transform", "lens"}, path);
+  auto members = requireOnlyMembers(object, {"name", "state"}, path);
   if (!members) {
     return members.error();
   }
@@ -857,27 +857,41 @@ foundation::Result<timeline::CameraPayload> parseCameraPayload(const Json::Value
   if (!name) {
     return name.error();
   }
-  auto transformObject = requiredObjectMember(object, "transform", path);
+  auto stateObject = requiredObjectMember(object, "state", path);
+  if (!stateObject) {
+    return stateObject.error();
+  }
+  auto stateMembers = requireOnlyMembers(stateObject.value(), {"transform", "lens"}, path + ".state");
+  if (!stateMembers) {
+    return stateMembers.error();
+  }
+  auto transformObject = requiredObjectMember(stateObject.value(), "transform", path + ".state");
   if (!transformObject) {
     return transformObject.error();
   }
-  auto transform = parseTransform(transformObject.value(), path + ".transform");
+  auto transform = parseTransform(transformObject.value(), path + ".state.transform");
   if (!transform) {
     return transform.error();
   }
-  auto lensObject = requiredObjectMember(object, "lens", path);
+  auto lensObject = requiredObjectMember(stateObject.value(), "lens", path + ".state");
   if (!lensObject) {
     return lensObject.error();
   }
-  auto lensMembers = requireOnlyMembers(lensObject.value(), {"focalLength"}, path + ".lens");
+  auto lensMembers = requireOnlyMembers(lensObject.value(), {"focalLength"}, path + ".state.lens");
   if (!lensMembers) {
     return lensMembers.error();
   }
-  auto focalLength = requiredDoubleMember(lensObject.value(), "focalLength", path + ".lens");
+  auto focalLength = requiredDoubleMember(lensObject.value(), "focalLength", path + ".state.lens");
   if (!focalLength) {
     return focalLength.error();
   }
-  return timeline::CameraPayload{name.value(), transform.value(), timeline::CameraLens{focalLength.value()}};
+  return timeline::CameraPayload{
+    name.value(),
+    timeline::CameraState{
+      transform.value(),
+      timeline::CameraLens{focalLength.value()}
+    }
+  };
 }
 
 foundation::Result<timeline::EffectPayload> parseEffectPayload(const Json::Value& object, const std::string& path) {
