@@ -198,7 +198,7 @@ void StewardPanel::setViewModel(
   } else {
     for (auto run = conversationState.runs.rbegin(); run != conversationState.runs.rend(); ++run) {
       lines << QString{"- %1 [%2]"}
-        .arg(qString(run->title.empty() ? run->runId.value() : run->title))
+        .arg(qString(run->title))
         .arg(runStatusText(run->status));
       if (!run->summary.empty()) {
         lines << QString{"  %1"}.arg(qString(run->summary));
