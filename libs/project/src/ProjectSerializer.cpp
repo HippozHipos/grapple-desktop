@@ -98,6 +98,8 @@ std::string serializeCanonicalCommandPayload(const ProjectCommand& command) {
         stream << ',';
         foundation::writeJsonStringProperty(stream, "kind", timeline::serializedTrackKind(typedCommand.kind));
         stream << ",\"order\":" << typedCommand.order;
+      } else if constexpr (std::is_same_v<Command, DeleteTrackCommand>) {
+        writeIdProperty(stream, "nodeId", typedCommand.nodeId.value());
       } else if constexpr (std::is_same_v<Command, CreateClipCommand>) {
         writeIdProperty(stream, "nodeId", typedCommand.nodeId.value());
         stream << ',';

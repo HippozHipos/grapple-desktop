@@ -1378,6 +1378,17 @@ foundation::Result<ProjectCommand> deserializeCanonicalCommandPayload(
       order.value()
     }});
   }
+  if (serializedName == "project.delete_track") {
+    auto members = requireOnlyMembers(root.value(), {"nodeId"}, "$");
+    if (!members) {
+      return members.error();
+    }
+    auto nodeId = requiredStringMember(root.value(), "nodeId", "$");
+    if (!nodeId) {
+      return nodeId.error();
+    }
+    return validatedCommand(ProjectCommand{DeleteTrackCommand{foundation::NodeId{nodeId.value()}}});
+  }
   if (serializedName == "project.create_clip") {
     auto members = requireOnlyMembers(root.value(), {"nodeId", "trackNodeId", "containmentEdgeId", "payload", "order"}, "$");
     if (!members) {

@@ -11,6 +11,7 @@
 #include <string>
 #include <string_view>
 #include <variant>
+#include <vector>
 
 namespace grapple::project {
 
@@ -166,6 +167,8 @@ foundation::Result<void> ProjectController::applyPayload(const ProjectCommand& p
         return handleCreateComposition(typedCommand);
       } else if constexpr (std::is_same_v<Command, CreateTrackCommand>) {
         return handleCreateTrack(typedCommand);
+      } else if constexpr (std::is_same_v<Command, DeleteTrackCommand>) {
+        return handleDeleteTrack(typedCommand);
       } else if constexpr (std::is_same_v<Command, CreateClipCommand>) {
         return handleCreateClip(typedCommand);
       } else if constexpr (std::is_same_v<Command, MoveClipCommand>) {
@@ -285,6 +288,33 @@ foundation::Result<void> ProjectController::handleCreateTrack(const CreateTrackC
     command.order,
     true
   });
+}
+
+foundation::Result<void> ProjectController::handleDeleteTrack(const DeleteTrackCommand& command) {
+  const graph::GraphNode* track = document_.graph.findNode(command.nodeId);
+  if (track == nullptr || track->kind != graph::NodeKind::Track) {
+    return foundation::Error{"project.track_missing", "Track deletion requires an existing track node."};
+  }
+
+  std::vector<foundation::NodeId> containedClipIds;
+  for (const graph::GraphEdge& edge : document_.graph.edges()) {
+    if (edge.kind != graph::EdgeKind::Contains || edge.sourceNodeId != command.nodeId) {
+      continue;
+    }
+    const graph::GraphNode* child = document_.graph.findNode(edge.targetNodeId);
+    if (child != nullptr && child->kind == graph::NodeKind::Clip) {
+      containedClipIds.push_back(child->id);
+    }
+  }
+
+  for (const foundation::NodeId& clipId : containedClipIds) {
+    auto removedClip = document_.graph.removeNode(clipId);
+    if (!removedClip) {
+      return removedClip.error();
+    }
+  }
+
+  return document_.graph.removeNode(command.nodeId);
 }
 
 foundation::Result<void> ProjectController::handleCreateClip(const CreateClipCommand& command) {

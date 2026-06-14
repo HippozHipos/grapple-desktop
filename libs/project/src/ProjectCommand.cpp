@@ -123,6 +123,8 @@ CommandKind commandKind(const ProjectCommand& command) {
         return CommandKind::CreateComposition;
       } else if constexpr (std::is_same_v<Command, CreateTrackCommand>) {
         return CommandKind::CreateTrack;
+      } else if constexpr (std::is_same_v<Command, DeleteTrackCommand>) {
+        return CommandKind::DeleteTrack;
       } else if constexpr (std::is_same_v<Command, CreateClipCommand>) {
         return CommandKind::CreateClip;
       } else if constexpr (std::is_same_v<Command, MoveClipCommand>) {
@@ -189,6 +191,8 @@ foundation::Result<void> validateProjectCommandShape(const ProjectCommand& comma
           return name;
         }
         return requireNonEmptyId(typedCommand.containmentEdgeId, "project.containment_edge_id_empty", "Containment edge id must not be empty.");
+      } else if constexpr (std::is_same_v<Command, DeleteTrackCommand>) {
+        return requireNonEmptyId(typedCommand.nodeId, "project.node_id_empty", "Command node id must not be empty.");
       } else if constexpr (std::is_same_v<Command, CreateClipCommand>) {
         auto nodeId = requireNonEmptyId(typedCommand.nodeId, "project.node_id_empty", "Command node id must not be empty.");
         if (!nodeId) {

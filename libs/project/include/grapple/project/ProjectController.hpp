@@ -26,6 +26,7 @@ private:
   foundation::Result<void> handleRegisterAsset(const RegisterAssetCommand& command);
   foundation::Result<void> handleCreateComposition(const CreateCompositionCommand& command);
   foundation::Result<void> handleCreateTrack(const CreateTrackCommand& command);
+  foundation::Result<void> handleDeleteTrack(const DeleteTrackCommand& command);
   foundation::Result<void> handleCreateClip(const CreateClipCommand& command);
   foundation::Result<void> handleMoveClip(const MoveClipCommand& command);
   foundation::Result<void> handleTrimClip(const TrimClipCommand& command);

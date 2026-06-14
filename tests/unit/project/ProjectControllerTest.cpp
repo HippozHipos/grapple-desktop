@@ -77,6 +77,7 @@ int main() {
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::RegisterAsset) == "project.register_asset");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::CreateComposition) == "project.create_composition");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::CreateTrack) == "project.create_track");
+  GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::DeleteTrack) == "project.delete_track");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::CreateClip) == "project.create_clip");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::MoveClip) == "project.move_clip");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::TrimClip) == "project.trim_clip");
@@ -104,6 +105,7 @@ int main() {
     project::serializedCommandName(project::CommandKind::RegisterAsset),
     project::serializedCommandName(project::CommandKind::CreateComposition),
     project::serializedCommandName(project::CommandKind::CreateTrack),
+    project::serializedCommandName(project::CommandKind::DeleteTrack),
     project::serializedCommandName(project::CommandKind::CreateClip),
     project::serializedCommandName(project::CommandKind::MoveClip),
     project::serializedCommandName(project::CommandKind::TrimClip),
@@ -707,6 +709,60 @@ int main() {
   });
   GRAPPLE_REQUIRE(!deleteMissingClip);
   GRAPPLE_REQUIRE(deleteMissingClip.error().code == "project.clip_missing");
+
+  const auto recreateClip = clipProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_recreate_clip_before_track_delete"},
+    foundation::ProjectId{"proj_clip"},
+    afterClipDelete.value().revision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::CreateClipCommand{
+      foundation::NodeId{"node_clip_recreated"},
+      foundation::NodeId{"node_clip_track"},
+      foundation::EdgeId{"edge_clip_contains_recreated_clip"},
+      initialClipPayload
+    }
+  });
+  GRAPPLE_REQUIRE(recreateClip);
+  GRAPPLE_REQUIRE(recreateClip.value().afterRevision == foundation::RevisionId{"rev_7"});
+  const project::ProjectCommandEnvelope deleteTrack{
+    foundation::CommandId{"cmd_delete_track"},
+    foundation::ProjectId{"proj_clip"},
+    recreateClip.value().afterRevision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::DeleteTrackCommand{foundation::NodeId{"node_clip_track"}}
+  };
+  GRAPPLE_REQUIRE(project::commandKind(deleteTrack.payload) == project::CommandKind::DeleteTrack);
+  GRAPPLE_REQUIRE(project::serializeCanonicalCommandPayload(deleteTrack.payload) == "{\"nodeId\":\"node_clip_track\"}");
+  const auto parsedDeleteTrackPayload = project::deserializeCanonicalCommandPayload(
+    project::serializedCommandName(project::CommandKind::DeleteTrack),
+    project::serializeCanonicalCommandPayload(deleteTrack.payload)
+  );
+  GRAPPLE_REQUIRE(parsedDeleteTrackPayload);
+  GRAPPLE_REQUIRE(project::commandKind(parsedDeleteTrackPayload.value()) == project::CommandKind::DeleteTrack);
+  GRAPPLE_REQUIRE(project::serializeCanonicalCommandPayload(parsedDeleteTrackPayload.value()) == project::serializeCanonicalCommandPayload(deleteTrack.payload));
+  const auto deleteTrackResult = clipProject.apply(deleteTrack);
+  GRAPPLE_REQUIRE(deleteTrackResult);
+  GRAPPLE_REQUIRE(deleteTrackResult.value().afterRevision == foundation::RevisionId{"rev_8"});
+  const auto afterTrackDelete = clipProject.snapshot();
+  GRAPPLE_REQUIRE(afterTrackDelete);
+  GRAPPLE_REQUIRE(!afterTrackDelete.value().graph.hasNode(foundation::NodeId{"node_clip_track"}));
+  GRAPPLE_REQUIRE(!afterTrackDelete.value().graph.hasNode(foundation::NodeId{"node_clip_recreated"}));
+  GRAPPLE_REQUIRE(afterTrackDelete.value().graph.edges().empty());
+  const auto trackDeletedTimeline = clipProjector.buildTimelineIR(projection::BuildTimelineIRRequest{
+    afterTrackDelete.value()
+  });
+  GRAPPLE_REQUIRE(trackDeletedTimeline);
+  GRAPPLE_REQUIRE(trackDeletedTimeline.value().timeline.layers.empty());
+  GRAPPLE_REQUIRE(trackDeletedTimeline.value().timeline.clips.empty());
+  const auto deleteMissingTrack = clipProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_delete_missing_track"},
+    foundation::ProjectId{"proj_clip"},
+    afterTrackDelete.value().revision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::DeleteTrackCommand{foundation::NodeId{"node_clip_track"}}
+  });
+  GRAPPLE_REQUIRE(!deleteMissingTrack);
+  GRAPPLE_REQUIRE(deleteMissingTrack.error().code == "project.track_missing");
 
   project::ProjectController moveClipProject{
     project::createEmptyProject(foundation::ProjectId{"proj_move_clip"}, "Move Clip Project")

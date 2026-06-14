@@ -21,6 +21,7 @@ enum class CommandKind {
   RegisterAsset,
   CreateComposition,
   CreateTrack,
+  DeleteTrack,
   CreateClip,
   MoveClip,
   TrimClip,
@@ -91,6 +92,10 @@ struct CreateTrackCommand {
   std::string name;
   timeline::TrackKind kind;
   std::int64_t order = 0;
+};
+
+struct DeleteTrackCommand {
+  foundation::NodeId nodeId;
 };
 
 struct CreateClipCommand {
@@ -198,6 +203,7 @@ using ProjectCommand = std::variant<
   RegisterAssetCommand,
   CreateCompositionCommand,
   CreateTrackCommand,
+  DeleteTrackCommand,
   CreateClipCommand,
   MoveClipCommand,
   TrimClipCommand,
