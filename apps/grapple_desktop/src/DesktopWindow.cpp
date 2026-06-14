@@ -568,7 +568,7 @@ public:
     layout->setRowStretch(3, 2);
     setCentralWidget(root);
 
-    connect(refreshButton, &QPushButton::clicked, this, [this] { refreshPreview(); });
+    connect(refreshButton, &QPushButton::clicked, this, [this] { refreshPreview(true); });
     connect(playButton, &QPushButton::clicked, this, [this] { startPlayback(); });
     connect(pauseButton, &QPushButton::clicked, this, [this] { pausePlayback(); });
     connect(seekStartButton, &QPushButton::clicked, this, [this] { seekTo(grapple::foundation::TimeSeconds{0.0}); });
@@ -698,14 +698,16 @@ public:
     timelineDuration_ = viewModel.value().timeline.duration;
   }
 
-  void refreshPreview() {
+  void refreshPreview(bool logRefresh = false) {
     const auto refresh = workspace_.preview().refreshFromProject();
     if (!refresh) {
       appendError(refresh.error());
       return;
     }
     renderCurrentFrame(true);
-    log_->append("Preview refreshed");
+    if (logRefresh) {
+      log_->append("Preview refreshed");
+    }
   }
 
   void renderCurrentFrame(bool logDiagnostics = false) {
