@@ -590,6 +590,21 @@ int main() {
   GRAPPLE_REQUIRE(shiftedClipImageFrame.value().frame.mediaFrames[0].transform.position.x == 0.5);
   GRAPPLE_REQUIRE((shiftedClipImageFrame.value().frame.image->rgbaPixels == std::vector<std::uint8_t>{0, 0, 0, 0, 10, 20, 30, 255}));
 
+  TestFrameSource shiftedClipFinalFrameSource;
+  render::LocalRenderCore shiftedClipFinalImageCore{runtime, shiftedClipFinalFrameSource};
+  render::FinalRenderShell shiftedClipFinalRender{shiftedClipFinalImageCore};
+  const auto shiftedClipFinalImageLoad = shiftedClipFinalImageCore.loadPlan(makeClipTransformRenderPlan());
+  GRAPPLE_REQUIRE(shiftedClipFinalImageLoad);
+  CapturingRangeSink shiftedClipFinalSink;
+  const auto shiftedClipFinalResult = shiftedClipFinalRender.render(render::FinalRenderRequest{
+    makeExportSettings(foundation::Resolution{1920, 1080}),
+    &shiftedClipFinalSink
+  });
+  GRAPPLE_REQUIRE(shiftedClipFinalResult);
+  GRAPPLE_REQUIRE(shiftedClipFinalSink.frameImages.size() == 2);
+  GRAPPLE_REQUIRE(shiftedClipFinalSink.frameImages[0].has_value());
+  GRAPPLE_REQUIRE((shiftedClipFinalSink.frameImages[0]->rgbaPixels == shiftedClipImageFrame.value().frame.image->rgbaPixels));
+
   TwoRowFrameSource yShiftClipFrameSource;
   render::LocalRenderCore yShiftClipImageCore{runtime, yShiftClipFrameSource};
   render::PreviewRenderShell yShiftClipImagePreview{yShiftClipImageCore};
