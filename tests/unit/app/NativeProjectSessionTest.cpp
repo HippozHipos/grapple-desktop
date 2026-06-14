@@ -331,9 +331,9 @@ int main() {
   GRAPPLE_REQUIRE(manifest);
   GRAPPLE_REQUIRE(manifest.value().head.has_value());
   GRAPPLE_REQUIRE(manifest.value().head->lastCommandId == foundation::CommandId{"cmd_app_1"});
-  GRAPPLE_REQUIRE(manifest.value().latestSnapshot.has_value());
-  GRAPPLE_REQUIRE(manifest.value().latestSnapshot->id == foundation::SnapshotId{"snap_cmd_app_1_1"});
-  GRAPPLE_REQUIRE(manifest.value().latestSnapshot->revision == foundation::RevisionId{"rev_1"});
+  GRAPPLE_REQUIRE(manifest.value().snapshots.size() == 1);
+  GRAPPLE_REQUIRE(manifest.value().snapshots[0].id == foundation::SnapshotId{"snap_cmd_app_1_1"});
+  GRAPPLE_REQUIRE(manifest.value().snapshots[0].revision == foundation::RevisionId{"rev_1"});
 
   const auto writeCurrentSnapshot = session.writePackage();
   GRAPPLE_REQUIRE(writeCurrentSnapshot);
@@ -1235,6 +1235,20 @@ int main() {
   );
   GRAPPLE_REQUIRE(workspaceTrack);
   GRAPPLE_REQUIRE(workspaceTrack.value().snapshot.revision == foundation::RevisionId{"rev_2"});
+  const auto workspaceWriteWithHistory = openedWorkspace.value().writePackage();
+  GRAPPLE_REQUIRE(workspaceWriteWithHistory);
+  auto reopenedWorkspaceWithHistory = app::NativeWorkspaceSession::openPackageRoot(foundation::FilePath{packageRoot.string()});
+  GRAPPLE_REQUIRE(reopenedWorkspaceWithHistory);
+  GRAPPLE_REQUIRE(reopenedWorkspaceWithHistory.value().project().packageState().snapshotDocuments.size() == 2);
+  GRAPPLE_REQUIRE(reopenedWorkspaceWithHistory.value().project().packageState().snapshots.records().size() == 2);
+  const auto reopenedWorkspaceUndo = reopenedWorkspaceWithHistory.value().commandWriter().undoLastCommittedCommand(
+    userSource(),
+    std::optional<std::string>{"undo reopened track"}
+  );
+  GRAPPLE_REQUIRE(reopenedWorkspaceUndo);
+  GRAPPLE_REQUIRE(reopenedWorkspaceUndo.value().snapshot.revision == foundation::RevisionId{"rev_3"});
+  GRAPPLE_REQUIRE(reopenedWorkspaceUndo.value().snapshot.graph.nodes().size() == 1);
+  GRAPPLE_REQUIRE(reopenedWorkspaceUndo.value().snapshot.graph.edges().empty());
   std::filesystem::remove_all(packageRoot);
 
   app::NativeProjectSession projectOnlySession{

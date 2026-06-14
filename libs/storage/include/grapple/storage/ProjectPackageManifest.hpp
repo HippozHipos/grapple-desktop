@@ -8,6 +8,7 @@
 
 #include <optional>
 #include <string>
+#include <vector>
 
 namespace grapple::storage {
 
@@ -32,7 +33,7 @@ struct ProjectPackageManifest {
   foundation::FilePath eventLogPath;
   foundation::FilePath schemaMigrationLogPath;
   std::optional<ProjectPackageHeadManifest> head;
-  std::optional<ProjectPackageSnapshotManifest> latestSnapshot;
+  std::vector<ProjectPackageSnapshotManifest> snapshots;
 };
 
 foundation::Result<ProjectPackageManifest> buildProjectPackageManifest(const ProjectPackageState& state);

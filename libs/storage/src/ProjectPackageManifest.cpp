@@ -31,6 +31,24 @@ void writeOptionalId(std::ostringstream& stream, const char* key, const std::opt
   }
 }
 
+void writeSnapshotManifest(std::ostringstream& stream, const ProjectPackageSnapshotManifest& snapshot) {
+  stream << '{';
+  foundation::writeJsonStringProperty(stream, "id", snapshot.id.value());
+  stream << ',';
+  foundation::writeJsonStringProperty(stream, "revision", snapshot.revision.value());
+  stream << ',';
+  foundation::writeJsonStringProperty(stream, "canonicalHash", snapshot.canonicalHash.toHex());
+  stream << ',';
+  foundation::writeJsonStringProperty(stream, "documentPath", snapshot.documentPath.value);
+  stream << ",\"label\":";
+  if (snapshot.label.has_value()) {
+    stream << foundation::jsonQuoted(*snapshot.label);
+  } else {
+    stream << "null";
+  }
+  stream << '}';
+}
+
 const history::SnapshotRecord* findSnapshotById(
   const history::SnapshotStore& snapshots,
   const foundation::SnapshotId& id
@@ -257,6 +275,16 @@ foundation::Result<ProjectPackageManifest> buildProjectPackageManifest(const Pro
   manifest.eventLogPath = foundation::FilePath{"history/events.json"};
   manifest.schemaMigrationLogPath = foundation::FilePath{"history/schema_migrations.json"};
 
+  for (const history::SnapshotRecord& snapshot : state.snapshots.records()) {
+    manifest.snapshots.push_back(ProjectPackageSnapshotManifest{
+      snapshot.id,
+      snapshot.revision,
+      snapshot.canonicalHash,
+      snapshot.documentPath,
+      snapshot.label
+    });
+  }
+
   if (!state.head.has_value()) {
     return manifest;
   }
@@ -271,18 +299,10 @@ foundation::Result<ProjectPackageManifest> buildProjectPackageManifest(const Pro
     return manifest;
   }
 
-  const history::SnapshotRecord* snapshot = findSnapshotById(state.snapshots, *state.head->lastSnapshotId);
-  if (snapshot == nullptr) {
+  if (findSnapshotById(state.snapshots, *state.head->lastSnapshotId) == nullptr) {
     return foundation::Error{"storage.package_head_snapshot_missing", "Package head references a missing snapshot record."};
   }
 
-  manifest.latestSnapshot = ProjectPackageSnapshotManifest{
-    snapshot->id,
-    snapshot->revision,
-    snapshot->canonicalHash,
-    snapshot->documentPath,
-    snapshot->label
-  };
   return manifest;
 }
 
@@ -311,26 +331,14 @@ std::string serializeCanonicalProjectPackageManifest(const ProjectPackageManifes
     stream << "null";
   }
 
-  stream << ",\"latestSnapshot\":";
-  if (manifest.latestSnapshot.has_value()) {
-    stream << '{';
-    foundation::writeJsonStringProperty(stream, "id", manifest.latestSnapshot->id.value());
-    stream << ',';
-    foundation::writeJsonStringProperty(stream, "revision", manifest.latestSnapshot->revision.value());
-    stream << ',';
-    foundation::writeJsonStringProperty(stream, "canonicalHash", manifest.latestSnapshot->canonicalHash.toHex());
-    stream << ',';
-    foundation::writeJsonStringProperty(stream, "documentPath", manifest.latestSnapshot->documentPath.value);
-    stream << ",\"label\":";
-    if (manifest.latestSnapshot->label.has_value()) {
-      stream << foundation::jsonQuoted(*manifest.latestSnapshot->label);
-    } else {
-      stream << "null";
+  stream << ",\"snapshots\":[";
+  for (std::size_t index = 0; index < manifest.snapshots.size(); ++index) {
+    if (index != 0) {
+      stream << ',';
     }
-    stream << '}';
-  } else {
-    stream << "null";
+    writeSnapshotManifest(stream, manifest.snapshots[index]);
   }
+  stream << ']';
   stream << '}';
   return stream.str();
 }
@@ -342,7 +350,7 @@ foundation::Result<ProjectPackageManifest> deserializeCanonicalProjectPackageMan
   }
   auto members = requireOnlyMembers(
     root.value(),
-    {"schemaVersion", "projectId", "commandLogPath", "eventLogPath", "schemaMigrationLogPath", "head", "latestSnapshot"},
+    {"schemaVersion", "projectId", "commandLogPath", "eventLogPath", "schemaMigrationLogPath", "head", "snapshots"},
     "$"
   );
   if (!members) {
@@ -361,9 +369,12 @@ foundation::Result<ProjectPackageManifest> deserializeCanonicalProjectPackageMan
   if (!headValue) {
     return headValue.error();
   }
-  auto snapshotValue = requiredMember(root.value(), "latestSnapshot", "$");
-  if (!snapshotValue) {
-    return snapshotValue.error();
+  auto snapshotsValue = requiredMember(root.value(), "snapshots", "$");
+  if (!snapshotsValue) {
+    return snapshotsValue.error();
+  }
+  if (!snapshotsValue.value().isArray()) {
+    return parseError("$.snapshots", "Expected array.");
   }
 
   ProjectPackageManifest manifest;
@@ -396,15 +407,18 @@ foundation::Result<ProjectPackageManifest> deserializeCanonicalProjectPackageMan
     manifest.head = head.value();
   }
 
-  if (!snapshotValue.value().isNull()) {
-    if (!snapshotValue.value().isObject()) {
-      return parseError("$.latestSnapshot", "Expected object or null.");
+  for (Json::ArrayIndex index = 0; index < snapshotsValue.value().size(); ++index) {
+    if (!snapshotsValue.value()[index].isObject()) {
+      return parseError("$.snapshots[" + std::to_string(index) + "]", "Expected object.");
     }
-    auto snapshot = parseSnapshotManifest(snapshotValue.value(), "$.latestSnapshot");
+    auto snapshot = parseSnapshotManifest(
+      snapshotsValue.value()[index],
+      "$.snapshots[" + std::to_string(index) + "]"
+    );
     if (!snapshot) {
       return snapshot.error();
     }
-    manifest.latestSnapshot = snapshot.value();
+    manifest.snapshots.push_back(snapshot.value());
   }
 
   return manifest;

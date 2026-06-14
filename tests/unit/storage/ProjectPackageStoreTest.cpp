@@ -139,16 +139,16 @@ int main() {
   GRAPPLE_REQUIRE(manifest.value().head->revision == foundation::RevisionId{"rev_1"});
   GRAPPLE_REQUIRE(manifest.value().head->lastCommandId == foundation::CommandId{"cmd_1"});
   GRAPPLE_REQUIRE(manifest.value().head->lastSnapshotId == foundation::SnapshotId{"snap_1"});
-  GRAPPLE_REQUIRE(manifest.value().latestSnapshot.has_value());
-  GRAPPLE_REQUIRE(manifest.value().latestSnapshot->id == foundation::SnapshotId{"snap_1"});
-  GRAPPLE_REQUIRE(manifest.value().latestSnapshot->revision == foundation::RevisionId{"rev_1"});
-  GRAPPLE_REQUIRE(manifest.value().latestSnapshot->canonicalHash == committedSnapshot.value().canonicalHash);
-  GRAPPLE_REQUIRE(manifest.value().latestSnapshot->documentPath == foundation::FilePath{"snapshots/rev_1.json"});
-  GRAPPLE_REQUIRE(manifest.value().latestSnapshot->label == std::optional<std::string>{"first"});
+  GRAPPLE_REQUIRE(manifest.value().snapshots.size() == 1);
+  GRAPPLE_REQUIRE(manifest.value().snapshots[0].id == foundation::SnapshotId{"snap_1"});
+  GRAPPLE_REQUIRE(manifest.value().snapshots[0].revision == foundation::RevisionId{"rev_1"});
+  GRAPPLE_REQUIRE(manifest.value().snapshots[0].canonicalHash == committedSnapshot.value().canonicalHash);
+  GRAPPLE_REQUIRE(manifest.value().snapshots[0].documentPath == foundation::FilePath{"snapshots/rev_1.json"});
+  GRAPPLE_REQUIRE(manifest.value().snapshots[0].label == std::optional<std::string>{"first"});
   GRAPPLE_REQUIRE(storage::serializeCanonicalProjectPackageManifest(manifest.value()) ==
-    "{\"schemaVersion\":1,\"projectId\":\"proj_storage\",\"commandLogPath\":\"history/commands.json\",\"eventLogPath\":\"history/events.json\",\"schemaMigrationLogPath\":\"history/schema_migrations.json\",\"head\":{\"revision\":\"rev_1\",\"lastCommandId\":\"cmd_1\",\"lastSnapshotId\":\"snap_1\"},\"latestSnapshot\":{\"id\":\"snap_1\",\"revision\":\"rev_1\",\"canonicalHash\":\"" +
+    "{\"schemaVersion\":1,\"projectId\":\"proj_storage\",\"commandLogPath\":\"history/commands.json\",\"eventLogPath\":\"history/events.json\",\"schemaMigrationLogPath\":\"history/schema_migrations.json\",\"head\":{\"revision\":\"rev_1\",\"lastCommandId\":\"cmd_1\",\"lastSnapshotId\":\"snap_1\"},\"snapshots\":[{\"id\":\"snap_1\",\"revision\":\"rev_1\",\"canonicalHash\":\"" +
     committedSnapshot.value().canonicalHash.toHex() +
-    "\",\"documentPath\":\"snapshots/rev_1.json\",\"label\":\"first\"}}");
+    "\",\"documentPath\":\"snapshots/rev_1.json\",\"label\":\"first\"}]}");
 
   storage::ProjectPackageStore emptyStore{storage::ProjectPackage{
     foundation::ProjectId{"proj_storage"},
@@ -158,7 +158,7 @@ int main() {
   const auto emptyManifest = storage::buildProjectPackageManifest(emptyStore.state());
   GRAPPLE_REQUIRE(emptyManifest);
   GRAPPLE_REQUIRE(storage::serializeCanonicalProjectPackageManifest(emptyManifest.value()) ==
-    "{\"schemaVersion\":1,\"projectId\":\"proj_storage\",\"commandLogPath\":\"history/commands.json\",\"eventLogPath\":\"history/events.json\",\"schemaMigrationLogPath\":\"history/schema_migrations.json\",\"head\":null,\"latestSnapshot\":null}");
+    "{\"schemaVersion\":1,\"projectId\":\"proj_storage\",\"commandLogPath\":\"history/commands.json\",\"eventLogPath\":\"history/events.json\",\"schemaMigrationLogPath\":\"history/schema_migrations.json\",\"head\":null,\"snapshots\":[]}");
 
   const std::filesystem::path packageRoot =
     std::filesystem::temp_directory_path() /
@@ -181,35 +181,35 @@ int main() {
   GRAPPLE_REQUIRE(parsedManifest);
   GRAPPLE_REQUIRE(storage::serializeCanonicalProjectPackageManifest(parsedManifest.value()) == manifestContents.str());
   const auto manifestWithExtraRootField = storage::deserializeCanonicalProjectPackageManifest(
-    "{\"schemaVersion\":1,\"projectId\":\"proj_storage\",\"commandLogPath\":\"history/commands.json\",\"eventLogPath\":\"history/events.json\",\"schemaMigrationLogPath\":\"history/schema_migrations.json\",\"head\":null,\"latestSnapshot\":null,\"metadata\":{}}"
+    "{\"schemaVersion\":1,\"projectId\":\"proj_storage\",\"commandLogPath\":\"history/commands.json\",\"eventLogPath\":\"history/events.json\",\"schemaMigrationLogPath\":\"history/schema_migrations.json\",\"head\":null,\"snapshots\":[],\"metadata\":{}}"
   );
   GRAPPLE_REQUIRE(!manifestWithExtraRootField);
   GRAPPLE_REQUIRE(manifestWithExtraRootField.error().code == "storage.manifest_json_invalid");
   GRAPPLE_REQUIRE(manifestWithExtraRootField.error().message.find("Unexpected serialized field") != std::string::npos);
   const auto manifestWithEmptyProjectId = storage::deserializeCanonicalProjectPackageManifest(
-    "{\"schemaVersion\":1,\"projectId\":\"\",\"commandLogPath\":\"history/commands.json\",\"eventLogPath\":\"history/events.json\",\"schemaMigrationLogPath\":\"history/schema_migrations.json\",\"head\":null,\"latestSnapshot\":null}"
+    "{\"schemaVersion\":1,\"projectId\":\"\",\"commandLogPath\":\"history/commands.json\",\"eventLogPath\":\"history/events.json\",\"schemaMigrationLogPath\":\"history/schema_migrations.json\",\"head\":null,\"snapshots\":[]}"
   );
   GRAPPLE_REQUIRE(!manifestWithEmptyProjectId);
   GRAPPLE_REQUIRE(manifestWithEmptyProjectId.error().code == "storage.manifest_json_invalid");
   GRAPPLE_REQUIRE(manifestWithEmptyProjectId.error().message.find("non-empty") != std::string::npos);
   const auto manifestWithExtraHeadField = storage::deserializeCanonicalProjectPackageManifest(
-    "{\"schemaVersion\":1,\"projectId\":\"proj_storage\",\"commandLogPath\":\"history/commands.json\",\"eventLogPath\":\"history/events.json\",\"schemaMigrationLogPath\":\"history/schema_migrations.json\",\"head\":{\"revision\":\"rev_1\",\"lastCommandId\":\"cmd_1\",\"lastSnapshotId\":\"snap_1\",\"metadata\":{}},\"latestSnapshot\":null}"
+    "{\"schemaVersion\":1,\"projectId\":\"proj_storage\",\"commandLogPath\":\"history/commands.json\",\"eventLogPath\":\"history/events.json\",\"schemaMigrationLogPath\":\"history/schema_migrations.json\",\"head\":{\"revision\":\"rev_1\",\"lastCommandId\":\"cmd_1\",\"lastSnapshotId\":\"snap_1\",\"metadata\":{}},\"snapshots\":[]}"
   );
   GRAPPLE_REQUIRE(!manifestWithExtraHeadField);
   GRAPPLE_REQUIRE(manifestWithExtraHeadField.error().code == "storage.manifest_json_invalid");
   GRAPPLE_REQUIRE(manifestWithExtraHeadField.error().message.find("Unexpected serialized field") != std::string::npos);
   const auto manifestWithEmptyHeadCommandId = storage::deserializeCanonicalProjectPackageManifest(
-    "{\"schemaVersion\":1,\"projectId\":\"proj_storage\",\"commandLogPath\":\"history/commands.json\",\"eventLogPath\":\"history/events.json\",\"schemaMigrationLogPath\":\"history/schema_migrations.json\",\"head\":{\"revision\":\"rev_1\",\"lastCommandId\":\"\",\"lastSnapshotId\":\"snap_1\"},\"latestSnapshot\":null}"
+    "{\"schemaVersion\":1,\"projectId\":\"proj_storage\",\"commandLogPath\":\"history/commands.json\",\"eventLogPath\":\"history/events.json\",\"schemaMigrationLogPath\":\"history/schema_migrations.json\",\"head\":{\"revision\":\"rev_1\",\"lastCommandId\":\"\",\"lastSnapshotId\":\"snap_1\"},\"snapshots\":[]}"
   );
   GRAPPLE_REQUIRE(!manifestWithEmptyHeadCommandId);
   GRAPPLE_REQUIRE(manifestWithEmptyHeadCommandId.error().code == "storage.manifest_json_invalid");
   GRAPPLE_REQUIRE(manifestWithEmptyHeadCommandId.error().message.find("non-empty") != std::string::npos);
   const auto manifestWithExtraSnapshotField = storage::deserializeCanonicalProjectPackageManifest(
     std::string{
-      "{\"schemaVersion\":1,\"projectId\":\"proj_storage\",\"commandLogPath\":\"history/commands.json\",\"eventLogPath\":\"history/events.json\",\"schemaMigrationLogPath\":\"history/schema_migrations.json\",\"head\":null,\"latestSnapshot\":{\"id\":\"snap_1\",\"revision\":\"rev_1\",\"canonicalHash\":\""
+      "{\"schemaVersion\":1,\"projectId\":\"proj_storage\",\"commandLogPath\":\"history/commands.json\",\"eventLogPath\":\"history/events.json\",\"schemaMigrationLogPath\":\"history/schema_migrations.json\",\"head\":null,\"snapshots\":[{\"id\":\"snap_1\",\"revision\":\"rev_1\",\"canonicalHash\":\""
     } +
       committedSnapshot.value().canonicalHash.toHex() +
-      "\",\"documentPath\":\"snapshots/rev_1.json\",\"label\":null,\"metadata\":{}}}"
+      "\",\"documentPath\":\"snapshots/rev_1.json\",\"label\":null,\"metadata\":{}}]}"
   );
   GRAPPLE_REQUIRE(!manifestWithExtraSnapshotField);
   GRAPPLE_REQUIRE(manifestWithExtraSnapshotField.error().code == "storage.manifest_json_invalid");
@@ -280,10 +280,10 @@ int main() {
   const auto readManifest = packageReader.readManifest(diskPackage);
   GRAPPLE_REQUIRE(readManifest);
   GRAPPLE_REQUIRE(storage::serializeCanonicalProjectPackageManifest(readManifest.value()) == manifestContents.str());
-  const auto loadedLatestSnapshot = packageReader.readLatestSnapshot(diskPackage);
-  GRAPPLE_REQUIRE(loadedLatestSnapshot);
-  GRAPPLE_REQUIRE(storage::serializeCanonicalProjectPackageManifest(loadedLatestSnapshot.value().manifest) == manifestContents.str());
-  GRAPPLE_REQUIRE(project::serializeCanonicalProjectSnapshot(loadedLatestSnapshot.value().snapshot) == snapshotContents.str());
+  const auto loadedHeadSnapshot = packageReader.readHeadSnapshot(diskPackage);
+  GRAPPLE_REQUIRE(loadedHeadSnapshot);
+  GRAPPLE_REQUIRE(storage::serializeCanonicalProjectPackageManifest(loadedHeadSnapshot.value().manifest) == manifestContents.str());
+  GRAPPLE_REQUIRE(project::serializeCanonicalProjectSnapshot(loadedHeadSnapshot.value().snapshot) == snapshotContents.str());
   const auto loadedHistoryLogs = packageReader.readHistoryLogs(diskPackage);
   GRAPPLE_REQUIRE(loadedHistoryLogs);
   GRAPPLE_REQUIRE(history::serializeCanonicalCommandLog(loadedHistoryLogs.value().commandLog) == commandLogContents.str());
@@ -351,7 +351,7 @@ int main() {
   }));
   invalidSnapshot.canonicalHash = project::hashProjectSnapshot(invalidSnapshot);
   storage::ProjectPackageManifest invalidManifest = manifest.value();
-  invalidManifest.latestSnapshot->canonicalHash = invalidSnapshot.canonicalHash;
+  invalidManifest.snapshots[0].canonicalHash = invalidSnapshot.canonicalHash;
   const auto writtenInvalidSnapshot = packageWriter.writeSnapshot(storage::ProjectSnapshotWriteRequest{
     diskPackage,
     invalidSnapshot,

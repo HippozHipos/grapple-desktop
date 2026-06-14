@@ -440,27 +440,35 @@ foundation::Result<NativePackageWriteResult> NativeProjectSession::writePackage(
     return manifestResult.error();
   }
 
-  if (!manifestResult.value().latestSnapshot.has_value()) {
-    return foundation::Error{"app.package_snapshot_missing", "Package save requires a snapshot record at the current project head."};
-  }
-
-  const storage::ProjectPackageSnapshotManifest& snapshotManifest = *manifestResult.value().latestSnapshot;
-  if (snapshotManifest.revision != snapshotResult.value().revision) {
-    return foundation::Error{"app.package_snapshot_not_current", "Package snapshot record must match the current project revision."};
-  }
-
   const storage::ProjectPackageWriter writer;
-  auto snapshotPath = writer.writeSnapshot(storage::ProjectSnapshotWriteRequest{
-    state.package,
-    snapshotResult.value(),
-    storage::SnapshotCommitRecord{
-      snapshotManifest.id,
-      snapshotManifest.documentPath,
-      snapshotManifest.label
+  std::optional<foundation::FilePath> currentSnapshotPath;
+  for (const storage::ProjectPackageSnapshotManifest& snapshotManifest : manifestResult.value().snapshots) {
+    const project::ProjectSnapshot* snapshotDocument = session_.findCommittedSnapshot(snapshotManifest.revision);
+    if (snapshotDocument == nullptr) {
+      return foundation::Error{
+        "app.package_snapshot_document_missing",
+        "Package save requires a committed snapshot document for revision " + snapshotManifest.revision.value() + "."
+      };
     }
-  });
-  if (!snapshotPath) {
-    return snapshotPath.error();
+
+    auto snapshotPath = writer.writeSnapshot(storage::ProjectSnapshotWriteRequest{
+      state.package,
+      *snapshotDocument,
+      storage::SnapshotCommitRecord{
+        snapshotManifest.id,
+        snapshotManifest.documentPath,
+        snapshotManifest.label
+      }
+    });
+    if (!snapshotPath) {
+      return snapshotPath.error();
+    }
+    if (snapshotManifest.revision == snapshotResult.value().revision) {
+      currentSnapshotPath = snapshotPath.value();
+    }
+  }
+  if (!currentSnapshotPath.has_value()) {
+    return foundation::Error{"app.package_snapshot_missing", "Package save requires a snapshot record at the current project head."};
   }
 
   auto commandLogPath = writer.writeCommandLog(storage::ProjectCommandLogWriteRequest{
@@ -497,7 +505,7 @@ foundation::Result<NativePackageWriteResult> NativeProjectSession::writePackage(
   }
 
   return NativePackageWriteResult{
-    snapshotPath.value(),
+    currentSnapshotPath.value(),
     manifestPath.value(),
     commandLogPath.value(),
     eventLogPath.value(),

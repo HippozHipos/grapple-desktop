@@ -7,11 +7,18 @@
 #include <grapple/storage/ProjectPackage.hpp>
 #include <grapple/storage/ProjectPackageManifest.hpp>
 
+#include <vector>
+
 namespace grapple::storage {
 
-struct ProjectPackageLatestSnapshot {
+struct ProjectPackageHeadSnapshot {
   ProjectPackageManifest manifest;
   project::ProjectSnapshot snapshot;
+};
+
+struct ProjectPackageSnapshotDocuments {
+  ProjectPackageManifest manifest;
+  std::vector<project::ProjectSnapshot> snapshots;
 };
 
 struct ProjectPackageHistoryLogs {
@@ -25,7 +32,8 @@ public:
   foundation::Result<ProjectPackage> readPackage(foundation::FilePath rootPath) const;
   foundation::Result<ProjectPackageManifest> readManifestAtRoot(const foundation::FilePath& rootPath) const;
   foundation::Result<ProjectPackageManifest> readManifest(const ProjectPackage& package) const;
-  foundation::Result<ProjectPackageLatestSnapshot> readLatestSnapshot(const ProjectPackage& package) const;
+  foundation::Result<ProjectPackageSnapshotDocuments> readSnapshotDocuments(const ProjectPackage& package) const;
+  foundation::Result<ProjectPackageHeadSnapshot> readHeadSnapshot(const ProjectPackage& package) const;
   foundation::Result<ProjectPackageHistoryLogs> readHistoryLogs(const ProjectPackage& package) const;
 };
 

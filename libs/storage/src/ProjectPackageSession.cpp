@@ -18,37 +18,51 @@ ProjectPackageSession::ProjectPackageSession(project::ProjectDocument document, 
 
 foundation::Result<ProjectPackageSession> ProjectPackageSession::open(ProjectPackage package) {
   const ProjectPackageReader reader;
-  auto latestSnapshot = reader.readLatestSnapshot(package);
-  if (!latestSnapshot) {
-    return latestSnapshot.error();
+  auto snapshotDocuments = reader.readSnapshotDocuments(package);
+  if (!snapshotDocuments) {
+    return snapshotDocuments.error();
   }
   auto historyLogs = reader.readHistoryLogs(package);
   if (!historyLogs) {
     return historyLogs.error();
   }
 
-  if (serializeCanonicalProjectPackageManifest(latestSnapshot.value().manifest) !=
+  if (serializeCanonicalProjectPackageManifest(snapshotDocuments.value().manifest) !=
       serializeCanonicalProjectPackageManifest(historyLogs.value().manifest)) {
     return foundation::Error{"storage.package_manifest_changed", "Package manifest changed while opening package."};
   }
 
+  const ProjectPackageManifest& manifest = snapshotDocuments.value().manifest;
+  if (!manifest.head.has_value()) {
+    return foundation::Error{"storage.package_head_missing", "Package manifest does not contain a project head."};
+  }
+
+  const project::ProjectSnapshot* headSnapshot = nullptr;
+  for (const project::ProjectSnapshot& snapshot : snapshotDocuments.value().snapshots) {
+    if (snapshot.revision == manifest.head->revision) {
+      headSnapshot = &snapshot;
+      break;
+    }
+  }
+  if (headSnapshot == nullptr) {
+    return foundation::Error{"storage.package_head_snapshot_missing", "Package head revision has no snapshot document."};
+  }
+  const project::ProjectSnapshot headSnapshotDocument = *headSnapshot;
+
   ProjectPackageState state;
   state.package = std::move(package);
-  state.projectSnapshot = latestSnapshot.value().snapshot;
-  state.snapshotDocuments.push_back(latestSnapshot.value().snapshot);
+  state.projectSnapshot = headSnapshotDocument;
+  state.snapshotDocuments = std::move(snapshotDocuments.value().snapshots);
   state.commandLog = historyLogs.value().commandLog;
   state.eventLog = historyLogs.value().eventLog;
 
-  const ProjectPackageManifest& manifest = latestSnapshot.value().manifest;
-  if (manifest.head.has_value()) {
-    state.head = history::HistoryHead{
-      manifest.head->revision,
-      manifest.head->lastCommandId,
-      manifest.head->lastSnapshotId
-    };
-  }
-  if (manifest.latestSnapshot.has_value()) {
-    const ProjectPackageSnapshotManifest& snapshotManifest = *manifest.latestSnapshot;
+  state.head = history::HistoryHead{
+    manifest.head->revision,
+    manifest.head->lastCommandId,
+    manifest.head->lastSnapshotId
+  };
+
+  for (const ProjectPackageSnapshotManifest& snapshotManifest : manifest.snapshots) {
     auto snapshotAppend = state.snapshots.append(history::SnapshotRecord{
       snapshotManifest.id,
       manifest.projectId,
@@ -64,7 +78,7 @@ foundation::Result<ProjectPackageSession> ProjectPackageSession::open(ProjectPac
   }
 
   return ProjectPackageSession{
-    project::makeProjectDocument(latestSnapshot.value().snapshot),
+    project::makeProjectDocument(headSnapshotDocument),
     std::move(state)
   };
 }

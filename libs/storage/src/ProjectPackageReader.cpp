@@ -6,6 +6,7 @@
 #include <filesystem>
 #include <fstream>
 #include <sstream>
+#include <vector>
 
 namespace grapple::storage {
 
@@ -54,7 +55,19 @@ foundation::Result<void> validateManifestForPackage(
   return {};
 }
 
-foundation::Result<void> validateLatestSnapshot(
+const ProjectPackageSnapshotManifest* findSnapshotManifest(
+  const ProjectPackageManifest& manifest,
+  const foundation::SnapshotId& snapshotId
+) {
+  for (const ProjectPackageSnapshotManifest& snapshot : manifest.snapshots) {
+    if (snapshot.id == snapshotId) {
+      return &snapshot;
+    }
+  }
+  return nullptr;
+}
+
+foundation::Result<void> validateSnapshot(
   const project::ProjectSnapshot& snapshot,
   const ProjectPackageSnapshotManifest& snapshotManifest,
   const ProjectPackage& package
@@ -73,6 +86,36 @@ foundation::Result<void> validateLatestSnapshot(
     return references.error();
   }
   return {};
+}
+
+foundation::Result<project::ProjectSnapshot> readSnapshotDocument(
+  const ProjectPackage& package,
+  const ProjectPackageSnapshotManifest& snapshotManifest
+) {
+  auto snapshotPath = packageRelativePath(
+    package,
+    snapshotManifest.documentPath,
+    "storage.snapshot_document_path_empty",
+    "storage.snapshot_document_path_absolute"
+  );
+  if (!snapshotPath) {
+    return snapshotPath.error();
+  }
+
+  auto contents = readTextFile(snapshotPath.value(), "storage.snapshot_open_failed");
+  if (!contents) {
+    return contents.error();
+  }
+
+  auto snapshot = project::deserializeCanonicalProjectSnapshot(contents.value());
+  if (!snapshot) {
+    return snapshot.error();
+  }
+  auto valid = validateSnapshot(snapshot.value(), snapshotManifest, package);
+  if (!valid) {
+    return valid.error();
+  }
+  return snapshot.value();
 }
 
 } // namespace
@@ -122,45 +165,65 @@ foundation::Result<ProjectPackageManifest> ProjectPackageReader::readManifest(co
   return manifest.value();
 }
 
-foundation::Result<ProjectPackageLatestSnapshot> ProjectPackageReader::readLatestSnapshot(
+foundation::Result<ProjectPackageHeadSnapshot> ProjectPackageReader::readHeadSnapshot(
+  const ProjectPackage& package
+) const {
+  auto documents = readSnapshotDocuments(package);
+  if (!documents) {
+    return documents.error();
+  }
+
+  const ProjectPackageManifest& manifest = documents.value().manifest;
+  if (!manifest.head.has_value() || !manifest.head->lastSnapshotId.has_value()) {
+    return foundation::Error{"storage.package_head_snapshot_missing", "Package manifest head does not reference a snapshot."};
+  }
+
+  for (const project::ProjectSnapshot& snapshot : documents.value().snapshots) {
+    if (snapshot.revision == manifest.head->revision) {
+      return ProjectPackageHeadSnapshot{
+        manifest,
+        snapshot
+      };
+    }
+  }
+
+  return foundation::Error{"storage.package_head_snapshot_missing", "Package manifest head revision has no loaded snapshot document."};
+}
+
+foundation::Result<ProjectPackageSnapshotDocuments> ProjectPackageReader::readSnapshotDocuments(
   const ProjectPackage& package
 ) const {
   auto manifest = readManifest(package);
   if (!manifest) {
     return manifest.error();
   }
-  if (!manifest.value().latestSnapshot.has_value()) {
-    return foundation::Error{"storage.package_latest_snapshot_missing", "Package manifest does not reference a latest snapshot."};
+
+  if (manifest.value().head.has_value() && manifest.value().head->lastSnapshotId.has_value()) {
+    const ProjectPackageSnapshotManifest* headSnapshot = findSnapshotManifest(
+      manifest.value(),
+      *manifest.value().head->lastSnapshotId
+    );
+    if (headSnapshot == nullptr) {
+      return foundation::Error{"storage.package_head_snapshot_missing", "Package head references a missing snapshot manifest."};
+    }
+    if (headSnapshot->revision != manifest.value().head->revision) {
+      return foundation::Error{"storage.package_head_snapshot_revision_mismatch", "Package head snapshot revision must match package head revision."};
+    }
   }
 
-  const ProjectPackageSnapshotManifest& latestSnapshot = *manifest.value().latestSnapshot;
-  auto snapshotPath = packageRelativePath(
-    package,
-    latestSnapshot.documentPath,
-    "storage.snapshot_document_path_empty",
-    "storage.snapshot_document_path_absolute"
-  );
-  if (!snapshotPath) {
-    return snapshotPath.error();
+  std::vector<project::ProjectSnapshot> snapshots;
+  snapshots.reserve(manifest.value().snapshots.size());
+  for (const ProjectPackageSnapshotManifest& snapshotManifest : manifest.value().snapshots) {
+    auto snapshot = readSnapshotDocument(package, snapshotManifest);
+    if (!snapshot) {
+      return snapshot.error();
+    }
+    snapshots.push_back(snapshot.value());
   }
 
-  auto contents = readTextFile(snapshotPath.value(), "storage.snapshot_open_failed");
-  if (!contents) {
-    return contents.error();
-  }
-
-  auto snapshot = project::deserializeCanonicalProjectSnapshot(contents.value());
-  if (!snapshot) {
-    return snapshot.error();
-  }
-  auto valid = validateLatestSnapshot(snapshot.value(), latestSnapshot, package);
-  if (!valid) {
-    return valid.error();
-  }
-
-  return ProjectPackageLatestSnapshot{
+  return ProjectPackageSnapshotDocuments{
     manifest.value(),
-    snapshot.value()
+    std::move(snapshots)
   };
 }
 
