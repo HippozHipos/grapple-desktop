@@ -40,9 +40,14 @@ foundation::Result<ExportResult> LocalRenderSystem::exportRange(const ExportRequ
 }
 
 LocalRenderSystemState LocalRenderSystem::state() const noexcept {
+  const PreviewRenderShellState previewState = preview_.state();
+  const FinalRenderShellState finalRenderState = finalRender_.state();
   return LocalRenderSystemState{
-    preview_.state(),
-    finalRender_.state()
+    previewState.core,
+    previewState.playback,
+    previewState.playhead,
+    finalRenderState.lastSettings,
+    finalRenderState.lastOutputPath
   };
 }
 

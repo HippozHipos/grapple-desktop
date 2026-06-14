@@ -577,10 +577,8 @@ int main() {
   const auto systemLoad = localRenderSystem.loadPlan(plan);
   GRAPPLE_REQUIRE(systemLoad);
   const auto systemStateAfterLoad = localRenderSystem.state();
-  GRAPPLE_REQUIRE(systemStateAfterLoad.preview.core.hasPlan);
-  GRAPPLE_REQUIRE(systemStateAfterLoad.finalRender.core.hasPlan);
-  GRAPPLE_REQUIRE(systemStateAfterLoad.preview.core.preparedPlanHash == coreAfterLoad.preparedPlanHash);
-  GRAPPLE_REQUIRE(systemStateAfterLoad.finalRender.core.preparedPlanHash == coreAfterLoad.preparedPlanHash);
+  GRAPPLE_REQUIRE(systemStateAfterLoad.core.hasPlan);
+  GRAPPLE_REQUIRE(systemStateAfterLoad.core.preparedPlanHash == coreAfterLoad.preparedPlanHash);
 
   const auto systemSeek = localRenderSystem.seek(foundation::TimeSeconds{4.0});
   GRAPPLE_REQUIRE(systemSeek);
@@ -604,12 +602,11 @@ int main() {
   GRAPPLE_REQUIRE(systemExport.value().framesEvaluated == 2);
   GRAPPLE_REQUIRE((systemExportSink.frameTimes == std::vector<foundation::TimeSeconds>{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{0.5}}));
   const auto systemStateAfterExport = localRenderSystem.state();
-  GRAPPLE_REQUIRE(systemStateAfterExport.preview.playback == render::PreviewPlaybackState::Paused);
-  GRAPPLE_REQUIRE(systemStateAfterExport.preview.playhead == foundation::TimeSeconds{4.0});
-  GRAPPLE_REQUIRE(systemStateAfterExport.finalRender.lastSettings.has_value());
-  GRAPPLE_REQUIRE((systemStateAfterExport.finalRender.lastSettings->resolution == foundation::Resolution{1920, 1080}));
-  GRAPPLE_REQUIRE(systemStateAfterExport.preview.core.preparedPlanHash == systemStateAfterLoad.preview.core.preparedPlanHash);
-  GRAPPLE_REQUIRE(systemStateAfterExport.finalRender.core.preparedPlanHash == systemStateAfterLoad.finalRender.core.preparedPlanHash);
+  GRAPPLE_REQUIRE(systemStateAfterExport.playback == render::PreviewPlaybackState::Paused);
+  GRAPPLE_REQUIRE(systemStateAfterExport.playhead == foundation::TimeSeconds{4.0});
+  GRAPPLE_REQUIRE(systemStateAfterExport.lastExportSettings.has_value());
+  GRAPPLE_REQUIRE((systemStateAfterExport.lastExportSettings->resolution == foundation::Resolution{1920, 1080}));
+  GRAPPLE_REQUIRE(systemStateAfterExport.core.preparedPlanHash == systemStateAfterLoad.core.preparedPlanHash);
 
   TestFrameSource frameSource;
   render::LocalRenderCore imageCore{runtime, frameSource};

@@ -6,6 +6,8 @@
 #include <grapple/render/FinalRenderShell.hpp>
 #include <grapple/render/PreviewRenderShell.hpp>
 
+#include <optional>
+
 namespace grapple::render {
 
 struct PlaybackFrameRequest {
@@ -23,8 +25,11 @@ struct ExportRequest {
 using ExportResult = FinalRenderResult;
 
 struct LocalRenderSystemState {
-  PreviewRenderShellState preview;
-  FinalRenderShellState finalRender;
+  LocalRenderCoreState core;
+  PreviewPlaybackState playback = PreviewPlaybackState::Paused;
+  foundation::TimeSeconds playhead;
+  std::optional<ExportSettings> lastExportSettings;
+  std::optional<foundation::FilePath> lastExportOutputPath;
 };
 
 class LocalRenderSystem {

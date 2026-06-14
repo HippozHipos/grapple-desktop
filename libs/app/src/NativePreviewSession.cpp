@@ -22,7 +22,7 @@ foundation::Result<NativePreviewRefreshResult> NativePreviewSession::refreshFrom
   const render::LocalRenderSystemState renderState = renderSystem_.state();
   return NativePreviewRefreshResult{
     planResult.value().plan.revision,
-    renderState.preview.core.preparedPlanHash.value()
+    renderState.core.preparedPlanHash.value()
   };
 }
 
@@ -46,7 +46,12 @@ foundation::Result<render::RenderFrameResult> NativePreviewSession::renderFrame(
 }
 
 render::PreviewRenderShellState NativePreviewSession::state() const noexcept {
-  return renderSystem_.state().preview;
+  const render::LocalRenderSystemState renderState = renderSystem_.state();
+  return render::PreviewRenderShellState{
+    renderState.playback,
+    renderState.playhead,
+    renderState.core
+  };
 }
 
 } // namespace grapple::app

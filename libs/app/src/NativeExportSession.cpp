@@ -147,7 +147,7 @@ foundation::Result<NativeExportPrepareResult> NativeExportSession::prepareFromPr
   const render::LocalRenderSystemState renderState = renderSystem_.state();
   return NativeExportPrepareResult{
     planResult.value().plan.revision,
-    renderState.finalRender.core.preparedPlanHash.value()
+    renderState.core.preparedPlanHash.value()
   };
 }
 
@@ -169,7 +169,12 @@ foundation::Result<render::FinalRenderResult> NativeExportSession::renderToVideo
 }
 
 render::FinalRenderShellState NativeExportSession::state() const noexcept {
-  return renderSystem_.state().finalRender;
+  const render::LocalRenderSystemState renderState = renderSystem_.state();
+  return render::FinalRenderShellState{
+    renderState.core,
+    renderState.lastExportSettings,
+    renderState.lastExportOutputPath
+  };
 }
 
 } // namespace grapple::app
