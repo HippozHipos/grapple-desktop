@@ -647,6 +647,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   if (updateCameraSmoke) {
     window.clickFirstTimelineCamera();
     window.updateSelectedCameraName("Renamed Camera");
+    window.updateSelectedCameraFocalLength(85.0);
     const auto viewModel = workspace.value().project().buildViewModel();
     if (!viewModel) {
       printError(viewModel.error());
@@ -661,11 +662,11 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "cameraName=" << viewModel.value().timeline.cameras.front().name << '\n';
     std::cout << "focalLength=" << viewModel.value().timeline.cameras.front().lens.focalLength << '\n';
     std::cout << "inspector=" << inspector << '\n';
-    return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_6"} &&
+    return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_7"} &&
            viewModel.value().timeline.cameras.front().name == "Renamed Camera" &&
-           viewModel.value().timeline.cameras.front().lens.focalLength == 35.0 &&
+           viewModel.value().timeline.cameras.front().lens.focalLength == 85.0 &&
            inspector.find("Inspector\nCamera\nName: Renamed Camera") != std::string::npos &&
-           inspector.find("Focal Length: 35.0") != std::string::npos
+           inspector.find("Focal Length: 85.0") != std::string::npos
       ? 0
       : 1;
   }

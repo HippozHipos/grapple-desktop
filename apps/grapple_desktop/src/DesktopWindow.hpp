@@ -52,6 +52,7 @@ public:
   void addTrack();
   void addCamera();
   void updateSelectedCameraName(std::string name);
+  void updateSelectedCameraFocalLength(double focalLength);
   void addNote();
   void updateSelectedNote(std::string title, std::string markdown);
   void importMediaFile(const foundation::FilePath& path);

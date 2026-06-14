@@ -448,6 +448,7 @@ public:
     auto* addTrackAction = moreMenu->addAction("Add Track");
     auto* addCameraAction = moreMenu->addAction("Add Camera");
     auto* renameCameraAction = moreMenu->addAction("Rename Camera");
+    auto* setCameraFocalLengthAction = moreMenu->addAction("Set Camera Focal Length");
     auto* addNoteAction = moreMenu->addAction("Add Note");
     auto* editNoteAction = moreMenu->addAction("Edit Note");
     auto* moveClipAction = moreMenu->addAction("Move Clip +1s");
@@ -540,6 +541,7 @@ public:
     connect(addTrackAction, &QAction::triggered, this, [this] { addTrack(); });
     connect(addCameraAction, &QAction::triggered, this, [this] { addCamera(); });
     connect(renameCameraAction, &QAction::triggered, this, [this] { renameSelectedCamera(); });
+    connect(setCameraFocalLengthAction, &QAction::triggered, this, [this] { editSelectedCameraFocalLength(); });
     connect(addNoteAction, &QAction::triggered, this, [this] { addNote(); });
     connect(editNoteAction, &QAction::triggered, this, [this] { editSelectedNote(); });
     connect(moveClipAction, &QAction::triggered, this, [this] { moveSelectedClip(grapple::foundation::TimeSeconds{1.0}); });
@@ -1023,30 +1025,19 @@ public:
   }
 
   void updateSelectedCameraName(std::string name) {
-    if (!selectedNodeId_.has_value()) {
-      appendError(grapple::foundation::Error{"desktop.selection_missing", "Rename Camera requires a selected camera."});
-      return;
-    }
-
-    const auto viewModel = workspace_.project().buildViewModel();
-    if (!viewModel) {
-      appendError(viewModel.error());
-      return;
-    }
-
-    const grapple::app::AppCameraRow* selectedCamera = selectedCameraRow(viewModel.value());
-    if (selectedCamera == nullptr) {
-      appendError(grapple::foundation::Error{"desktop.selected_node_not_camera", "Rename Camera only applies to selected cameras."});
+    auto selectedCamera = selectedCameraRowForAction("Rename Camera");
+    if (!selectedCamera) {
+      appendError(selectedCamera.error());
       return;
     }
 
     const auto result = workspace_.commandWriter().apply(
       grapple::project::UpdateCameraCommand{
-        selectedCamera->sourceNodeId,
+        selectedCamera.value().sourceNodeId,
         grapple::timeline::CameraPayload{
           std::move(name),
-          selectedCamera->transform,
-          selectedCamera->lens
+          selectedCamera.value().transform,
+          selectedCamera.value().lens
         }
       },
       userSource()
@@ -1062,21 +1053,39 @@ public:
     log_->append("Renamed camera");
   }
 
+  void updateSelectedCameraFocalLength(double focalLength) {
+    auto selectedCamera = selectedCameraRowForAction("Set Camera Focal Length");
+    if (!selectedCamera) {
+      appendError(selectedCamera.error());
+      return;
+    }
+
+    const auto result = workspace_.commandWriter().apply(
+      grapple::project::UpdateCameraCommand{
+        selectedCamera.value().sourceNodeId,
+        grapple::timeline::CameraPayload{
+          selectedCamera.value().name,
+          selectedCamera.value().transform,
+          grapple::timeline::CameraLens{focalLength}
+        }
+      },
+      userSource()
+    );
+    if (!result) {
+      appendError(result.error());
+      return;
+    }
+
+    selectedAssetId_ = std::nullopt;
+    refreshViewModel();
+    refreshPreview();
+    log_->append("Updated camera focal length");
+  }
+
   void renameSelectedCamera() {
-    if (!selectedNodeId_.has_value()) {
-      appendError(grapple::foundation::Error{"desktop.selection_missing", "Rename Camera requires a selected camera."});
-      return;
-    }
-
-    const auto viewModel = workspace_.project().buildViewModel();
-    if (!viewModel) {
-      appendError(viewModel.error());
-      return;
-    }
-
-    const grapple::app::AppCameraRow* selectedCamera = selectedCameraRow(viewModel.value());
-    if (selectedCamera == nullptr) {
-      appendError(grapple::foundation::Error{"desktop.selected_node_not_camera", "Rename Camera only applies to selected cameras."});
+    auto selectedCamera = selectedCameraRowForAction("Rename Camera");
+    if (!selectedCamera) {
+      appendError(selectedCamera.error());
       return;
     }
 
@@ -1086,7 +1095,7 @@ public:
       "Rename Camera",
       "Name",
       QLineEdit::Normal,
-      qString(selectedCamera->name),
+      qString(selectedCamera.value().name),
       &accepted
     );
     if (!accepted) {
@@ -1094,6 +1103,55 @@ public:
     }
 
     updateSelectedCameraName(name.toStdString());
+  }
+
+  void editSelectedCameraFocalLength() {
+    auto selectedCamera = selectedCameraRowForAction("Set Camera Focal Length");
+    if (!selectedCamera) {
+      appendError(selectedCamera.error());
+      return;
+    }
+
+    bool accepted = false;
+    const double focalLength = QInputDialog::getDouble(
+      this,
+      "Set Camera Focal Length",
+      "Focal length",
+      selectedCamera.value().lens.focalLength,
+      1.0,
+      1000.0,
+      1,
+      &accepted
+    );
+    if (!accepted) {
+      return;
+    }
+
+    updateSelectedCameraFocalLength(focalLength);
+  }
+
+  grapple::foundation::Result<grapple::app::AppCameraRow> selectedCameraRowForAction(const std::string& actionName) {
+    if (!selectedNodeId_.has_value()) {
+      return grapple::foundation::Error{
+        "desktop.selection_missing",
+        actionName + " requires a selected camera."
+      };
+    }
+
+    const auto viewModel = workspace_.project().buildViewModel();
+    if (!viewModel) {
+      return viewModel.error();
+    }
+
+    const grapple::app::AppCameraRow* selectedCamera = selectedCameraRow(viewModel.value());
+    if (selectedCamera == nullptr) {
+      return grapple::foundation::Error{
+        "desktop.selected_node_not_camera",
+        actionName + " only applies to selected cameras."
+      };
+    }
+
+    return *selectedCamera;
   }
 
   const grapple::app::AppCameraRow* selectedCameraRow(const grapple::app::AppViewModel& viewModel) const {
@@ -2158,6 +2216,10 @@ void DesktopWindow::addCamera() {
 
 void DesktopWindow::updateSelectedCameraName(std::string name) {
   impl_->updateSelectedCameraName(std::move(name));
+}
+
+void DesktopWindow::updateSelectedCameraFocalLength(double focalLength) {
+  impl_->updateSelectedCameraFocalLength(focalLength);
 }
 
 void DesktopWindow::addNote() {
