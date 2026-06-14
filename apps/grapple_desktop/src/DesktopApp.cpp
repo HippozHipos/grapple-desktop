@@ -121,6 +121,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   bool emptyAddVideoSmoke = false;
   bool emptyAddTrackSmoke = false;
   bool emptyAddCameraSmoke = false;
+  bool updateCameraSmoke = false;
   bool addNoteSmoke = false;
   bool updateNoteSmoke = false;
   bool moveClipSmoke = false;
@@ -171,6 +172,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       emptyAddTrackSmoke = true;
     } else if (argument == "--empty-add-camera-smoke") {
       emptyAddCameraSmoke = true;
+    } else if (argument == "--update-camera-smoke") {
+      updateCameraSmoke = true;
     } else if (argument == "--add-note-smoke") {
       addNoteSmoke = true;
     } else if (argument == "--update-note-smoke") {
@@ -204,7 +207,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     } else if (argument == "--effect-screenshot" && index + 1 < argc) {
       effectScreenshotPath = argv[++index];
     } else {
-      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --select-audio-clip-smoke, --select-audio-track-smoke, --select-camera-smoke, --select-second-camera-smoke, --steward-smoke, --import-smoke, --import-media-types-smoke, --add-video-smoke, --empty-add-video-smoke, --empty-add-track-smoke, --empty-add-camera-smoke, --add-note-smoke, --update-note-smoke, --move-clip-smoke, --trim-clip-smoke, --undo-redo-smoke, --add-effect-smoke, --set-effect-param-smoke, --effect-keyframe-smoke, --delete-effect-smoke, --delete-smoke, --delete-track-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, --screenshot <path>, or --effect-screenshot <path>.\n";
+      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --select-audio-clip-smoke, --select-audio-track-smoke, --select-camera-smoke, --select-second-camera-smoke, --steward-smoke, --import-smoke, --import-media-types-smoke, --add-video-smoke, --empty-add-video-smoke, --empty-add-track-smoke, --empty-add-camera-smoke, --update-camera-smoke, --add-note-smoke, --update-note-smoke, --move-clip-smoke, --trim-clip-smoke, --undo-redo-smoke, --add-effect-smoke, --set-effect-param-smoke, --effect-keyframe-smoke, --delete-effect-smoke, --delete-smoke, --delete-track-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, --screenshot <path>, or --effect-screenshot <path>.\n";
       return 1;
     }
   }
@@ -634,6 +637,32 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            viewModel.value().timeline.cameras.size() == 1 &&
            window.selectedNodeId().has_value() &&
            window.selectedNodeId().value() == viewModel.value().timeline.cameras.front().sourceNodeId
+      ? 0
+      : 1;
+  }
+
+  if (updateCameraSmoke) {
+    window.clickFirstTimelineCamera();
+    window.updateSelectedCameraName("Renamed Camera");
+    const auto viewModel = workspace.value().project().buildViewModel();
+    if (!viewModel) {
+      printError(viewModel.error());
+      return 1;
+    }
+    if (viewModel.value().timeline.cameras.empty()) {
+      std::cerr << "No cameras.\n";
+      return 1;
+    }
+    const std::string inspector = window.inspectorContents();
+    std::cout << "revision=" << viewModel.value().project.revision.value() << '\n';
+    std::cout << "cameraName=" << viewModel.value().timeline.cameras.front().name << '\n';
+    std::cout << "focalLength=" << viewModel.value().timeline.cameras.front().lens.focalLength << '\n';
+    std::cout << "inspector=" << inspector << '\n';
+    return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_6"} &&
+           viewModel.value().timeline.cameras.front().name == "Renamed Camera" &&
+           viewModel.value().timeline.cameras.front().lens.focalLength == 35.0 &&
+           inspector.find("Inspector\nCamera\nName: Renamed Camera") != std::string::npos &&
+           inspector.find("Focal Length: 35.0") != std::string::npos
       ? 0
       : 1;
   }

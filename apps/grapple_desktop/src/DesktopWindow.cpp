@@ -176,8 +176,9 @@ QString inspectorText(
 
   for (const grapple::app::AppCameraRow& camera : viewModel.timeline.cameras) {
     if (camera.sourceNodeId == selectedNodeId.value()) {
-      return QString{"Inspector\nCamera\nName: %1\n\n%2"}
+      return QString{"Inspector\nCamera\nName: %1\nFocal Length: %2\n\n%3"}
         .arg(qString(camera.name))
+        .arg(camera.lens.focalLength, 0, 'f', 1)
         .arg(attachedEffectsText(camera.sourceNodeId));
     }
   }
@@ -443,6 +444,7 @@ public:
     auto* openPackageAction = moreMenu->addAction("Open Package");
     auto* addTrackAction = moreMenu->addAction("Add Track");
     auto* addCameraAction = moreMenu->addAction("Add Camera");
+    auto* renameCameraAction = moreMenu->addAction("Rename Camera");
     auto* addNoteAction = moreMenu->addAction("Add Note");
     auto* editNoteAction = moreMenu->addAction("Edit Note");
     auto* moveClipAction = moreMenu->addAction("Move Clip +1s");
@@ -532,6 +534,7 @@ public:
     connect(openPackageAction, &QAction::triggered, this, [this] { chooseAndOpenPackage(); });
     connect(addTrackAction, &QAction::triggered, this, [this] { addTrack(); });
     connect(addCameraAction, &QAction::triggered, this, [this] { addCamera(); });
+    connect(renameCameraAction, &QAction::triggered, this, [this] { renameSelectedCamera(); });
     connect(addNoteAction, &QAction::triggered, this, [this] { addNote(); });
     connect(editNoteAction, &QAction::triggered, this, [this] { editSelectedNote(); });
     connect(moveClipAction, &QAction::triggered, this, [this] { moveSelectedClip(grapple::foundation::TimeSeconds{1.0}); });
@@ -1010,6 +1013,94 @@ public:
     refreshViewModel();
     refreshPreview();
     log_->append("Added camera");
+  }
+
+  void updateSelectedCameraName(std::string name) {
+    if (!selectedNodeId_.has_value()) {
+      appendError(grapple::foundation::Error{"desktop.selection_missing", "Rename Camera requires a selected camera."});
+      return;
+    }
+
+    const auto viewModel = workspace_.project().buildViewModel();
+    if (!viewModel) {
+      appendError(viewModel.error());
+      return;
+    }
+
+    const grapple::app::AppCameraRow* selectedCamera = selectedCameraRow(viewModel.value());
+    if (selectedCamera == nullptr) {
+      appendError(grapple::foundation::Error{"desktop.selected_node_not_camera", "Rename Camera only applies to selected cameras."});
+      return;
+    }
+
+    const auto result = workspace_.commandWriter().apply(
+      grapple::project::UpdateCameraCommand{
+        selectedCamera->sourceNodeId,
+        grapple::timeline::CameraPayload{
+          std::move(name),
+          selectedCamera->transform,
+          selectedCamera->lens
+        }
+      },
+      userSource()
+    );
+    if (!result) {
+      appendError(result.error());
+      return;
+    }
+
+    selectedAssetId_ = std::nullopt;
+    refreshViewModel();
+    refreshPreview();
+    log_->append("Renamed camera");
+  }
+
+  void renameSelectedCamera() {
+    if (!selectedNodeId_.has_value()) {
+      appendError(grapple::foundation::Error{"desktop.selection_missing", "Rename Camera requires a selected camera."});
+      return;
+    }
+
+    const auto viewModel = workspace_.project().buildViewModel();
+    if (!viewModel) {
+      appendError(viewModel.error());
+      return;
+    }
+
+    const grapple::app::AppCameraRow* selectedCamera = selectedCameraRow(viewModel.value());
+    if (selectedCamera == nullptr) {
+      appendError(grapple::foundation::Error{"desktop.selected_node_not_camera", "Rename Camera only applies to selected cameras."});
+      return;
+    }
+
+    bool accepted = false;
+    const QString name = QInputDialog::getText(
+      this,
+      "Rename Camera",
+      "Name",
+      QLineEdit::Normal,
+      qString(selectedCamera->name),
+      &accepted
+    );
+    if (!accepted) {
+      return;
+    }
+
+    updateSelectedCameraName(name.toStdString());
+  }
+
+  const grapple::app::AppCameraRow* selectedCameraRow(const grapple::app::AppViewModel& viewModel) const {
+    if (!selectedNodeId_.has_value()) {
+      return nullptr;
+    }
+    const auto selectedCamera = std::find_if(
+      viewModel.timeline.cameras.begin(),
+      viewModel.timeline.cameras.end(),
+      [&](const grapple::app::AppCameraRow& camera) {
+        return camera.sourceNodeId == selectedNodeId_.value();
+      }
+    );
+    return selectedCamera == viewModel.timeline.cameras.end() ? nullptr : &*selectedCamera;
   }
 
   void addNote() {
@@ -2003,6 +2094,10 @@ void DesktopWindow::addTrack() {
 
 void DesktopWindow::addCamera() {
   impl_->addCamera();
+}
+
+void DesktopWindow::updateSelectedCameraName(std::string name) {
+  impl_->updateSelectedCameraName(std::move(name));
 }
 
 void DesktopWindow::addNote() {

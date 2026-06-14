@@ -51,6 +51,7 @@ public:
   void advancePlaybackFrame();
   void addTrack();
   void addCamera();
+  void updateSelectedCameraName(std::string name);
   void addNote();
   void updateSelectedNote(std::string title, std::string markdown);
   void importMediaFile(const foundation::FilePath& path);

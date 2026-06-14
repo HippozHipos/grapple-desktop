@@ -7,6 +7,7 @@
 #include <grapple/foundation/Time.hpp>
 #include <grapple/foundation/Transform.hpp>
 #include <grapple/timeline/ParamValue.hpp>
+#include <grapple/timeline/Payloads.hpp>
 
 #include <cstddef>
 #include <cstdint>
@@ -85,6 +86,7 @@ struct AppCameraRow {
   foundation::NodeId sourceNodeId;
   std::string name;
   foundation::Transform2D transform;
+  timeline::CameraLens lens;
 };
 
 struct AppEffectParamRow {
