@@ -1273,6 +1273,25 @@ public:
     return selectedCamera == viewModel.timeline.cameras.end() ? nullptr : &*selectedCamera;
   }
 
+  grapple::foundation::Result<grapple::foundation::NodeId> stewardCameraTargetForAction() const {
+    const auto viewModel = workspace_.project().buildViewModel();
+    if (!viewModel) {
+      return viewModel.error();
+    }
+
+    const grapple::app::AppCameraRow* selectedCamera = selectedCameraRow(viewModel.value());
+    if (selectedCamera != nullptr) {
+      return selectedCamera->sourceNodeId;
+    }
+    if (viewModel.value().timeline.cameras.size() == 1) {
+      return viewModel.value().timeline.cameras.front().sourceNodeId;
+    }
+    if (viewModel.value().timeline.cameras.empty()) {
+      return grapple::foundation::Error{"desktop.camera_missing", "Add Effect requires a camera."};
+    }
+    return grapple::foundation::Error{"desktop.selection_missing", "Add Effect requires a selected camera."};
+  }
+
   void addNote() {
     const auto viewModel = workspace_.project().buildViewModel();
     if (!viewModel) {
@@ -2000,13 +2019,14 @@ public:
   }
 
   void addEffectToSelectedTarget(std::string intent) {
-    if (!selectedNodeId_.has_value()) {
-      appendError(grapple::foundation::Error{"desktop.selection_missing", "Add Effect requires a selected camera."});
+    const auto targetCameraNodeId = stewardCameraTargetForAction();
+    if (!targetCameraNodeId) {
+      appendError(targetCameraNodeId.error());
       return;
     }
 
     const auto created = workspace_.steward().createCameraTransformEffect(
-      selectedNodeId_.value(),
+      targetCameraNodeId.value(),
       std::move(intent),
       grapple::foundation::TimeRange{grapple::foundation::TimeSeconds{0.0}, timelineDuration_}
     );
@@ -2016,6 +2036,8 @@ public:
       return;
     }
 
+    selectedNodeId_ = targetCameraNodeId.value();
+    selectedAssetId_ = std::nullopt;
     refreshViewModel();
     refreshPreview();
     log_->append("Steward applied camera edit");

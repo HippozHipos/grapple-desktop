@@ -54,30 +54,29 @@ QStringList exposedControlsFor(const app::AppEffectRow& effect) {
   return controls;
 }
 
-bool selectedCameraExists(
+std::optional<foundation::NodeId> stewardCameraTargetId(
   const app::AppViewModel& viewModel,
   const std::optional<foundation::NodeId>& selectedNodeId
 ) {
-  if (!selectedNodeId.has_value()) {
-    return false;
-  }
-  for (const app::AppCameraRow& camera : viewModel.timeline.cameras) {
-    if (camera.sourceNodeId == selectedNodeId.value()) {
-      return true;
+  if (selectedNodeId.has_value()) {
+    for (const app::AppCameraRow& camera : viewModel.timeline.cameras) {
+      if (camera.sourceNodeId == selectedNodeId.value()) {
+        return camera.sourceNodeId;
+      }
     }
   }
-  return false;
+  if (viewModel.timeline.cameras.size() == 1) {
+    return viewModel.timeline.cameras.front().sourceNodeId;
+  }
+  return std::nullopt;
 }
 
 bool selectedCameraHasTransformEffect(
   const app::AppViewModel& viewModel,
-  const std::optional<foundation::NodeId>& selectedNodeId
+  const foundation::NodeId& cameraNodeId
 ) {
-  if (!selectedNodeId.has_value()) {
-    return false;
-  }
   for (const app::AppEffectGraphRow& graph : viewModel.timeline.effectGraphs) {
-    if (graph.targetNodeId != selectedNodeId.value()) {
+    if (graph.targetNodeId != cameraNodeId) {
       continue;
     }
     for (const app::AppEffectRow& effect : graph.effects) {
@@ -175,10 +174,11 @@ void StewardPanel::setViewModel(
   const agent::AgentConversationState& conversationState,
   const std::optional<foundation::NodeId>& selectedNodeId
 ) {
-  if (!selectedCameraExists(viewModel, selectedNodeId)) {
-    createCameraEffectButton_->setText("Select Camera");
+  const std::optional<foundation::NodeId> cameraTargetId = stewardCameraTargetId(viewModel, selectedNodeId);
+  if (!cameraTargetId.has_value()) {
+    createCameraEffectButton_->setText(viewModel.timeline.cameras.empty() ? "Add Camera" : "Select Camera");
     createCameraEffectButton_->setEnabled(false);
-  } else if (selectedCameraHasTransformEffect(viewModel, selectedNodeId)) {
+  } else if (selectedCameraHasTransformEffect(viewModel, cameraTargetId.value())) {
     createCameraEffectButton_->setText("Editable Controls Created");
     createCameraEffectButton_->setEnabled(false);
   } else {

@@ -295,7 +295,6 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     window.show();
     app.processEvents();
     window.clickFirstTimelineClip();
-    window.clickStewardCreateCameraEffect();
     const auto selectedNodeId = window.selectedNodeId();
     if (!selectedNodeId.has_value()) {
       std::cerr << "No selected timeline node.\n";
@@ -947,7 +946,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   if (addEffectSmoke) {
     window.show();
     app.processEvents();
-    window.clickFirstTimelineCamera();
+    window.clickFirstTimelineClip();
     window.setStewardIntent("Center the walking subject with exposed controls.");
     window.clickStewardCreateCameraEffect();
     window.clickStewardCreateCameraEffect();
