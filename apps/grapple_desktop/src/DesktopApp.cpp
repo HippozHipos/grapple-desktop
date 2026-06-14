@@ -925,6 +925,11 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       printError(afterKeyframeUpdate.error());
       return 1;
     }
+    const std::string buttonAtKeyframe = window.effectParamKeyframeButtonText(grapple::runtime::builtin_effect::PositionXParam);
+    window.seekTo(grapple::foundation::TimeSeconds{0.0});
+    const std::string buttonAwayFromKeyframe = window.effectParamKeyframeButtonText(grapple::runtime::builtin_effect::PositionXParam);
+    window.seekTo(grapple::foundation::TimeSeconds{2.0});
+    const std::string buttonBackAtKeyframe = window.effectParamKeyframeButtonText(grapple::runtime::builtin_effect::PositionXParam);
     window.deleteEffectParamKeyframeControl(grapple::runtime::builtin_effect::PositionXParam, 0);
     const auto afterKeyframeDelete = workspace.value().project().buildViewModel();
     if (!afterKeyframeDelete) {
@@ -939,6 +944,9 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "afterSetKeyframes=" << keyframesAfterSet.size() << '\n';
     std::cout << "afterUpdateRevision=" << afterKeyframeUpdate.value().project.revision.value() << '\n';
     std::cout << "afterUpdateKeyframes=" << keyframesAfterUpdate.size() << '\n';
+    std::cout << "buttonAtKeyframe=" << buttonAtKeyframe << '\n';
+    std::cout << "buttonAwayFromKeyframe=" << buttonAwayFromKeyframe << '\n';
+    std::cout << "buttonBackAtKeyframe=" << buttonBackAtKeyframe << '\n';
     std::cout << "afterDeleteRevision=" << afterKeyframeDelete.value().project.revision.value() << '\n';
     std::cout << "afterDeleteKeyframes=" << keyframesAfterDelete.size() << '\n';
     return keyframesAfterSet.size() == 1 &&
@@ -947,6 +955,9 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            keyframesAfterUpdate.size() == 1 &&
            keyframesAfterUpdate[0].keyframeId == keyframesAfterSet[0].keyframeId &&
            std::get<double>(keyframesAfterUpdate[0].value) == 0.5 &&
+           buttonAtKeyframe == "Update Keyframe" &&
+           buttonAwayFromKeyframe == "Set Keyframe" &&
+           buttonBackAtKeyframe == "Update Keyframe" &&
            keyframesAfterDelete.empty()
       ? 0
       : 1;

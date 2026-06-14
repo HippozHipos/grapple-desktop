@@ -733,13 +733,16 @@ public:
     timeline_->setPlayhead(previewState.playhead);
   }
 
-  void seekTo(grapple::foundation::TimeSeconds time) {
+  void seekTo(grapple::foundation::TimeSeconds time, bool updateEditControls = true) {
     const auto seek = workspace_.preview().seek(time);
     if (!seek) {
       appendError(seek.error());
       return;
     }
     renderCurrentFrame();
+    if (updateEditControls) {
+      refreshPlayheadEditControls();
+    }
   }
 
   void stepPlayhead(double deltaSeconds) {
@@ -968,6 +971,7 @@ public:
     }
 
     renderCurrentFrame();
+    refreshPlayheadEditControls();
   }
 
   void advancePlaybackFrame() {
@@ -979,12 +983,12 @@ public:
     const double duration = std::max(0.0, timelineDuration_.value);
     const double next = workspace_.preview().state().playhead.value + (1.0 / 30.0);
     if (duration <= 0.0 || next >= duration) {
-      seekTo(grapple::foundation::TimeSeconds{duration});
+      seekTo(grapple::foundation::TimeSeconds{duration}, false);
       pausePlayback();
       return;
     }
 
-    seekTo(grapple::foundation::TimeSeconds{next});
+    seekTo(grapple::foundation::TimeSeconds{next}, false);
   }
 
   grapple::foundation::Result<grapple::foundation::NodeId> ensureComposition() {
@@ -2009,6 +2013,14 @@ public:
     QApplication::processEvents();
   }
 
+  std::string effectParamKeyframeButtonText(const std::string& paramName) const {
+    auto* button = findChild<QPushButton*>(QString{"effectParamKeyframe_%1"}.arg(qString(paramName)));
+    if (button == nullptr) {
+      return {};
+    }
+    return button->text().toStdString();
+  }
+
   void deleteEffectParamKeyframeControl(const std::string& paramName, int keyframeIndex) {
     auto* button = findChild<QPushButton*>(QString{"effectParamDeleteKeyframe_%1_%2"}
       .arg(qString(paramName))
@@ -2390,6 +2402,15 @@ private:
     steward_->setViewModel(viewModel, workspace_.steward().conversationState(), selectedNodeId_);
   }
 
+  void refreshPlayheadEditControls() {
+    const auto viewModel = workspace_.project().buildViewModel();
+    if (!viewModel) {
+      appendError(viewModel.error());
+      return;
+    }
+    effectParams_->setSelection(viewModel.value(), selectedNodeId_, workspace_.preview().state().playhead);
+  }
+
   void rebuildMediaBin(const grapple::app::AppViewModel& viewModel) {
     mediaBin_->blockSignals(true);
     mediaBin_->clear();
@@ -2688,6 +2709,10 @@ void DesktopWindow::setEffectParamControlValue(const std::string& paramName, dou
 
 void DesktopWindow::setEffectParamKeyframeAtPlayhead(const std::string& paramName) {
   impl_->setEffectParamKeyframeAtPlayhead(paramName);
+}
+
+std::string DesktopWindow::effectParamKeyframeButtonText(const std::string& paramName) const {
+  return impl_->effectParamKeyframeButtonText(paramName);
 }
 
 void DesktopWindow::deleteEffectParamKeyframeControl(const std::string& paramName, int keyframeIndex) {

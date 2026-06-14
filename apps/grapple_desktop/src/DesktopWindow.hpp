@@ -76,6 +76,7 @@ public:
   void setExportCodecControlValue(std::string codec);
   void setEffectParamControlValue(const std::string& paramName, double value);
   void setEffectParamKeyframeAtPlayhead(const std::string& paramName);
+  [[nodiscard]] std::string effectParamKeyframeButtonText(const std::string& paramName) const;
   void deleteEffectParamKeyframeControl(const std::string& paramName, int keyframeIndex);
   void setSelectedTargetNumericEffectParam(const std::string& paramName, double value);
   void deleteSelectedTargetEffect();
