@@ -273,7 +273,13 @@ int main() {
   );
 
   const std::string serializedPlan = projection::serializeCanonicalRenderPlan(planResult.value().plan);
-  GRAPPLE_REQUIRE(projection::hashRenderPlan(planResult.value().plan) == foundation::stableHash(serializedPlan));
+  const std::string serializedPlanContent = projection::serializeCanonicalRenderPlanContent(planResult.value().plan);
+  GRAPPLE_REQUIRE(projection::hashRenderPlan(planResult.value().plan) == foundation::stableHash(serializedPlanContent));
+  projection::RenderPlan revisionOnlyPlan = planResult.value().plan;
+  revisionOnlyPlan.revision = foundation::RevisionId{"rev_revision_only"};
+  GRAPPLE_REQUIRE(projection::serializeCanonicalRenderPlan(revisionOnlyPlan) != serializedPlan);
+  GRAPPLE_REQUIRE(projection::serializeCanonicalRenderPlanContent(revisionOnlyPlan) == serializedPlanContent);
+  GRAPPLE_REQUIRE(projection::hashRenderPlan(revisionOnlyPlan) == projection::hashRenderPlan(planResult.value().plan));
   GRAPPLE_REQUIRE(serializedPlan.find("\"projectId\":\"proj_projection\"") != std::string::npos);
   GRAPPLE_REQUIRE(serializedPlan.find("\"duration\":10") != std::string::npos);
   GRAPPLE_REQUIRE(serializedPlan.find("\"inlineSource\":\"def prepare(ctx):\\n  return {'x': 1}\\n\"") != std::string::npos);

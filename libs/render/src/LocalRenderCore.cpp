@@ -355,6 +355,9 @@ foundation::Result<void> LocalRenderCore::loadPlan(const projection::RenderPlan&
   if (prepared_.has_value() &&
       state_.preparedPlanHash.has_value() &&
       state_.preparedPlanHash.value() == planHash) {
+    state_.hasPlan = true;
+    state_.revision = plan.revision;
+    prepared_->sourceRevision = plan.revision;
     return {};
   }
 

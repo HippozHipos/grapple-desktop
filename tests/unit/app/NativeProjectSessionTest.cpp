@@ -1129,6 +1129,20 @@ int main() {
   GRAPPLE_REQUIRE(repeatedCountedPrepare);
   GRAPPLE_REQUIRE(repeatedCountedPrepare.value().preparedPlanHash == countedPrepare.value().preparedPlanHash);
   GRAPPLE_REQUIRE(countedRuntime.prepareCount == 1);
+  const auto noteOnlyEdit = runtimeWorkspace.value().commandWriter().apply(
+    project::CreateNoteCommand{
+      runtimeWorkspace.value().commandWriter().nextNodeId("note"),
+      timeline::NotePayload{"Render note", "This project note must not invalidate prepared render work."}
+    },
+    userSource()
+  );
+  GRAPPLE_REQUIRE(noteOnlyEdit);
+  const auto noteOnlyRefresh = countedPreview.refreshFromProject();
+  GRAPPLE_REQUIRE(noteOnlyRefresh);
+  GRAPPLE_REQUIRE(noteOnlyRefresh.value().revision == noteOnlyEdit.value().snapshot.revision);
+  GRAPPLE_REQUIRE(noteOnlyRefresh.value().preparedPlanHash == countedPrepare.value().preparedPlanHash);
+  GRAPPLE_REQUIRE(countedRenderSystem.state().core.revision == noteOnlyEdit.value().snapshot.revision);
+  GRAPPLE_REQUIRE(countedRuntime.prepareCount == 1);
   const auto runtimeRefresh = runtimeWorkspace.value().preview().refreshFromProject();
   GRAPPLE_REQUIRE(runtimeRefresh);
   const auto runtimeFrame = runtimeWorkspace.value().preview().renderFrame(render::RenderFrameRequest{

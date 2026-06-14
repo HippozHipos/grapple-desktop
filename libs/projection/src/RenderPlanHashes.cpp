@@ -8,7 +8,7 @@
 namespace grapple::projection {
 
 foundation::Hash256 hashRenderPlan(const RenderPlan& plan) {
-  return foundation::stableHash(serializeCanonicalRenderPlan(plan));
+  return foundation::stableHash(serializeCanonicalRenderPlanContent(plan));
 }
 
 foundation::Hash256 hashRenderClipImplementation() {

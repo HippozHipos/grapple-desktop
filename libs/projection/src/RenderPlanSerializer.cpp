@@ -45,9 +45,10 @@ std::string optionalNodeIdValue(const std::optional<foundation::NodeId>& nodeId)
   return nodeId.has_value() ? nodeId->value() : "";
 }
 
-} // namespace
-
-std::string serializeCanonicalRenderPlan(const RenderPlan& plan) {
+std::string serializeCanonicalRenderPlanWithMode(
+  const RenderPlan& plan,
+  bool includeRevisionAndDiagnostics
+) {
   std::vector<RenderLayer> layers = plan.layers;
   std::sort(layers.begin(), layers.end(), [](const RenderLayer& left, const RenderLayer& right) {
     return left.sourceNodeId < right.sourceNodeId;
@@ -113,8 +114,10 @@ std::string serializeCanonicalRenderPlan(const RenderPlan& plan) {
   std::ostringstream stream;
   stream << '{';
   foundation::writeJsonStringProperty(stream, "projectId", plan.projectId.value());
-  stream << ',';
-  foundation::writeJsonStringProperty(stream, "revision", plan.revision.value());
+  if (includeRevisionAndDiagnostics) {
+    stream << ',';
+    foundation::writeJsonStringProperty(stream, "revision", plan.revision.value());
+  }
   stream << ",\"stage\":{";
   foundation::writeJsonStringProperty(stream, "name", plan.stage.name);
   stream << "},\"duration\":";
@@ -242,32 +245,46 @@ std::string serializeCanonicalRenderPlan(const RenderPlan& plan) {
     }
     stream << "]}";
   }
-  stream << "],\"diagnostics\":[";
-  for (std::size_t index = 0; index < diagnostics.size(); ++index) {
-    if (index != 0) {
+  stream << ']';
+  if (includeRevisionAndDiagnostics) {
+    stream << ",\"diagnostics\":[";
+    for (std::size_t index = 0; index < diagnostics.size(); ++index) {
+      if (index != 0) {
+        stream << ',';
+      }
+      const ProjectionDiagnostic& diagnostic = diagnostics[index];
+      stream << '{';
+      foundation::writeJsonStringProperty(stream, "code", diagnostic.code);
       stream << ',';
+      foundation::writeJsonStringProperty(stream, "severity", diagnosticSeverityName(diagnostic.severity));
+      stream << ",\"location\":{";
+      foundation::writeJsonStringProperty(stream, "projectId", diagnostic.location.projectId.value());
+      stream << ',';
+      foundation::writeJsonStringProperty(stream, "revision", diagnostic.location.revision.value());
+      stream << ",\"nodeId\":";
+      if (diagnostic.location.nodeId.has_value()) {
+        stream << foundation::jsonQuoted(diagnostic.location.nodeId.value().value());
+      } else {
+        stream << "null";
+      }
+      stream << "},";
+      foundation::writeJsonStringProperty(stream, "message", diagnostic.message);
+      stream << '}';
     }
-    const ProjectionDiagnostic& diagnostic = diagnostics[index];
-    stream << '{';
-    foundation::writeJsonStringProperty(stream, "code", diagnostic.code);
-    stream << ',';
-    foundation::writeJsonStringProperty(stream, "severity", diagnosticSeverityName(diagnostic.severity));
-    stream << ",\"location\":{";
-    foundation::writeJsonStringProperty(stream, "projectId", diagnostic.location.projectId.value());
-    stream << ',';
-    foundation::writeJsonStringProperty(stream, "revision", diagnostic.location.revision.value());
-    stream << ",\"nodeId\":";
-    if (diagnostic.location.nodeId.has_value()) {
-      stream << foundation::jsonQuoted(diagnostic.location.nodeId.value().value());
-    } else {
-      stream << "null";
-    }
-    stream << "},";
-    foundation::writeJsonStringProperty(stream, "message", diagnostic.message);
-    stream << '}';
+    stream << ']';
   }
-  stream << "]}";
+  stream << '}';
   return stream.str();
+}
+
+} // namespace
+
+std::string serializeCanonicalRenderPlan(const RenderPlan& plan) {
+  return serializeCanonicalRenderPlanWithMode(plan, true);
+}
+
+std::string serializeCanonicalRenderPlanContent(const RenderPlan& plan) {
+  return serializeCanonicalRenderPlanWithMode(plan, false);
 }
 
 } // namespace grapple::projection
