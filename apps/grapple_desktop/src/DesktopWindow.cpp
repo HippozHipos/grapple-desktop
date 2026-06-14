@@ -5,6 +5,7 @@
 #include <grapple/foundation/Geometry.hpp>
 #include <grapple/foundation/Hash.hpp>
 #include <grapple/graph/GraphEdge.hpp>
+#include <grapple/jobs/MainThreadDispatcher.hpp>
 #include <grapple/render/RenderDiagnostic.hpp>
 #include <grapple/runtime/RuntimeDiagnostic.hpp>
 #include <grapple/timeline/Payloads.hpp>
@@ -458,6 +459,10 @@ public:
     playbackTimer_ = new QTimer{this};
     playbackTimer_->setInterval(33);
     connect(playbackTimer_, &QTimer::timeout, this, [this] { advancePlaybackFrame(); });
+    jobDispatchTimer_ = new QTimer{this};
+    jobDispatchTimer_->setInterval(16);
+    connect(jobDispatchTimer_, &QTimer::timeout, this, [this] { drainJobDispatch(); });
+    jobDispatchTimer_->start();
 
     auto* refreshButton = new QPushButton{"Refresh"};
     playheadLabel_ = new QLabel;
@@ -651,6 +656,11 @@ public:
     selectInitialCamera();
     refreshViewModel();
     refreshPreview();
+  }
+
+  ~DesktopWindowImpl() override {
+    workspace_.jobs().waitUntilIdle();
+    drainJobDispatch();
   }
 
   void selectInitialCamera() {
@@ -2159,19 +2169,77 @@ public:
   }
 
   void exportVideoFile(const grapple::foundation::FilePath& path) {
-    const auto prepare = workspace_.exportSession().prepareFromProject();
-    if (!prepare) {
-      appendError(prepare.error());
+    const bool started = startExportVideoFile(path);
+    if (!started) {
       return;
     }
-    const auto result = workspace_.exportSession().renderToVideo(grapple::render::ExportSettings{
+    waitForExportIdle();
+  }
+
+  bool startExportVideoFile(const grapple::foundation::FilePath& path) {
+    if (exportInProgress_) {
+      appendError(grapple::foundation::Error{"desktop.export_in_progress", "An export is already running."});
+      return false;
+    }
+
+    auto plan = workspace_.project().buildRenderPlan();
+    if (!plan) {
+      appendError(plan.error());
+      return false;
+    }
+
+    grapple::render::ExportSettings settings{
       grapple::foundation::TimeRange{grapple::foundation::TimeSeconds{0.0}, timelineDuration_},
       exportSettingsDraft_.frameRate,
       exportSettingsDraft_.resolution,
       exportSettingsDraft_.codec,
       grapple::render::RenderQuality::Final,
       path
+    };
+
+    const grapple::foundation::JobId jobId{
+      "job_desktop_export_" + std::to_string(++exportJobCounter_)
+    };
+    exportInProgress_ = true;
+    log_->append(QString{"Export queued -> %1"}.arg(qString(path.value)));
+    auto enqueue = workspace_.jobs().enqueue(grapple::jobs::Job{
+      jobId,
+      "Desktop video export",
+      [this, plan = std::move(plan.value().plan), settings](
+        grapple::jobs::CancellationToken& cancellation,
+        grapple::jobs::IProgressSink& progress
+      ) mutable {
+        if (cancellation.cancelled()) {
+          return grapple::foundation::Result<void>{};
+        }
+        progress.reportProgress(0.0);
+        auto result = workspace_.exportSession().renderPlanToVideo(std::move(plan), settings);
+        progress.reportProgress(1.0);
+        jobDispatcher_.post([this, result] {
+          completeExport(result);
+        });
+        return result ? grapple::foundation::Result<void>{} : result.error();
+      }
     });
+    if (!enqueue) {
+      exportInProgress_ = false;
+      appendError(enqueue.error());
+      return false;
+    }
+    return true;
+  }
+
+  void waitForExportIdle() {
+    workspace_.jobs().waitUntilIdle();
+    drainJobDispatch();
+  }
+
+  void drainJobDispatch() {
+    jobDispatcher_.drain();
+  }
+
+  void completeExport(const grapple::foundation::Result<grapple::render::FinalRenderResult>& result) {
+    exportInProgress_ = false;
     if (!result) {
       appendError(result.error());
       return;
@@ -2323,7 +2391,7 @@ private:
     if (path.isEmpty()) {
       return;
     }
-    exportVideoFile(grapple::foundation::FilePath{path.toStdString()});
+    startExportVideoFile(grapple::foundation::FilePath{path.toStdString()});
   }
 
   void chooseAndOpenPackage() {
@@ -2353,6 +2421,10 @@ private:
   QFrame* previewFrame_ = nullptr;
   QFrame* viewportFrame_ = nullptr;
   QTimer* playbackTimer_ = nullptr;
+  QTimer* jobDispatchTimer_ = nullptr;
+  grapple::jobs::MainThreadDispatcher jobDispatcher_;
+  bool exportInProgress_ = false;
+  int exportJobCounter_ = 0;
   grapple::foundation::TimeSeconds timelineDuration_;
   grapple::ui::ExportSettingsDraft exportSettingsDraft_;
   std::optional<grapple::foundation::NodeId> selectedNodeId_;
