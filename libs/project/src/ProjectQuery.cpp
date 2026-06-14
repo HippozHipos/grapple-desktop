@@ -15,6 +15,128 @@ bool hasNodeId(const std::vector<foundation::NodeId>& nodeIds, const foundation:
   return std::find(nodeIds.begin(), nodeIds.end(), nodeId) != nodeIds.end();
 }
 
+foundation::GraphId makeEffectGraphId(const foundation::NodeId& targetNodeId) {
+  return foundation::GraphId{"effect_graph_" + targetNodeId.value()};
+}
+
+bool effectGraphHasNode(const EffectGraphSummary& effectGraph, const foundation::NodeId& nodeId) {
+  for (const EffectGraphNodeSummary& node : effectGraph.nodes) {
+    if (node.nodeId == nodeId) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+EffectGraphSummary* findEffectGraphForConnection(
+  std::vector<EffectGraphSummary>& effectGraphs,
+  const foundation::NodeId& sourceNodeId,
+  const foundation::NodeId& targetNodeId
+) {
+  EffectGraphSummary* foundGraph = nullptr;
+  for (EffectGraphSummary& effectGraph : effectGraphs) {
+    if (effectGraphHasNode(effectGraph, sourceNodeId) && effectGraphHasNode(effectGraph, targetNodeId)) {
+      if (foundGraph != nullptr) {
+        return nullptr;
+      }
+      foundGraph = &effectGraph;
+    }
+  }
+
+  return foundGraph;
+}
+
+EffectGraphSummary& getOrCreateEffectGraph(
+  std::vector<EffectGraphSummary>& effectGraphs,
+  const foundation::NodeId& targetNodeId
+) {
+  for (EffectGraphSummary& effectGraph : effectGraphs) {
+    if (effectGraph.targetNodeId == targetNodeId) {
+      return effectGraph;
+    }
+  }
+
+  effectGraphs.push_back(EffectGraphSummary{makeEffectGraphId(targetNodeId), targetNodeId, {}, {}});
+  return effectGraphs.back();
+}
+
+EffectGraphEdgeSummary inspectEffectEdge(const graph::GraphEdge& edge) {
+  return EffectGraphEdgeSummary{
+    edge.id,
+    edge.sourceNodeId,
+    edge.sourcePort,
+    edge.targetNodeId,
+    edge.targetPort,
+    edge.order,
+    edge.enabled
+  };
+}
+
+std::vector<EffectGraphPortSummary> inspectEffectPorts(const std::vector<timeline::EffectPort>& ports) {
+  std::vector<EffectGraphPortSummary> result;
+  result.reserve(ports.size());
+  for (const timeline::EffectPort& port : ports) {
+    result.push_back(EffectGraphPortSummary{port.name});
+  }
+  return result;
+}
+
+std::vector<EffectGraphParamSummary> inspectEffectParams(const timeline::ParamSet& params) {
+  std::vector<EffectGraphParamSummary> result;
+  result.reserve(params.values.size());
+
+  for (const timeline::Param& param : params.values) {
+    std::vector<EffectGraphParamKeyframeSummary> keyframes;
+    keyframes.reserve(param.keyframes.size());
+    for (const timeline::Param::Keyframe& keyframe : param.keyframes) {
+      keyframes.push_back(EffectGraphParamKeyframeSummary{
+        keyframe.id,
+        keyframe.time,
+        keyframe.value
+      });
+    }
+
+    result.push_back(EffectGraphParamSummary{
+      param.name,
+      param.value,
+      param.control.label,
+      param.control.numeric,
+      std::move(keyframes)
+    });
+  }
+
+  return result;
+}
+
+foundation::Result<EffectGraphNodeSummary> inspectEffectNode(const graph::GraphNode& node) {
+  if (node.kind != graph::NodeKind::Effect) {
+    return foundation::Error{"project.effect_node_invalid", "Effect graph nodes must be effect nodes."};
+  }
+
+  const auto* payload = std::get_if<timeline::EffectPayload>(&node.payload);
+  if (payload == nullptr) {
+    return foundation::Error{"project.effect_payload_invalid", "Effect node must carry an effect payload."};
+  }
+
+  return EffectGraphNodeSummary{
+    node.id,
+    payload->displayName,
+    payload->implementation.kind,
+    payload->implementation.entrypoint,
+    payload->implementation.source.kind,
+    payload->implementation.source.language,
+    payload->implementation.source.inlineSource,
+    payload->implementation.source.sourceAssetId,
+    payload->implementation.source.sourceHash,
+    inspectEffectPorts(payload->ports.inputs),
+    inspectEffectPorts(payload->ports.outputs),
+    inspectEffectParams(payload->params),
+    payload->activeRange,
+    node.enabled
+  };
+}
+
 foundation::Result<CompositionClipSummary> inspectClip(
   const graph::GraphNode& node,
   const foundation::NodeId& trackNodeId
@@ -191,6 +313,73 @@ foundation::Result<NotesResult> listNotes(const ProjectSnapshot& snapshot) {
       payload->markdown,
       node.enabled
     });
+  }
+
+  return result;
+}
+
+foundation::Result<EffectGraphsInspectResult> inspectEffectGraphs(const ProjectSnapshot& snapshot) {
+  EffectGraphsInspectResult result{snapshot.revision, {}};
+  std::vector<foundation::NodeId> targetedEffectNodeIds;
+
+  for (const graph::GraphEdge& edge : snapshot.graph.edges()) {
+    if (edge.kind != graph::EdgeKind::Targets) {
+      continue;
+    }
+
+    const graph::GraphNode* effect = snapshot.graph.findNode(edge.sourceNodeId);
+    if (effect == nullptr || effect->kind != graph::NodeKind::Effect) {
+      return foundation::Error{"project.effect_source_invalid", "Effect target edge source must be an effect."};
+    }
+    if (!snapshot.graph.hasNode(edge.targetNodeId)) {
+      return foundation::Error{"project.effect_target_missing", "Effect target edge target must exist."};
+    }
+
+    auto inspectedEffect = inspectEffectNode(*effect);
+    if (!inspectedEffect) {
+      return inspectedEffect.error();
+    }
+
+    EffectGraphSummary& effectGraph = getOrCreateEffectGraph(result.effectGraphs, edge.targetNodeId);
+    effectGraph.nodes.push_back(std::move(inspectedEffect.value()));
+    effectGraph.edges.push_back(inspectEffectEdge(edge));
+    targetedEffectNodeIds.push_back(edge.sourceNodeId);
+  }
+
+  for (const graph::GraphEdge& edge : snapshot.graph.edges()) {
+    if (edge.kind != graph::EdgeKind::Connects) {
+      continue;
+    }
+
+    const graph::GraphNode* source = snapshot.graph.findNode(edge.sourceNodeId);
+    const graph::GraphNode* target = snapshot.graph.findNode(edge.targetNodeId);
+    if (source == nullptr || source->kind != graph::NodeKind::Effect ||
+        target == nullptr || target->kind != graph::NodeKind::Effect) {
+      return foundation::Error{
+        "project.effect_connection_endpoint_invalid",
+        "Effect connection edges must connect effect nodes."
+      };
+    }
+
+    EffectGraphSummary* effectGraph = findEffectGraphForConnection(
+      result.effectGraphs,
+      edge.sourceNodeId,
+      edge.targetNodeId
+    );
+    if (effectGraph == nullptr) {
+      return foundation::Error{
+        "project.effect_connection_graph_missing",
+        "Effect connection endpoints must belong to one effect graph."
+      };
+    }
+
+    effectGraph->edges.push_back(inspectEffectEdge(edge));
+  }
+
+  for (const graph::GraphNode& node : snapshot.graph.nodes()) {
+    if (node.kind == graph::NodeKind::Effect && !hasNodeId(targetedEffectNodeIds, node.id)) {
+      return foundation::Error{"project.effect_target_missing", "Effect node must have a target edge."};
+    }
   }
 
   return result;

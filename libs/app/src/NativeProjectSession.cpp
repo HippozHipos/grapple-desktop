@@ -229,6 +229,12 @@ foundation::Result<project::ProjectQueryResult> NativeProjectSession::query(cons
           return result.error();
         }
         return project::ProjectQueryResult{result.value()};
+      } else if constexpr (std::is_same_v<Query, project::InspectEffectGraphsQuery>) {
+        auto result = project::inspectEffectGraphs(snapshotResult.value());
+        if (!result) {
+          return result.error();
+        }
+        return project::ProjectQueryResult{result.value()};
       } else if constexpr (std::is_same_v<Query, project::InspectRenderPlanQuery>) {
         const projection::ProjectionQueryService projectionQueries{*this};
         auto result = projectionQueries.buildCurrentRenderPlan();

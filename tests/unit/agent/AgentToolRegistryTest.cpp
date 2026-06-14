@@ -128,6 +128,9 @@ public:
         } else if constexpr (std::is_same_v<Query, grapple::project::InspectCompositionsQuery>) {
           ++compositionQueryCount_;
           return project_.query(typedQuery);
+        } else if constexpr (std::is_same_v<Query, grapple::project::InspectEffectGraphsQuery>) {
+          ++effectGraphsQueryCount_;
+          return project_.query(typedQuery);
         } else if constexpr (std::is_same_v<Query, grapple::project::ListNotesQuery>) {
           ++noteListQueryCount_;
           return project_.query(typedQuery);
@@ -155,6 +158,10 @@ public:
     return compositionQueryCount_;
   }
 
+  [[nodiscard]] std::size_t effectGraphsQueryCount() const noexcept {
+    return effectGraphsQueryCount_;
+  }
+
   [[nodiscard]] std::size_t renderPlanQueryCount() const noexcept {
     return renderPlanQueryCount_;
   }
@@ -173,6 +180,7 @@ private:
   mutable std::size_t snapshotQueryCount_ = 0;
   mutable std::size_t assetCatalogQueryCount_ = 0;
   mutable std::size_t compositionQueryCount_ = 0;
+  mutable std::size_t effectGraphsQueryCount_ = 0;
   mutable std::size_t renderPlanQueryCount_ = 0;
   mutable std::size_t runtimeDiagnosticsQueryCount_ = 0;
   mutable std::size_t noteListQueryCount_ = 0;
@@ -244,7 +252,7 @@ int main() {
   agent::AgentToolRegistry registry;
   const auto registered = agent::registerProjectTools(registry);
   GRAPPLE_REQUIRE(registered);
-  GRAPPLE_REQUIRE(registry.tools().size() == 26);
+  GRAPPLE_REQUIRE(registry.tools().size() == 27);
   std::vector<std::string> serializedToolIds;
   serializedToolIds.reserve(registry.tools().size());
   for (const agent::AgentTool& tool : registry.tools()) {
@@ -265,6 +273,7 @@ int main() {
   GRAPPLE_REQUIRE(registry.findBySerializedId("timeline.trim_clip") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("timeline.update_clip_transform") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("effect.create_node") != nullptr);
+  GRAPPLE_REQUIRE(registry.findBySerializedId("effect.inspect_graphs") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("effect.delete_node") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("effect.update_param_value") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("effect.create_param_keyframe") != nullptr);
@@ -356,6 +365,11 @@ int main() {
   GRAPPLE_REQUIRE(registeredCreateEffectTool->schema.find("\"commandId\"") == std::string::npos);
   GRAPPLE_REQUIRE(registeredCreateEffectTool->schema.find("\"effectNodeId\"") == std::string::npos);
   GRAPPLE_REQUIRE(registeredCreateEffectTool->schema.find("\"targetEdgeId\"") == std::string::npos);
+  const agent::AgentTool* registeredInspectEffectGraphsTool = registry.findBySerializedId("effect.inspect_graphs");
+  GRAPPLE_REQUIRE(registeredInspectEffectGraphsTool != nullptr);
+  GRAPPLE_REQUIRE(registeredInspectEffectGraphsTool->schema.find("\"additionalProperties\": false") != std::string::npos);
+  GRAPPLE_REQUIRE(registeredInspectEffectGraphsTool->schema.find("\"commandId\"") == std::string::npos);
+  GRAPPLE_REQUIRE(registeredInspectEffectGraphsTool->schema.find("\"effectNodeId\"") == std::string::npos);
   const agent::AgentTool* registeredDeleteEffectTool = registry.findBySerializedId("effect.delete_node");
   GRAPPLE_REQUIRE(registeredDeleteEffectTool != nullptr);
   GRAPPLE_REQUIRE(registeredDeleteEffectTool->schema.find("\"effectNodeId\"") != std::string::npos);
@@ -1144,6 +1158,46 @@ int main() {
   GRAPPLE_REQUIRE(inspectCompositionResult.value().payload.find("\"targetNodeId\":\"node_camera\"") != std::string::npos);
   GRAPPLE_REQUIRE(inspectCompositionResult.value().payload.find("\"commandId\"") == std::string::npos);
 
+  const agent::AgentTool* inspectEffectGraphs = registry.findBySerializedId("effect.inspect_graphs");
+  GRAPPLE_REQUIRE(inspectEffectGraphs != nullptr);
+  const auto inspectEffectGraphsResult = inspectEffectGraphs->handler(
+    agent::ToolCall{
+      foundation::ToolId{"tool_effect_inspect_graphs"},
+      foundation::RunId{"run_1"},
+      foundation::ProjectId{"proj_agent"},
+      disconnectPortsResult.value().observedRevision,
+      "{}"
+    },
+    context
+  );
+  GRAPPLE_REQUIRE(inspectEffectGraphsResult);
+  GRAPPLE_REQUIRE(inspectEffectGraphsResult.value().status == agent::ToolResultStatus::Succeeded);
+  GRAPPLE_REQUIRE(inspectEffectGraphsResult.value().observedRevision == foundation::RevisionId{"rev_13"});
+  GRAPPLE_REQUIRE(inspectEffectGraphsResult.value().payload.find("\"revision\":\"rev_13\"") != std::string::npos);
+  GRAPPLE_REQUIRE(inspectEffectGraphsResult.value().payload.find("\"graphId\":\"effect_graph_node_camera\"") != std::string::npos);
+  GRAPPLE_REQUIRE(inspectEffectGraphsResult.value().payload.find("\"targetNodeId\":\"node_camera\"") != std::string::npos);
+  GRAPPLE_REQUIRE(inspectEffectGraphsResult.value().payload.find("\"nodeId\":\"node_agent_effect_1\"") != std::string::npos);
+  GRAPPLE_REQUIRE(inspectEffectGraphsResult.value().payload.find("\"displayName\":\"Center Subject\"") != std::string::npos);
+  GRAPPLE_REQUIRE(inspectEffectGraphsResult.value().payload.find("\"implementation\":{\"kind\":\"python\"") != std::string::npos);
+  GRAPPLE_REQUIRE(inspectEffectGraphsResult.value().payload.find("\"entrypoint\":\"prepare\"") != std::string::npos);
+  GRAPPLE_REQUIRE(inspectEffectGraphsResult.value().payload.find("\"source\":{\"kind\":\"inline_source\"") != std::string::npos);
+  GRAPPLE_REQUIRE(inspectEffectGraphsResult.value().payload.find("\"language\":\"python\"") != std::string::npos);
+  GRAPPLE_REQUIRE(inspectEffectGraphsResult.value().payload.find("\"inlineSource\":\"def prepare(ctx):\\n  return {'camera_transform': ctx.camera.transform}\\n\"") != std::string::npos);
+  GRAPPLE_REQUIRE(inspectEffectGraphsResult.value().payload.find("\"inputPorts\":[{\"name\":\"frame\"}]") != std::string::npos);
+  GRAPPLE_REQUIRE(inspectEffectGraphsResult.value().payload.find("\"outputPorts\":[{\"name\":\"camera_transform\"}]") != std::string::npos);
+  GRAPPLE_REQUIRE(inspectEffectGraphsResult.value().payload.find("\"name\":\"target_x\"") != std::string::npos);
+  GRAPPLE_REQUIRE(inspectEffectGraphsResult.value().payload.find("\"label\":\"Target X\"") != std::string::npos);
+  GRAPPLE_REQUIRE(inspectEffectGraphsResult.value().payload.find("\"value\":0.75") != std::string::npos);
+  GRAPPLE_REQUIRE(inspectEffectGraphsResult.value().payload.find("\"numeric\":{\"min\":0,\"max\":1,\"step\":0.01}") != std::string::npos);
+  GRAPPLE_REQUIRE(inspectEffectGraphsResult.value().payload.find("\"name\":\"lock_subject\"") != std::string::npos);
+  GRAPPLE_REQUIRE(inspectEffectGraphsResult.value().payload.find("\"value\":true") != std::string::npos);
+  GRAPPLE_REQUIRE(inspectEffectGraphsResult.value().payload.find("\"activeRange\":{\"start\":0,\"end\":10}") != std::string::npos);
+  GRAPPLE_REQUIRE(inspectEffectGraphsResult.value().payload.find("\"edgeId\":\"edge_agent_effect_targets_1\"") != std::string::npos);
+  GRAPPLE_REQUIRE(inspectEffectGraphsResult.value().payload.find("\"sourcePort\":\"camera_transform\"") != std::string::npos);
+  GRAPPLE_REQUIRE(inspectEffectGraphsResult.value().payload.find("\"targetPort\":\"input\"") != std::string::npos);
+  GRAPPLE_REQUIRE(inspectEffectGraphsResult.value().payload.find("\"commandId\"") == std::string::npos);
+  requireNoRuntimeOwnedFields(inspectEffectGraphsResult.value().payload);
+
   const agent::AgentTool* inspectRenderPlan = registry.findBySerializedId("render_plan.inspect");
   GRAPPLE_REQUIRE(inspectRenderPlan != nullptr);
   const auto inspectRenderPlanResult = inspectRenderPlan->handler(
@@ -1192,8 +1246,9 @@ int main() {
   GRAPPLE_REQUIRE(inspectRuntimeDiagnosticsResult.value().payload.find("\"commandId\"") == std::string::npos);
   requireNoRuntimeOwnedFields(inspectRuntimeDiagnosticsResult.value().payload);
   GRAPPLE_REQUIRE(commands.applyCount() == commandCountBeforeInspectTools);
-  GRAPPLE_REQUIRE(queries.totalQueryCount() == queryCountBeforeInspectTools + 3);
+  GRAPPLE_REQUIRE(queries.totalQueryCount() == queryCountBeforeInspectTools + 4);
   GRAPPLE_REQUIRE(queries.compositionQueryCount() == 1);
+  GRAPPLE_REQUIRE(queries.effectGraphsQueryCount() == 1);
   GRAPPLE_REQUIRE(queries.renderPlanQueryCount() == 1);
   GRAPPLE_REQUIRE(queries.runtimeDiagnosticsQueryCount() == 1);
 

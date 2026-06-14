@@ -11,6 +11,7 @@
 
 #include <cstdint>
 #include <cstdlib>
+#include <iomanip>
 #include <initializer_list>
 #include <memory>
 #include <optional>
@@ -68,6 +69,12 @@ constexpr const char AssetImportSchema[] = R"json({
 })json";
 
 constexpr const char CompositionInspectSchema[] = R"json({
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+})json";
+
+constexpr const char EffectInspectGraphsSchema[] = R"json({
   "type": "object",
   "additionalProperties": false,
   "properties": {}
@@ -968,6 +975,86 @@ const char* trackKindText(timeline::TrackKind kind) {
   return "unknown";
 }
 
+const char* effectImplementationKindText(timeline::EffectImplementationKind kind) {
+  switch (kind) {
+    case timeline::EffectImplementationKind::Builtin:
+      return "builtin";
+    case timeline::EffectImplementationKind::Python:
+      return "python";
+    case timeline::EffectImplementationKind::Shader:
+      return "shader";
+  }
+
+  std::abort();
+}
+
+const char* effectSourceKindText(timeline::EffectSourceKind kind) {
+  switch (kind) {
+    case timeline::EffectSourceKind::InlineSource:
+      return "inline_source";
+    case timeline::EffectSourceKind::AssetSource:
+      return "asset_source";
+  }
+
+  std::abort();
+}
+
+void writeNumber(std::ostream& stream, double value) {
+  stream << std::setprecision(17) << value;
+}
+
+void writeVec2Json(std::ostream& stream, const foundation::Vec2& value) {
+  stream << "{\"x\":";
+  writeNumber(stream, value.x);
+  stream << ",\"y\":";
+  writeNumber(stream, value.y);
+  stream << '}';
+}
+
+void writeVec3Json(std::ostream& stream, const foundation::Vec3& value) {
+  stream << "{\"x\":";
+  writeNumber(stream, value.x);
+  stream << ",\"y\":";
+  writeNumber(stream, value.y);
+  stream << ",\"z\":";
+  writeNumber(stream, value.z);
+  stream << '}';
+}
+
+void writeRectJson(std::ostream& stream, const foundation::Rect& value) {
+  stream << "{\"x\":";
+  writeNumber(stream, value.x);
+  stream << ",\"y\":";
+  writeNumber(stream, value.y);
+  stream << ",\"width\":";
+  writeNumber(stream, value.width);
+  stream << ",\"height\":";
+  writeNumber(stream, value.height);
+  stream << '}';
+}
+
+void writeParamValueJson(std::ostream& stream, const timeline::ParamValue& value) {
+  std::visit(
+    [&](const auto& typedValue) {
+      using Value = std::decay_t<decltype(typedValue)>;
+      if constexpr (std::is_same_v<Value, double>) {
+        writeNumber(stream, typedValue);
+      } else if constexpr (std::is_same_v<Value, bool>) {
+        stream << (typedValue ? "true" : "false");
+      } else if constexpr (std::is_same_v<Value, std::string>) {
+        stream << foundation::jsonQuoted(typedValue);
+      } else if constexpr (std::is_same_v<Value, foundation::Vec2>) {
+        writeVec2Json(stream, typedValue);
+      } else if constexpr (std::is_same_v<Value, foundation::Vec3>) {
+        writeVec3Json(stream, typedValue);
+      } else if constexpr (std::is_same_v<Value, foundation::Rect>) {
+        writeRectJson(stream, typedValue);
+      }
+    },
+    value
+  );
+}
+
 void writeAssetJson(std::ostream& stream, const asset::Asset& asset) {
   stream << '{'
          << "\"assetId\":" << foundation::jsonQuoted(asset.id.value())
@@ -1065,6 +1152,138 @@ void writeCompositionJson(std::ostream& stream, const project::CompositionSummar
       stream << ',';
     }
     writeCompositionEffectJson(stream, composition.effects[index]);
+  }
+  stream << "]}";
+}
+
+void writeEffectGraphPortJson(std::ostream& stream, const project::EffectGraphPortSummary& port) {
+  stream << '{'
+         << "\"name\":" << foundation::jsonQuoted(port.name)
+         << '}';
+}
+
+void writeEffectGraphParamKeyframeJson(
+  std::ostream& stream,
+  const project::EffectGraphParamKeyframeSummary& keyframe
+) {
+  stream << '{'
+         << "\"keyframeId\":" << foundation::jsonQuoted(keyframe.keyframeId.value())
+         << ",\"time\":" << keyframe.time.value
+         << ",\"value\":";
+  writeParamValueJson(stream, keyframe.value);
+  stream << '}';
+}
+
+void writeEffectGraphParamJson(std::ostream& stream, const project::EffectGraphParamSummary& param) {
+  stream << '{'
+         << "\"name\":" << foundation::jsonQuoted(param.name)
+         << ",\"label\":" << foundation::jsonQuoted(param.label)
+         << ",\"value\":";
+  writeParamValueJson(stream, param.value);
+  if (param.numeric.has_value()) {
+    stream << ",\"numeric\":{\"min\":" << param.numeric->min
+           << ",\"max\":" << param.numeric->max;
+    if (param.numeric->step.has_value()) {
+      stream << ",\"step\":" << *param.numeric->step;
+    }
+    stream << '}';
+  }
+  stream << ",\"keyframes\":[";
+  for (std::size_t index = 0; index < param.keyframes.size(); ++index) {
+    if (index != 0) {
+      stream << ',';
+    }
+    writeEffectGraphParamKeyframeJson(stream, param.keyframes[index]);
+  }
+  stream << "]}";
+}
+
+void writeEffectGraphNodeJson(std::ostream& stream, const project::EffectGraphNodeSummary& node) {
+  stream << '{'
+         << "\"nodeId\":" << foundation::jsonQuoted(node.nodeId.value())
+         << ",\"displayName\":" << foundation::jsonQuoted(node.displayName)
+         << ",\"implementation\":{\"kind\":"
+         << foundation::jsonQuoted(effectImplementationKindText(node.implementationKind))
+         << ",\"entrypoint\":" << foundation::jsonQuoted(node.entrypoint)
+         << ",\"source\":{\"kind\":" << foundation::jsonQuoted(effectSourceKindText(node.sourceKind))
+         << ",\"language\":" << foundation::jsonQuoted(node.language)
+         << ",\"inlineSource\":" << foundation::jsonQuoted(node.inlineSource)
+         << ",\"sourceAssetId\":";
+  if (node.sourceAssetId.has_value()) {
+    stream << foundation::jsonQuoted(node.sourceAssetId->value());
+  } else {
+    stream << "null";
+  }
+  stream << ",\"sourceHash\":" << foundation::jsonQuoted(node.sourceHash.toHex())
+         << "}},\"inputPorts\":[";
+  for (std::size_t index = 0; index < node.inputPorts.size(); ++index) {
+    if (index != 0) {
+      stream << ',';
+    }
+    writeEffectGraphPortJson(stream, node.inputPorts[index]);
+  }
+  stream << "],\"outputPorts\":[";
+  for (std::size_t index = 0; index < node.outputPorts.size(); ++index) {
+    if (index != 0) {
+      stream << ',';
+    }
+    writeEffectGraphPortJson(stream, node.outputPorts[index]);
+  }
+  stream << "],\"params\":[";
+  for (std::size_t index = 0; index < node.params.size(); ++index) {
+    if (index != 0) {
+      stream << ',';
+    }
+    writeEffectGraphParamJson(stream, node.params[index]);
+  }
+  stream << "],\"activeRange\":{\"start\":" << node.activeRange.start.value
+         << ",\"end\":" << node.activeRange.end.value
+         << "},\"enabled\":" << (node.enabled ? "true" : "false")
+         << '}';
+}
+
+void writeEffectGraphEdgeJson(std::ostream& stream, const project::EffectGraphEdgeSummary& edge) {
+  stream << '{'
+         << "\"edgeId\":" << foundation::jsonQuoted(edge.edgeId.value())
+         << ",\"sourceNodeId\":" << foundation::jsonQuoted(edge.sourceNodeId.value())
+         << ",\"sourcePort\":" << foundation::jsonQuoted(edge.sourcePort.value)
+         << ",\"targetNodeId\":" << foundation::jsonQuoted(edge.targetNodeId.value())
+         << ",\"targetPort\":" << foundation::jsonQuoted(edge.targetPort.value)
+         << ",\"order\":" << edge.order
+         << ",\"enabled\":" << (edge.enabled ? "true" : "false")
+         << '}';
+}
+
+void writeEffectGraphJson(std::ostream& stream, const project::EffectGraphSummary& effectGraph) {
+  stream << '{'
+         << "\"graphId\":" << foundation::jsonQuoted(effectGraph.graphId.value())
+         << ",\"targetNodeId\":" << foundation::jsonQuoted(effectGraph.targetNodeId.value())
+         << ",\"nodes\":[";
+  for (std::size_t index = 0; index < effectGraph.nodes.size(); ++index) {
+    if (index != 0) {
+      stream << ',';
+    }
+    writeEffectGraphNodeJson(stream, effectGraph.nodes[index]);
+  }
+  stream << "],\"edges\":[";
+  for (std::size_t index = 0; index < effectGraph.edges.size(); ++index) {
+    if (index != 0) {
+      stream << ',';
+    }
+    writeEffectGraphEdgeJson(stream, effectGraph.edges[index]);
+  }
+  stream << "]}";
+}
+
+void writeEffectGraphsInspectJson(std::ostream& stream, const project::EffectGraphsInspectResult& result) {
+  stream << '{'
+         << "\"revision\":" << foundation::jsonQuoted(result.revision.value())
+         << ",\"effectGraphs\":[";
+  for (std::size_t index = 0; index < result.effectGraphs.size(); ++index) {
+    if (index != 0) {
+      stream << ',';
+    }
+    writeEffectGraphJson(stream, result.effectGraphs[index]);
   }
   stream << "]}";
 }
@@ -1275,6 +1494,10 @@ foundation::Result<void> registerProjectTools(AgentToolRegistry& registry) {
     return registered.error();
   }
   registered = registry.registerTool(makeEffectCreateNodeTool());
+  if (!registered) {
+    return registered.error();
+  }
+  registered = registry.registerTool(makeEffectInspectGraphsTool());
   if (!registered) {
     return registered.error();
   }
@@ -2381,6 +2604,47 @@ AgentTool makeEffectCreateNodeTool() {
         call.toolId,
         ToolResultStatus::Succeeded,
         command.value().afterRevision,
+        payload.str(),
+        {}
+      };
+    }
+  };
+}
+
+AgentTool makeEffectInspectGraphsTool() {
+  return AgentTool{
+    foundation::ToolId{"tool_effect_inspect_graphs"},
+    "effect.inspect_graphs",
+    "Inspect Effect Graphs",
+    "Returns authored effect graph data through Project Core: nodes, code metadata, ports, params, keyframes, ranges, and edges.",
+    EffectInspectGraphsSchema,
+    [](const ToolCall& call, AgentToolContext& context) -> foundation::Result<ToolResult> {
+      auto arguments = parseArguments(call.arguments);
+      if (!arguments) {
+        return arguments.error();
+      }
+      auto members = requireOnlyMembers(arguments.value(), {}, "$");
+      if (!members) {
+        return members.error();
+      }
+      auto query = context.queries.query(project::InspectEffectGraphsQuery{});
+      if (!query) {
+        return query.error();
+      }
+      const auto* effectGraphsResult = std::get_if<project::EffectGraphsInspectResult>(&query.value());
+      if (effectGraphsResult == nullptr) {
+        return foundation::Error{
+          "agent.effect_graphs_inspect_result_missing",
+          "Effect graph inspect query returned the wrong result type."
+        };
+      }
+
+      std::ostringstream payload;
+      writeEffectGraphsInspectJson(payload, *effectGraphsResult);
+      return ToolResult{
+        call.toolId,
+        ToolResultStatus::Succeeded,
+        effectGraphsResult->revision,
         payload.str(),
         {}
       };

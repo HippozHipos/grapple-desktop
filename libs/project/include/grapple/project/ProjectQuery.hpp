@@ -9,6 +9,7 @@
 #include <grapple/timeline/Payloads.hpp>
 
 #include <cstddef>
+#include <cstdint>
 #include <optional>
 #include <string>
 #include <variant>
@@ -21,6 +22,7 @@ struct GetGraphQuery {};
 struct GetAssetCatalogQuery {};
 struct InspectCompositionsQuery {};
 struct ListNotesQuery {};
+struct InspectEffectGraphsQuery {};
 struct InspectRenderPlanQuery {};
 struct InspectRuntimeDiagnosticsQuery {};
 
@@ -68,6 +70,63 @@ struct NoteSummary {
   std::string title;
   std::string markdown;
   bool enabled = true;
+};
+
+struct EffectGraphPortSummary {
+  std::string name;
+};
+
+struct EffectGraphParamKeyframeSummary {
+  foundation::KeyframeId keyframeId;
+  foundation::TimeSeconds time;
+  timeline::ParamValue value;
+};
+
+struct EffectGraphParamSummary {
+  std::string name;
+  timeline::ParamValue value;
+  std::string label;
+  std::optional<timeline::Param::NumericControl> numeric;
+  std::vector<EffectGraphParamKeyframeSummary> keyframes;
+};
+
+struct EffectGraphNodeSummary {
+  foundation::NodeId nodeId;
+  std::string displayName;
+  timeline::EffectImplementationKind implementationKind = timeline::EffectImplementationKind::Python;
+  std::string entrypoint;
+  timeline::EffectSourceKind sourceKind = timeline::EffectSourceKind::InlineSource;
+  std::string language;
+  std::string inlineSource;
+  std::optional<foundation::AssetId> sourceAssetId;
+  foundation::Hash256 sourceHash;
+  std::vector<EffectGraphPortSummary> inputPorts;
+  std::vector<EffectGraphPortSummary> outputPorts;
+  std::vector<EffectGraphParamSummary> params;
+  foundation::TimeRange activeRange;
+  bool enabled = true;
+};
+
+struct EffectGraphEdgeSummary {
+  foundation::EdgeId edgeId;
+  foundation::NodeId sourceNodeId;
+  graph::PortName sourcePort;
+  foundation::NodeId targetNodeId;
+  graph::PortName targetPort;
+  std::int64_t order = 0;
+  bool enabled = true;
+};
+
+struct EffectGraphSummary {
+  foundation::GraphId graphId;
+  foundation::NodeId targetNodeId;
+  std::vector<EffectGraphNodeSummary> nodes;
+  std::vector<EffectGraphEdgeSummary> edges;
+};
+
+struct EffectGraphsInspectResult {
+  foundation::RevisionId revision;
+  std::vector<EffectGraphSummary> effectGraphs;
 };
 
 struct RenderPlanLayerSummary {
@@ -135,6 +194,7 @@ using ProjectQuery = std::variant<
   GetAssetCatalogQuery,
   InspectCompositionsQuery,
   ListNotesQuery,
+  InspectEffectGraphsQuery,
   InspectRenderPlanQuery,
   InspectRuntimeDiagnosticsQuery
 >;
@@ -169,6 +229,7 @@ using ProjectQueryResult = std::variant<
   AssetCatalogResult,
   CompositionInspectResult,
   NotesResult,
+  EffectGraphsInspectResult,
   RenderPlanInspectResult,
   RuntimeInspectDiagnosticsResult
 >;
@@ -182,5 +243,6 @@ public:
 
 foundation::Result<CompositionInspectResult> inspectCompositions(const ProjectSnapshot& snapshot);
 foundation::Result<NotesResult> listNotes(const ProjectSnapshot& snapshot);
+foundation::Result<EffectGraphsInspectResult> inspectEffectGraphs(const ProjectSnapshot& snapshot);
 
 } // namespace grapple::project

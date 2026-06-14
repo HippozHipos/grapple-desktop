@@ -23,6 +23,7 @@ AgentTool makeTimelineMoveClipTool();
 AgentTool makeTimelineTrimClipTool();
 AgentTool makeTimelineUpdateClipTransformTool();
 AgentTool makeEffectCreateNodeTool();
+AgentTool makeEffectInspectGraphsTool();
 AgentTool makeEffectDeleteNodeTool();
 AgentTool makeEffectUpdateParamValueTool();
 AgentTool makeEffectCreateParamKeyframeTool();
