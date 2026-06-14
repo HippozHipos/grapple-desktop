@@ -206,9 +206,9 @@ foundation::ToolId stewardToolCallIdForRun(const foundation::RunId& runId) {
   return foundation::ToolId{"tool_steward_camera_transform_" + std::to_string(stewardRunNumber(runId))};
 }
 
-class StewardCommandService final : public project::IProjectCommandService {
+class CommittingAgentCommandService final : public project::IProjectCommandService {
 public:
-  StewardCommandService(
+  CommittingAgentCommandService(
     NativeProjectSession& project,
     NativeProjectCommandWriter& commandWriter,
     std::string snapshotLabel,
@@ -222,24 +222,7 @@ public:
   foundation::Result<project::ProjectCommandResult> apply(
     const project::ProjectCommandEnvelope& command
   ) override {
-    auto snapshot = project_.snapshot();
-    if (!snapshot) {
-      return snapshot.error();
-    }
-
-    const auto* createEffect = std::get_if<project::CreateEffectCommand>(&command.payload);
-    if (createEffect == nullptr) {
-      return foundation::Error{
-        "steward.command_invalid",
-        "Steward camera transform can only commit an effect creation command."
-      };
-    }
-    auto targetReady = ensureCameraCanReceiveTransformEffect(snapshot.value(), createEffect->targetNodeId);
-    if (!targetReady) {
-      return targetReady.error();
-    }
-
-    const foundation::SnapshotId snapshotId = commandWriter_.nextSnapshotId("steward camera transform");
+    const foundation::SnapshotId snapshotId = commandWriter_.nextSnapshotId("steward edit");
     project::ProjectCommandEnvelope stewardCommand = command;
     stewardCommand.source = project::CommandSource{
       project::CommandSourceKind::Agent,
@@ -279,6 +262,26 @@ NativeStewardSession::NativeStewardSession(NativeProjectSession& project, Native
   : project_{project},
     commandWriter_{commandWriter} {}
 
+foundation::Result<void> NativeStewardSession::finishRunWithError(
+  const foundation::RunId& runId,
+  const foundation::Error& error
+) {
+  markRunStatus(runId, agent::AgentRunStatus::Failed);
+  auto diagnostic = appendEvent(runId, agent::AgentRunEventKind::DiagnosticEmitted, diagnosticPayload(error));
+  if (!diagnostic) {
+    return diagnostic.error();
+  }
+  auto runFinished = appendEvent(
+    runId,
+    agent::AgentRunEventKind::RunFinished,
+    runFinishedPayload("failed", error.message)
+  );
+  if (!runFinished) {
+    return runFinished.error();
+  }
+  return {};
+}
+
 foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::createCameraTransformEffect(
   foundation::NodeId cameraNodeId,
   std::string intent,
@@ -294,6 +297,15 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::c
     return runId.error();
   }
 
+  auto targetReady = ensureCameraCanReceiveTransformEffect(snapshot.value(), cameraNodeId);
+  if (!targetReady) {
+    auto finished = finishRunWithError(runId.value(), targetReady.error());
+    if (!finished) {
+      return finished.error();
+    }
+    return targetReady.error();
+  }
+
   auto message = appendEvent(
     runId.value(),
     agent::AgentRunEventKind::ModelMessage,
@@ -305,9 +317,9 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::c
 
   const foundation::ToolId toolCallId = stewardToolCallIdForRun(runId.value());
   std::optional<storage::ProjectPackageSessionResult> packageResult;
-  StewardCommandService stewardCommands{project_, commandWriter_, intent, packageResult};
+  CommittingAgentCommandService stewardCommands{project_, commandWriter_, intent, packageResult};
   agent::AgentToolRegistry registry;
-  auto registered = registry.registerTool(agent::makeEffectCreateNodeTool());
+  auto registered = agent::registerProjectTools(registry);
   if (!registered) {
     return registered.error();
   }
@@ -323,18 +335,9 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::c
     createCameraTransformEffectArgumentsPayload(cameraNodeId, activeRange)
   });
   if (!dispatched) {
-    markRunStatus(runId.value(), agent::AgentRunStatus::Failed);
-    auto diagnostic = appendEvent(runId.value(), agent::AgentRunEventKind::DiagnosticEmitted, diagnosticPayload(dispatched.error()));
-    if (!diagnostic) {
-      return diagnostic.error();
-    }
-    auto runFinished = appendEvent(
-      runId.value(),
-      agent::AgentRunEventKind::RunFinished,
-      runFinishedPayload("failed", dispatched.error().message)
-    );
-    if (!runFinished) {
-      return runFinished.error();
+    auto finished = finishRunWithError(runId.value(), dispatched.error());
+    if (!finished) {
+      return finished.error();
     }
     return dispatched.error();
   }

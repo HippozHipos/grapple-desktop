@@ -918,9 +918,7 @@ int main() {
   GRAPPLE_REQUIRE(stewardConversation.runs[0].toolCalls[0].toolSerializedId == "effect.create_node");
   GRAPPLE_REQUIRE(stewardConversation.runs[0].toolCalls[0].status == agent::AgentConversationToolCallStatus::Succeeded);
   GRAPPLE_REQUIRE(stewardConversation.runs[1].status == agent::AgentRunStatus::Failed);
-  GRAPPLE_REQUIRE(stewardConversation.runs[1].toolCalls.size() == 1);
-  GRAPPLE_REQUIRE(stewardConversation.runs[1].toolCalls[0].toolSerializedId == "effect.create_node");
-  GRAPPLE_REQUIRE(stewardConversation.runs[1].toolCalls[0].status == agent::AgentConversationToolCallStatus::Failed);
+  GRAPPLE_REQUIRE(stewardConversation.runs[1].toolCalls.empty());
   GRAPPLE_REQUIRE(stewardConversation.runs[1].diagnostics.size() == 1);
   GRAPPLE_REQUIRE(stewardConversation.runs[1].diagnostics[0].code == "steward.camera_transform_exists");
   GRAPPLE_REQUIRE(runtimeWorkspace.value().project().packageState().commandLog.records().back().sourceRunId.has_value());

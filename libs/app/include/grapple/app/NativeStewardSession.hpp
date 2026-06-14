@@ -42,6 +42,10 @@ private:
     agent::AgentRunEventKind kind,
     std::string payloadJson
   );
+  foundation::Result<void> finishRunWithError(
+    const foundation::RunId& runId,
+    const foundation::Error& error
+  );
   void markRunStatus(const foundation::RunId& runId, agent::AgentRunStatus status);
 
   NativeProjectSession& project_;
