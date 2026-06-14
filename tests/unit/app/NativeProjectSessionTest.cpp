@@ -1021,7 +1021,7 @@ int main() {
   GRAPPLE_REQUIRE(stewardConversation.diagnostics.empty());
   GRAPPLE_REQUIRE(stewardConversation.runs.size() == 2);
   GRAPPLE_REQUIRE(stewardConversation.runs[0].status == agent::AgentRunStatus::Succeeded);
-  GRAPPLE_REQUIRE(stewardConversation.runs[0].title == "Create editable camera transform");
+  GRAPPLE_REQUIRE(stewardConversation.runs[0].title == "Center the subject with an editable camera transform.");
   GRAPPLE_REQUIRE(stewardConversation.runs[0].messages.size() == 1);
   GRAPPLE_REQUIRE(stewardConversation.runs[0].toolCalls.size() == 1);
   GRAPPLE_REQUIRE(stewardConversation.runs[0].toolCalls[0].toolSerializedId == "effect.create_node");

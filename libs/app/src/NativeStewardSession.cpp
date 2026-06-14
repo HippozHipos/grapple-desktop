@@ -341,7 +341,7 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::c
     return snapshot.error();
   }
 
-  auto runId = startRun(snapshot.value(), "Create editable camera transform");
+  auto runId = startRun(snapshot.value(), intent);
   if (!runId) {
     return runId.error();
   }
