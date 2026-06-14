@@ -169,6 +169,32 @@ int main() {
     foundation::FilePath{packageRoot.string()},
     storage::CurrentProjectPackageSchemaVersion
   };
+  const std::filesystem::path oldSchemaPackageRoot = packageRoot / "old_schema";
+  std::filesystem::create_directories(oldSchemaPackageRoot);
+  std::ofstream oldSchemaManifestFile{oldSchemaPackageRoot / "manifest.json", std::ios::binary | std::ios::trunc};
+  oldSchemaManifestFile
+    << "{\"schemaVersion\":1,\"projectId\":\"proj_storage\",\"commandLogPath\":\"history/commands.json\","
+    << "\"eventLogPath\":\"history/events.json\",\"schemaMigrationLogPath\":\"history/schema_migrations.json\","
+    << "\"head\":null,\"snapshots\":[]}";
+  oldSchemaManifestFile.close();
+  const storage::ProjectPackageReader oldSchemaReader;
+  const auto oldSchemaManifest = oldSchemaReader.readManifestAtRoot(foundation::FilePath{oldSchemaPackageRoot.string()});
+  GRAPPLE_REQUIRE(!oldSchemaManifest);
+  GRAPPLE_REQUIRE(oldSchemaManifest.error().code == "storage.package_schema_unsupported");
+  const auto oldSchemaPackage = oldSchemaReader.readPackage(foundation::FilePath{oldSchemaPackageRoot.string()});
+  GRAPPLE_REQUIRE(!oldSchemaPackage);
+  GRAPPLE_REQUIRE(oldSchemaPackage.error().code == "storage.package_schema_unsupported");
+  const auto unsupportedWrite = packageWriter.writeManifest(
+    manifest.value(),
+    storage::ProjectPackage{
+      foundation::ProjectId{"proj_storage"},
+      foundation::FilePath{oldSchemaPackageRoot.string()},
+      storage::CurrentProjectPackageSchemaVersion - 1
+    }
+  );
+  GRAPPLE_REQUIRE(!unsupportedWrite);
+  GRAPPLE_REQUIRE(unsupportedWrite.error().code == "storage.package_schema_unsupported");
+
   const auto writtenManifestPath = packageWriter.writeManifest(manifest.value(), diskPackage);
   GRAPPLE_REQUIRE(writtenManifestPath);
   GRAPPLE_REQUIRE(writtenManifestPath.value().value == (packageRoot / "manifest.json").lexically_normal().string());

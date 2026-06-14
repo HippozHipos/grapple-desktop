@@ -26,6 +26,13 @@ foundation::Result<std::string> readTextFile(const std::filesystem::path& path, 
   return contents.str();
 }
 
+foundation::Result<void> validateSupportedSchema(int schemaVersion) {
+  if (schemaVersion != CurrentProjectPackageSchemaVersion) {
+    return foundation::Error{"storage.package_schema_unsupported", "Project package schema version is not supported."};
+  }
+  return {};
+}
+
 foundation::Result<std::filesystem::path> packageRelativePath(
   const ProjectPackage& package,
   const foundation::FilePath& relativePath,
@@ -46,6 +53,10 @@ foundation::Result<void> validateManifestForPackage(
   const ProjectPackageManifest& manifest,
   const ProjectPackage& package
 ) {
+  auto supportedSchema = validateSupportedSchema(package.schemaVersion);
+  if (!supportedSchema) {
+    return supportedSchema.error();
+  }
   if (manifest.projectId != package.projectId) {
     return foundation::Error{"storage.package_manifest_project_id_mismatch", "Package manifest project id must match package."};
   }
@@ -134,6 +145,10 @@ foundation::Result<ProjectPackageManifest> ProjectPackageReader::readManifestAtR
   auto manifest = deserializeCanonicalProjectPackageManifest(contents.value());
   if (!manifest) {
     return manifest.error();
+  }
+  auto supportedSchema = validateSupportedSchema(manifest.value().schemaVersion);
+  if (!supportedSchema) {
+    return supportedSchema.error();
   }
 
   return manifest.value();

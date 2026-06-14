@@ -11,6 +11,13 @@ namespace grapple::storage {
 
 namespace {
 
+foundation::Result<void> validateSupportedSchema(int schemaVersion) {
+  if (schemaVersion != CurrentProjectPackageSchemaVersion) {
+    return foundation::Error{"storage.package_schema_unsupported", "Project package schema version is not supported."};
+  }
+  return {};
+}
+
 foundation::Result<foundation::FilePath> writePackageTextFile(
   const ProjectPackage& package,
   const foundation::FilePath& relativePath,
@@ -23,6 +30,10 @@ foundation::Result<foundation::FilePath> writePackageTextFile(
 ) {
   if (package.rootPath.value.empty()) {
     return foundation::Error{"storage.package_root_empty", "Project package root path must not be empty."};
+  }
+  auto supportedSchema = validateSupportedSchema(package.schemaVersion);
+  if (!supportedSchema) {
+    return supportedSchema.error();
   }
 
   if (relativePath.value.empty()) {
@@ -65,6 +76,11 @@ foundation::Result<foundation::FilePath> ProjectPackageWriter::writeManifest(
 ) const {
   if (package.rootPath.value.empty()) {
     return foundation::Error{"storage.package_root_empty", "Project package root path must not be empty."};
+  }
+
+  auto supportedSchema = validateSupportedSchema(package.schemaVersion);
+  if (!supportedSchema) {
+    return supportedSchema.error();
   }
 
   if (manifest.projectId != package.projectId) {
