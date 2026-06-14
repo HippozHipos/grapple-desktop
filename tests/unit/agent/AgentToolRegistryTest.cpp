@@ -120,6 +120,9 @@ public:
         } else if constexpr (std::is_same_v<Query, grapple::project::GetProjectSnapshotQuery>) {
           ++snapshotQueryCount_;
           return project_.query(typedQuery);
+        } else if constexpr (std::is_same_v<Query, grapple::project::GetAssetCatalogQuery>) {
+          ++assetCatalogQueryCount_;
+          return project_.query(typedQuery);
         } else if constexpr (std::is_same_v<Query, grapple::project::InspectCompositionsQuery>) {
           ++compositionQueryCount_;
           return project_.query(typedQuery);
@@ -139,6 +142,10 @@ public:
     return snapshotQueryCount_;
   }
 
+  [[nodiscard]] std::size_t assetCatalogQueryCount() const noexcept {
+    return assetCatalogQueryCount_;
+  }
+
   [[nodiscard]] std::size_t compositionQueryCount() const noexcept {
     return compositionQueryCount_;
   }
@@ -155,6 +162,7 @@ private:
   const grapple::project::ProjectController& project_;
   mutable std::size_t totalQueryCount_ = 0;
   mutable std::size_t snapshotQueryCount_ = 0;
+  mutable std::size_t assetCatalogQueryCount_ = 0;
   mutable std::size_t compositionQueryCount_ = 0;
   mutable std::size_t renderPlanQueryCount_ = 0;
   mutable std::size_t runtimeDiagnosticsQueryCount_ = 0;
@@ -767,6 +775,7 @@ int main() {
   GRAPPLE_REQUIRE(commands.applyCount() == 5);
   GRAPPLE_REQUIRE(commands.applyCount() == commandCountBeforeAssetList);
   GRAPPLE_REQUIRE(queries.totalQueryCount() == queryCountBeforeAssetList + 1);
+  GRAPPLE_REQUIRE(queries.assetCatalogQueryCount() == 1);
 
   const agent::AgentTool* createTrack = registry.findBySerializedId("timeline.create_track");
   GRAPPLE_REQUIRE(createTrack != nullptr);

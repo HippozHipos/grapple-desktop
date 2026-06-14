@@ -280,6 +280,13 @@ int main() {
   GRAPPLE_REQUIRE(graphResult != nullptr);
   GRAPPLE_REQUIRE(graphResult->graph.nodes().size() == 1);
 
+  const auto assetCatalogQuery = session.query(project::GetAssetCatalogQuery{});
+  GRAPPLE_REQUIRE(assetCatalogQuery);
+  const auto* assetCatalogResult = std::get_if<project::AssetCatalogResult>(&assetCatalogQuery.value());
+  GRAPPLE_REQUIRE(assetCatalogResult != nullptr);
+  GRAPPLE_REQUIRE(assetCatalogResult->revision == foundation::RevisionId{"rev_1"});
+  GRAPPLE_REQUIRE(assetCatalogResult->assets.assets().empty());
+
   const auto timeline = session.buildTimelineIR();
   GRAPPLE_REQUIRE(timeline);
   GRAPPLE_REQUIRE(timeline.value().timeline.revision == foundation::RevisionId{"rev_1"});

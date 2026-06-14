@@ -743,6 +743,24 @@ foundation::Result<project::ProjectSnapshot> readProjectSnapshot(
   return snapshotResult->snapshot;
 }
 
+foundation::Result<project::AssetCatalogResult> readAssetCatalog(
+  AgentToolContext& context,
+  std::string_view operation
+) {
+  auto query = context.queries.query(project::GetAssetCatalogQuery{});
+  if (!query) {
+    return query.error();
+  }
+  const auto* assetCatalogResult = std::get_if<project::AssetCatalogResult>(&query.value());
+  if (assetCatalogResult == nullptr) {
+    return foundation::Error{
+      "agent.asset_catalog_result_missing",
+      std::string{operation} + " query returned the wrong result type."
+    };
+  }
+  return *assetCatalogResult;
+}
+
 const char* assetMediaTypeText(asset::AssetMediaType mediaType) {
   switch (mediaType) {
     case asset::AssetMediaType::Video:
@@ -1059,7 +1077,7 @@ AgentTool makeAssetListTool() {
     foundation::ToolId{"tool_asset_list"},
     "asset.list",
     "List Assets",
-    "Lists project assets from the canonical project snapshot.",
+    "Lists project assets from the canonical asset catalog query.",
     AssetListSchema,
     [](const ToolCall& call, AgentToolContext& context) -> foundation::Result<ToolResult> {
       auto arguments = parseArguments(call.arguments);
@@ -1070,16 +1088,16 @@ AgentTool makeAssetListTool() {
       if (!members) {
         return members.error();
       }
-      auto snapshot = readProjectSnapshot(context, "Asset list");
-      if (!snapshot) {
-        return snapshot.error();
+      auto catalog = readAssetCatalog(context, "Asset list");
+      if (!catalog) {
+        return catalog.error();
       }
 
       std::ostringstream payload;
       payload << '{'
-              << "\"revision\":" << foundation::jsonQuoted(snapshot.value().revision.value())
+              << "\"revision\":" << foundation::jsonQuoted(catalog.value().revision.value())
               << ",\"assets\":[";
-      const std::vector<asset::Asset>& assets = snapshot.value().assets.assets();
+      const std::vector<asset::Asset>& assets = catalog.value().assets.assets();
       for (std::size_t index = 0; index < assets.size(); ++index) {
         if (index != 0) {
           payload << ',';
@@ -1091,7 +1109,7 @@ AgentTool makeAssetListTool() {
       return ToolResult{
         call.toolId,
         ToolResultStatus::Succeeded,
-        snapshot.value().revision,
+        catalog.value().revision,
         payload.str(),
         {}
       };

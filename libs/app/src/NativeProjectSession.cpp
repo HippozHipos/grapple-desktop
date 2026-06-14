@@ -209,6 +209,11 @@ foundation::Result<project::ProjectQueryResult> NativeProjectSession::query(cons
         return project::ProjectQueryResult{project::ProjectSnapshotResult{snapshotResult.value()}};
       } else if constexpr (std::is_same_v<Query, project::GetGraphQuery>) {
         return project::ProjectQueryResult{project::GraphResult{snapshotResult.value().graph}};
+      } else if constexpr (std::is_same_v<Query, project::GetAssetCatalogQuery>) {
+        return project::ProjectQueryResult{project::AssetCatalogResult{
+          snapshotResult.value().revision,
+          snapshotResult.value().assets
+        }};
       } else if constexpr (std::is_same_v<Query, project::InspectCompositionsQuery>) {
         auto result = project::inspectCompositions(snapshotResult.value());
         if (!result) {

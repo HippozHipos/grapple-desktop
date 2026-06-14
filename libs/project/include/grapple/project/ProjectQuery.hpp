@@ -1,5 +1,6 @@
 #pragma once
 
+#include <grapple/asset/AssetCatalog.hpp>
 #include <grapple/foundation/Result.hpp>
 #include <grapple/foundation/StrongId.hpp>
 #include <grapple/foundation/Time.hpp>
@@ -17,6 +18,7 @@ namespace grapple::project {
 
 struct GetProjectSnapshotQuery {};
 struct GetGraphQuery {};
+struct GetAssetCatalogQuery {};
 struct InspectCompositionsQuery {};
 struct InspectRenderPlanQuery {};
 struct InspectRuntimeDiagnosticsQuery {};
@@ -122,6 +124,7 @@ struct RuntimeInspectDiagnosticsResult {
 using ProjectQuery = std::variant<
   GetProjectSnapshotQuery,
   GetGraphQuery,
+  GetAssetCatalogQuery,
   InspectCompositionsQuery,
   InspectRenderPlanQuery,
   InspectRuntimeDiagnosticsQuery
@@ -135,6 +138,11 @@ struct GraphResult {
   graph::GraphDocument graph;
 };
 
+struct AssetCatalogResult {
+  foundation::RevisionId revision;
+  asset::AssetCatalog assets;
+};
+
 struct CompositionInspectResult {
   foundation::RevisionId revision;
   std::vector<CompositionSummary> compositions;
@@ -143,6 +151,7 @@ struct CompositionInspectResult {
 using ProjectQueryResult = std::variant<
   ProjectSnapshotResult,
   GraphResult,
+  AssetCatalogResult,
   CompositionInspectResult,
   RenderPlanInspectResult,
   RuntimeInspectDiagnosticsResult

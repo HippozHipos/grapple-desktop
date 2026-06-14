@@ -302,6 +302,13 @@ int main() {
   GRAPPLE_REQUIRE(assetSnapshot);
   GRAPPLE_REQUIRE(assetSnapshot.value().assets.assets().size() == 1);
   GRAPPLE_REQUIRE(assetSnapshot.value().assets.find(foundation::AssetId{"asset_walking_woman"}) != nullptr);
+  const auto assetCatalogQuery = assetProject.query(project::GetAssetCatalogQuery{});
+  GRAPPLE_REQUIRE(assetCatalogQuery);
+  const auto* assetCatalogResult = std::get_if<project::AssetCatalogResult>(&assetCatalogQuery.value());
+  GRAPPLE_REQUIRE(assetCatalogResult != nullptr);
+  GRAPPLE_REQUIRE(assetCatalogResult->revision == foundation::RevisionId{"rev_1"});
+  GRAPPLE_REQUIRE(assetCatalogResult->assets.assets().size() == 1);
+  GRAPPLE_REQUIRE(assetCatalogResult->assets.find(foundation::AssetId{"asset_walking_woman"}) != nullptr);
   const std::string serializedAssetProject = project::serializeCanonicalProjectSnapshot(assetSnapshot.value());
   GRAPPLE_REQUIRE(serializedAssetProject.find("\"assets\":[{\"id\":\"asset_walking_woman\"") != std::string::npos);
 
