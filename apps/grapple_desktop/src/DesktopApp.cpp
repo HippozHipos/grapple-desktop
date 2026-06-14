@@ -770,10 +770,11 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     window.show();
     app.processEvents();
     window.clickFirstTimelineClip();
-    window.nudgeSelectedClipX(0.25);
-    window.nudgeSelectedClipY(0.5);
-    window.setSelectedClipUniformScale(1.25);
-    window.setSelectedClipOpacity(0.5);
+    window.setSelectedClipTransformControlValue("clipTransformPositionX", 0.25);
+    window.setSelectedClipTransformControlValue("clipTransformPositionY", 0.5);
+    window.setSelectedClipTransformControlValue("clipTransformScaleX", 1.25);
+    window.setSelectedClipTransformControlValue("clipTransformScaleY", 1.25);
+    window.setSelectedClipTransformControlValue("clipTransformOpacity", 0.5);
     const auto viewModel = workspace.value().project().buildViewModel();
     if (!viewModel) {
       printError(viewModel.error());
@@ -792,7 +793,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "scaleY=" << clip.transform.scale.y << '\n';
     std::cout << "opacity=" << clip.transform.opacity << '\n';
     std::cout << "inspector=" << inspector << '\n';
-    return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_9"} &&
+    return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_10"} &&
            clip.transform.position.x == 0.25 &&
            clip.transform.position.y == 0.5 &&
            clip.transform.scale.x == 1.25 &&

@@ -8,6 +8,7 @@
 #include <grapple/render/RenderDiagnostic.hpp>
 #include <grapple/runtime/RuntimeDiagnostic.hpp>
 #include <grapple/timeline/Payloads.hpp>
+#include <grapple/ui_qt/ClipTransformPanel.hpp>
 #include <grapple/ui_qt/CompositionViewport.hpp>
 #include <grapple/ui_qt/EffectParamPanel.hpp>
 #include <grapple/ui_qt/PreviewSurface.hpp>
@@ -394,6 +395,14 @@ public:
     inspector_->setObjectName("inspector");
     inspector_->setReadOnly(true);
 
+    clipTransform_ = new grapple::ui::ClipTransformPanel;
+    clipTransform_->setApplyHandler([this](
+      grapple::foundation::NodeId clipNodeId,
+      grapple::foundation::Transform2D transform
+    ) {
+      updateClipTransform(clipNodeId, transform, "Updated clip transform");
+    });
+
     effectParams_ = new grapple::ui::EffectParamPanel;
     effectParams_->setApplyHandler([this](
       grapple::foundation::NodeId effectNodeId,
@@ -516,6 +525,7 @@ public:
     detailsTabs->addTab(summary_, "Project");
     detailsTabs->addTab(log_, "Log");
     sideLayout->addWidget(steward_, 3);
+    sideLayout->addWidget(clipTransform_, 2);
     sideLayout->addWidget(effectParams_, 2);
     sideLayout->addWidget(detailsTabs, 2);
 
@@ -567,7 +577,7 @@ public:
     setStyleSheet(R"(
       QMainWindow { background: #15171c; color: #e9edf5; }
       QWidget { background: #15171c; color: #e9edf5; font-family: "DejaVu Sans"; font-size: 14px; }
-      QLabel#summary, QListWidget#mediaBin, QTextEdit#timeline, QTextEdit#inspector, QWidget#effectParams, QTextEdit#log, QWidget#actions, QWidget#assetStrip {
+      QLabel#summary, QListWidget#mediaBin, QTextEdit#timeline, QTextEdit#inspector, QWidget#clipTransformPanel, QWidget#effectParams, QTextEdit#log, QWidget#actions, QWidget#assetStrip {
         background: #20242d; border: 1px solid #343b4a; border-radius: 10px; padding: 12px;
       }
       QTabWidget#detailsTabs::pane { background: #20242d; border: 1px solid #343b4a; border-radius: 10px; }
@@ -594,6 +604,8 @@ public:
       QLabel#productSubtitle { color: #9fb0c8; font-size: 12px; }
       QLabel#effectParamTitle { color: #e8f4ff; font-weight: 800; }
       QLabel#effectParamHelp { color: #9fb0c8; }
+      QLabel#clipTransformTitle { color: #e8f4ff; font-weight: 800; }
+      QLabel#clipTransformHelp { color: #9fb0c8; }
       QLabel#playheadLabel { color: #d8f3ff; font-weight: 800; padding: 0 8px; }
       QPushButton {
         background: #58c7d8; color: #071015; border: 0; border-radius: 8px; padding: 6px 10px; min-height: 24px; font-weight: 700;
@@ -1698,6 +1710,28 @@ public:
     log_->append(logMessage);
   }
 
+  void updateClipTransform(
+    const grapple::foundation::NodeId& clipNodeId,
+    grapple::timeline::Transform transform,
+    const QString& logMessage
+  ) {
+    const auto viewModel = workspace_.project().buildViewModel();
+    if (!viewModel) {
+      appendError(viewModel.error());
+      return;
+    }
+
+    const grapple::app::AppClipRow* selectedClip = findClipRow(viewModel.value(), clipNodeId);
+    if (selectedClip == nullptr) {
+      appendError(grapple::foundation::Error{"desktop.clip_missing", "Clip transform update requires an existing clip."});
+      return;
+    }
+
+    selectedNodeId_ = clipNodeId;
+    selectedAssetId_ = std::nullopt;
+    updateSelectedClipTransform(*selectedClip, transform, logMessage);
+  }
+
   grapple::foundation::Result<grapple::app::AppClipRow> selectedClipRowForAction(const std::string& actionName) {
     if (!selectedNodeId_.has_value()) {
       return grapple::foundation::Error{
@@ -1766,6 +1800,18 @@ public:
     auto* editor = findChild<QDoubleSpinBox*>(QString{"effectParamEditor_%1"}.arg(qString(paramName)));
     if (editor == nullptr) {
       appendError(grapple::foundation::Error{"desktop.effect_param_control_missing", "Effect parameter control not found."});
+      return;
+    }
+
+    editor->setValue(value);
+    Q_EMIT editor->editingFinished();
+    QApplication::processEvents();
+  }
+
+  void setSelectedClipTransformControlValue(std::string controlName, double value) {
+    auto* editor = findChild<QDoubleSpinBox*>(qString(controlName));
+    if (editor == nullptr) {
+      appendError(grapple::foundation::Error{"desktop.clip_transform_control_missing", "Clip transform control not found."});
       return;
     }
 
@@ -2068,6 +2114,7 @@ private:
 
   void updateInspector(const grapple::app::AppViewModel& viewModel) {
     inspector_->setPlainText(inspectorText(viewModel, selectedNodeId_, selectedAssetId_));
+    clipTransform_->setSelection(viewModel, selectedNodeId_);
     effectParams_->setSelection(viewModel, selectedNodeId_, workspace_.preview().state().playhead);
   }
 
@@ -2158,6 +2205,7 @@ private:
   grapple::ui::CompositionViewport* compositionViewport_ = nullptr;
   grapple::ui::TimelinePanel* timeline_ = nullptr;
   QTextEdit* inspector_ = nullptr;
+  grapple::ui::ClipTransformPanel* clipTransform_ = nullptr;
   grapple::ui::EffectParamPanel* effectParams_ = nullptr;
   grapple::ui::StewardPanel* steward_ = nullptr;
   QTextEdit* log_ = nullptr;
@@ -2320,6 +2368,10 @@ void DesktopWindow::setSelectedClipUniformScale(double scale) {
 
 void DesktopWindow::setSelectedClipOpacity(double opacity) {
   impl_->setSelectedClipOpacity(opacity);
+}
+
+void DesktopWindow::setSelectedClipTransformControlValue(std::string controlName, double value) {
+  impl_->setSelectedClipTransformControlValue(std::move(controlName), value);
 }
 
 void DesktopWindow::undoLastEdit() {

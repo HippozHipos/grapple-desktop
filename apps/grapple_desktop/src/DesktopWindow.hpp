@@ -65,6 +65,7 @@ public:
   void nudgeSelectedClipY(double delta);
   void setSelectedClipUniformScale(double scale);
   void setSelectedClipOpacity(double opacity);
+  void setSelectedClipTransformControlValue(std::string controlName, double value);
   void undoLastEdit();
   void redoLastEdit();
   void exportVideoFile(const foundation::FilePath& path);
