@@ -39,10 +39,25 @@ enum class ClipKind {
 };
 
 struct ClipPayload {
-  ClipKind kind = ClipKind::Video;
+  ClipPayload(
+    ClipKind kindValue,
+    foundation::TimeRange timelineRangeValue,
+    foundation::TimeRange sourceRangeValue,
+    double playbackRateValue,
+    foundation::AssetId assetIdValue,
+    Transform transformValue
+  )
+    : kind{kindValue},
+      timelineRange{timelineRangeValue},
+      sourceRange{sourceRangeValue},
+      playbackRate{playbackRateValue},
+      assetId{std::move(assetIdValue)},
+      transform{transformValue} {}
+
+  ClipKind kind;
   foundation::TimeRange timelineRange;
   foundation::TimeRange sourceRange;
-  double playbackRate = 1.0;
+  double playbackRate;
   foundation::AssetId assetId;
   Transform transform;
 
