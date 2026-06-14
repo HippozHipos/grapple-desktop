@@ -118,8 +118,19 @@ StewardPanel::StewardPanel(QWidget* parent)
   createCameraEffectButton_->setObjectName("stewardCreateCameraEffect");
   layout->addWidget(createCameraEffectButton_);
   connect(createCameraEffectButton_, &QPushButton::clicked, this, [this] {
-    if (createCameraEffectHandler_) {
-      createCameraEffectHandler_(intent());
+    switch (primaryAction_) {
+      case PrimaryAction::AddCamera:
+        if (addCameraHandler_) {
+          addCameraHandler_();
+        }
+        return;
+      case PrimaryAction::CreateCameraEffect:
+        if (createCameraEffectHandler_) {
+          createCameraEffectHandler_(intent());
+        }
+        return;
+      case PrimaryAction::Disabled:
+        return;
     }
   });
 
@@ -129,6 +140,10 @@ StewardPanel::StewardPanel(QWidget* parent)
   text_->setMinimumHeight(160);
   text_->setLineWrapMode(QTextEdit::WidgetWidth);
   layout->addWidget(text_);
+}
+
+void StewardPanel::setAddCameraHandler(AddCameraHandler handler) {
+  addCameraHandler_ = std::move(handler);
 }
 
 void StewardPanel::setCreateCameraEffectHandler(CreateCameraEffectHandler handler) {
@@ -142,14 +157,23 @@ void StewardPanel::setViewModel(
 ) {
   const std::optional<foundation::NodeId> cameraTargetId = app::stewardCameraTargetId(viewModel, selectedNodeId);
   if (!cameraTargetId.has_value()) {
-    createCameraEffectButton_->setText(viewModel.timeline.cameras.empty() ? "Add Camera" : "Select Camera");
-    createCameraEffectButton_->setEnabled(false);
+    if (viewModel.timeline.cameras.empty()) {
+      primaryAction_ = PrimaryAction::AddCamera;
+      createCameraEffectButton_->setText("Add Camera");
+      createCameraEffectButton_->setEnabled(static_cast<bool>(addCameraHandler_));
+    } else {
+      primaryAction_ = PrimaryAction::Disabled;
+      createCameraEffectButton_->setText("Select Camera");
+      createCameraEffectButton_->setEnabled(false);
+    }
   } else if (app::cameraHasTransformEffect(viewModel, cameraTargetId.value())) {
+    primaryAction_ = PrimaryAction::Disabled;
     createCameraEffectButton_->setText("Editable Controls Created");
     createCameraEffectButton_->setEnabled(false);
   } else {
+    primaryAction_ = PrimaryAction::CreateCameraEffect;
     createCameraEffectButton_->setText("Create Editable Camera Controls");
-    createCameraEffectButton_->setEnabled(true);
+    createCameraEffectButton_->setEnabled(static_cast<bool>(createCameraEffectHandler_));
   }
 
   QStringList lines{

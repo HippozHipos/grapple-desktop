@@ -625,12 +625,18 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   }
 
   if (emptyAddCameraSmoke) {
-    window.addCamera();
+    window.show();
+    app.processEvents();
+    const std::string stewardBefore = window.stewardContents();
+    window.clickStewardCreateCameraEffect();
     const auto viewModel = workspace.value().project().buildViewModel();
     if (!viewModel) {
       printError(viewModel.error());
       return 1;
     }
+    const std::string stewardAfter = window.stewardContents();
+    std::cout << "stewardBefore=" << stewardBefore << '\n';
+    std::cout << "stewardAfter=" << stewardAfter << '\n';
     std::cout << "revision=" << viewModel.value().project.revision.value() << '\n';
     std::cout << "compositions=" << viewModel.value().timeline.compositions.size() << '\n';
     std::cout << "cameras=" << viewModel.value().timeline.cameras.size() << '\n';
@@ -640,6 +646,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_2"} &&
            viewModel.value().timeline.compositions.size() == 1 &&
            viewModel.value().timeline.cameras.size() == 1 &&
+           stewardBefore.find("0 clips | 0 cameras | 0 editable effects") != std::string::npos &&
+           stewardAfter.find("0 clips | 1 cameras | 0 editable effects") != std::string::npos &&
            window.selectedNodeId().has_value() &&
            window.selectedNodeId().value() == viewModel.value().timeline.cameras.front().sourceNodeId
       ? 0
