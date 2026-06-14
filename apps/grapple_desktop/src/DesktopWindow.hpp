@@ -71,6 +71,9 @@ public:
   void undoLastEdit();
   void redoLastEdit();
   void exportVideoFile(const foundation::FilePath& path);
+  void setExportResolutionControlValue(int width, int height);
+  void setExportFrameRateControlValue(double framesPerSecond);
+  void setExportCodecControlValue(std::string codec);
   void setEffectParamControlValue(const std::string& paramName, double value);
   void setEffectParamKeyframeAtPlayhead(const std::string& paramName);
   void deleteEffectParamKeyframeControl(const std::string& paramName, int keyframeIndex);

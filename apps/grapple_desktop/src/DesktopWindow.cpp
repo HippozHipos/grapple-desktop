@@ -12,11 +12,13 @@
 #include <grapple/ui_qt/ClipTransformPanel.hpp>
 #include <grapple/ui_qt/CompositionViewport.hpp>
 #include <grapple/ui_qt/EffectParamPanel.hpp>
+#include <grapple/ui_qt/ExportSettingsPanel.hpp>
 #include <grapple/ui_qt/PreviewSurface.hpp>
 #include <grapple/ui_qt/StewardPanel.hpp>
 #include <grapple/ui_qt/TimelinePanel.hpp>
 
 #include <QApplication>
+#include <QComboBox>
 #include <QDoubleSpinBox>
 #include <QFileDialog>
 #include <QFrame>
@@ -33,6 +35,7 @@
 #include <QMouseEvent>
 #include <QPushButton>
 #include <QStringList>
+#include <QSpinBox>
 #include <QTabWidget>
 #include <QTextEdit>
 #include <QTimer>
@@ -440,6 +443,12 @@ public:
       deleteEffect(effectNodeId);
     });
 
+    exportSettings_ = new grapple::ui::ExportSettingsPanel;
+    exportSettingsDraft_ = exportSettings_->draft();
+    exportSettings_->setApplyHandler([this](grapple::ui::ExportSettingsDraft draft) {
+      exportSettingsDraft_ = std::move(draft);
+    });
+
     log_ = new QTextEdit;
     log_->setObjectName("log");
     log_->setReadOnly(true);
@@ -538,6 +547,7 @@ public:
     sideLayout->addWidget(cameraProperties_, 2);
     sideLayout->addWidget(clipTransform_, 2);
     sideLayout->addWidget(effectParams_, 2);
+    sideLayout->addWidget(exportSettings_, 2);
     sideLayout->addWidget(detailsTabs, 2);
 
     layout->addWidget(actions, 0, 0, 1, 2);
@@ -588,7 +598,7 @@ public:
     setStyleSheet(R"(
       QMainWindow { background: #15171c; color: #e9edf5; }
       QWidget { background: #15171c; color: #e9edf5; font-family: "DejaVu Sans"; font-size: 14px; }
-      QLabel#summary, QListWidget#mediaBin, QTextEdit#timeline, QTextEdit#inspector, QWidget#cameraPropertyPanel, QWidget#clipTransformPanel, QWidget#effectParams, QTextEdit#log, QWidget#actions, QWidget#assetStrip {
+      QLabel#summary, QListWidget#mediaBin, QTextEdit#timeline, QTextEdit#inspector, QWidget#cameraPropertyPanel, QWidget#clipTransformPanel, QWidget#effectParams, QWidget#exportSettingsPanel, QTextEdit#log, QWidget#actions, QWidget#assetStrip {
         background: #20242d; border: 1px solid #343b4a; border-radius: 10px; padding: 12px;
       }
       QTabWidget#detailsTabs::pane { background: #20242d; border: 1px solid #343b4a; border-radius: 10px; }
@@ -619,6 +629,7 @@ public:
       QLabel#cameraPropertyHelp { color: #9fb0c8; }
       QLabel#clipTransformTitle { color: #e8f4ff; font-weight: 800; }
       QLabel#clipTransformHelp { color: #9fb0c8; }
+      QLabel#exportSettingsTitle { color: #e8f4ff; font-weight: 800; }
       QLabel#playheadLabel { color: #d8f3ff; font-weight: 800; padding: 0 8px; }
       QPushButton {
         background: #58c7d8; color: #071015; border: 0; border-radius: 8px; padding: 6px 10px; min-height: 24px; font-weight: 700;
@@ -628,7 +639,7 @@ public:
       }
       QMenu::item { padding: 7px 24px 7px 10px; border-radius: 6px; }
       QMenu::item:selected { background: #36506f; color: #ffffff; }
-      QLineEdit, QDoubleSpinBox {
+      QLineEdit, QDoubleSpinBox, QSpinBox, QComboBox {
         background: #10141d; color: #e8f4ff; border: 1px solid #343b4a; border-radius: 8px; padding: 8px 10px;
       }
       QPushButton:hover { background: #79ddea; }
@@ -1903,6 +1914,50 @@ public:
     QApplication::processEvents();
   }
 
+  void setExportResolutionControlValue(int width, int height) {
+    auto* widthEditor = findChild<QSpinBox*>("exportSettingsWidth");
+    auto* heightEditor = findChild<QSpinBox*>("exportSettingsHeight");
+    if (widthEditor == nullptr || heightEditor == nullptr) {
+      appendError(grapple::foundation::Error{"desktop.export_resolution_controls_missing", "Export resolution controls not found."});
+      return;
+    }
+
+    widthEditor->setValue(width);
+    Q_EMIT widthEditor->editingFinished();
+    heightEditor->setValue(height);
+    Q_EMIT heightEditor->editingFinished();
+    QApplication::processEvents();
+  }
+
+  void setExportFrameRateControlValue(double framesPerSecond) {
+    auto* editor = findChild<QDoubleSpinBox*>("exportSettingsFps");
+    if (editor == nullptr) {
+      appendError(grapple::foundation::Error{"desktop.export_fps_control_missing", "Export frame rate control not found."});
+      return;
+    }
+
+    editor->setValue(framesPerSecond);
+    Q_EMIT editor->editingFinished();
+    QApplication::processEvents();
+  }
+
+  void setExportCodecControlValue(std::string codec) {
+    auto* editor = findChild<QComboBox*>("exportSettingsCodec");
+    if (editor == nullptr) {
+      appendError(grapple::foundation::Error{"desktop.export_codec_control_missing", "Export codec control not found."});
+      return;
+    }
+
+    const int index = editor->findText(qString(codec));
+    if (index < 0) {
+      appendError(grapple::foundation::Error{"desktop.export_codec_unknown", "Export codec control does not contain the requested codec."});
+      return;
+    }
+
+    editor->setCurrentIndex(index);
+    QApplication::processEvents();
+  }
+
   void setEffectParamKeyframeAtPlayhead(const std::string& paramName) {
     auto* button = findChild<QPushButton*>(QString{"effectParamKeyframe_%1"}.arg(qString(paramName)));
     if (button == nullptr) {
@@ -2111,9 +2166,9 @@ public:
     }
     const auto result = workspace_.exportSession().renderToVideo(grapple::render::ExportSettings{
       grapple::foundation::TimeRange{grapple::foundation::TimeSeconds{0.0}, timelineDuration_},
-      grapple::foundation::FrameRate{30, 1},
-      grapple::foundation::Resolution{1920, 1080},
-      grapple::render::Codec{"mjpeg"},
+      exportSettingsDraft_.frameRate,
+      exportSettingsDraft_.resolution,
+      exportSettingsDraft_.codec,
       grapple::render::RenderQuality::Final,
       path
     });
@@ -2292,12 +2347,14 @@ private:
   grapple::ui::CameraPropertyPanel* cameraProperties_ = nullptr;
   grapple::ui::ClipTransformPanel* clipTransform_ = nullptr;
   grapple::ui::EffectParamPanel* effectParams_ = nullptr;
+  grapple::ui::ExportSettingsPanel* exportSettings_ = nullptr;
   grapple::ui::StewardPanel* steward_ = nullptr;
   QTextEdit* log_ = nullptr;
   QFrame* previewFrame_ = nullptr;
   QFrame* viewportFrame_ = nullptr;
   QTimer* playbackTimer_ = nullptr;
   grapple::foundation::TimeSeconds timelineDuration_;
+  grapple::ui::ExportSettingsDraft exportSettingsDraft_;
   std::optional<grapple::foundation::NodeId> selectedNodeId_;
   std::optional<grapple::foundation::AssetId> selectedAssetId_;
 };
@@ -2477,6 +2534,18 @@ void DesktopWindow::redoLastEdit() {
 
 void DesktopWindow::exportVideoFile(const foundation::FilePath& path) {
   impl_->exportVideoFile(path);
+}
+
+void DesktopWindow::setExportResolutionControlValue(int width, int height) {
+  impl_->setExportResolutionControlValue(width, height);
+}
+
+void DesktopWindow::setExportFrameRateControlValue(double framesPerSecond) {
+  impl_->setExportFrameRateControlValue(framesPerSecond);
+}
+
+void DesktopWindow::setExportCodecControlValue(std::string codec) {
+  impl_->setExportCodecControlValue(std::move(codec));
 }
 
 void DesktopWindow::setEffectParamControlValue(const std::string& paramName, double value) {

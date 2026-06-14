@@ -137,6 +137,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   bool playbackSmoke = false;
   bool openPackageSmoke = false;
   bool editSaveSmoke = false;
+  bool exportSettingsSmoke = false;
   std::optional<std::string> screenshotPath;
   std::optional<std::string> effectScreenshotPath;
   for (int index = 1; index < argc; ++index) {
@@ -205,12 +206,14 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       openPackageSmoke = true;
     } else if (argument == "--edit-save-smoke") {
       editSaveSmoke = true;
+    } else if (argument == "--export-settings-smoke") {
+      exportSettingsSmoke = true;
     } else if (argument == "--screenshot" && index + 1 < argc) {
       screenshotPath = argv[++index];
     } else if (argument == "--effect-screenshot" && index + 1 < argc) {
       effectScreenshotPath = argv[++index];
     } else {
-      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --select-audio-clip-smoke, --select-audio-track-smoke, --select-camera-smoke, --select-second-camera-smoke, --steward-smoke, --import-smoke, --import-media-types-smoke, --add-video-smoke, --empty-add-video-smoke, --empty-add-track-smoke, --empty-add-camera-smoke, --update-camera-smoke, --add-note-smoke, --update-note-smoke, --move-clip-smoke, --trim-clip-smoke, --nudge-clip-smoke, --undo-redo-smoke, --add-effect-smoke, --set-effect-param-smoke, --effect-keyframe-smoke, --delete-effect-smoke, --delete-smoke, --delete-track-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, --screenshot <path>, or --effect-screenshot <path>.\n";
+      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --select-audio-clip-smoke, --select-audio-track-smoke, --select-camera-smoke, --select-second-camera-smoke, --steward-smoke, --import-smoke, --import-media-types-smoke, --add-video-smoke, --empty-add-video-smoke, --empty-add-track-smoke, --empty-add-camera-smoke, --update-camera-smoke, --add-note-smoke, --update-note-smoke, --move-clip-smoke, --trim-clip-smoke, --nudge-clip-smoke, --undo-redo-smoke, --add-effect-smoke, --set-effect-param-smoke, --effect-keyframe-smoke, --delete-effect-smoke, --delete-smoke, --delete-track-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, --export-settings-smoke, --screenshot <path>, or --effect-screenshot <path>.\n";
       return 1;
     }
   }
@@ -1050,6 +1053,28 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     return viewModel.value().project.projectId == grapple::foundation::ProjectId{"proj_desktop"} &&
            viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_5"} &&
            workspace.value().project().packageState().commandLog.records().size() == 5
+      ? 0
+      : 1;
+  }
+
+  if (exportSettingsSmoke) {
+    window.show();
+    app.processEvents();
+    const std::filesystem::path outputPath{"/tmp/grapple-desktop-export-settings.avi"};
+    std::filesystem::remove(outputPath);
+    window.setExportResolutionControlValue(320, 180);
+    window.setExportFrameRateControlValue(10.0);
+    window.setExportCodecControlValue("mjpeg");
+    window.exportVideoFile(grapple::foundation::FilePath{outputPath.string()});
+    const std::string log = window.logContents();
+    const bool exists = std::filesystem::exists(outputPath);
+    const auto size = exists ? std::filesystem::file_size(outputPath) : 0U;
+    std::cout << "exists=" << (exists ? "true" : "false") << '\n';
+    std::cout << "size=" << size << '\n';
+    std::cout << "log=" << log << '\n';
+    return exists &&
+           size > 0U &&
+           log.find("Export evaluated 100 frames") != std::string::npos
       ? 0
       : 1;
   }

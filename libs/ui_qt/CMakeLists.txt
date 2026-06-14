@@ -5,6 +5,7 @@ add_library(grapple_ui_qt
   src/ClipTransformPanel.cpp
   src/CompositionViewport.cpp
   src/EffectParamPanel.cpp
+  src/ExportSettingsPanel.cpp
   src/PreviewSurface.cpp
   src/StewardPanel.cpp
   src/TimelinePanel.cpp
