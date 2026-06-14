@@ -350,6 +350,8 @@ foundation::Result<AppViewModel> NativeProjectSession::buildViewModel() const {
       assetName.value(),
       clipKindName(clip.payload.kind),
       clip.payload.timelineRange,
+      clip.payload.sourceRange,
+      clip.payload.playbackRate,
       clip.payload.transform
     });
   }
@@ -366,6 +368,8 @@ foundation::Result<AppViewModel> NativeProjectSession::buildViewModel() const {
       assetName.value(),
       clipKindName(clip.payload.kind),
       clip.payload.timelineRange,
+      clip.payload.sourceRange,
+      clip.payload.playbackRate,
       clip.payload.transform
     });
   }

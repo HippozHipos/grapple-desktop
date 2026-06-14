@@ -284,6 +284,23 @@ grapple::foundation::Result<grapple::foundation::TimeSeconds> timelineDurationFo
   return grapple::foundation::Error{"desktop.asset_duration_missing", "Selected media asset requires a duration before it can be placed on the timeline."};
 }
 
+const grapple::app::AppClipRow* findClipRow(
+  const grapple::app::AppViewModel& viewModel,
+  const grapple::foundation::NodeId& nodeId
+) {
+  for (const grapple::app::AppClipRow& clip : viewModel.timeline.clips) {
+    if (clip.sourceNodeId == nodeId) {
+      return &clip;
+    }
+  }
+  for (const grapple::app::AppClipRow& clip : viewModel.timeline.audioClips) {
+    if (clip.sourceNodeId == nodeId) {
+      return &clip;
+    }
+  }
+  return nullptr;
+}
+
 } // namespace
 
 namespace grapple::desktop {
@@ -407,6 +424,7 @@ public:
     auto* addCameraAction = moreMenu->addAction("Add Camera");
     auto* addNoteAction = moreMenu->addAction("Add Note");
     auto* moveClipAction = moreMenu->addAction("Move Clip +1s");
+    auto* trimClipAction = moreMenu->addAction("Trim Clip End -1s");
     auto* deleteClipAction = moreMenu->addAction("Delete Clip");
     auto* deleteTrackAction = moreMenu->addAction("Delete Track");
     moreButton->setMenu(moreMenu);
@@ -494,6 +512,7 @@ public:
     connect(addCameraAction, &QAction::triggered, this, [this] { addCamera(); });
     connect(addNoteAction, &QAction::triggered, this, [this] { addNote(); });
     connect(moveClipAction, &QAction::triggered, this, [this] { moveSelectedClip(grapple::foundation::TimeSeconds{1.0}); });
+    connect(trimClipAction, &QAction::triggered, this, [this] { trimSelectedClipEnd(grapple::foundation::TimeSeconds{-1.0}); });
     connect(deleteClipAction, &QAction::triggered, this, [this] { deleteSelectedClip(); });
     connect(deleteTrackAction, &QAction::triggered, this, [this] { deleteSelectedTrack(); });
     connect(exportButton, &QPushButton::clicked, this, [this] { chooseAndExportVideo(); });
@@ -1080,14 +1099,8 @@ public:
       return;
     }
 
-    const auto selectedClip = std::find_if(
-      viewModel.value().timeline.clips.begin(),
-      viewModel.value().timeline.clips.end(),
-      [&](const grapple::app::AppClipRow& clip) {
-        return clip.sourceNodeId == selectedNodeId_.value();
-      }
-    );
-    if (selectedClip == viewModel.value().timeline.clips.end()) {
+    const grapple::app::AppClipRow* selectedClip = findClipRow(viewModel.value(), selectedNodeId_.value());
+    if (selectedClip == nullptr) {
       appendError(grapple::foundation::Error{"desktop.selected_node_not_clip", "Delete Clip only applies to selected clips."});
       return;
     }
@@ -1167,14 +1180,8 @@ public:
       return;
     }
 
-    std::optional<grapple::foundation::TimeSeconds> currentStart;
-    for (const grapple::app::AppClipRow& clip : viewModel.value().timeline.clips) {
-      if (clip.sourceNodeId == selectedNodeId_.value()) {
-        currentStart = clip.timelineRange.start;
-        break;
-      }
-    }
-    if (!currentStart.has_value()) {
+    const grapple::app::AppClipRow* selectedClip = findClipRow(viewModel.value(), selectedNodeId_.value());
+    if (selectedClip == nullptr) {
       appendError(grapple::foundation::Error{"desktop.selected_node_not_clip", "Move Clip only applies to selected clips."});
       return;
     }
@@ -1182,7 +1189,7 @@ public:
     const auto moved = workspace_.commandWriter().apply(
       grapple::project::MoveClipCommand{
         selectedNodeId_.value(),
-        grapple::foundation::TimeSeconds{currentStart->value + delta.value}
+        grapple::foundation::TimeSeconds{selectedClip->timelineRange.start.value + delta.value}
       },
       userSource()
     );
@@ -1194,6 +1201,59 @@ public:
     refreshViewModel();
     refreshPreview();
     log_->append("Moved clip");
+  }
+
+  void trimSelectedClipEnd(grapple::foundation::TimeSeconds delta) {
+    if (!selectedNodeId_.has_value()) {
+      appendError(grapple::foundation::Error{"desktop.selection_missing", "Trim Clip requires a selected clip."});
+      return;
+    }
+
+    const auto viewModel = workspace_.project().buildViewModel();
+    if (!viewModel) {
+      appendError(viewModel.error());
+      return;
+    }
+
+    const grapple::app::AppClipRow* selectedClip = findClipRow(viewModel.value(), selectedNodeId_.value());
+    if (selectedClip == nullptr) {
+      appendError(grapple::foundation::Error{"desktop.selected_node_not_clip", "Trim Clip only applies to selected clips."});
+      return;
+    }
+
+    const grapple::foundation::TimeSeconds timelineEnd{
+      selectedClip->timelineRange.end.value + delta.value
+    };
+    if (timelineEnd.value <= selectedClip->timelineRange.start.value) {
+      appendError(grapple::foundation::Error{"desktop.clip_trim_timeline_range_invalid", "Trim Clip End must leave the clip with positive duration."});
+      return;
+    }
+
+    const double sourceDelta = delta.value * selectedClip->playbackRate;
+    const grapple::foundation::TimeSeconds adjustedSourceEnd{
+      selectedClip->sourceRange.end.value + sourceDelta
+    };
+    if (adjustedSourceEnd.value <= selectedClip->sourceRange.start.value) {
+      appendError(grapple::foundation::Error{"desktop.clip_trim_source_range_invalid", "Trim Clip End must leave a positive source range."});
+      return;
+    }
+
+    const auto trimmed = workspace_.commandWriter().apply(
+      grapple::project::TrimClipCommand{
+        selectedClip->sourceNodeId,
+        grapple::foundation::TimeRange{selectedClip->timelineRange.start, timelineEnd},
+        grapple::foundation::TimeRange{selectedClip->sourceRange.start, adjustedSourceEnd}
+      },
+      userSource()
+    );
+    if (!trimmed) {
+      appendError(trimmed.error());
+      return;
+    }
+
+    refreshViewModel();
+    refreshPreview();
+    log_->append("Trimmed clip");
   }
 
   void undoLastEdit() {
@@ -1746,6 +1806,10 @@ void DesktopWindow::deleteSelectedTrack() {
 
 void DesktopWindow::moveSelectedClip(foundation::TimeSeconds delta) {
   impl_->moveSelectedClip(delta);
+}
+
+void DesktopWindow::trimSelectedClipEnd(foundation::TimeSeconds delta) {
+  impl_->trimSelectedClipEnd(delta);
 }
 
 void DesktopWindow::undoLastEdit() {

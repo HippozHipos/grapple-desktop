@@ -55,6 +55,7 @@ public:
   void deleteSelectedClip();
   void deleteSelectedTrack();
   void moveSelectedClip(foundation::TimeSeconds delta);
+  void trimSelectedClipEnd(foundation::TimeSeconds delta);
   void undoLastEdit();
   void redoLastEdit();
   void exportVideoFile(const foundation::FilePath& path);

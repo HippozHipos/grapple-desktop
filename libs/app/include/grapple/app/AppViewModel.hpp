@@ -76,6 +76,8 @@ struct AppClipRow {
   std::string assetName;
   std::string kind;
   foundation::TimeRange timelineRange;
+  foundation::TimeRange sourceRange;
+  double playbackRate = 1.0;
   foundation::Transform2D transform;
 };
 
