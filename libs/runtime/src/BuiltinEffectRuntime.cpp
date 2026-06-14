@@ -76,6 +76,7 @@ foundation::Result<EffectPrepareResult> BuiltinEffectRuntime::prepare(const Effe
       request.graph.id,
       request.graph.targetNodeId,
       request.node.sourceNodeId,
+      request.node.payload.activeRange,
       nullptr,
       params,
       std::move(preparedValues)

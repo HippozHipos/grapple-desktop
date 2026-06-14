@@ -29,6 +29,7 @@ public:
         request.graph.id,
         request.graph.targetNodeId,
         request.node.sourceNodeId,
+        request.node.payload.activeRange,
         nullptr,
         grapple::runtime::RuntimeParamSet{},
         {}
@@ -164,6 +165,7 @@ public:
         request.graph.id,
         request.graph.targetNodeId,
         request.node.sourceNodeId,
+        request.node.payload.activeRange,
         nullptr,
         grapple::runtime::RuntimeParamSet{},
         {}
@@ -213,6 +215,7 @@ public:
         request.graph.id,
         request.graph.targetNodeId,
         request.node.sourceNodeId,
+        request.node.payload.activeRange,
         nullptr,
         grapple::runtime::RuntimeParamSet{},
         {}

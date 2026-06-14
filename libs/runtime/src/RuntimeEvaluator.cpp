@@ -134,6 +134,7 @@ foundation::Result<PrepareRuntimePlanResult> RuntimeEvaluator::prepare(
       }
 
       PreparedEffectNode preparedEffect = std::move(effectPrepare.value().prepared);
+      preparedEffect.activeRange = effectNode.payload.activeRange;
       preparedEffect.runtime = selectedRuntime;
       preparedEffect.params = runtimeParamsFromEffectNode(effectNode);
       prepared.preparedEffects.push_back(std::move(preparedEffect));
@@ -187,6 +188,10 @@ foundation::Result<RuntimeSampleResult> RuntimeEvaluator::sample(
   }
 
   for (const PreparedEffectNode& effect : request.prepared.preparedEffects) {
+    if (!effect.activeRange.contains(request.time)) {
+      continue;
+    }
+
     if (effect.runtime == nullptr) {
       sample.diagnostics.push_back(RuntimeDiagnostic{
         "runtime.effect_runtime_missing",

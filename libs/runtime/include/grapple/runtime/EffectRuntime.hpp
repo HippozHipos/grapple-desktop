@@ -18,6 +18,7 @@ struct PreparedEffectNode {
   foundation::GraphId effectGraphId;
   foundation::NodeId targetNodeId;
   foundation::NodeId sourceNodeId;
+  foundation::TimeRange activeRange;
   IEffectRuntime* runtime = nullptr;
   RuntimeParamSet params;
   RuntimeValueMap preparedValues;

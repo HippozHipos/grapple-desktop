@@ -31,6 +31,7 @@ public:
         request.graph.id,
         request.graph.targetNodeId,
         request.node.sourceNodeId,
+        request.node.payload.activeRange,
         nullptr,
         grapple::runtime::RuntimeParamSet{},
         {
@@ -189,6 +190,12 @@ grapple::projection::RenderPlan makeEffectPlan(std::string source) {
       }
     }
   });
+  return plan;
+}
+
+grapple::projection::RenderPlan makeEffectPlanWithActiveRange(grapple::foundation::TimeRange activeRange) {
+  grapple::projection::RenderPlan plan = makeEffectPlan("def prepare(): pass");
+  plan.effectGraphs[0].nodes[0].payload.activeRange = activeRange;
   return plan;
 }
 
@@ -765,6 +772,29 @@ int main() {
   GRAPPLE_REQUIRE(supportedEffectSample.value().sample.effectOutputs[0].values.size() == 1);
   GRAPPLE_REQUIRE(std::get<double>(supportedEffectSample.value().sample.effectOutputs[0].values[0].value) == 3.5);
   GRAPPLE_REQUIRE(effectRuntime.processCount == 1);
+
+  TestEffectRuntime activeRangeRuntime;
+  const runtime::RuntimeEvaluator activeRangeEvaluator{{&activeRangeRuntime}};
+  const auto preparedActiveRangeEffectPlan = activeRangeEvaluator.prepare(runtime::PrepareRuntimePlanRequest{
+    makeEffectPlanWithActiveRange(foundation::TimeRange{foundation::TimeSeconds{1.0}, foundation::TimeSeconds{2.0}})
+  });
+  GRAPPLE_REQUIRE(preparedActiveRangeEffectPlan);
+  const auto inactiveEffectSample = activeRangeEvaluator.sample(runtime::RuntimeSampleRequest{
+    preparedActiveRangeEffectPlan.value().prepared,
+    foundation::TimeSeconds{0.5},
+    runtime::RuntimeQuality::Interactive
+  });
+  GRAPPLE_REQUIRE(inactiveEffectSample);
+  GRAPPLE_REQUIRE(inactiveEffectSample.value().sample.effectOutputs.empty());
+  GRAPPLE_REQUIRE(activeRangeRuntime.processCount == 0);
+  const auto activeRangeEffectSample = activeRangeEvaluator.sample(runtime::RuntimeSampleRequest{
+    preparedActiveRangeEffectPlan.value().prepared,
+    foundation::TimeSeconds{1.5},
+    runtime::RuntimeQuality::Interactive
+  });
+  GRAPPLE_REQUIRE(activeRangeEffectSample);
+  GRAPPLE_REQUIRE(activeRangeEffectSample.value().sample.effectOutputs.size() == 1);
+  GRAPPLE_REQUIRE(activeRangeRuntime.processCount == 1);
 
   TestEffectRuntime reuseRuntime;
   const runtime::RuntimeEvaluator reuseEvaluator{{&reuseRuntime}};
