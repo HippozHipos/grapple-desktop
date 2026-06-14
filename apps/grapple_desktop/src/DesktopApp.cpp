@@ -456,8 +456,9 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     if (selectedNodeId.has_value()) {
       std::cout << "selected=" << selectedNodeId->value() << '\n';
     }
-    return steward.find("Current request") != std::string::npos &&
-           steward.find("Center the subject with an editable camera transform.") != std::string::npos &&
+    return steward.find("Current request") == std::string::npos &&
+           steward.find("Center the subject with an editable camera transform.") == std::string::npos &&
+           steward.find("Loop") != std::string::npos &&
            steward.find("Editable controls") != std::string::npos &&
            steward.find("- no editable controls yet") != std::string::npos &&
            steward.find("Recent Steward runs") != std::string::npos &&

@@ -189,9 +189,6 @@ void StewardPanel::setViewModel(
 
   QStringList lines{
     "Steward",
-    "Current request",
-    qString(intent()),
-    "",
     "Loop",
     "1. Create an editable graph change",
     "2. Preview the evaluated result",
