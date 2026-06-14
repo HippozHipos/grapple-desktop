@@ -364,6 +364,17 @@ grapple::projection::RenderPlan makeCameraEffectRenderPlan() {
   return plan;
 }
 
+grapple::projection::RenderPlan makeClipTransformRenderPlan() {
+  grapple::projection::RenderPlan plan = makeRenderPlan();
+  plan.clips[0].payload.transform = grapple::timeline::Transform{
+    grapple::foundation::Vec2{0.5, 0.0},
+    grapple::foundation::Vec2{1.0, 1.0},
+    0.0,
+    1.0
+  };
+  return plan;
+}
+
 grapple::render::ExportSettings makeExportSettings(grapple::foundation::Resolution resolution) {
   return grapple::render::ExportSettings{
     grapple::foundation::TimeRange{
@@ -437,6 +448,7 @@ int main() {
   GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.mediaFrames[0].assetId == foundation::AssetId{"asset_video"});
   GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.mediaFrames[0].kind == render::RenderedMediaKind::Video);
   GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.mediaFrames[0].sourceTime == foundation::TimeSeconds{4.0});
+  GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.mediaFrames[0].transform == timeline::Transform{});
   GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.audioClips[0].clipNodeId == foundation::NodeId{"node_audio_clip"});
   GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.audioClips[0].trackNodeId == foundation::NodeId{"node_track"});
   GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.audioClips[0].assetId == foundation::AssetId{"asset_audio"});
@@ -522,6 +534,21 @@ int main() {
   GRAPPLE_REQUIRE(frameSource.lastRequest->assetId == foundation::AssetId{"asset_video"});
   GRAPPLE_REQUIRE(frameSource.lastRequest->sourceTime == foundation::TimeSeconds{4.0});
   GRAPPLE_REQUIRE(frameSource.lastRequest->quality == render::RenderQuality::Draft);
+
+  TestFrameSource shiftedClipFrameSource;
+  render::LocalRenderCore shiftedClipImageCore{runtime, shiftedClipFrameSource};
+  render::PreviewRenderShell shiftedClipImagePreview{shiftedClipImageCore};
+  const auto shiftedClipImageLoad = shiftedClipImageCore.loadPlan(makeClipTransformRenderPlan());
+  GRAPPLE_REQUIRE(shiftedClipImageLoad);
+  const auto shiftedClipImageFrame = shiftedClipImagePreview.renderFrame(render::RenderFrameRequest{
+    foundation::TimeSeconds{4.0},
+    render::RenderQuality::Draft
+  });
+  GRAPPLE_REQUIRE(shiftedClipImageFrame);
+  GRAPPLE_REQUIRE(shiftedClipImageFrame.value().frame.image.has_value());
+  GRAPPLE_REQUIRE(shiftedClipImageFrame.value().frame.mediaFrames.size() == 1);
+  GRAPPLE_REQUIRE(shiftedClipImageFrame.value().frame.mediaFrames[0].transform.position.x == 0.5);
+  GRAPPLE_REQUIRE((shiftedClipImageFrame.value().frame.image->rgbaPixels == std::vector<std::uint8_t>{40, 50, 60, 255, 0, 0, 0, 0}));
 
   ImageShiftCameraRuntime imageShiftRuntime;
   runtime::RuntimeEvaluator imageShiftEvaluator{{&imageShiftRuntime}};

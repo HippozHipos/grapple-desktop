@@ -28,6 +28,7 @@ struct RenderedMediaFrame {
   foundation::AssetId assetId;
   RenderedMediaKind kind = RenderedMediaKind::Video;
   foundation::TimeSeconds sourceTime;
+  timeline::Transform transform;
 };
 
 struct RenderedAudioClip {

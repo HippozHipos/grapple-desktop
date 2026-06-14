@@ -48,7 +48,8 @@ std::vector<RenderedMediaFrame> buildMediaFrames(const runtime::RuntimeSample& s
       renderedMediaKindFor(payload.kind),
       foundation::TimeSeconds{
         payload.sourceRange.start.value + ((sample.time.value - payload.timelineRange.start.value) * payload.playbackRate)
-      }
+      },
+      payload.transform
     });
   }
 
@@ -163,29 +164,28 @@ foundation::Result<std::optional<RenderedImage>> buildRenderedImage(
   }};
 }
 
-std::optional<RenderedImage> applyCameraTransformToImage(
+std::optional<RenderedImage> applyTransformToImage(
   std::optional<RenderedImage> image,
-  const std::vector<RenderedCamera>& cameras
+  const foundation::Transform2D& transform
 ) {
-  if (!image.has_value() || cameras.empty()) {
+  if (!image.has_value()) {
     return image;
   }
 
-  const RenderedCamera& camera = cameras.front();
   const int width = image->resolution.width;
   const int height = image->resolution.height;
   if (width <= 0 || height <= 0 || image->rgbaPixels.size() != static_cast<std::size_t>(width * height * 4)) {
     return image;
   }
 
-  const double scaleX = camera.transform.scale.x;
-  const double scaleY = camera.transform.scale.y;
+  const double scaleX = transform.scale.x;
+  const double scaleY = transform.scale.y;
   if (scaleX <= 0.0 || scaleY <= 0.0) {
     return image;
   }
 
-  const int offsetX = static_cast<int>(std::lround(camera.transform.position.x * static_cast<double>(width)));
-  const int offsetY = static_cast<int>(std::lround(camera.transform.position.y * static_cast<double>(height)));
+  const int offsetX = static_cast<int>(std::lround(transform.position.x * static_cast<double>(width)));
+  const int offsetY = static_cast<int>(std::lround(transform.position.y * static_cast<double>(height)));
   if (offsetX == 0 && offsetY == 0 && scaleX == 1.0 && scaleY == 1.0) {
     return image;
   }
@@ -211,6 +211,28 @@ std::optional<RenderedImage> applyCameraTransformToImage(
 
   image->rgbaPixels = std::move(transformed);
   return image;
+}
+
+std::optional<RenderedImage> applyMediaTransformToImage(
+  std::optional<RenderedImage> image,
+  const std::vector<RenderedMediaFrame>& mediaFrames
+) {
+  if (!image.has_value() || mediaFrames.empty()) {
+    return image;
+  }
+
+  return applyTransformToImage(std::move(image), mediaFrames.front().transform);
+}
+
+std::optional<RenderedImage> applyCameraTransformToImage(
+  std::optional<RenderedImage> image,
+  const std::vector<RenderedCamera>& cameras
+) {
+  if (!image.has_value() || cameras.empty()) {
+    return image;
+  }
+
+  return applyTransformToImage(std::move(image), cameras.front().transform);
 }
 
 foundation::Result<RenderFrameResult> renderSampleFrame(
@@ -263,7 +285,8 @@ foundation::Result<RenderFrameResult> renderSampleFrame(
   if (!image) {
     return image.error();
   }
-  std::optional<RenderedImage> transformedImage = applyCameraTransformToImage(std::move(image.value()), cameras);
+  std::optional<RenderedImage> transformedImage = applyMediaTransformToImage(std::move(image.value()), mediaFrames);
+  transformedImage = applyCameraTransformToImage(std::move(transformedImage), cameras);
 
   return RenderFrameResult{
     RenderFrame{
