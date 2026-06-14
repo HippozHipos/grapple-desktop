@@ -135,6 +135,7 @@ struct ProjectSnapshotResult {
 };
 
 struct GraphResult {
+  foundation::RevisionId revision;
   graph::GraphDocument graph;
 };
 

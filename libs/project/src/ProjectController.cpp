@@ -213,7 +213,7 @@ foundation::Result<ProjectQueryResult> ProjectController::readQuery(const Projec
       if constexpr (std::is_same_v<Query, GetProjectSnapshotQuery>) {
         return ProjectQueryResult{ProjectSnapshotResult{makeProjectSnapshot(document_)}};
       } else if constexpr (std::is_same_v<Query, GetGraphQuery>) {
-        return ProjectQueryResult{GraphResult{document_.graph}};
+        return ProjectQueryResult{GraphResult{document_.revision, document_.graph}};
       } else if constexpr (std::is_same_v<Query, GetAssetCatalogQuery>) {
         return ProjectQueryResult{AssetCatalogResult{document_.revision, document_.assets}};
       } else if constexpr (std::is_same_v<Query, InspectCompositionsQuery>) {

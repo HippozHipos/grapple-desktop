@@ -278,6 +278,7 @@ int main() {
   GRAPPLE_REQUIRE(graphQuery);
   const auto* graphResult = std::get_if<project::GraphResult>(&graphQuery.value());
   GRAPPLE_REQUIRE(graphResult != nullptr);
+  GRAPPLE_REQUIRE(graphResult->revision == foundation::RevisionId{"rev_1"});
   GRAPPLE_REQUIRE(graphResult->graph.nodes().size() == 1);
 
   const auto assetCatalogQuery = session.query(project::GetAssetCatalogQuery{});
