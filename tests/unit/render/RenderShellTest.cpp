@@ -1,4 +1,5 @@
 #include <grapple/render/FinalRenderShell.hpp>
+#include <grapple/render/LocalRenderSystem.hpp>
 #include <grapple/render/PreviewRenderShell.hpp>
 #include <grapple/runtime/EffectRuntime.hpp>
 #include <grapple/runtime/RuntimeOutputNames.hpp>
@@ -555,6 +556,60 @@ int main() {
   GRAPPLE_REQUIRE(!failedFinalWrite);
   GRAPPLE_REQUIRE(failedFinalWrite.error().code == "render.sink_failed");
   GRAPPLE_REQUIRE(failingSink.attempts == 2);
+
+  runtime::RuntimeEvaluator systemRuntime;
+  render::LocalRenderCore systemCore{systemRuntime};
+  render::LocalRenderSystem localRenderSystem{systemCore};
+
+  const auto systemFrameBeforeLoad = localRenderSystem.renderPlaybackFrame(render::PlaybackFrameRequest{
+    foundation::TimeSeconds{0.0},
+    render::RenderQuality::Draft
+  });
+  GRAPPLE_REQUIRE(!systemFrameBeforeLoad);
+  GRAPPLE_REQUIRE(systemFrameBeforeLoad.error().code == "render.plan_missing");
+
+  const auto systemExportBeforeLoad = localRenderSystem.exportRange(render::ExportRequest{
+    makeExportSettings(foundation::Resolution{1920, 1080})
+  });
+  GRAPPLE_REQUIRE(!systemExportBeforeLoad);
+  GRAPPLE_REQUIRE(systemExportBeforeLoad.error().code == "render.plan_missing");
+
+  const auto systemLoad = localRenderSystem.loadPlan(plan);
+  GRAPPLE_REQUIRE(systemLoad);
+  const auto systemStateAfterLoad = localRenderSystem.state();
+  GRAPPLE_REQUIRE(systemStateAfterLoad.preview.core.hasPlan);
+  GRAPPLE_REQUIRE(systemStateAfterLoad.finalRender.core.hasPlan);
+  GRAPPLE_REQUIRE(systemStateAfterLoad.preview.core.preparedPlanHash == coreAfterLoad.preparedPlanHash);
+  GRAPPLE_REQUIRE(systemStateAfterLoad.finalRender.core.preparedPlanHash == coreAfterLoad.preparedPlanHash);
+
+  const auto systemSeek = localRenderSystem.seek(foundation::TimeSeconds{4.0});
+  GRAPPLE_REQUIRE(systemSeek);
+  const auto systemPlay = localRenderSystem.play();
+  GRAPPLE_REQUIRE(systemPlay);
+  const auto systemFrame = localRenderSystem.renderPlaybackFrame(render::PlaybackFrameRequest{
+    foundation::TimeSeconds{4.0},
+    render::RenderQuality::Draft
+  });
+  GRAPPLE_REQUIRE(systemFrame);
+  GRAPPLE_REQUIRE(systemFrame.value().frame.description == "layers=1 clips=1 audioClips=1 cameras=0 effects=0");
+  const auto systemPause = localRenderSystem.pause();
+  GRAPPLE_REQUIRE(systemPause);
+
+  CapturingRangeSink systemExportSink;
+  const auto systemExport = localRenderSystem.exportRange(render::ExportRequest{
+    makeExportSettings(foundation::Resolution{1920, 1080}),
+    &systemExportSink
+  });
+  GRAPPLE_REQUIRE(systemExport);
+  GRAPPLE_REQUIRE(systemExport.value().framesEvaluated == 2);
+  GRAPPLE_REQUIRE((systemExportSink.frameTimes == std::vector<foundation::TimeSeconds>{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{0.5}}));
+  const auto systemStateAfterExport = localRenderSystem.state();
+  GRAPPLE_REQUIRE(systemStateAfterExport.preview.playback == render::PreviewPlaybackState::Paused);
+  GRAPPLE_REQUIRE(systemStateAfterExport.preview.playhead == foundation::TimeSeconds{4.0});
+  GRAPPLE_REQUIRE(systemStateAfterExport.finalRender.lastSettings.has_value());
+  GRAPPLE_REQUIRE((systemStateAfterExport.finalRender.lastSettings->resolution == foundation::Resolution{1920, 1080}));
+  GRAPPLE_REQUIRE(systemStateAfterExport.preview.core.preparedPlanHash == systemStateAfterLoad.preview.core.preparedPlanHash);
+  GRAPPLE_REQUIRE(systemStateAfterExport.finalRender.core.preparedPlanHash == systemStateAfterLoad.finalRender.core.preparedPlanHash);
 
   TestFrameSource frameSource;
   render::LocalRenderCore imageCore{runtime, frameSource};

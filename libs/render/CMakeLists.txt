@@ -1,6 +1,7 @@
 add_library(grapple_render
   src/FinalRenderShell.cpp
   src/LocalRenderCore.cpp
+  src/LocalRenderSystem.cpp
   src/PreviewRenderShell.cpp
 )
 
