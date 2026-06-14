@@ -71,6 +71,28 @@ constexpr const char CompositionInspectSchema[] = R"json({
   "properties": {}
 })json";
 
+constexpr const char CameraCreateSchema[] = R"json({
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["compositionNodeId", "name", "focalLength"],
+  "properties": {
+    "compositionNodeId": {"type": "string", "minLength": 1},
+    "name": {"type": "string", "minLength": 1},
+    "focalLength": {"type": "number"}
+  }
+})json";
+
+constexpr const char CameraUpdateSchema[] = R"json({
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["cameraNodeId", "name", "focalLength"],
+  "properties": {
+    "cameraNodeId": {"type": "string", "minLength": 1},
+    "name": {"type": "string", "minLength": 1},
+    "focalLength": {"type": "number"}
+  }
+})json";
+
 constexpr const char TimelineCreateTrackSchema[] = R"json({
   "type": "object",
   "additionalProperties": false,
@@ -1268,6 +1290,158 @@ AgentTool makeCompositionInspectTool() {
         call.toolId,
         ToolResultStatus::Succeeded,
         compositionResult->revision,
+        payload.str(),
+        {}
+      };
+    }
+  };
+}
+
+AgentTool makeCameraCreateTool() {
+  return AgentTool{
+    foundation::ToolId{"tool_camera_create"},
+    "camera.create",
+    "Create Camera",
+    "Creates a camera in an explicit composition through Project Core. Camera motion and framing edits should be represented as editable effects.",
+    CameraCreateSchema,
+    [](const ToolCall& call, AgentToolContext& context) -> foundation::Result<ToolResult> {
+      auto arguments = parseArguments(call.arguments);
+      if (!arguments) {
+        return arguments.error();
+      }
+      auto members = requireOnlyMembers(arguments.value(), {"compositionNodeId", "name", "focalLength"}, "$");
+      if (!members) {
+        return members.error();
+      }
+      auto compositionNodeId = requiredStringMember(arguments.value(), "compositionNodeId", "$");
+      if (!compositionNodeId) {
+        return compositionNodeId.error();
+      }
+      auto name = requiredStringMember(arguments.value(), "name", "$");
+      if (!name) {
+        return name.error();
+      }
+      auto focalLength = requiredDoubleMember(arguments.value(), "focalLength", "$");
+      if (!focalLength) {
+        return focalLength.error();
+      }
+
+      const foundation::CommandId commandId = context.ids.nextCommandId();
+      const foundation::NodeId cameraNodeId = context.ids.nextNodeId("camera");
+      const foundation::EdgeId containmentEdgeId = context.ids.nextEdgeId("contains_camera");
+      auto command = context.commands.apply(project::ProjectCommandEnvelope{
+        commandId,
+        call.projectId,
+        call.expectedRevision,
+        project::CommandSource{project::CommandSourceKind::Agent, call.runId, "agent"},
+        project::CreateCameraCommand{
+          cameraNodeId,
+          foundation::NodeId{compositionNodeId.value()},
+          containmentEdgeId,
+          timeline::CameraPayload{
+            name.value(),
+            timeline::Transform{},
+            timeline::CameraLens{focalLength.value()}
+          },
+          0
+        }
+      });
+      if (!command) {
+        return command.error();
+      }
+
+      std::ostringstream payload;
+      payload << '{'
+              << "\"commandId\":" << foundation::jsonQuoted(commandId.value())
+              << ",\"cameraNodeId\":" << foundation::jsonQuoted(cameraNodeId.value())
+              << ",\"containmentEdgeId\":" << foundation::jsonQuoted(containmentEdgeId.value())
+              << ",\"compositionNodeId\":" << foundation::jsonQuoted(compositionNodeId.value())
+              << ",\"revision\":" << foundation::jsonQuoted(command.value().afterRevision.value())
+              << '}';
+      return ToolResult{
+        call.toolId,
+        ToolResultStatus::Succeeded,
+        command.value().afterRevision,
+        payload.str(),
+        {}
+      };
+    }
+  };
+}
+
+AgentTool makeCameraUpdateTool() {
+  return AgentTool{
+    foundation::ToolId{"tool_camera_update"},
+    "camera.update",
+    "Update Camera",
+    "Updates camera identity and lens properties through Project Core while preserving its authored transform.",
+    CameraUpdateSchema,
+    [](const ToolCall& call, AgentToolContext& context) -> foundation::Result<ToolResult> {
+      auto arguments = parseArguments(call.arguments);
+      if (!arguments) {
+        return arguments.error();
+      }
+      auto members = requireOnlyMembers(arguments.value(), {"cameraNodeId", "name", "focalLength"}, "$");
+      if (!members) {
+        return members.error();
+      }
+      auto cameraNodeId = requiredStringMember(arguments.value(), "cameraNodeId", "$");
+      if (!cameraNodeId) {
+        return cameraNodeId.error();
+      }
+      auto name = requiredStringMember(arguments.value(), "name", "$");
+      if (!name) {
+        return name.error();
+      }
+      auto focalLength = requiredDoubleMember(arguments.value(), "focalLength", "$");
+      if (!focalLength) {
+        return focalLength.error();
+      }
+
+      auto snapshot = readProjectSnapshot(context, "camera.update");
+      if (!snapshot) {
+        return snapshot.error();
+      }
+
+      const foundation::NodeId cameraId{cameraNodeId.value()};
+      const graph::GraphNode* node = snapshot.value().graph.findNode(cameraId);
+      if (node == nullptr || node->kind != graph::NodeKind::Camera) {
+        return foundation::Error{"agent.camera_missing", "Camera update requires an existing camera node."};
+      }
+      const auto* currentPayload = std::get_if<timeline::CameraPayload>(&node->payload);
+      if (currentPayload == nullptr) {
+        return foundation::Error{"agent.camera_payload_missing", "Camera node must contain a camera payload."};
+      }
+
+      const foundation::CommandId commandId = context.ids.nextCommandId();
+      auto command = context.commands.apply(project::ProjectCommandEnvelope{
+        commandId,
+        call.projectId,
+        call.expectedRevision,
+        project::CommandSource{project::CommandSourceKind::Agent, call.runId, "agent"},
+        project::UpdateCameraCommand{
+          cameraId,
+          timeline::CameraPayload{
+            name.value(),
+            currentPayload->transform,
+            timeline::CameraLens{focalLength.value()}
+          }
+        }
+      });
+      if (!command) {
+        return command.error();
+      }
+
+      std::ostringstream payload;
+      payload << '{'
+              << "\"commandId\":" << foundation::jsonQuoted(commandId.value())
+              << ",\"cameraNodeId\":" << foundation::jsonQuoted(cameraId.value())
+              << ",\"revision\":" << foundation::jsonQuoted(command.value().afterRevision.value())
+              << '}';
+      return ToolResult{
+        call.toolId,
+        ToolResultStatus::Succeeded,
+        command.value().afterRevision,
         payload.str(),
         {}
       };

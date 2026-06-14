@@ -8,6 +8,8 @@ AgentTool makeProjectInspectTool();
 AgentTool makeAssetListTool();
 AgentTool makeAssetImportTool();
 AgentTool makeCompositionInspectTool();
+AgentTool makeCameraCreateTool();
+AgentTool makeCameraUpdateTool();
 AgentTool makeTimelineCreateTrackTool();
 AgentTool makeTimelineCreateClipTool();
 AgentTool makeTimelineMoveClipTool();

@@ -235,6 +235,10 @@ int main() {
   GRAPPLE_REQUIRE(registeredAssetImport);
   const auto registeredCompositionInspect = registry.registerTool(agent::makeCompositionInspectTool());
   GRAPPLE_REQUIRE(registeredCompositionInspect);
+  const auto registeredCreateCamera = registry.registerTool(agent::makeCameraCreateTool());
+  GRAPPLE_REQUIRE(registeredCreateCamera);
+  const auto registeredUpdateCamera = registry.registerTool(agent::makeCameraUpdateTool());
+  GRAPPLE_REQUIRE(registeredUpdateCamera);
   const auto registeredCreateTrack = registry.registerTool(agent::makeTimelineCreateTrackTool());
   GRAPPLE_REQUIRE(registeredCreateTrack);
   const auto registeredCreateClip = registry.registerTool(agent::makeTimelineCreateClipTool());
@@ -259,7 +263,7 @@ int main() {
   GRAPPLE_REQUIRE(registeredCreateNote);
   const auto registeredUpdateNote = registry.registerTool(agent::makeNoteUpdateTool());
   GRAPPLE_REQUIRE(registeredUpdateNote);
-  GRAPPLE_REQUIRE(registry.tools().size() == 16);
+  GRAPPLE_REQUIRE(registry.tools().size() == 18);
   std::vector<std::string> serializedToolIds;
   serializedToolIds.reserve(registry.tools().size());
   for (const agent::AgentTool& tool : registry.tools()) {
@@ -270,6 +274,8 @@ int main() {
   GRAPPLE_REQUIRE(registry.findBySerializedId("asset.list") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("asset.import") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("composition.inspect") != nullptr);
+  GRAPPLE_REQUIRE(registry.findBySerializedId("camera.create") != nullptr);
+  GRAPPLE_REQUIRE(registry.findBySerializedId("camera.update") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("timeline.create_track") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("timeline.create_clip") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("timeline.move_clip") != nullptr);
@@ -299,6 +305,17 @@ int main() {
   GRAPPLE_REQUIRE(registeredCompositionInspectTool != nullptr);
   GRAPPLE_REQUIRE(registeredCompositionInspectTool->schema.find("\"additionalProperties\": false") != std::string::npos);
   GRAPPLE_REQUIRE(registeredCompositionInspectTool->schema.find("\"commandId\"") == std::string::npos);
+  const agent::AgentTool* registeredCreateCameraTool = registry.findBySerializedId("camera.create");
+  GRAPPLE_REQUIRE(registeredCreateCameraTool != nullptr);
+  GRAPPLE_REQUIRE(registeredCreateCameraTool->schema.find("\"compositionNodeId\"") != std::string::npos);
+  GRAPPLE_REQUIRE(registeredCreateCameraTool->schema.find("\"focalLength\"") != std::string::npos);
+  GRAPPLE_REQUIRE(registeredCreateCameraTool->schema.find("\"commandId\"") == std::string::npos);
+  GRAPPLE_REQUIRE(registeredCreateCameraTool->schema.find("\"cameraNodeId\"") == std::string::npos);
+  const agent::AgentTool* registeredUpdateCameraTool = registry.findBySerializedId("camera.update");
+  GRAPPLE_REQUIRE(registeredUpdateCameraTool != nullptr);
+  GRAPPLE_REQUIRE(registeredUpdateCameraTool->schema.find("\"cameraNodeId\"") != std::string::npos);
+  GRAPPLE_REQUIRE(registeredUpdateCameraTool->schema.find("\"focalLength\"") != std::string::npos);
+  GRAPPLE_REQUIRE(registeredUpdateCameraTool->schema.find("\"commandId\"") == std::string::npos);
   const agent::AgentTool* registeredCreateTrackTool = registry.findBySerializedId("timeline.create_track");
   GRAPPLE_REQUIRE(registeredCreateTrackTool != nullptr);
   GRAPPLE_REQUIRE(registeredCreateTrackTool->schema.find("\"compositionNodeId\"") != std::string::npos);
@@ -1115,6 +1132,101 @@ int main() {
   GRAPPLE_REQUIRE(queries.compositionQueryCount() == 1);
   GRAPPLE_REQUIRE(queries.renderPlanQueryCount() == 1);
   GRAPPLE_REQUIRE(queries.runtimeDiagnosticsQueryCount() == 1);
+
+  project::ProjectController cameraProject{
+    project::createEmptyProject(foundation::ProjectId{"proj_agent_camera"}, "Agent Camera Project")
+  };
+  const auto cameraInitial = cameraProject.snapshot();
+  GRAPPLE_REQUIRE(cameraInitial);
+  const auto cameraComposition = cameraProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_camera_composition"},
+    foundation::ProjectId{"proj_agent_camera"},
+    cameraInitial.value().revision,
+    project::CommandSource{project::CommandSourceKind::Agent, foundation::RunId{"run_camera"}, "agent"},
+    project::CreateCompositionCommand{foundation::NodeId{"node_camera_composition"}, "Camera Main"}
+  });
+  GRAPPLE_REQUIRE(cameraComposition);
+
+  TestAgentCommandService cameraCommands{cameraProject};
+  TestAgentQueryService cameraQueries{cameraProject};
+  TestProjectIdAllocator cameraIds;
+  agent::AgentToolContext cameraContext{cameraCommands, cameraQueries, cameraIds};
+
+  const agent::AgentTool* createCamera = registry.findBySerializedId("camera.create");
+  GRAPPLE_REQUIRE(createCamera != nullptr);
+  const auto createCameraResult = createCamera->handler(
+    agent::ToolCall{
+      foundation::ToolId{"tool_camera_create"},
+      foundation::RunId{"run_camera"},
+      foundation::ProjectId{"proj_agent_camera"},
+      cameraComposition.value().afterRevision,
+      R"({
+        "compositionNodeId": "node_camera_composition",
+        "name": "Agent Camera",
+        "focalLength": 50
+      })"
+    },
+    cameraContext
+  );
+  GRAPPLE_REQUIRE(createCameraResult);
+  GRAPPLE_REQUIRE(createCameraResult.value().status == agent::ToolResultStatus::Succeeded);
+  GRAPPLE_REQUIRE(createCameraResult.value().observedRevision == foundation::RevisionId{"rev_2"});
+  GRAPPLE_REQUIRE(createCameraResult.value().payload == "{\"commandId\":\"cmd_agent_1\",\"cameraNodeId\":\"node_agent_camera_1\",\"containmentEdgeId\":\"edge_agent_contains_camera_1\",\"compositionNodeId\":\"node_camera_composition\",\"revision\":\"rev_2\"}");
+
+  const auto afterCreateCameraSnapshot = cameraProject.snapshot();
+  GRAPPLE_REQUIRE(afterCreateCameraSnapshot);
+  const graph::GraphNode* createdCameraNode = afterCreateCameraSnapshot.value().graph.findNode(foundation::NodeId{"node_agent_camera_1"});
+  GRAPPLE_REQUIRE(createdCameraNode != nullptr);
+  GRAPPLE_REQUIRE(createdCameraNode->kind == graph::NodeKind::Camera);
+  const auto* createdCameraPayload = std::get_if<timeline::CameraPayload>(&createdCameraNode->payload);
+  GRAPPLE_REQUIRE(createdCameraPayload != nullptr);
+  GRAPPLE_REQUIRE(createdCameraPayload->name == "Agent Camera");
+  GRAPPLE_REQUIRE(createdCameraPayload->lens.focalLength == 50.0);
+
+  const graph::GraphEdge* createdCameraEdge = nullptr;
+  for (const graph::GraphEdge& edge : afterCreateCameraSnapshot.value().graph.edges()) {
+    if (edge.id == foundation::EdgeId{"edge_agent_contains_camera_1"}) {
+      createdCameraEdge = &edge;
+      break;
+    }
+  }
+  GRAPPLE_REQUIRE(createdCameraEdge != nullptr);
+  GRAPPLE_REQUIRE(createdCameraEdge->kind == graph::EdgeKind::Contains);
+  GRAPPLE_REQUIRE(createdCameraEdge->sourceNodeId == foundation::NodeId{"node_camera_composition"});
+  GRAPPLE_REQUIRE(createdCameraEdge->targetNodeId == foundation::NodeId{"node_agent_camera_1"});
+
+  const agent::AgentTool* updateCamera = registry.findBySerializedId("camera.update");
+  GRAPPLE_REQUIRE(updateCamera != nullptr);
+  const auto updateCameraResult = updateCamera->handler(
+    agent::ToolCall{
+      foundation::ToolId{"tool_camera_update"},
+      foundation::RunId{"run_camera"},
+      foundation::ProjectId{"proj_agent_camera"},
+      createCameraResult.value().observedRevision,
+      R"({
+        "cameraNodeId": "node_agent_camera_1",
+        "name": "Renamed Agent Camera",
+        "focalLength": 85
+      })"
+    },
+    cameraContext
+  );
+  GRAPPLE_REQUIRE(updateCameraResult);
+  GRAPPLE_REQUIRE(updateCameraResult.value().status == agent::ToolResultStatus::Succeeded);
+  GRAPPLE_REQUIRE(updateCameraResult.value().observedRevision == foundation::RevisionId{"rev_3"});
+  GRAPPLE_REQUIRE(updateCameraResult.value().payload == "{\"commandId\":\"cmd_agent_2\",\"cameraNodeId\":\"node_agent_camera_1\",\"revision\":\"rev_3\"}");
+
+  const auto afterUpdateCameraSnapshot = cameraProject.snapshot();
+  GRAPPLE_REQUIRE(afterUpdateCameraSnapshot);
+  const graph::GraphNode* updatedCameraNode = afterUpdateCameraSnapshot.value().graph.findNode(foundation::NodeId{"node_agent_camera_1"});
+  GRAPPLE_REQUIRE(updatedCameraNode != nullptr);
+  const auto* updatedCameraPayload = std::get_if<timeline::CameraPayload>(&updatedCameraNode->payload);
+  GRAPPLE_REQUIRE(updatedCameraPayload != nullptr);
+  GRAPPLE_REQUIRE(updatedCameraPayload->name == "Renamed Agent Camera");
+  GRAPPLE_REQUIRE(updatedCameraPayload->lens.focalLength == 85.0);
+  GRAPPLE_REQUIRE(updatedCameraPayload->transform == createdCameraPayload->transform);
+  GRAPPLE_REQUIRE(cameraCommands.applyCount() == 2);
+  GRAPPLE_REQUIRE(cameraQueries.snapshotQueryCount() == 1);
 
   return 0;
 }
