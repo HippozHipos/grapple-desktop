@@ -106,6 +106,15 @@ constexpr const char TimelineCreateTrackSchema[] = R"json({
   }
 })json";
 
+constexpr const char TimelineDeleteTrackSchema[] = R"json({
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["trackNodeId"],
+  "properties": {
+    "trackNodeId": {"type": "string", "minLength": 1}
+  }
+})json";
+
 constexpr const char TimelineCreateClipSchema[] = R"json({
   "type": "object",
   "additionalProperties": false,
@@ -133,6 +142,15 @@ constexpr const char TimelineCreateClipSchema[] = R"json({
       }
     },
     "playbackRate": {"type": "number"}
+  }
+})json";
+
+constexpr const char TimelineDeleteClipSchema[] = R"json({
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["clipNodeId"],
+  "properties": {
+    "clipNodeId": {"type": "string", "minLength": 1}
   }
 })json";
 
@@ -1204,7 +1222,15 @@ foundation::Result<void> registerProjectTools(AgentToolRegistry& registry) {
   if (!registered) {
     return registered.error();
   }
+  registered = registry.registerTool(makeTimelineDeleteTrackTool());
+  if (!registered) {
+    return registered.error();
+  }
   registered = registry.registerTool(makeTimelineCreateClipTool());
+  if (!registered) {
+    return registered.error();
+  }
+  registered = registry.registerTool(makeTimelineDeleteClipTool());
   if (!registered) {
     return registered.error();
   }
@@ -1742,6 +1768,56 @@ AgentTool makeTimelineCreateTrackTool() {
   };
 }
 
+AgentTool makeTimelineDeleteTrackTool() {
+  return AgentTool{
+    foundation::ToolId{"tool_timeline_delete_track"},
+    "timeline.delete_track",
+    "Delete Timeline Track",
+    "Deletes an existing timeline track through Project Core.",
+    TimelineDeleteTrackSchema,
+    [](const ToolCall& call, AgentToolContext& context) -> foundation::Result<ToolResult> {
+      auto arguments = parseArguments(call.arguments);
+      if (!arguments) {
+        return arguments.error();
+      }
+      auto members = requireOnlyMembers(arguments.value(), {"trackNodeId"}, "$");
+      if (!members) {
+        return members.error();
+      }
+      auto trackNodeId = requiredStringMember(arguments.value(), "trackNodeId", "$");
+      if (!trackNodeId) {
+        return trackNodeId.error();
+      }
+
+      const foundation::CommandId commandId = context.ids.nextCommandId();
+      auto command = context.commands.apply(project::ProjectCommandEnvelope{
+        commandId,
+        call.projectId,
+        call.expectedRevision,
+        project::CommandSource{project::CommandSourceKind::Agent, call.runId, "agent"},
+        project::DeleteTrackCommand{foundation::NodeId{trackNodeId.value()}}
+      });
+      if (!command) {
+        return command.error();
+      }
+
+      std::ostringstream payload;
+      payload << '{'
+              << "\"commandId\":" << foundation::jsonQuoted(commandId.value())
+              << ",\"trackNodeId\":" << foundation::jsonQuoted(trackNodeId.value())
+              << ",\"revision\":" << foundation::jsonQuoted(command.value().afterRevision.value())
+              << '}';
+      return ToolResult{
+        call.toolId,
+        ToolResultStatus::Succeeded,
+        command.value().afterRevision,
+        payload.str(),
+        {}
+      };
+    }
+  };
+}
+
 AgentTool makeTimelineCreateClipTool() {
   return AgentTool{
     foundation::ToolId{"tool_timeline_create_clip"},
@@ -1833,6 +1909,56 @@ AgentTool makeTimelineCreateClipTool() {
               << ",\"containmentEdgeId\":" << foundation::jsonQuoted(containmentEdgeId.value())
               << ",\"trackNodeId\":" << foundation::jsonQuoted(trackNodeId.value())
               << ",\"assetId\":" << foundation::jsonQuoted(assetId.value())
+              << ",\"revision\":" << foundation::jsonQuoted(command.value().afterRevision.value())
+              << '}';
+      return ToolResult{
+        call.toolId,
+        ToolResultStatus::Succeeded,
+        command.value().afterRevision,
+        payload.str(),
+        {}
+      };
+    }
+  };
+}
+
+AgentTool makeTimelineDeleteClipTool() {
+  return AgentTool{
+    foundation::ToolId{"tool_timeline_delete_clip"},
+    "timeline.delete_clip",
+    "Delete Timeline Clip",
+    "Deletes an existing timeline clip through Project Core.",
+    TimelineDeleteClipSchema,
+    [](const ToolCall& call, AgentToolContext& context) -> foundation::Result<ToolResult> {
+      auto arguments = parseArguments(call.arguments);
+      if (!arguments) {
+        return arguments.error();
+      }
+      auto members = requireOnlyMembers(arguments.value(), {"clipNodeId"}, "$");
+      if (!members) {
+        return members.error();
+      }
+      auto clipNodeId = requiredStringMember(arguments.value(), "clipNodeId", "$");
+      if (!clipNodeId) {
+        return clipNodeId.error();
+      }
+
+      const foundation::CommandId commandId = context.ids.nextCommandId();
+      auto command = context.commands.apply(project::ProjectCommandEnvelope{
+        commandId,
+        call.projectId,
+        call.expectedRevision,
+        project::CommandSource{project::CommandSourceKind::Agent, call.runId, "agent"},
+        project::DeleteClipCommand{foundation::NodeId{clipNodeId.value()}}
+      });
+      if (!command) {
+        return command.error();
+      }
+
+      std::ostringstream payload;
+      payload << '{'
+              << "\"commandId\":" << foundation::jsonQuoted(commandId.value())
+              << ",\"clipNodeId\":" << foundation::jsonQuoted(clipNodeId.value())
               << ",\"revision\":" << foundation::jsonQuoted(command.value().afterRevision.value())
               << '}';
       return ToolResult{

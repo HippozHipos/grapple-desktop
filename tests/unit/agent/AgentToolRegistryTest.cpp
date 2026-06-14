@@ -236,7 +236,7 @@ int main() {
   agent::AgentToolRegistry registry;
   const auto registered = agent::registerProjectTools(registry);
   GRAPPLE_REQUIRE(registered);
-  GRAPPLE_REQUIRE(registry.tools().size() == 23);
+  GRAPPLE_REQUIRE(registry.tools().size() == 25);
   std::vector<std::string> serializedToolIds;
   serializedToolIds.reserve(registry.tools().size());
   for (const agent::AgentTool& tool : registry.tools()) {
@@ -250,7 +250,9 @@ int main() {
   GRAPPLE_REQUIRE(registry.findBySerializedId("camera.create") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("camera.update") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("timeline.create_track") != nullptr);
+  GRAPPLE_REQUIRE(registry.findBySerializedId("timeline.delete_track") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("timeline.create_clip") != nullptr);
+  GRAPPLE_REQUIRE(registry.findBySerializedId("timeline.delete_clip") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("timeline.move_clip") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("timeline.trim_clip") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("timeline.update_clip_transform") != nullptr);
@@ -298,11 +300,21 @@ int main() {
   GRAPPLE_REQUIRE(registeredCreateTrackTool != nullptr);
   GRAPPLE_REQUIRE(registeredCreateTrackTool->schema.find("\"compositionNodeId\"") != std::string::npos);
   GRAPPLE_REQUIRE(registeredCreateTrackTool->schema.find("\"commandId\"") == std::string::npos);
+  const agent::AgentTool* registeredDeleteTrackTool = registry.findBySerializedId("timeline.delete_track");
+  GRAPPLE_REQUIRE(registeredDeleteTrackTool != nullptr);
+  GRAPPLE_REQUIRE(registeredDeleteTrackTool->schema.find("\"trackNodeId\"") != std::string::npos);
+  GRAPPLE_REQUIRE(registeredDeleteTrackTool->schema.find("\"clipNodeId\"") == std::string::npos);
+  GRAPPLE_REQUIRE(registeredDeleteTrackTool->schema.find("\"commandId\"") == std::string::npos);
   const agent::AgentTool* registeredCreateClipTool = registry.findBySerializedId("timeline.create_clip");
   GRAPPLE_REQUIRE(registeredCreateClipTool != nullptr);
   GRAPPLE_REQUIRE(registeredCreateClipTool->schema.find("\"trackNodeId\"") != std::string::npos);
   GRAPPLE_REQUIRE(registeredCreateClipTool->schema.find("\"sourceRange\"") != std::string::npos);
   GRAPPLE_REQUIRE(registeredCreateClipTool->schema.find("\"commandId\"") == std::string::npos);
+  const agent::AgentTool* registeredDeleteClipTool = registry.findBySerializedId("timeline.delete_clip");
+  GRAPPLE_REQUIRE(registeredDeleteClipTool != nullptr);
+  GRAPPLE_REQUIRE(registeredDeleteClipTool->schema.find("\"clipNodeId\"") != std::string::npos);
+  GRAPPLE_REQUIRE(registeredDeleteClipTool->schema.find("\"trackNodeId\"") == std::string::npos);
+  GRAPPLE_REQUIRE(registeredDeleteClipTool->schema.find("\"commandId\"") == std::string::npos);
   const agent::AgentTool* registeredMoveClipTool = registry.findBySerializedId("timeline.move_clip");
   GRAPPLE_REQUIRE(registeredMoveClipTool != nullptr);
   GRAPPLE_REQUIRE(registeredMoveClipTool->schema.find("\"clipNodeId\"") != std::string::npos);
@@ -1653,6 +1665,139 @@ int main() {
   GRAPPLE_REQUIRE(transformedClipPayload->transform.opacity == 0.6);
   GRAPPLE_REQUIRE(clipTransformCommands.applyCount() == 1);
   GRAPPLE_REQUIRE(clipTransformQueries.snapshotQueryCount() == 1);
+
+  project::ProjectController timelineDeleteProject{
+    project::createEmptyProject(foundation::ProjectId{"proj_agent_timeline_delete"}, "Agent Timeline Delete Project")
+  };
+  const auto timelineDeleteInitial = timelineDeleteProject.snapshot();
+  GRAPPLE_REQUIRE(timelineDeleteInitial);
+  const auto timelineDeleteComposition = timelineDeleteProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_timeline_delete_composition"},
+    foundation::ProjectId{"proj_agent_timeline_delete"},
+    timelineDeleteInitial.value().revision,
+    project::CommandSource{project::CommandSourceKind::Agent, foundation::RunId{"run_timeline_delete"}, "agent"},
+    project::CreateCompositionCommand{foundation::NodeId{"node_timeline_delete_composition"}, "Timeline Delete Main"}
+  });
+  GRAPPLE_REQUIRE(timelineDeleteComposition);
+  const auto timelineDeleteAsset = timelineDeleteProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_timeline_delete_asset"},
+    foundation::ProjectId{"proj_agent_timeline_delete"},
+    timelineDeleteComposition.value().afterRevision,
+    project::CommandSource{project::CommandSourceKind::Agent, foundation::RunId{"run_timeline_delete"}, "agent"},
+    project::RegisterAssetCommand{
+      asset::Asset{
+        foundation::AssetId{"asset_timeline_delete_video"},
+        "Timeline Delete Video",
+        asset::AssetMetadata{
+          asset::AssetMediaType::Video,
+          foundation::FilePath{"/media/timeline-delete.mov"},
+          std::nullopt,
+          foundation::TimeSeconds{10.0},
+          foundation::Resolution{1080, 1920},
+          foundation::FrameRate{30, 1}
+        }
+      }
+    }
+  });
+  GRAPPLE_REQUIRE(timelineDeleteAsset);
+  const auto timelineDeleteTrack = timelineDeleteProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_timeline_delete_track"},
+    foundation::ProjectId{"proj_agent_timeline_delete"},
+    timelineDeleteAsset.value().afterRevision,
+    project::CommandSource{project::CommandSourceKind::Agent, foundation::RunId{"run_timeline_delete"}, "agent"},
+    project::CreateTrackCommand{
+      foundation::NodeId{"node_timeline_delete_track"},
+      foundation::NodeId{"node_timeline_delete_composition"},
+      foundation::EdgeId{"edge_timeline_delete_track"},
+      "Timeline Delete Track",
+      timeline::TrackKind::Visual
+    }
+  });
+  GRAPPLE_REQUIRE(timelineDeleteTrack);
+  const auto timelineDeleteClip = timelineDeleteProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_timeline_delete_clip"},
+    foundation::ProjectId{"proj_agent_timeline_delete"},
+    timelineDeleteTrack.value().afterRevision,
+    project::CommandSource{project::CommandSourceKind::Agent, foundation::RunId{"run_timeline_delete"}, "agent"},
+    project::CreateClipCommand{
+      foundation::NodeId{"node_timeline_delete_clip"},
+      foundation::NodeId{"node_timeline_delete_track"},
+      foundation::EdgeId{"edge_timeline_delete_clip"},
+      timeline::ClipPayload{
+        timeline::ClipKind::Video,
+        foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{4.0}},
+        foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{4.0}},
+        1.0,
+        foundation::AssetId{"asset_timeline_delete_video"},
+        timeline::Transform2D{}
+      }
+    }
+  });
+  GRAPPLE_REQUIRE(timelineDeleteClip);
+
+  TestAgentCommandService timelineDeleteCommands{timelineDeleteProject};
+  TestAgentQueryService timelineDeleteQueries{timelineDeleteProject};
+  TestProjectIdAllocator timelineDeleteIds;
+  agent::AgentToolContext timelineDeleteContext{timelineDeleteCommands, timelineDeleteQueries, timelineDeleteIds};
+
+  const agent::AgentTool* deleteClip = registry.findBySerializedId("timeline.delete_clip");
+  GRAPPLE_REQUIRE(deleteClip != nullptr);
+  const auto deleteClipResult = deleteClip->handler(
+    agent::ToolCall{
+      foundation::ToolId{"tool_timeline_delete_clip"},
+      foundation::RunId{"run_timeline_delete"},
+      foundation::ProjectId{"proj_agent_timeline_delete"},
+      timelineDeleteClip.value().afterRevision,
+      R"({
+        "clipNodeId": "node_timeline_delete_clip"
+      })"
+    },
+    timelineDeleteContext
+  );
+  GRAPPLE_REQUIRE(deleteClipResult);
+  GRAPPLE_REQUIRE(deleteClipResult.value().status == agent::ToolResultStatus::Succeeded);
+  GRAPPLE_REQUIRE(deleteClipResult.value().observedRevision == foundation::RevisionId{"rev_5"});
+  GRAPPLE_REQUIRE(deleteClipResult.value().payload == "{\"commandId\":\"cmd_agent_1\",\"clipNodeId\":\"node_timeline_delete_clip\",\"revision\":\"rev_5\"}");
+
+  const auto afterDeleteClipSnapshot = timelineDeleteProject.snapshot();
+  GRAPPLE_REQUIRE(afterDeleteClipSnapshot);
+  GRAPPLE_REQUIRE(afterDeleteClipSnapshot.value().graph.findNode(foundation::NodeId{"node_timeline_delete_clip"}) == nullptr);
+  GRAPPLE_REQUIRE(afterDeleteClipSnapshot.value().graph.findNode(foundation::NodeId{"node_timeline_delete_track"}) != nullptr);
+  for (const graph::GraphEdge& edge : afterDeleteClipSnapshot.value().graph.edges()) {
+    GRAPPLE_REQUIRE(edge.id != foundation::EdgeId{"edge_timeline_delete_clip"});
+    GRAPPLE_REQUIRE(edge.sourceNodeId != foundation::NodeId{"node_timeline_delete_clip"});
+    GRAPPLE_REQUIRE(edge.targetNodeId != foundation::NodeId{"node_timeline_delete_clip"});
+  }
+
+  const agent::AgentTool* deleteTrack = registry.findBySerializedId("timeline.delete_track");
+  GRAPPLE_REQUIRE(deleteTrack != nullptr);
+  const auto deleteTrackResult = deleteTrack->handler(
+    agent::ToolCall{
+      foundation::ToolId{"tool_timeline_delete_track"},
+      foundation::RunId{"run_timeline_delete"},
+      foundation::ProjectId{"proj_agent_timeline_delete"},
+      deleteClipResult.value().observedRevision,
+      R"({
+        "trackNodeId": "node_timeline_delete_track"
+      })"
+    },
+    timelineDeleteContext
+  );
+  GRAPPLE_REQUIRE(deleteTrackResult);
+  GRAPPLE_REQUIRE(deleteTrackResult.value().status == agent::ToolResultStatus::Succeeded);
+  GRAPPLE_REQUIRE(deleteTrackResult.value().observedRevision == foundation::RevisionId{"rev_6"});
+  GRAPPLE_REQUIRE(deleteTrackResult.value().payload == "{\"commandId\":\"cmd_agent_2\",\"trackNodeId\":\"node_timeline_delete_track\",\"revision\":\"rev_6\"}");
+
+  const auto afterDeleteTrackSnapshot = timelineDeleteProject.snapshot();
+  GRAPPLE_REQUIRE(afterDeleteTrackSnapshot);
+  GRAPPLE_REQUIRE(afterDeleteTrackSnapshot.value().graph.findNode(foundation::NodeId{"node_timeline_delete_track"}) == nullptr);
+  for (const graph::GraphEdge& edge : afterDeleteTrackSnapshot.value().graph.edges()) {
+    GRAPPLE_REQUIRE(edge.id != foundation::EdgeId{"edge_timeline_delete_track"});
+    GRAPPLE_REQUIRE(edge.sourceNodeId != foundation::NodeId{"node_timeline_delete_track"});
+    GRAPPLE_REQUIRE(edge.targetNodeId != foundation::NodeId{"node_timeline_delete_track"});
+  }
+  GRAPPLE_REQUIRE(timelineDeleteCommands.applyCount() == 2);
+  GRAPPLE_REQUIRE(timelineDeleteQueries.totalQueryCount() == 0);
 
   return 0;
 }
