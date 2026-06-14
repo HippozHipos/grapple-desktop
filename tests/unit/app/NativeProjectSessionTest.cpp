@@ -29,6 +29,7 @@
 #include <stdexcept>
 #include <thread>
 #include <variant>
+#include <vector>
 
 namespace {
 
@@ -71,6 +72,15 @@ void writeLittleEndianU32(std::ostream& output, std::uint32_t value) {
   };
   output.write(reinterpret_cast<const char*>(bytes), sizeof(bytes));
 }
+
+class RecordingProgressSink final : public grapple::jobs::IProgressSink {
+public:
+  void reportProgress(double progress) override {
+    records.push_back(progress);
+  }
+
+  std::vector<double> records;
+};
 
 std::filesystem::path writeTinyWav(const std::string& stem) {
   const std::filesystem::path path =
@@ -639,6 +649,30 @@ int main() {
   GRAPPLE_REQUIRE(std::filesystem::exists(videoExportPath));
   GRAPPLE_REQUIRE(std::filesystem::file_size(videoExportPath) > 0);
   std::filesystem::remove(videoExportPath);
+  const std::filesystem::path progressVideoExportPath =
+    std::filesystem::temp_directory_path() /
+    ("grapple_native_video_export_progress_" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".avi");
+  auto cacheExportPlan = cacheWorkspace.value().project().buildRenderPlan();
+  GRAPPLE_REQUIRE(cacheExportPlan);
+  RecordingProgressSink exportProgress;
+  const auto progressVideoExport = cacheWorkspace.value().exportSession().renderPlanToVideo(
+    cacheExportPlan.value().plan,
+    render::ExportSettings{
+      foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}},
+      foundation::FrameRate{2, 1},
+      foundation::Resolution{16, 16},
+      render::Codec{"mjpeg"},
+      render::RenderQuality::Final,
+      foundation::FilePath{progressVideoExportPath.string()}
+    },
+    &exportProgress
+  );
+  GRAPPLE_REQUIRE(progressVideoExport);
+  GRAPPLE_REQUIRE(progressVideoExport.value().framesEvaluated == 2);
+  GRAPPLE_REQUIRE((exportProgress.records == std::vector<double>{0.5, 1.0}));
+  GRAPPLE_REQUIRE(std::filesystem::exists(progressVideoExportPath));
+  GRAPPLE_REQUIRE(std::filesystem::file_size(progressVideoExportPath) > 0);
+  std::filesystem::remove(progressVideoExportPath);
   const auto cacheRefresh = cacheWorkspace.value().preview().refreshFromProject();
   GRAPPLE_REQUIRE(cacheRefresh);
   const auto firstCachedFrame = cacheWorkspace.value().preview().renderFrame(render::RenderFrameRequest{
@@ -647,13 +681,13 @@ int main() {
   });
   GRAPPLE_REQUIRE(firstCachedFrame);
   GRAPPLE_REQUIRE(firstCachedFrame.value().frame.image.has_value());
-  GRAPPLE_REQUIRE(cacheWorkspace.value().cachedMediaFrameCount() == 2);
+  GRAPPLE_REQUIRE(cacheWorkspace.value().cachedMediaFrameCount() == 3);
   const auto secondCachedFrame = cacheWorkspace.value().preview().renderFrame(render::RenderFrameRequest{
     foundation::TimeSeconds{0.0},
     render::RenderQuality::Draft
   });
   GRAPPLE_REQUIRE(secondCachedFrame);
-  GRAPPLE_REQUIRE(cacheWorkspace.value().cachedMediaFrameCount() == 2);
+  GRAPPLE_REQUIRE(cacheWorkspace.value().cachedMediaFrameCount() == 3);
   const auto cacheWorkspaceWrite = cacheWorkspace.value().writePackage();
   GRAPPLE_REQUIRE(cacheWorkspaceWrite);
   auto reopenedCacheWorkspace = app::NativeWorkspaceSession::openPackageRoot(foundation::FilePath{cachePackageRoot.string()});

@@ -14,8 +14,10 @@ namespace {
 
 class NativeVideoExportSink final : public render::IRenderRangeSink {
 public:
-  explicit NativeVideoExportSink(render::ExportSettings settings)
-    : settings_{std::move(settings)} {}
+  NativeVideoExportSink(render::ExportSettings settings, jobs::IProgressSink* progress)
+    : settings_{std::move(settings)},
+      progress_{progress},
+      expectedFrames_{expectedFrameCount(settings_)} {}
 
   foundation::Result<void> writeFrame(std::size_t frameIndex, const render::RenderFrameResult& frame) override {
     (void)frameIndex;
@@ -59,6 +61,7 @@ public:
       writer_.write(bgr);
     }
     ++framesWritten_;
+    reportProgress();
     return {};
   }
 
@@ -76,6 +79,21 @@ public:
   }
 
 private:
+  static std::size_t expectedFrameCount(const render::ExportSettings& settings) {
+    const double frames = settings.range.duration() * settings.frameRate.framesPerSecond();
+    if (frames <= 0.0) {
+      return 0;
+    }
+    return static_cast<std::size_t>(frames);
+  }
+
+  void reportProgress() {
+    if (progress_ == nullptr || expectedFrames_ == 0) {
+      return;
+    }
+    progress_->reportProgress(static_cast<double>(framesWritten_) / static_cast<double>(expectedFrames_));
+  }
+
   foundation::Result<void> ensureOpen() {
     if (writer_.isOpened()) {
       return {};
@@ -121,6 +139,8 @@ private:
   }
 
   render::ExportSettings settings_;
+  jobs::IProgressSink* progress_ = nullptr;
+  std::size_t expectedFrames_ = 0;
   cv::VideoWriter writer_;
   std::size_t framesWritten_ = 0;
 };
@@ -155,8 +175,11 @@ foundation::Result<render::FinalRenderResult> NativeExportSession::render(render
   return renderSystem_.exportRange(render::ExportRequest{std::move(settings)});
 }
 
-foundation::Result<render::FinalRenderResult> NativeExportSession::renderToVideo(render::ExportSettings settings) {
-  NativeVideoExportSink sink{settings};
+foundation::Result<render::FinalRenderResult> NativeExportSession::renderToVideo(
+  render::ExportSettings settings,
+  jobs::IProgressSink* progress
+) {
+  NativeVideoExportSink sink{settings, progress};
   auto result = renderSystem_.exportRange(render::ExportRequest{std::move(settings), &sink});
   if (!result) {
     return result.error();
@@ -180,9 +203,10 @@ foundation::Result<render::FinalRenderResult> NativeExportSession::renderPlan(
 
 foundation::Result<render::FinalRenderResult> NativeExportSession::renderPlanToVideo(
   projection::RenderPlan plan,
-  render::ExportSettings settings
+  render::ExportSettings settings,
+  jobs::IProgressSink* progress
 ) {
-  NativeVideoExportSink sink{settings};
+  NativeVideoExportSink sink{settings, progress};
   auto result = renderSystem_.exportPlanRange(render::ExportPlanRequest{
     std::move(plan),
     std::move(settings),
