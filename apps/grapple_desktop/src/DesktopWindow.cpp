@@ -2201,6 +2201,8 @@ public:
       "job_desktop_export_" + std::to_string(++exportJobCounter_)
     };
     exportInProgress_ = true;
+    activeExportJobId_ = jobId;
+    lastLoggedExportProgressPercent_ = -25;
     log_->append(QString{"Export queued -> %1"}.arg(qString(path.value)));
     auto enqueue = workspace_.jobs().enqueue(grapple::jobs::Job{
       jobId,
@@ -2222,6 +2224,7 @@ public:
     });
     if (!enqueue) {
       exportInProgress_ = false;
+      activeExportJobId_.reset();
       appendError(enqueue.error());
       return false;
     }
@@ -2230,15 +2233,37 @@ public:
 
   void waitForExportIdle() {
     workspace_.jobs().waitUntilIdle();
+    refreshExportProgress();
     drainJobDispatch();
   }
 
   void drainJobDispatch() {
+    refreshExportProgress();
     jobDispatcher_.drain();
+  }
+
+  void refreshExportProgress() {
+    if (!activeExportJobId_.has_value()) {
+      return;
+    }
+    const auto progressRecords = workspace_.jobs().progressRecords();
+    for (auto record = progressRecords.rbegin(); record != progressRecords.rend(); ++record) {
+      if (record->jobId != activeExportJobId_.value()) {
+        continue;
+      }
+      const int percent = static_cast<int>(record->progress * 100.0);
+      if (percent > lastLoggedExportProgressPercent_ &&
+          (percent >= lastLoggedExportProgressPercent_ + 25 || percent == 100)) {
+        lastLoggedExportProgressPercent_ = percent;
+        log_->append(QString{"Export progress %1%"}.arg(percent));
+      }
+      return;
+    }
   }
 
   void completeExport(const grapple::foundation::Result<grapple::render::FinalRenderResult>& result) {
     exportInProgress_ = false;
+    activeExportJobId_.reset();
     if (!result) {
       appendError(result.error());
       return;
@@ -2424,6 +2449,8 @@ private:
   grapple::jobs::MainThreadDispatcher jobDispatcher_;
   bool exportInProgress_ = false;
   int exportJobCounter_ = 0;
+  std::optional<grapple::foundation::JobId> activeExportJobId_;
+  int lastLoggedExportProgressPercent_ = -25;
   grapple::foundation::TimeSeconds timelineDuration_;
   grapple::ui::ExportSettingsDraft exportSettingsDraft_;
   std::optional<grapple::foundation::NodeId> selectedNodeId_;

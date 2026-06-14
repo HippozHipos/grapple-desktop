@@ -1074,6 +1074,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "log=" << log << '\n';
     return exists &&
            size > 0U &&
+           log.find("Export progress 100%") != std::string::npos &&
            log.find("Export evaluated 100 frames") != std::string::npos
       ? 0
       : 1;
