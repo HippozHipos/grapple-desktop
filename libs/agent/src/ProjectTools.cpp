@@ -273,6 +273,15 @@ constexpr const char EffectCreateNodeSchema[] = R"json({
   }
 })json";
 
+constexpr const char EffectDeleteNodeSchema[] = R"json({
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["effectNodeId"],
+  "properties": {
+    "effectNodeId": {"type": "string", "minLength": 1}
+  }
+})json";
+
 constexpr const char EffectUpdateParamValueSchema[] = R"json({
   "type": "object",
   "additionalProperties": false,
@@ -1147,6 +1156,10 @@ foundation::Result<void> registerProjectTools(AgentToolRegistry& registry) {
     return registered.error();
   }
   registered = registry.registerTool(makeEffectCreateNodeTool());
+  if (!registered) {
+    return registered.error();
+  }
+  registered = registry.registerTool(makeEffectDeleteNodeTool());
   if (!registered) {
     return registered.error();
   }
@@ -2127,6 +2140,56 @@ AgentTool makeEffectCreateNodeTool() {
               << ",\"effectNodeId\":" << foundation::jsonQuoted(effectNodeId.value())
               << ",\"targetEdgeId\":" << foundation::jsonQuoted(targetEdgeId.value())
               << ",\"targetNodeId\":" << foundation::jsonQuoted(targetNodeId.value())
+              << ",\"revision\":" << foundation::jsonQuoted(command.value().afterRevision.value())
+              << '}';
+      return ToolResult{
+        call.toolId,
+        ToolResultStatus::Succeeded,
+        command.value().afterRevision,
+        payload.str(),
+        {}
+      };
+    }
+  };
+}
+
+AgentTool makeEffectDeleteNodeTool() {
+  return AgentTool{
+    foundation::ToolId{"tool_effect_delete_node"},
+    "effect.delete_node",
+    "Delete Effect Node",
+    "Deletes an existing effect node through Project Core.",
+    EffectDeleteNodeSchema,
+    [](const ToolCall& call, AgentToolContext& context) -> foundation::Result<ToolResult> {
+      auto arguments = parseArguments(call.arguments);
+      if (!arguments) {
+        return arguments.error();
+      }
+      auto members = requireOnlyMembers(arguments.value(), {"effectNodeId"}, "$");
+      if (!members) {
+        return members.error();
+      }
+      auto effectNodeId = requiredStringMember(arguments.value(), "effectNodeId", "$");
+      if (!effectNodeId) {
+        return effectNodeId.error();
+      }
+
+      const foundation::CommandId commandId = context.ids.nextCommandId();
+      auto command = context.commands.apply(project::ProjectCommandEnvelope{
+        commandId,
+        call.projectId,
+        call.expectedRevision,
+        project::CommandSource{project::CommandSourceKind::Agent, call.runId, "agent"},
+        project::DeleteEffectCommand{foundation::NodeId{effectNodeId.value()}}
+      });
+      if (!command) {
+        return command.error();
+      }
+
+      std::ostringstream payload;
+      payload << '{'
+              << "\"commandId\":" << foundation::jsonQuoted(commandId.value())
+              << ",\"effectNodeId\":" << foundation::jsonQuoted(effectNodeId.value())
               << ",\"revision\":" << foundation::jsonQuoted(command.value().afterRevision.value())
               << '}';
       return ToolResult{

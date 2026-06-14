@@ -1,6 +1,7 @@
 #include <grapple/agent/AgentToolRegistry.hpp>
 #include <grapple/agent/ProjectTools.hpp>
 #include <grapple/asset/Asset.hpp>
+#include <grapple/foundation/Hash.hpp>
 #include <grapple/graph/GraphNode.hpp>
 #include <grapple/project/ProjectController.hpp>
 #include <grapple/timeline/EffectPayload.hpp>
@@ -230,7 +231,7 @@ int main() {
   agent::AgentToolRegistry registry;
   const auto registered = agent::registerProjectTools(registry);
   GRAPPLE_REQUIRE(registered);
-  GRAPPLE_REQUIRE(registry.tools().size() == 19);
+  GRAPPLE_REQUIRE(registry.tools().size() == 20);
   std::vector<std::string> serializedToolIds;
   serializedToolIds.reserve(registry.tools().size());
   for (const agent::AgentTool& tool : registry.tools()) {
@@ -249,6 +250,7 @@ int main() {
   GRAPPLE_REQUIRE(registry.findBySerializedId("timeline.trim_clip") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("timeline.update_clip_transform") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("effect.create_node") != nullptr);
+  GRAPPLE_REQUIRE(registry.findBySerializedId("effect.delete_node") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("effect.update_param_value") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("effect.connect_ports") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("effect.disconnect_ports") != nullptr);
@@ -325,6 +327,11 @@ int main() {
   GRAPPLE_REQUIRE(registeredCreateEffectTool->schema.find("\"commandId\"") == std::string::npos);
   GRAPPLE_REQUIRE(registeredCreateEffectTool->schema.find("\"effectNodeId\"") == std::string::npos);
   GRAPPLE_REQUIRE(registeredCreateEffectTool->schema.find("\"targetEdgeId\"") == std::string::npos);
+  const agent::AgentTool* registeredDeleteEffectTool = registry.findBySerializedId("effect.delete_node");
+  GRAPPLE_REQUIRE(registeredDeleteEffectTool != nullptr);
+  GRAPPLE_REQUIRE(registeredDeleteEffectTool->schema.find("\"effectNodeId\"") != std::string::npos);
+  GRAPPLE_REQUIRE(registeredDeleteEffectTool->schema.find("\"targetNodeId\"") == std::string::npos);
+  GRAPPLE_REQUIRE(registeredDeleteEffectTool->schema.find("\"commandId\"") == std::string::npos);
   const agent::AgentTool* registeredUpdateEffectParamValueTool = registry.findBySerializedId("effect.update_param_value");
   GRAPPLE_REQUIRE(registeredUpdateEffectParamValueTool != nullptr);
   GRAPPLE_REQUIRE(registeredUpdateEffectParamValueTool->schema.find("\"effectNodeId\"") != std::string::npos);
@@ -1205,6 +1212,117 @@ int main() {
   GRAPPLE_REQUIRE(updatedCameraPayload->transform == createdCameraPayload->transform);
   GRAPPLE_REQUIRE(cameraCommands.applyCount() == 2);
   GRAPPLE_REQUIRE(cameraQueries.snapshotQueryCount() == 1);
+
+  project::ProjectController effectDeleteProject{
+    project::createEmptyProject(foundation::ProjectId{"proj_agent_effect_delete"}, "Agent Effect Delete Project")
+  };
+  const auto effectDeleteInitial = effectDeleteProject.snapshot();
+  GRAPPLE_REQUIRE(effectDeleteInitial);
+  const auto effectDeleteComposition = effectDeleteProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_effect_delete_composition"},
+    foundation::ProjectId{"proj_agent_effect_delete"},
+    effectDeleteInitial.value().revision,
+    project::CommandSource{project::CommandSourceKind::Agent, foundation::RunId{"run_effect_delete"}, "agent"},
+    project::CreateCompositionCommand{foundation::NodeId{"node_effect_delete_composition"}, "Effect Delete Main"}
+  });
+  GRAPPLE_REQUIRE(effectDeleteComposition);
+  const auto effectDeleteCamera = effectDeleteProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_effect_delete_camera"},
+    foundation::ProjectId{"proj_agent_effect_delete"},
+    effectDeleteComposition.value().afterRevision,
+    project::CommandSource{project::CommandSourceKind::Agent, foundation::RunId{"run_effect_delete"}, "agent"},
+    project::CreateCameraCommand{
+      foundation::NodeId{"node_effect_delete_camera"},
+      foundation::NodeId{"node_effect_delete_composition"},
+      foundation::EdgeId{"edge_effect_delete_contains_camera"},
+      timeline::CameraPayload{"Effect Delete Camera", timeline::Transform2D{}, timeline::CameraLens{35.0}}
+    }
+  });
+  GRAPPLE_REQUIRE(effectDeleteCamera);
+  const std::string effectDeleteSource = "def prepare(ctx):\n  return {}\n";
+  const auto effectDeleteEffect = effectDeleteProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_effect_delete_effect"},
+    foundation::ProjectId{"proj_agent_effect_delete"},
+    effectDeleteCamera.value().afterRevision,
+    project::CommandSource{project::CommandSourceKind::Agent, foundation::RunId{"run_effect_delete"}, "agent"},
+    project::CreateEffectCommand{
+      foundation::NodeId{"node_effect_delete_effect"},
+      foundation::NodeId{"node_effect_delete_camera"},
+      foundation::EdgeId{"edge_effect_delete_targets"},
+      timeline::EffectPayload{
+        "Delete Me",
+        timeline::EffectImplementation{
+          timeline::EffectImplementationKind::Python,
+          "prepare",
+          timeline::EffectSource{
+            timeline::EffectSourceKind::InlineSource,
+            "python",
+            effectDeleteSource,
+            std::nullopt,
+            foundation::stableHash(effectDeleteSource)
+          }
+        },
+        timeline::EffectPortSet{
+          {timeline::EffectPort{"frame"}},
+          {timeline::EffectPort{"camera_transform"}}
+        },
+        timeline::ParamSet{
+          {
+            timeline::Param{
+              "strength",
+              1.0,
+              timeline::Param::Control{
+                "Strength",
+                timeline::Param::NumericControl{0.0, 1.0, 0.01}
+              },
+              {}
+            }
+          }
+        },
+        foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}},
+        {}
+      },
+      graph::PortName{"camera_transform"},
+      graph::PortName{"input"},
+      0
+    }
+  });
+  GRAPPLE_REQUIRE(effectDeleteEffect);
+
+  TestAgentCommandService effectDeleteCommands{effectDeleteProject};
+  TestAgentQueryService effectDeleteQueries{effectDeleteProject};
+  TestProjectIdAllocator effectDeleteIds;
+  agent::AgentToolContext effectDeleteContext{effectDeleteCommands, effectDeleteQueries, effectDeleteIds};
+
+  const agent::AgentTool* deleteEffect = registry.findBySerializedId("effect.delete_node");
+  GRAPPLE_REQUIRE(deleteEffect != nullptr);
+  const auto deleteEffectResult = deleteEffect->handler(
+    agent::ToolCall{
+      foundation::ToolId{"tool_effect_delete_node"},
+      foundation::RunId{"run_effect_delete"},
+      foundation::ProjectId{"proj_agent_effect_delete"},
+      effectDeleteEffect.value().afterRevision,
+      R"({
+        "effectNodeId": "node_effect_delete_effect"
+      })"
+    },
+    effectDeleteContext
+  );
+  GRAPPLE_REQUIRE(deleteEffectResult);
+  GRAPPLE_REQUIRE(deleteEffectResult.value().status == agent::ToolResultStatus::Succeeded);
+  GRAPPLE_REQUIRE(deleteEffectResult.value().observedRevision == foundation::RevisionId{"rev_4"});
+  GRAPPLE_REQUIRE(deleteEffectResult.value().payload == "{\"commandId\":\"cmd_agent_1\",\"effectNodeId\":\"node_effect_delete_effect\",\"revision\":\"rev_4\"}");
+
+  const auto afterEffectDeleteSnapshot = effectDeleteProject.snapshot();
+  GRAPPLE_REQUIRE(afterEffectDeleteSnapshot);
+  GRAPPLE_REQUIRE(afterEffectDeleteSnapshot.value().graph.findNode(foundation::NodeId{"node_effect_delete_effect"}) == nullptr);
+  for (const graph::GraphEdge& edge : afterEffectDeleteSnapshot.value().graph.edges()) {
+    GRAPPLE_REQUIRE(edge.id != foundation::EdgeId{"edge_effect_delete_targets"});
+    GRAPPLE_REQUIRE(edge.sourceNodeId != foundation::NodeId{"node_effect_delete_effect"});
+    GRAPPLE_REQUIRE(edge.targetNodeId != foundation::NodeId{"node_effect_delete_effect"});
+  }
+  GRAPPLE_REQUIRE(effectDeleteCommands.applyCount() == 1);
+  GRAPPLE_REQUIRE(effectDeleteQueries.totalQueryCount() == 0);
 
   project::ProjectController clipTransformProject{
     project::createEmptyProject(foundation::ProjectId{"proj_agent_clip_transform"}, "Agent Clip Transform Project")
