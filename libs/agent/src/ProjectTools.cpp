@@ -304,6 +304,71 @@ constexpr const char EffectUpdateParamValueSchema[] = R"json({
   }
 })json";
 
+constexpr const char EffectCreateParamKeyframeSchema[] = R"json({
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "effectNodeId",
+    "paramName",
+    "time",
+    "value"
+  ],
+  "properties": {
+    "effectNodeId": {"type": "string", "minLength": 1},
+    "paramName": {"type": "string", "minLength": 1},
+    "time": {"type": "number"},
+    "value": {
+      "oneOf": [
+        {"type": "number"},
+        {"type": "boolean"},
+        {"type": "string"},
+        {"type": "object"}
+      ]
+    }
+  }
+})json";
+
+constexpr const char EffectUpdateParamKeyframeSchema[] = R"json({
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "effectNodeId",
+    "paramName",
+    "keyframeId",
+    "time",
+    "value"
+  ],
+  "properties": {
+    "effectNodeId": {"type": "string", "minLength": 1},
+    "paramName": {"type": "string", "minLength": 1},
+    "keyframeId": {"type": "string", "minLength": 1},
+    "time": {"type": "number"},
+    "value": {
+      "oneOf": [
+        {"type": "number"},
+        {"type": "boolean"},
+        {"type": "string"},
+        {"type": "object"}
+      ]
+    }
+  }
+})json";
+
+constexpr const char EffectDeleteParamKeyframeSchema[] = R"json({
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "effectNodeId",
+    "paramName",
+    "keyframeId"
+  ],
+  "properties": {
+    "effectNodeId": {"type": "string", "minLength": 1},
+    "paramName": {"type": "string", "minLength": 1},
+    "keyframeId": {"type": "string", "minLength": 1}
+  }
+})json";
+
 constexpr const char EffectConnectPortsSchema[] = R"json({
   "type": "object",
   "additionalProperties": false,
@@ -1164,6 +1229,18 @@ foundation::Result<void> registerProjectTools(AgentToolRegistry& registry) {
     return registered.error();
   }
   registered = registry.registerTool(makeEffectUpdateParamValueTool());
+  if (!registered) {
+    return registered.error();
+  }
+  registered = registry.registerTool(makeEffectCreateParamKeyframeTool());
+  if (!registered) {
+    return registered.error();
+  }
+  registered = registry.registerTool(makeEffectUpdateParamKeyframeTool());
+  if (!registered) {
+    return registered.error();
+  }
+  registered = registry.registerTool(makeEffectDeleteParamKeyframeTool());
   if (!registered) {
     return registered.error();
   }
@@ -2257,6 +2334,227 @@ AgentTool makeEffectUpdateParamValueTool() {
               << "\"commandId\":" << foundation::jsonQuoted(commandId.value())
               << ",\"effectNodeId\":" << foundation::jsonQuoted(effectNodeId.value())
               << ",\"paramName\":" << foundation::jsonQuoted(paramName.value())
+              << ",\"revision\":" << foundation::jsonQuoted(command.value().afterRevision.value())
+              << '}';
+      return ToolResult{
+        call.toolId,
+        ToolResultStatus::Succeeded,
+        command.value().afterRevision,
+        payload.str(),
+        {}
+      };
+    }
+  };
+}
+
+AgentTool makeEffectCreateParamKeyframeTool() {
+  return AgentTool{
+    foundation::ToolId{"tool_effect_create_param_keyframe"},
+    "effect.create_param_keyframe",
+    "Create Effect Param Keyframe",
+    "Creates an effect parameter keyframe through Project Core and allocates the keyframe id.",
+    EffectCreateParamKeyframeSchema,
+    [](const ToolCall& call, AgentToolContext& context) -> foundation::Result<ToolResult> {
+      auto arguments = parseArguments(call.arguments);
+      if (!arguments) {
+        return arguments.error();
+      }
+      auto members = requireOnlyMembers(arguments.value(), {"effectNodeId", "paramName", "time", "value"}, "$");
+      if (!members) {
+        return members.error();
+      }
+      auto effectNodeId = requiredStringMember(arguments.value(), "effectNodeId", "$");
+      if (!effectNodeId) {
+        return effectNodeId.error();
+      }
+      auto paramName = requiredStringMember(arguments.value(), "paramName", "$");
+      if (!paramName) {
+        return paramName.error();
+      }
+      auto time = requiredDoubleMember(arguments.value(), "time", "$");
+      if (!time) {
+        return time.error();
+      }
+      auto value = requiredMember(arguments.value(), "value", "$");
+      if (!value) {
+        return value.error();
+      }
+      auto paramValue = parseParamValue(value.value(), "$.value");
+      if (!paramValue) {
+        return paramValue.error();
+      }
+
+      const foundation::CommandId commandId = context.ids.nextCommandId();
+      const foundation::KeyframeId keyframeId = context.ids.nextKeyframeId(paramName.value());
+      auto command = context.commands.apply(project::ProjectCommandEnvelope{
+        commandId,
+        call.projectId,
+        call.expectedRevision,
+        project::CommandSource{project::CommandSourceKind::Agent, call.runId, "agent"},
+        project::UpsertEffectParamKeyframeCommand{
+          foundation::NodeId{effectNodeId.value()},
+          paramName.value(),
+          timeline::Param::Keyframe{
+            keyframeId,
+            foundation::TimeSeconds{time.value()},
+            paramValue.value()
+          }
+        }
+      });
+      if (!command) {
+        return command.error();
+      }
+
+      std::ostringstream payload;
+      payload << '{'
+              << "\"commandId\":" << foundation::jsonQuoted(commandId.value())
+              << ",\"effectNodeId\":" << foundation::jsonQuoted(effectNodeId.value())
+              << ",\"paramName\":" << foundation::jsonQuoted(paramName.value())
+              << ",\"keyframeId\":" << foundation::jsonQuoted(keyframeId.value())
+              << ",\"revision\":" << foundation::jsonQuoted(command.value().afterRevision.value())
+              << '}';
+      return ToolResult{
+        call.toolId,
+        ToolResultStatus::Succeeded,
+        command.value().afterRevision,
+        payload.str(),
+        {}
+      };
+    }
+  };
+}
+
+AgentTool makeEffectUpdateParamKeyframeTool() {
+  return AgentTool{
+    foundation::ToolId{"tool_effect_update_param_keyframe"},
+    "effect.update_param_keyframe",
+    "Update Effect Param Keyframe",
+    "Updates an existing effect parameter keyframe through Project Core.",
+    EffectUpdateParamKeyframeSchema,
+    [](const ToolCall& call, AgentToolContext& context) -> foundation::Result<ToolResult> {
+      auto arguments = parseArguments(call.arguments);
+      if (!arguments) {
+        return arguments.error();
+      }
+      auto members = requireOnlyMembers(arguments.value(), {"effectNodeId", "paramName", "keyframeId", "time", "value"}, "$");
+      if (!members) {
+        return members.error();
+      }
+      auto effectNodeId = requiredStringMember(arguments.value(), "effectNodeId", "$");
+      if (!effectNodeId) {
+        return effectNodeId.error();
+      }
+      auto paramName = requiredStringMember(arguments.value(), "paramName", "$");
+      if (!paramName) {
+        return paramName.error();
+      }
+      auto keyframeId = requiredStringMember(arguments.value(), "keyframeId", "$");
+      if (!keyframeId) {
+        return keyframeId.error();
+      }
+      auto time = requiredDoubleMember(arguments.value(), "time", "$");
+      if (!time) {
+        return time.error();
+      }
+      auto value = requiredMember(arguments.value(), "value", "$");
+      if (!value) {
+        return value.error();
+      }
+      auto paramValue = parseParamValue(value.value(), "$.value");
+      if (!paramValue) {
+        return paramValue.error();
+      }
+
+      const foundation::CommandId commandId = context.ids.nextCommandId();
+      auto command = context.commands.apply(project::ProjectCommandEnvelope{
+        commandId,
+        call.projectId,
+        call.expectedRevision,
+        project::CommandSource{project::CommandSourceKind::Agent, call.runId, "agent"},
+        project::UpsertEffectParamKeyframeCommand{
+          foundation::NodeId{effectNodeId.value()},
+          paramName.value(),
+          timeline::Param::Keyframe{
+            foundation::KeyframeId{keyframeId.value()},
+            foundation::TimeSeconds{time.value()},
+            paramValue.value()
+          }
+        }
+      });
+      if (!command) {
+        return command.error();
+      }
+
+      std::ostringstream payload;
+      payload << '{'
+              << "\"commandId\":" << foundation::jsonQuoted(commandId.value())
+              << ",\"effectNodeId\":" << foundation::jsonQuoted(effectNodeId.value())
+              << ",\"paramName\":" << foundation::jsonQuoted(paramName.value())
+              << ",\"keyframeId\":" << foundation::jsonQuoted(keyframeId.value())
+              << ",\"revision\":" << foundation::jsonQuoted(command.value().afterRevision.value())
+              << '}';
+      return ToolResult{
+        call.toolId,
+        ToolResultStatus::Succeeded,
+        command.value().afterRevision,
+        payload.str(),
+        {}
+      };
+    }
+  };
+}
+
+AgentTool makeEffectDeleteParamKeyframeTool() {
+  return AgentTool{
+    foundation::ToolId{"tool_effect_delete_param_keyframe"},
+    "effect.delete_param_keyframe",
+    "Delete Effect Param Keyframe",
+    "Deletes an existing effect parameter keyframe through Project Core.",
+    EffectDeleteParamKeyframeSchema,
+    [](const ToolCall& call, AgentToolContext& context) -> foundation::Result<ToolResult> {
+      auto arguments = parseArguments(call.arguments);
+      if (!arguments) {
+        return arguments.error();
+      }
+      auto members = requireOnlyMembers(arguments.value(), {"effectNodeId", "paramName", "keyframeId"}, "$");
+      if (!members) {
+        return members.error();
+      }
+      auto effectNodeId = requiredStringMember(arguments.value(), "effectNodeId", "$");
+      if (!effectNodeId) {
+        return effectNodeId.error();
+      }
+      auto paramName = requiredStringMember(arguments.value(), "paramName", "$");
+      if (!paramName) {
+        return paramName.error();
+      }
+      auto keyframeId = requiredStringMember(arguments.value(), "keyframeId", "$");
+      if (!keyframeId) {
+        return keyframeId.error();
+      }
+
+      const foundation::CommandId commandId = context.ids.nextCommandId();
+      auto command = context.commands.apply(project::ProjectCommandEnvelope{
+        commandId,
+        call.projectId,
+        call.expectedRevision,
+        project::CommandSource{project::CommandSourceKind::Agent, call.runId, "agent"},
+        project::DeleteEffectParamKeyframeCommand{
+          foundation::NodeId{effectNodeId.value()},
+          paramName.value(),
+          foundation::KeyframeId{keyframeId.value()}
+        }
+      });
+      if (!command) {
+        return command.error();
+      }
+
+      std::ostringstream payload;
+      payload << '{'
+              << "\"commandId\":" << foundation::jsonQuoted(commandId.value())
+              << ",\"effectNodeId\":" << foundation::jsonQuoted(effectNodeId.value())
+              << ",\"paramName\":" << foundation::jsonQuoted(paramName.value())
+              << ",\"keyframeId\":" << foundation::jsonQuoted(keyframeId.value())
               << ",\"revision\":" << foundation::jsonQuoted(command.value().afterRevision.value())
               << '}';
       return ToolResult{

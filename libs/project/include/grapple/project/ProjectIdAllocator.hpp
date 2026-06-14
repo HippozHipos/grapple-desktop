@@ -14,6 +14,7 @@ public:
   [[nodiscard]] virtual foundation::AssetId nextAssetId(const std::string& stem) = 0;
   [[nodiscard]] virtual foundation::NodeId nextNodeId(const std::string& stem) = 0;
   [[nodiscard]] virtual foundation::EdgeId nextEdgeId(const std::string& stem) = 0;
+  [[nodiscard]] virtual foundation::KeyframeId nextKeyframeId(const std::string& stem) = 0;
 };
 
 } // namespace grapple::project

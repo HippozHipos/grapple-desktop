@@ -39,6 +39,10 @@ public:
   grapple::foundation::EdgeId nextEdgeId(const std::string& stem) override {
     return grapple::foundation::EdgeId{"edge_test_" + stem};
   }
+
+  grapple::foundation::KeyframeId nextKeyframeId(const std::string& stem) override {
+    return grapple::foundation::KeyframeId{"key_test_" + stem};
+  }
 };
 
 } // namespace

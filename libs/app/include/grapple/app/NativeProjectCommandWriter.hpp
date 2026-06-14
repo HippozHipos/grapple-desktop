@@ -21,7 +21,7 @@ public:
   [[nodiscard]] foundation::AssetId nextAssetId(const std::string& stem) override;
   [[nodiscard]] foundation::NodeId nextNodeId(const std::string& stem) override;
   [[nodiscard]] foundation::EdgeId nextEdgeId(const std::string& stem) override;
-  [[nodiscard]] foundation::KeyframeId nextKeyframeId(const std::string& stem);
+  [[nodiscard]] foundation::KeyframeId nextKeyframeId(const std::string& stem) override;
   [[nodiscard]] foundation::SnapshotId nextSnapshotId(const std::string& stem);
 
   foundation::Result<storage::ProjectPackageSessionResult> apply(

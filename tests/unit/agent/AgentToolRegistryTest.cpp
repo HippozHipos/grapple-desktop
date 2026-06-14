@@ -188,11 +188,16 @@ public:
     return grapple::foundation::EdgeId{"edge_agent_" + stem + "_" + std::to_string(edgeSequence_++)};
   }
 
+  grapple::foundation::KeyframeId nextKeyframeId(const std::string& stem) override {
+    return grapple::foundation::KeyframeId{"key_agent_" + stem + "_" + std::to_string(keyframeSequence_++)};
+  }
+
 private:
   int commandSequence_ = 1;
   int assetSequence_ = 1;
   int nodeSequence_ = 1;
   int edgeSequence_ = 1;
+  int keyframeSequence_ = 1;
 };
 
 bool allUnique(std::vector<std::string> values) {
@@ -231,7 +236,7 @@ int main() {
   agent::AgentToolRegistry registry;
   const auto registered = agent::registerProjectTools(registry);
   GRAPPLE_REQUIRE(registered);
-  GRAPPLE_REQUIRE(registry.tools().size() == 20);
+  GRAPPLE_REQUIRE(registry.tools().size() == 23);
   std::vector<std::string> serializedToolIds;
   serializedToolIds.reserve(registry.tools().size());
   for (const agent::AgentTool& tool : registry.tools()) {
@@ -252,6 +257,9 @@ int main() {
   GRAPPLE_REQUIRE(registry.findBySerializedId("effect.create_node") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("effect.delete_node") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("effect.update_param_value") != nullptr);
+  GRAPPLE_REQUIRE(registry.findBySerializedId("effect.create_param_keyframe") != nullptr);
+  GRAPPLE_REQUIRE(registry.findBySerializedId("effect.update_param_keyframe") != nullptr);
+  GRAPPLE_REQUIRE(registry.findBySerializedId("effect.delete_param_keyframe") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("effect.connect_ports") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("effect.disconnect_ports") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("render_plan.inspect") != nullptr);
@@ -341,6 +349,27 @@ int main() {
   GRAPPLE_REQUIRE(registeredUpdateEffectParamValueTool->schema.find("\"params\"") == std::string::npos);
   GRAPPLE_REQUIRE(registeredUpdateEffectParamValueTool->schema.find("\"numeric\"") == std::string::npos);
   GRAPPLE_REQUIRE(registeredUpdateEffectParamValueTool->schema.find("\"commandId\"") == std::string::npos);
+  const agent::AgentTool* registeredCreateEffectKeyframeTool = registry.findBySerializedId("effect.create_param_keyframe");
+  GRAPPLE_REQUIRE(registeredCreateEffectKeyframeTool != nullptr);
+  GRAPPLE_REQUIRE(registeredCreateEffectKeyframeTool->schema.find("\"effectNodeId\"") != std::string::npos);
+  GRAPPLE_REQUIRE(registeredCreateEffectKeyframeTool->schema.find("\"paramName\"") != std::string::npos);
+  GRAPPLE_REQUIRE(registeredCreateEffectKeyframeTool->schema.find("\"time\"") != std::string::npos);
+  GRAPPLE_REQUIRE(registeredCreateEffectKeyframeTool->schema.find("\"value\"") != std::string::npos);
+  GRAPPLE_REQUIRE(registeredCreateEffectKeyframeTool->schema.find("\"keyframeId\"") == std::string::npos);
+  GRAPPLE_REQUIRE(registeredCreateEffectKeyframeTool->schema.find("\"commandId\"") == std::string::npos);
+  const agent::AgentTool* registeredUpdateEffectKeyframeTool = registry.findBySerializedId("effect.update_param_keyframe");
+  GRAPPLE_REQUIRE(registeredUpdateEffectKeyframeTool != nullptr);
+  GRAPPLE_REQUIRE(registeredUpdateEffectKeyframeTool->schema.find("\"effectNodeId\"") != std::string::npos);
+  GRAPPLE_REQUIRE(registeredUpdateEffectKeyframeTool->schema.find("\"keyframeId\"") != std::string::npos);
+  GRAPPLE_REQUIRE(registeredUpdateEffectKeyframeTool->schema.find("\"time\"") != std::string::npos);
+  GRAPPLE_REQUIRE(registeredUpdateEffectKeyframeTool->schema.find("\"commandId\"") == std::string::npos);
+  const agent::AgentTool* registeredDeleteEffectKeyframeTool = registry.findBySerializedId("effect.delete_param_keyframe");
+  GRAPPLE_REQUIRE(registeredDeleteEffectKeyframeTool != nullptr);
+  GRAPPLE_REQUIRE(registeredDeleteEffectKeyframeTool->schema.find("\"effectNodeId\"") != std::string::npos);
+  GRAPPLE_REQUIRE(registeredDeleteEffectKeyframeTool->schema.find("\"paramName\"") != std::string::npos);
+  GRAPPLE_REQUIRE(registeredDeleteEffectKeyframeTool->schema.find("\"keyframeId\"") != std::string::npos);
+  GRAPPLE_REQUIRE(registeredDeleteEffectKeyframeTool->schema.find("\"time\"") == std::string::npos);
+  GRAPPLE_REQUIRE(registeredDeleteEffectKeyframeTool->schema.find("\"commandId\"") == std::string::npos);
   const agent::AgentTool* registeredConnectPortsTool = registry.findBySerializedId("effect.connect_ports");
   GRAPPLE_REQUIRE(registeredConnectPortsTool != nullptr);
   GRAPPLE_REQUIRE(registeredConnectPortsTool->schema.find("\"edgeId\"") != std::string::npos);
@@ -1323,6 +1352,185 @@ int main() {
   }
   GRAPPLE_REQUIRE(effectDeleteCommands.applyCount() == 1);
   GRAPPLE_REQUIRE(effectDeleteQueries.totalQueryCount() == 0);
+
+  project::ProjectController effectKeyframeProject{
+    project::createEmptyProject(foundation::ProjectId{"proj_agent_effect_keyframe"}, "Agent Effect Keyframe Project")
+  };
+  const auto effectKeyframeInitial = effectKeyframeProject.snapshot();
+  GRAPPLE_REQUIRE(effectKeyframeInitial);
+  const auto effectKeyframeComposition = effectKeyframeProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_effect_keyframe_composition"},
+    foundation::ProjectId{"proj_agent_effect_keyframe"},
+    effectKeyframeInitial.value().revision,
+    project::CommandSource{project::CommandSourceKind::Agent, foundation::RunId{"run_effect_keyframe"}, "agent"},
+    project::CreateCompositionCommand{foundation::NodeId{"node_effect_keyframe_composition"}, "Effect Keyframe Main"}
+  });
+  GRAPPLE_REQUIRE(effectKeyframeComposition);
+  const auto effectKeyframeCamera = effectKeyframeProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_effect_keyframe_camera"},
+    foundation::ProjectId{"proj_agent_effect_keyframe"},
+    effectKeyframeComposition.value().afterRevision,
+    project::CommandSource{project::CommandSourceKind::Agent, foundation::RunId{"run_effect_keyframe"}, "agent"},
+    project::CreateCameraCommand{
+      foundation::NodeId{"node_effect_keyframe_camera"},
+      foundation::NodeId{"node_effect_keyframe_composition"},
+      foundation::EdgeId{"edge_effect_keyframe_contains_camera"},
+      timeline::CameraPayload{"Effect Keyframe Camera", timeline::Transform2D{}, timeline::CameraLens{35.0}}
+    }
+  });
+  GRAPPLE_REQUIRE(effectKeyframeCamera);
+  const std::string effectKeyframeSource = "def prepare(ctx):\n  return {}\n";
+  const auto effectKeyframeEffect = effectKeyframeProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_effect_keyframe_effect"},
+    foundation::ProjectId{"proj_agent_effect_keyframe"},
+    effectKeyframeCamera.value().afterRevision,
+    project::CommandSource{project::CommandSourceKind::Agent, foundation::RunId{"run_effect_keyframe"}, "agent"},
+    project::CreateEffectCommand{
+      foundation::NodeId{"node_effect_keyframe_effect"},
+      foundation::NodeId{"node_effect_keyframe_camera"},
+      foundation::EdgeId{"edge_effect_keyframe_targets"},
+      timeline::EffectPayload{
+        "Keyframe Me",
+        timeline::EffectImplementation{
+          timeline::EffectImplementationKind::Python,
+          "prepare",
+          timeline::EffectSource{
+            timeline::EffectSourceKind::InlineSource,
+            "python",
+            effectKeyframeSource,
+            std::nullopt,
+            foundation::stableHash(effectKeyframeSource)
+          }
+        },
+        timeline::EffectPortSet{
+          {timeline::EffectPort{"frame"}},
+          {timeline::EffectPort{"camera_transform"}}
+        },
+        timeline::ParamSet{
+          {
+            timeline::Param{
+              "target_x",
+              0.25,
+              timeline::Param::Control{
+                "Target X",
+                timeline::Param::NumericControl{0.0, 1.0, 0.01}
+              },
+              {}
+            }
+          }
+        },
+        foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{10.0}},
+        {}
+      },
+      graph::PortName{"camera_transform"},
+      graph::PortName{"input"},
+      0
+    }
+  });
+  GRAPPLE_REQUIRE(effectKeyframeEffect);
+
+  TestAgentCommandService effectKeyframeCommands{effectKeyframeProject};
+  TestAgentQueryService effectKeyframeQueries{effectKeyframeProject};
+  TestProjectIdAllocator effectKeyframeIds;
+  agent::AgentToolContext effectKeyframeContext{effectKeyframeCommands, effectKeyframeQueries, effectKeyframeIds};
+
+  const agent::AgentTool* createEffectKeyframe = registry.findBySerializedId("effect.create_param_keyframe");
+  GRAPPLE_REQUIRE(createEffectKeyframe != nullptr);
+  const auto createEffectKeyframeResult = createEffectKeyframe->handler(
+    agent::ToolCall{
+      foundation::ToolId{"tool_effect_create_param_keyframe"},
+      foundation::RunId{"run_effect_keyframe"},
+      foundation::ProjectId{"proj_agent_effect_keyframe"},
+      effectKeyframeEffect.value().afterRevision,
+      R"({
+        "effectNodeId": "node_effect_keyframe_effect",
+        "paramName": "target_x",
+        "time": 1.25,
+        "value": 0.5
+      })"
+    },
+    effectKeyframeContext
+  );
+  GRAPPLE_REQUIRE(createEffectKeyframeResult);
+  GRAPPLE_REQUIRE(createEffectKeyframeResult.value().status == agent::ToolResultStatus::Succeeded);
+  GRAPPLE_REQUIRE(createEffectKeyframeResult.value().observedRevision == foundation::RevisionId{"rev_4"});
+  GRAPPLE_REQUIRE(createEffectKeyframeResult.value().payload == "{\"commandId\":\"cmd_agent_1\",\"effectNodeId\":\"node_effect_keyframe_effect\",\"paramName\":\"target_x\",\"keyframeId\":\"key_agent_target_x_1\",\"revision\":\"rev_4\"}");
+
+  const auto afterCreateEffectKeyframeSnapshot = effectKeyframeProject.snapshot();
+  GRAPPLE_REQUIRE(afterCreateEffectKeyframeSnapshot);
+  const graph::GraphNode* keyframedEffectNode = afterCreateEffectKeyframeSnapshot.value().graph.findNode(foundation::NodeId{"node_effect_keyframe_effect"});
+  GRAPPLE_REQUIRE(keyframedEffectNode != nullptr);
+  const auto* keyframedEffectPayload = std::get_if<timeline::EffectPayload>(&keyframedEffectNode->payload);
+  GRAPPLE_REQUIRE(keyframedEffectPayload != nullptr);
+  GRAPPLE_REQUIRE(keyframedEffectPayload->params.values[0].keyframes.size() == 1);
+  GRAPPLE_REQUIRE(keyframedEffectPayload->params.values[0].keyframes[0].id == foundation::KeyframeId{"key_agent_target_x_1"});
+  GRAPPLE_REQUIRE(keyframedEffectPayload->params.values[0].keyframes[0].time == foundation::TimeSeconds{1.25});
+  GRAPPLE_REQUIRE(std::get<double>(keyframedEffectPayload->params.values[0].keyframes[0].value) == 0.5);
+
+  const agent::AgentTool* updateEffectKeyframe = registry.findBySerializedId("effect.update_param_keyframe");
+  GRAPPLE_REQUIRE(updateEffectKeyframe != nullptr);
+  const auto updateEffectKeyframeResult = updateEffectKeyframe->handler(
+    agent::ToolCall{
+      foundation::ToolId{"tool_effect_update_param_keyframe"},
+      foundation::RunId{"run_effect_keyframe"},
+      foundation::ProjectId{"proj_agent_effect_keyframe"},
+      createEffectKeyframeResult.value().observedRevision,
+      R"({
+        "effectNodeId": "node_effect_keyframe_effect",
+        "paramName": "target_x",
+        "keyframeId": "key_agent_target_x_1",
+        "time": 2.5,
+        "value": 0.75
+      })"
+    },
+    effectKeyframeContext
+  );
+  GRAPPLE_REQUIRE(updateEffectKeyframeResult);
+  GRAPPLE_REQUIRE(updateEffectKeyframeResult.value().status == agent::ToolResultStatus::Succeeded);
+  GRAPPLE_REQUIRE(updateEffectKeyframeResult.value().observedRevision == foundation::RevisionId{"rev_5"});
+  GRAPPLE_REQUIRE(updateEffectKeyframeResult.value().payload == "{\"commandId\":\"cmd_agent_2\",\"effectNodeId\":\"node_effect_keyframe_effect\",\"paramName\":\"target_x\",\"keyframeId\":\"key_agent_target_x_1\",\"revision\":\"rev_5\"}");
+
+  const auto afterUpdateEffectKeyframeSnapshot = effectKeyframeProject.snapshot();
+  GRAPPLE_REQUIRE(afterUpdateEffectKeyframeSnapshot);
+  const graph::GraphNode* updatedKeyframedEffectNode = afterUpdateEffectKeyframeSnapshot.value().graph.findNode(foundation::NodeId{"node_effect_keyframe_effect"});
+  GRAPPLE_REQUIRE(updatedKeyframedEffectNode != nullptr);
+  const auto* updatedKeyframedEffectPayload = std::get_if<timeline::EffectPayload>(&updatedKeyframedEffectNode->payload);
+  GRAPPLE_REQUIRE(updatedKeyframedEffectPayload != nullptr);
+  GRAPPLE_REQUIRE(updatedKeyframedEffectPayload->params.values[0].keyframes.size() == 1);
+  GRAPPLE_REQUIRE(updatedKeyframedEffectPayload->params.values[0].keyframes[0].id == foundation::KeyframeId{"key_agent_target_x_1"});
+  GRAPPLE_REQUIRE(updatedKeyframedEffectPayload->params.values[0].keyframes[0].time == foundation::TimeSeconds{2.5});
+  GRAPPLE_REQUIRE(std::get<double>(updatedKeyframedEffectPayload->params.values[0].keyframes[0].value) == 0.75);
+
+  const agent::AgentTool* deleteEffectKeyframe = registry.findBySerializedId("effect.delete_param_keyframe");
+  GRAPPLE_REQUIRE(deleteEffectKeyframe != nullptr);
+  const auto deleteEffectKeyframeResult = deleteEffectKeyframe->handler(
+    agent::ToolCall{
+      foundation::ToolId{"tool_effect_delete_param_keyframe"},
+      foundation::RunId{"run_effect_keyframe"},
+      foundation::ProjectId{"proj_agent_effect_keyframe"},
+      updateEffectKeyframeResult.value().observedRevision,
+      R"({
+        "effectNodeId": "node_effect_keyframe_effect",
+        "paramName": "target_x",
+        "keyframeId": "key_agent_target_x_1"
+      })"
+    },
+    effectKeyframeContext
+  );
+  GRAPPLE_REQUIRE(deleteEffectKeyframeResult);
+  GRAPPLE_REQUIRE(deleteEffectKeyframeResult.value().status == agent::ToolResultStatus::Succeeded);
+  GRAPPLE_REQUIRE(deleteEffectKeyframeResult.value().observedRevision == foundation::RevisionId{"rev_6"});
+  GRAPPLE_REQUIRE(deleteEffectKeyframeResult.value().payload == "{\"commandId\":\"cmd_agent_3\",\"effectNodeId\":\"node_effect_keyframe_effect\",\"paramName\":\"target_x\",\"keyframeId\":\"key_agent_target_x_1\",\"revision\":\"rev_6\"}");
+
+  const auto afterDeleteEffectKeyframeSnapshot = effectKeyframeProject.snapshot();
+  GRAPPLE_REQUIRE(afterDeleteEffectKeyframeSnapshot);
+  const graph::GraphNode* unkeyframedEffectNode = afterDeleteEffectKeyframeSnapshot.value().graph.findNode(foundation::NodeId{"node_effect_keyframe_effect"});
+  GRAPPLE_REQUIRE(unkeyframedEffectNode != nullptr);
+  const auto* unkeyframedEffectPayload = std::get_if<timeline::EffectPayload>(&unkeyframedEffectNode->payload);
+  GRAPPLE_REQUIRE(unkeyframedEffectPayload != nullptr);
+  GRAPPLE_REQUIRE(unkeyframedEffectPayload->params.values[0].keyframes.empty());
+  GRAPPLE_REQUIRE(effectKeyframeCommands.applyCount() == 3);
+  GRAPPLE_REQUIRE(effectKeyframeQueries.totalQueryCount() == 0);
 
   project::ProjectController clipTransformProject{
     project::createEmptyProject(foundation::ProjectId{"proj_agent_clip_transform"}, "Agent Clip Transform Project")
