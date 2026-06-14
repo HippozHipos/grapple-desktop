@@ -20,6 +20,7 @@ struct GetProjectSnapshotQuery {};
 struct GetGraphQuery {};
 struct GetAssetCatalogQuery {};
 struct InspectCompositionsQuery {};
+struct ListNotesQuery {};
 struct InspectRenderPlanQuery {};
 struct InspectRuntimeDiagnosticsQuery {};
 
@@ -60,6 +61,13 @@ struct CompositionSummary {
   std::vector<CompositionTrackSummary> tracks;
   std::vector<CompositionCameraSummary> cameras;
   std::vector<CompositionEffectSummary> effects;
+};
+
+struct NoteSummary {
+  foundation::NodeId nodeId;
+  std::string title;
+  std::string markdown;
+  bool enabled = true;
 };
 
 struct RenderPlanLayerSummary {
@@ -126,6 +134,7 @@ using ProjectQuery = std::variant<
   GetGraphQuery,
   GetAssetCatalogQuery,
   InspectCompositionsQuery,
+  ListNotesQuery,
   InspectRenderPlanQuery,
   InspectRuntimeDiagnosticsQuery
 >;
@@ -149,11 +158,17 @@ struct CompositionInspectResult {
   std::vector<CompositionSummary> compositions;
 };
 
+struct NotesResult {
+  foundation::RevisionId revision;
+  std::vector<NoteSummary> notes;
+};
+
 using ProjectQueryResult = std::variant<
   ProjectSnapshotResult,
   GraphResult,
   AssetCatalogResult,
   CompositionInspectResult,
+  NotesResult,
   RenderPlanInspectResult,
   RuntimeInspectDiagnosticsResult
 >;
@@ -166,5 +181,6 @@ public:
 };
 
 foundation::Result<CompositionInspectResult> inspectCompositions(const ProjectSnapshot& snapshot);
+foundation::Result<NotesResult> listNotes(const ProjectSnapshot& snapshot);
 
 } // namespace grapple::project

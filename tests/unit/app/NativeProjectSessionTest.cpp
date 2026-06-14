@@ -1415,6 +1415,15 @@ int main() {
   GRAPPLE_REQUIRE(noteViewModel.value().notes.rows[0].sourceNodeId == foundation::NodeId{"node_note_1"});
   GRAPPLE_REQUIRE(noteViewModel.value().notes.rows[0].title == "Camera rationale");
   GRAPPLE_REQUIRE(noteViewModel.value().notes.rows[0].markdown == "Keep the camera offset exposed as a parameter.");
+  const auto notesQuery = noteSession.query(project::ListNotesQuery{});
+  GRAPPLE_REQUIRE(notesQuery);
+  const auto* notesResult = std::get_if<project::NotesResult>(&notesQuery.value());
+  GRAPPLE_REQUIRE(notesResult != nullptr);
+  GRAPPLE_REQUIRE(notesResult->revision == foundation::RevisionId{"rev_1"});
+  GRAPPLE_REQUIRE(notesResult->notes.size() == 1);
+  GRAPPLE_REQUIRE(notesResult->notes[0].nodeId == foundation::NodeId{"node_note_1"});
+  GRAPPLE_REQUIRE(notesResult->notes[0].title == "Camera rationale");
+  GRAPPLE_REQUIRE(notesResult->notes[0].markdown == "Keep the camera offset exposed as a parameter.");
 
   const auto firstCommandId = session.packageState().commandLog.records()[0].id;
   const auto duplicate = session.applyAndCommit(

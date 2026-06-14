@@ -172,4 +172,28 @@ foundation::Result<CompositionInspectResult> inspectCompositions(const ProjectSn
   return result;
 }
 
+foundation::Result<NotesResult> listNotes(const ProjectSnapshot& snapshot) {
+  NotesResult result{snapshot.revision, {}};
+
+  for (const graph::GraphNode& node : snapshot.graph.nodes()) {
+    if (node.kind != graph::NodeKind::Note) {
+      continue;
+    }
+
+    const auto* payload = std::get_if<timeline::NotePayload>(&node.payload);
+    if (payload == nullptr) {
+      return foundation::Error{"project.note_payload_invalid", "Note node must carry a note payload."};
+    }
+
+    result.notes.push_back(NoteSummary{
+      node.id,
+      payload->title,
+      payload->markdown,
+      node.enabled
+    });
+  }
+
+  return result;
+}
+
 } // namespace grapple::project

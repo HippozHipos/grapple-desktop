@@ -1470,6 +1470,16 @@ int main() {
   GRAPPLE_REQUIRE(updatedNotePayload != nullptr);
   GRAPPLE_REQUIRE(updatedNotePayload->title == "Updated note");
   GRAPPLE_REQUIRE(updatedNotePayload->markdown == "Expose the control as a parameter.");
+  const auto notesQuery = noteProject.query(project::ListNotesQuery{});
+  GRAPPLE_REQUIRE(notesQuery);
+  const auto* notesResult = std::get_if<project::NotesResult>(&notesQuery.value());
+  GRAPPLE_REQUIRE(notesResult != nullptr);
+  GRAPPLE_REQUIRE(notesResult->revision == foundation::RevisionId{"rev_2"});
+  GRAPPLE_REQUIRE(notesResult->notes.size() == 1);
+  GRAPPLE_REQUIRE(notesResult->notes[0].nodeId == foundation::NodeId{"node_note"});
+  GRAPPLE_REQUIRE(notesResult->notes[0].title == "Updated note");
+  GRAPPLE_REQUIRE(notesResult->notes[0].markdown == "Expose the control as a parameter.");
+  GRAPPLE_REQUIRE(notesResult->notes[0].enabled);
   const auto updateMissingNote = noteProject.apply(project::ProjectCommandEnvelope{
     foundation::CommandId{"cmd_update_missing_note"},
     foundation::ProjectId{"proj_notes"},

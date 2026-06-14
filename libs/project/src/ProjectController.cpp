@@ -222,6 +222,12 @@ foundation::Result<ProjectQueryResult> ProjectController::readQuery(const Projec
           return result.error();
         }
         return ProjectQueryResult{result.value()};
+      } else if constexpr (std::is_same_v<Query, ListNotesQuery>) {
+        auto result = listNotes(makeProjectSnapshot(document_));
+        if (!result) {
+          return result.error();
+        }
+        return ProjectQueryResult{result.value()};
       } else if constexpr (std::is_same_v<Query, InspectRenderPlanQuery>) {
         return foundation::Error{
           "project.render_plan_query_requires_orchestration",
