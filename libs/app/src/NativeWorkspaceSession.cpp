@@ -7,6 +7,7 @@
 #include <grapple/asset/Asset.hpp>
 #include <grapple/media/CachingMediaReader.hpp>
 #include <grapple/media/FrameCache.hpp>
+#include <grapple/render/LocalRenderSystem.hpp>
 #include <grapple/runtime/BuiltinEffectRuntime.hpp>
 #include <grapple/runtime/RuntimeEvaluator.hpp>
 #include <grapple/storage/ProjectPackageReader.hpp>
@@ -233,8 +234,9 @@ struct NativeWorkspaceSession::State {
       frameSource{cachedMediaReader},
       runtime{{&builtinEffectRuntime}},
       renderCore{runtime, frameSource},
-      preview{project, renderCore},
-      exportSession{project, renderCore} {}
+      renderSystem{renderCore},
+      preview{project, renderSystem},
+      exportSession{project, renderSystem} {}
 
   NativeProjectSession project;
   NativeProjectCommandWriter commandWriter;
@@ -248,6 +250,7 @@ struct NativeWorkspaceSession::State {
   runtime::BuiltinEffectRuntime builtinEffectRuntime;
   runtime::RuntimeEvaluator runtime;
   render::LocalRenderCore renderCore;
+  render::LocalRenderSystem renderSystem;
   NativePreviewSession preview;
   NativeExportSession exportSession;
 };

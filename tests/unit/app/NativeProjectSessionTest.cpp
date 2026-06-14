@@ -11,6 +11,7 @@
 #include <grapple/history/HistorySerializer.hpp>
 #include <grapple/project/ProjectSerializer.hpp>
 #include <grapple/render/LocalRenderCore.hpp>
+#include <grapple/render/LocalRenderSystem.hpp>
 #include <grapple/runtime/BuiltinEffects.hpp>
 #include <grapple/runtime/EffectRuntime.hpp>
 #include <grapple/runtime/RuntimeEvaluator.hpp>
@@ -994,9 +995,10 @@ int main() {
   CountingCameraTransformRuntime countedRuntime;
   runtime::RuntimeEvaluator countedEvaluator{{&countedRuntime}};
   render::LocalRenderCore countedCore{countedEvaluator};
+  render::LocalRenderSystem countedRenderSystem{countedCore};
   app::NativePreviewSession countedPreview{
     runtimeWorkspace.value().project(),
-    countedCore
+    countedRenderSystem
   };
   const auto countedRefresh = countedPreview.refreshFromProject();
   GRAPPLE_REQUIRE(countedRefresh);
@@ -1007,7 +1009,7 @@ int main() {
   GRAPPLE_REQUIRE(countedRuntime.prepareCount == 1);
   app::NativeExportSession countedExport{
     runtimeWorkspace.value().project(),
-    countedCore
+    countedRenderSystem
   };
   const auto countedPrepare = countedExport.prepareFromProject();
   GRAPPLE_REQUIRE(countedPrepare);
@@ -1047,7 +1049,8 @@ int main() {
 
   runtime::RuntimeEvaluator appRuntime;
   render::LocalRenderCore appRenderCore{appRuntime};
-  app::NativePreviewSession preview{session, appRenderCore};
+  render::LocalRenderSystem appRenderSystem{appRenderCore};
+  app::NativePreviewSession preview{session, appRenderSystem};
   const auto frameBeforeRefresh = preview.renderFrame(render::RenderFrameRequest{
     foundation::TimeSeconds{0.0},
     render::RenderQuality::Draft
@@ -1073,7 +1076,7 @@ int main() {
   GRAPPLE_REQUIRE(frame.value().runtimeDiagnostics.empty());
   GRAPPLE_REQUIRE(frame.value().renderDiagnostics.empty());
 
-  app::NativeExportSession exportSession{session, appRenderCore};
+  app::NativeExportSession exportSession{session, appRenderSystem};
   const auto exportAfterPreviewRefresh = exportSession.render(render::ExportSettings{
     foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}},
     foundation::FrameRate{2, 1},

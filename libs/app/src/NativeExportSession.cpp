@@ -129,10 +129,9 @@ private:
 
 NativeExportSession::NativeExportSession(
   NativeProjectSession& project,
-  render::LocalRenderCore& core
+  render::LocalRenderSystem& renderSystem
 ) : project_{project},
-    core_{core},
-    final_{core_} {}
+    renderSystem_{renderSystem} {}
 
 foundation::Result<NativeExportPrepareResult> NativeExportSession::prepareFromProject() {
   auto planResult = project_.buildRenderPlan();
@@ -140,25 +139,25 @@ foundation::Result<NativeExportPrepareResult> NativeExportSession::prepareFromPr
     return planResult.error();
   }
 
-  auto loadResult = core_.loadPlan(planResult.value().plan);
+  auto loadResult = renderSystem_.loadPlan(planResult.value().plan);
   if (!loadResult) {
     return loadResult.error();
   }
 
-  const render::LocalRenderCoreState coreState = core_.state();
+  const render::LocalRenderSystemState renderState = renderSystem_.state();
   return NativeExportPrepareResult{
     planResult.value().plan.revision,
-    coreState.preparedPlanHash.value()
+    renderState.finalRender.core.preparedPlanHash.value()
   };
 }
 
 foundation::Result<render::FinalRenderResult> NativeExportSession::render(render::ExportSettings settings) {
-  return final_.render(render::FinalRenderRequest{std::move(settings)});
+  return renderSystem_.exportRange(render::ExportRequest{std::move(settings)});
 }
 
 foundation::Result<render::FinalRenderResult> NativeExportSession::renderToVideo(render::ExportSettings settings) {
   NativeVideoExportSink sink{settings};
-  auto result = final_.render(render::FinalRenderRequest{std::move(settings), &sink});
+  auto result = renderSystem_.exportRange(render::ExportRequest{std::move(settings), &sink});
   if (!result) {
     return result.error();
   }
@@ -170,7 +169,7 @@ foundation::Result<render::FinalRenderResult> NativeExportSession::renderToVideo
 }
 
 render::FinalRenderShellState NativeExportSession::state() const noexcept {
-  return final_.state();
+  return renderSystem_.state().finalRender;
 }
 
 } // namespace grapple::app

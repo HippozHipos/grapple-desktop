@@ -3,8 +3,7 @@
 #include <grapple/app/NativeProjectSession.hpp>
 #include <grapple/foundation/Hash.hpp>
 #include <grapple/foundation/Result.hpp>
-#include <grapple/render/LocalRenderCore.hpp>
-#include <grapple/render/PreviewRenderShell.hpp>
+#include <grapple/render/LocalRenderSystem.hpp>
 
 namespace grapple::app {
 
@@ -15,7 +14,7 @@ struct NativePreviewRefreshResult {
 
 class NativePreviewSession {
 public:
-  NativePreviewSession(NativeProjectSession& project, render::LocalRenderCore& core);
+  NativePreviewSession(NativeProjectSession& project, render::LocalRenderSystem& renderSystem);
 
   foundation::Result<NativePreviewRefreshResult> refreshFromProject();
   foundation::Result<void> seek(foundation::TimeSeconds time);
@@ -26,8 +25,7 @@ public:
 
 private:
   NativeProjectSession& project_;
-  render::LocalRenderCore& core_;
-  render::PreviewRenderShell preview_;
+  render::LocalRenderSystem& renderSystem_;
 };
 
 } // namespace grapple::app

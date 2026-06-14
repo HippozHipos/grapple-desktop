@@ -3,8 +3,7 @@
 #include <grapple/app/NativeProjectSession.hpp>
 #include <grapple/foundation/Hash.hpp>
 #include <grapple/foundation/Result.hpp>
-#include <grapple/render/FinalRenderShell.hpp>
-#include <grapple/render/LocalRenderCore.hpp>
+#include <grapple/render/LocalRenderSystem.hpp>
 
 namespace grapple::app {
 
@@ -15,7 +14,7 @@ struct NativeExportPrepareResult {
 
 class NativeExportSession {
 public:
-  NativeExportSession(NativeProjectSession& project, render::LocalRenderCore& core);
+  NativeExportSession(NativeProjectSession& project, render::LocalRenderSystem& renderSystem);
 
   foundation::Result<NativeExportPrepareResult> prepareFromProject();
   foundation::Result<render::FinalRenderResult> render(render::ExportSettings settings);
@@ -24,8 +23,7 @@ public:
 
 private:
   NativeProjectSession& project_;
-  render::LocalRenderCore& core_;
-  render::FinalRenderShell final_;
+  render::LocalRenderSystem& renderSystem_;
 };
 
 } // namespace grapple::app

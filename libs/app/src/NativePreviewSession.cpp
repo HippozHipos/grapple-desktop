@@ -4,10 +4,9 @@ namespace grapple::app {
 
 NativePreviewSession::NativePreviewSession(
   NativeProjectSession& project,
-  render::LocalRenderCore& core
+  render::LocalRenderSystem& renderSystem
 ) : project_{project},
-    core_{core},
-    preview_{core_} {}
+    renderSystem_{renderSystem} {}
 
 foundation::Result<NativePreviewRefreshResult> NativePreviewSession::refreshFromProject() {
   auto planResult = project_.buildRenderPlan();
@@ -15,36 +14,39 @@ foundation::Result<NativePreviewRefreshResult> NativePreviewSession::refreshFrom
     return planResult.error();
   }
 
-  auto loadResult = core_.loadPlan(planResult.value().plan);
+  auto loadResult = renderSystem_.loadPlan(planResult.value().plan);
   if (!loadResult) {
     return loadResult.error();
   }
 
-  const render::LocalRenderCoreState coreState = core_.state();
+  const render::LocalRenderSystemState renderState = renderSystem_.state();
   return NativePreviewRefreshResult{
     planResult.value().plan.revision,
-    coreState.preparedPlanHash.value()
+    renderState.preview.core.preparedPlanHash.value()
   };
 }
 
 foundation::Result<void> NativePreviewSession::seek(foundation::TimeSeconds time) {
-  return preview_.seek(time);
+  return renderSystem_.seek(time);
 }
 
 foundation::Result<void> NativePreviewSession::play() {
-  return preview_.play();
+  return renderSystem_.play();
 }
 
 foundation::Result<void> NativePreviewSession::pause() {
-  return preview_.pause();
+  return renderSystem_.pause();
 }
 
 foundation::Result<render::RenderFrameResult> NativePreviewSession::renderFrame(render::RenderFrameRequest request) const {
-  return preview_.renderFrame(request);
+  return renderSystem_.renderPlaybackFrame(render::PlaybackFrameRequest{
+    request.time,
+    request.quality
+  });
 }
 
 render::PreviewRenderShellState NativePreviewSession::state() const noexcept {
-  return preview_.state();
+  return renderSystem_.state().preview;
 }
 
 } // namespace grapple::app
