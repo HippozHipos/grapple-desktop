@@ -190,7 +190,7 @@ void StewardPanel::setViewModel(
   QStringList lines{
     "Steward",
     "Loop",
-    "1. Create an editable graph change",
+    "1. Create an editable result",
     "2. Preview the evaluated result",
     "3. Tune exposed parameters without rerunning Steward",
     "",

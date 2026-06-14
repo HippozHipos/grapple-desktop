@@ -498,7 +498,7 @@ public:
     moreButton->setMenu(moreMenu);
     auto* productTitle = new QLabel{"Grapple"};
     productTitle->setObjectName("productTitle");
-    auto* productSubtitle = new QLabel{"Prompt -> editable graph -> preview/export"};
+    auto* productSubtitle = new QLabel{"Prompt -> editable result -> preview/export"};
     productSubtitle->setObjectName("productSubtitle");
     auto* titleBlock = new QWidget;
     auto* titleLayout = new QVBoxLayout{titleBlock};
