@@ -1055,6 +1055,18 @@ void writeParamValueJson(std::ostream& stream, const timeline::ParamValue& value
   );
 }
 
+void writeTransformJson(std::ostream& stream, const timeline::Transform2D& transform) {
+  stream << "{\"position\":";
+  writeVec2Json(stream, transform.position);
+  stream << ",\"scale\":";
+  writeVec2Json(stream, transform.scale);
+  stream << ",\"rotationDegrees\":";
+  writeNumber(stream, transform.rotationDegrees);
+  stream << ",\"opacity\":";
+  writeNumber(stream, transform.opacity);
+  stream << '}';
+}
+
 void writeAssetJson(std::ostream& stream, const asset::Asset& asset) {
   stream << '{'
          << "\"assetId\":" << foundation::jsonQuoted(asset.id.value())
@@ -1090,7 +1102,13 @@ void writeCompositionClipJson(std::ostream& stream, const project::CompositionCl
          << ",\"kind\":" << foundation::jsonQuoted(clipKindText(clip.kind))
          << ",\"timelineRange\":{\"start\":" << clip.timelineRange.start.value
          << ",\"end\":" << clip.timelineRange.end.value
-         << "},\"enabled\":" << (clip.enabled ? "true" : "false")
+         << "},\"sourceRange\":{\"start\":" << clip.sourceRange.start.value
+         << ",\"end\":" << clip.sourceRange.end.value
+         << "},\"playbackRate\":";
+  writeNumber(stream, clip.playbackRate);
+  stream << ",\"transform\":";
+  writeTransformJson(stream, clip.transform);
+  stream << ",\"enabled\":" << (clip.enabled ? "true" : "false")
          << '}';
 }
 
@@ -1114,7 +1132,11 @@ void writeCompositionCameraJson(std::ostream& stream, const project::Composition
   stream << '{'
          << "\"nodeId\":" << foundation::jsonQuoted(camera.nodeId.value())
          << ",\"name\":" << foundation::jsonQuoted(camera.name)
-         << ",\"enabled\":" << (camera.enabled ? "true" : "false")
+         << ",\"transform\":";
+  writeTransformJson(stream, camera.transform);
+  stream << ",\"lens\":{\"focalLength\":";
+  writeNumber(stream, camera.lens.focalLength);
+  stream << "},\"enabled\":" << (camera.enabled ? "true" : "false")
          << '}';
 }
 

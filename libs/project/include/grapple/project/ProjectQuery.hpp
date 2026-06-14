@@ -32,6 +32,9 @@ struct CompositionClipSummary {
   foundation::AssetId assetId;
   timeline::ClipKind kind = timeline::ClipKind::Video;
   foundation::TimeRange timelineRange;
+  foundation::TimeRange sourceRange;
+  double playbackRate = 1.0;
+  timeline::Transform2D transform;
   bool enabled = true;
 };
 
@@ -46,6 +49,8 @@ struct CompositionTrackSummary {
 struct CompositionCameraSummary {
   foundation::NodeId nodeId;
   std::string name;
+  timeline::Transform2D transform;
+  timeline::CameraLens lens;
   bool enabled = true;
 };
 

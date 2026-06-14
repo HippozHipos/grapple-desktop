@@ -1153,7 +1153,11 @@ int main() {
   GRAPPLE_REQUIRE(inspectCompositionResult.value().payload.find("\"nodeId\":\"node_composition\"") != std::string::npos);
   GRAPPLE_REQUIRE(inspectCompositionResult.value().payload.find("\"tracks\":[{\"nodeId\":\"node_agent_track_3\"") != std::string::npos);
   GRAPPLE_REQUIRE(inspectCompositionResult.value().payload.find("\"clips\":[{\"nodeId\":\"node_agent_clip_4\"") != std::string::npos);
+  GRAPPLE_REQUIRE(inspectCompositionResult.value().payload.find("\"sourceRange\":{\"start\":2,\"end\":4}") != std::string::npos);
+  GRAPPLE_REQUIRE(inspectCompositionResult.value().payload.find("\"playbackRate\":1") != std::string::npos);
+  GRAPPLE_REQUIRE(inspectCompositionResult.value().payload.find("\"transform\":{\"position\":{\"x\":0,\"y\":0},\"scale\":{\"x\":1,\"y\":1},\"rotationDegrees\":0,\"opacity\":1}") != std::string::npos);
   GRAPPLE_REQUIRE(inspectCompositionResult.value().payload.find("\"cameras\":[{\"nodeId\":\"node_camera\"") != std::string::npos);
+  GRAPPLE_REQUIRE(inspectCompositionResult.value().payload.find("\"lens\":{\"focalLength\":35}") != std::string::npos);
   GRAPPLE_REQUIRE(inspectCompositionResult.value().payload.find("\"effects\":[{\"nodeId\":\"node_agent_effect_1\"") != std::string::npos);
   GRAPPLE_REQUIRE(inspectCompositionResult.value().payload.find("\"targetNodeId\":\"node_camera\"") != std::string::npos);
   GRAPPLE_REQUIRE(inspectCompositionResult.value().payload.find("\"commandId\"") == std::string::npos);

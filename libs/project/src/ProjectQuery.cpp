@@ -152,6 +152,9 @@ foundation::Result<CompositionClipSummary> inspectClip(
     payload->assetId,
     payload->kind,
     payload->timelineRange,
+    payload->sourceRange,
+    payload->playbackRate,
+    payload->transform,
     node.enabled
   };
 }
@@ -192,7 +195,7 @@ foundation::Result<CompositionCameraSummary> inspectCamera(const graph::GraphNod
     return foundation::Error{"project.camera_payload_invalid", "Camera node must carry a camera payload."};
   }
 
-  return CompositionCameraSummary{node.id, payload->name, node.enabled};
+  return CompositionCameraSummary{node.id, payload->name, payload->transform, payload->lens, node.enabled};
 }
 
 foundation::Result<CompositionEffectSummary> inspectEffect(
