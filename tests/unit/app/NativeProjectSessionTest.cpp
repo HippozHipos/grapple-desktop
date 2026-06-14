@@ -9,6 +9,7 @@
 #include <grapple/foundation/Hash.hpp>
 #include <grapple/graph/GraphEdge.hpp>
 #include <grapple/history/HistorySerializer.hpp>
+#include <grapple/jobs/JobQueue.hpp>
 #include <grapple/project/ProjectSerializer.hpp>
 #include <grapple/render/LocalRenderCore.hpp>
 #include <grapple/render/LocalRenderSystem.hpp>
@@ -26,6 +27,7 @@
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
+#include <thread>
 #include <variant>
 
 namespace {
@@ -586,6 +588,28 @@ int main() {
   GRAPPLE_REQUIRE(cacheAudioSource != nullptr);
   GRAPPLE_REQUIRE(cacheAudioSource->kind == media::MediaSourceKind::Audio);
   GRAPPLE_REQUIRE(cacheWorkspace.value().cachedMediaFrameCount() == 0);
+  const std::thread::id workspaceCallerThread = std::this_thread::get_id();
+  std::thread::id workspaceJobThread;
+  const auto enqueueWorkspaceJob = cacheWorkspace.value().jobs().enqueue(jobs::Job{
+    foundation::JobId{"job_workspace_app"},
+    "Workspace App Job",
+    [&](jobs::CancellationToken&, jobs::IProgressSink& progress) {
+      workspaceJobThread = std::this_thread::get_id();
+      progress.reportProgress(1.0);
+      return foundation::Result<void>{};
+    }
+  });
+  GRAPPLE_REQUIRE(enqueueWorkspaceJob);
+  cacheWorkspace.value().jobs().waitUntilIdle();
+  const auto workspaceJobRuns = cacheWorkspace.value().jobs().runRecords();
+  GRAPPLE_REQUIRE(workspaceJobThread != workspaceCallerThread);
+  GRAPPLE_REQUIRE(workspaceJobRuns.size() == 1);
+  GRAPPLE_REQUIRE(workspaceJobRuns[0].jobId == foundation::JobId{"job_workspace_app"});
+  GRAPPLE_REQUIRE(workspaceJobRuns[0].status == jobs::JobRunStatus::Succeeded);
+  const auto workspaceJobProgress = cacheWorkspace.value().jobs().progressRecords();
+  GRAPPLE_REQUIRE(workspaceJobProgress.size() == 1);
+  GRAPPLE_REQUIRE(workspaceJobProgress[0].jobId == foundation::JobId{"job_workspace_app"});
+  GRAPPLE_REQUIRE(workspaceJobProgress[0].progress == 1.0);
   const auto exportOnlyPrepare = cacheWorkspace.value().exportSession().prepareFromProject();
   GRAPPLE_REQUIRE(exportOnlyPrepare);
   const auto exportOnlyResult = cacheWorkspace.value().exportSession().render(render::ExportSettings{

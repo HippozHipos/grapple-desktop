@@ -26,6 +26,7 @@ target_link_libraries(grapple_app
   PUBLIC
     Grapple::Agent
     Grapple::Foundation
+    Grapple::Jobs
     Grapple::Media
     Grapple::Project
     Grapple::Projection

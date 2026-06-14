@@ -253,6 +253,7 @@ struct NativeWorkspaceSession::State {
   render::LocalRenderSystem renderSystem;
   NativePreviewSession preview;
   NativeExportSession exportSession;
+  jobs::JobScheduler jobs;
 };
 
 NativeWorkspaceSession::NativeWorkspaceSession(NativeWorkspaceSession&&) noexcept = default;
@@ -363,6 +364,10 @@ NativePreviewSession& NativeWorkspaceSession::preview() noexcept {
 
 NativeExportSession& NativeWorkspaceSession::exportSession() noexcept {
   return state_->exportSession;
+}
+
+jobs::JobScheduler& NativeWorkspaceSession::jobs() noexcept {
+  return state_->jobs;
 }
 
 media::MediaSourceCatalog& NativeWorkspaceSession::mediaSources() noexcept {

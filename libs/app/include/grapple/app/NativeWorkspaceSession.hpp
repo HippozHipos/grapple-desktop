@@ -7,6 +7,7 @@
 #include <grapple/app/NativeProjectCommandWriter.hpp>
 #include <grapple/app/NativeProjectSession.hpp>
 #include <grapple/app/NativeStewardSession.hpp>
+#include <grapple/jobs/JobScheduler.hpp>
 #include <grapple/media/MediaSource.hpp>
 #include <grapple/media/OpenCVMediaReader.hpp>
 
@@ -50,6 +51,7 @@ public:
   [[nodiscard]] NativeStewardSession& steward() noexcept;
   [[nodiscard]] NativePreviewSession& preview() noexcept;
   [[nodiscard]] NativeExportSession& exportSession() noexcept;
+  [[nodiscard]] jobs::JobScheduler& jobs() noexcept;
   [[nodiscard]] media::MediaSourceCatalog& mediaSources() noexcept;
   [[nodiscard]] std::size_t cachedMediaFrameCount() const noexcept;
   foundation::Result<foundation::AssetId> importMediaFile(foundation::FilePath path);
