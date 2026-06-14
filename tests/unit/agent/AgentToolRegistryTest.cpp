@@ -128,6 +128,9 @@ public:
         } else if constexpr (std::is_same_v<Query, grapple::project::InspectCompositionsQuery>) {
           ++compositionQueryCount_;
           return project_.query(typedQuery);
+        } else if constexpr (std::is_same_v<Query, grapple::project::ListNotesQuery>) {
+          ++noteListQueryCount_;
+          return project_.query(typedQuery);
         } else {
           return project_.query(typedQuery);
         }
@@ -160,6 +163,10 @@ public:
     return runtimeDiagnosticsQueryCount_;
   }
 
+  [[nodiscard]] std::size_t noteListQueryCount() const noexcept {
+    return noteListQueryCount_;
+  }
+
 private:
   const grapple::project::ProjectController& project_;
   mutable std::size_t totalQueryCount_ = 0;
@@ -168,6 +175,7 @@ private:
   mutable std::size_t compositionQueryCount_ = 0;
   mutable std::size_t renderPlanQueryCount_ = 0;
   mutable std::size_t runtimeDiagnosticsQueryCount_ = 0;
+  mutable std::size_t noteListQueryCount_ = 0;
 };
 
 class TestProjectIdAllocator final : public grapple::project::IProjectIdAllocator {
@@ -236,7 +244,7 @@ int main() {
   agent::AgentToolRegistry registry;
   const auto registered = agent::registerProjectTools(registry);
   GRAPPLE_REQUIRE(registered);
-  GRAPPLE_REQUIRE(registry.tools().size() == 25);
+  GRAPPLE_REQUIRE(registry.tools().size() == 26);
   std::vector<std::string> serializedToolIds;
   serializedToolIds.reserve(registry.tools().size());
   for (const agent::AgentTool& tool : registry.tools()) {
@@ -267,6 +275,7 @@ int main() {
   GRAPPLE_REQUIRE(registry.findBySerializedId("render_plan.inspect") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("runtime.inspect_diagnostics") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("project.create_effect") == nullptr);
+  GRAPPLE_REQUIRE(registry.findBySerializedId("note.list") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("note.create") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("note.update") != nullptr);
   const agent::AgentTool* registeredAssetListTool = registry.findBySerializedId("asset.list");
@@ -404,6 +413,10 @@ int main() {
   GRAPPLE_REQUIRE(registeredRuntimeInspectDiagnosticsTool != nullptr);
   GRAPPLE_REQUIRE(registeredRuntimeInspectDiagnosticsTool->schema.find("\"additionalProperties\": false") != std::string::npos);
   GRAPPLE_REQUIRE(registeredRuntimeInspectDiagnosticsTool->schema.find("\"commandId\"") == std::string::npos);
+  const agent::AgentTool* registeredNoteListTool = registry.findBySerializedId("note.list");
+  GRAPPLE_REQUIRE(registeredNoteListTool != nullptr);
+  GRAPPLE_REQUIRE(registeredNoteListTool->schema.find("\"additionalProperties\": false") != std::string::npos);
+  GRAPPLE_REQUIRE(registeredNoteListTool->schema.find("\"commandId\"") == std::string::npos);
 
   const auto duplicate = registry.registerTool(agent::makeProjectInspectTool());
   GRAPPLE_REQUIRE(!duplicate);
@@ -749,6 +762,31 @@ int main() {
   GRAPPLE_REQUIRE(notePayload != nullptr);
   GRAPPLE_REQUIRE(notePayload->title == "Updated rationale");
   GRAPPLE_REQUIRE(notePayload->markdown == "Parameter remains editable after creation.");
+
+  const std::size_t commandCountBeforeNoteList = commands.applyCount();
+  const std::size_t queryCountBeforeNoteList = queries.totalQueryCount();
+  const agent::AgentTool* listNotes = registry.findBySerializedId("note.list");
+  GRAPPLE_REQUIRE(listNotes != nullptr);
+  const auto listNotesResult = listNotes->handler(
+    agent::ToolCall{
+      foundation::ToolId{"tool_note_list"},
+      foundation::RunId{"run_1"},
+      foundation::ProjectId{"proj_agent"},
+      updateNoteResult.value().observedRevision,
+      "{}"
+    },
+    context
+  );
+  GRAPPLE_REQUIRE(listNotesResult);
+  GRAPPLE_REQUIRE(listNotesResult.value().status == agent::ToolResultStatus::Succeeded);
+  GRAPPLE_REQUIRE(listNotesResult.value().observedRevision == foundation::RevisionId{"rev_5"});
+  GRAPPLE_REQUIRE(
+    listNotesResult.value().payload ==
+    "{\"revision\":\"rev_5\",\"notes\":[{\"nodeId\":\"node_agent_note_2\",\"title\":\"Updated rationale\",\"markdown\":\"Parameter remains editable after creation.\",\"enabled\":true}]}"
+  );
+  GRAPPLE_REQUIRE(commands.applyCount() == commandCountBeforeNoteList);
+  GRAPPLE_REQUIRE(queries.totalQueryCount() == queryCountBeforeNoteList + 1);
+  GRAPPLE_REQUIRE(queries.noteListQueryCount() == 1);
 
   const auto missingNoteUpdateResult = updateNote->handler(
     agent::ToolCall{

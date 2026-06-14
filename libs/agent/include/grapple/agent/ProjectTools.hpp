@@ -32,6 +32,7 @@ AgentTool makeEffectConnectPortsTool();
 AgentTool makeEffectDisconnectPortsTool();
 AgentTool makeRenderPlanInspectTool();
 AgentTool makeRuntimeInspectDiagnosticsTool();
+AgentTool makeNoteListTool();
 AgentTool makeNoteCreateTool();
 AgentTool makeNoteUpdateTool();
 

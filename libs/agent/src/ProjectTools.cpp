@@ -422,6 +422,12 @@ constexpr const char RuntimeInspectDiagnosticsSchema[] = R"json({
   "properties": {}
 })json";
 
+constexpr const char NoteListSchema[] = R"json({
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+})json";
+
 constexpr const char NoteCreateSchema[] = R"json({
   "type": "object",
   "additionalProperties": false,
@@ -1191,6 +1197,28 @@ void writeRuntimeInspectDiagnosticsJson(
   stream << "]}";
 }
 
+void writeNoteJson(std::ostream& stream, const project::NoteSummary& note) {
+  stream << '{'
+         << "\"nodeId\":" << foundation::jsonQuoted(note.nodeId.value())
+         << ",\"title\":" << foundation::jsonQuoted(note.title)
+         << ",\"markdown\":" << foundation::jsonQuoted(note.markdown)
+         << ",\"enabled\":" << (note.enabled ? "true" : "false")
+         << '}';
+}
+
+void writeNotesJson(std::ostream& stream, const project::NotesResult& result) {
+  stream << '{'
+         << "\"revision\":" << foundation::jsonQuoted(result.revision.value())
+         << ",\"notes\":[";
+  for (std::size_t index = 0; index < result.notes.size(); ++index) {
+    if (index != 0) {
+      stream << ',';
+    }
+    writeNoteJson(stream, result.notes[index]);
+  }
+  stream << "]}";
+}
+
 } // namespace
 
 foundation::Result<void> registerProjectTools(AgentToolRegistry& registry) {
@@ -1283,6 +1311,10 @@ foundation::Result<void> registerProjectTools(AgentToolRegistry& registry) {
     return registered.error();
   }
   registered = registry.registerTool(makeRuntimeInspectDiagnosticsTool());
+  if (!registered) {
+    return registered.error();
+  }
+  registered = registry.registerTool(makeNoteListTool());
   if (!registered) {
     return registered.error();
   }
@@ -2903,6 +2935,47 @@ AgentTool makeRuntimeInspectDiagnosticsTool() {
         call.toolId,
         ToolResultStatus::Succeeded,
         diagnosticsResult->revision,
+        payload.str(),
+        {}
+      };
+    }
+  };
+}
+
+AgentTool makeNoteListTool() {
+  return AgentTool{
+    foundation::ToolId{"tool_note_list"},
+    "note.list",
+    "List Notes",
+    "Lists project notes through Project Core.",
+    NoteListSchema,
+    [](const ToolCall& call, AgentToolContext& context) -> foundation::Result<ToolResult> {
+      auto arguments = parseArguments(call.arguments);
+      if (!arguments) {
+        return arguments.error();
+      }
+      auto members = requireOnlyMembers(arguments.value(), {}, "$");
+      if (!members) {
+        return members.error();
+      }
+      auto query = context.queries.query(project::ListNotesQuery{});
+      if (!query) {
+        return query.error();
+      }
+      const auto* notesResult = std::get_if<project::NotesResult>(&query.value());
+      if (notesResult == nullptr) {
+        return foundation::Error{
+          "agent.note_list_result_missing",
+          "Note list query returned the wrong result type."
+        };
+      }
+
+      std::ostringstream payload;
+      writeNotesJson(payload, *notesResult);
+      return ToolResult{
+        call.toolId,
+        ToolResultStatus::Succeeded,
+        notesResult->revision,
         payload.str(),
         {}
       };
