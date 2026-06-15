@@ -2178,6 +2178,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     const bool stewardActionEnabled = window.stewardPrimaryActionEnabled();
     const std::string effectParamTitle = window.effectParamTitleText();
     const std::string effectParamPanel = window.effectParamPanelText();
+    const std::string exportStatus = window.exportStatusText();
     const std::string log = window.logContents();
     const bool exists = std::filesystem::exists(outputPath);
     const auto size = exists ? std::filesystem::file_size(outputPath) : 0U;
@@ -2255,6 +2256,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "stewardActionEnabled=" << (stewardActionEnabled ? "true" : "false") << '\n';
     std::cout << "effectParamTitle=" << effectParamTitle << '\n';
     std::cout << "effectParamPanel=" << effectParamPanel << '\n';
+    std::cout << "exportStatus=" << exportStatus << '\n';
     std::cout << "log=" << log << '\n';
     return viewModel.value().assets.count == 1 &&
            viewModel.value().timeline.clips.size() == 1 &&
@@ -2292,6 +2294,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            effectParamPanel.find("Position X") != std::string::npos &&
            effectParamPanel.find("Zoom") != std::string::npos &&
            effectParamPanel.find("Last changed by steward at ") != std::string::npos &&
+           exportStatus == "Export complete: 100 frames, plan " + tunedPreviewFrame.value().frame.renderPlanHash.toHex().substr(0, 8) &&
            log.find("Imported starter-gradient") != std::string::npos &&
            log.find("Added selected media to timeline") != std::string::npos &&
            log.find("Steward added selected media to timeline") == std::string::npos &&

@@ -11,6 +11,7 @@
 
 class QComboBox;
 class QDoubleSpinBox;
+class QLabel;
 class QSpinBox;
 class QVBoxLayout;
 
@@ -30,6 +31,8 @@ public:
 
   void setApplyHandler(ApplyHandler handler);
   [[nodiscard]] ExportSettingsDraft draft() const;
+  void setStatus(std::string status);
+  [[nodiscard]] std::string status() const;
 
 private:
   QSpinBox* addIntegerEditor(
@@ -47,6 +50,7 @@ private:
   QSpinBox* height_ = nullptr;
   QDoubleSpinBox* framesPerSecond_ = nullptr;
   QComboBox* codec_ = nullptr;
+  QLabel* status_ = nullptr;
 };
 
 } // namespace grapple::ui

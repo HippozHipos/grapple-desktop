@@ -730,6 +730,7 @@ public:
       QLabel#clipTransformTitle { color: #e8f4ff; font-weight: 800; }
       QLabel#clipTransformHelp { color: #9fb0c8; }
       QLabel#exportSettingsTitle { color: #e8f4ff; font-weight: 800; }
+      QLabel#exportSettingsStatus { color: #b8c7dc; background: #151b25; border: 1px solid #343b4a; border-radius: 8px; padding: 8px; }
       QLabel#playheadLabel { color: #d8f3ff; font-weight: 800; padding: 0 8px; }
       QPushButton {
         background: #58c7d8; color: #071015; border: 0; border-radius: 8px; padding: 6px 10px; min-height: 24px; font-weight: 700;
@@ -1139,6 +1140,10 @@ public:
       return std::nullopt;
     }
     return editor->value();
+  }
+
+  std::string exportStatusText() const {
+    return exportSettings_->status();
   }
 
   std::string currentDetailTabText() const {
@@ -2480,6 +2485,7 @@ public:
     activeExportJobId_ = jobId;
     lastLoggedExportProgressPercent_ = -25;
     log_->append(QString{"Export queued -> %1"}.arg(qString(path.value)));
+    exportSettings_->setStatus("Export queued");
     auto enqueue = workspace_.jobs().enqueue(grapple::jobs::Job{
       jobId,
       "Desktop video export",
@@ -2504,6 +2510,7 @@ public:
     if (!enqueue) {
       exportInProgress_ = false;
       activeExportJobId_.reset();
+      exportSettings_->setStatus("Export could not start");
       appendError(enqueue.error());
       return false;
     }
@@ -2535,6 +2542,7 @@ public:
           (percent >= lastLoggedExportProgressPercent_ + 25 || percent == 100)) {
         lastLoggedExportProgressPercent_ = percent;
         log_->append(QString{"Export progress %1%"}.arg(percent));
+        exportSettings_->setStatus(QString{"Export progress %1%"}.arg(percent).toStdString());
       }
       return;
     }
@@ -2544,6 +2552,7 @@ public:
     exportInProgress_ = false;
     activeExportJobId_.reset();
     if (!result) {
+      exportSettings_->setStatus("Export failed");
       appendError(result.error());
       return;
     }
@@ -2552,6 +2561,10 @@ public:
       log_->append("Export progress 100%");
     }
     appendDiagnostics(result.value());
+    exportSettings_->setStatus(QString{"Export complete: %1 frames, plan %2"}
+      .arg(result.value().framesEvaluated)
+      .arg(qString(result.value().renderPlanHash.toHex().substr(0, 8)))
+      .toStdString());
     log_->append(QString{"Export evaluated %1 frames from %2 plan %3 -> %4"}
       .arg(result.value().framesEvaluated)
       .arg(qString(result.value().sourceRevision.value()))
@@ -3194,6 +3207,10 @@ void DesktopWindow::setExportFrameRateControlValue(double framesPerSecond) {
 
 void DesktopWindow::setExportCodecControlValue(std::string codec) {
   impl_->setExportCodecControlValue(std::move(codec));
+}
+
+std::string DesktopWindow::exportStatusText() const {
+  return impl_->exportStatusText();
 }
 
 void DesktopWindow::setEffectParamControlDraftValue(const std::string& paramName, double value) {

@@ -8,6 +8,7 @@
 #include <QVBoxLayout>
 
 #include <cmath>
+#include <utility>
 
 namespace grapple::ui {
 
@@ -65,6 +66,12 @@ ExportSettingsPanel::ExportSettingsPanel(QWidget* parent)
   codecLayout->addWidget(codecLabel);
   codecLayout->addWidget(codec_, 1);
   layout_->addWidget(codecRow);
+
+  status_ = new QLabel{"No export yet"};
+  status_->setObjectName("exportSettingsStatus");
+  status_->setWordWrap(true);
+  layout_->addWidget(status_);
+
   layout_->addStretch(1);
 }
 
@@ -79,6 +86,14 @@ ExportSettingsDraft ExportSettingsPanel::draft() const {
     foundation::FrameRate{fpsNumerator, 1000},
     render::Codec{codec_->currentText().toStdString()}
   };
+}
+
+void ExportSettingsPanel::setStatus(std::string status) {
+  status_->setText(QString::fromStdString(std::move(status)));
+}
+
+std::string ExportSettingsPanel::status() const {
+  return status_->text().toStdString();
 }
 
 QSpinBox* ExportSettingsPanel::addIntegerEditor(
