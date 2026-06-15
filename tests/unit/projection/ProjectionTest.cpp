@@ -218,6 +218,53 @@ int main() {
   });
   GRAPPLE_REQUIRE(createEffect);
 
+  const std::string shaderSource = "void mainImage(out vec4 color, in vec2 uv) {\n  color = vec4(uv, 0.0, 1.0);\n}\n";
+  const timeline::EffectPayload shaderEffectPayload{
+    "Vignette Shader",
+    timeline::EffectImplementation{
+      timeline::EffectImplementationKind::Shader,
+      "mainImage",
+      timeline::EffectSource{
+        timeline::EffectSourceKind::InlineSource,
+        "glsl",
+        shaderSource,
+        std::nullopt,
+        foundation::stableHash(shaderSource)
+      }
+    },
+    timeline::EffectPortSet{
+      {timeline::EffectPort{"input_frame"}},
+      {timeline::EffectPort{"color"}}
+    },
+    timeline::ParamSet{
+      {timeline::Param{
+        "strength",
+        0.4,
+        timeline::Param::Control{
+          "Strength",
+          timeline::Param::NumericControl{0.0, 1.0, 0.05}
+        }
+      }}
+    },
+    foundation::TimeRange{foundation::TimeSeconds{2.0}, foundation::TimeSeconds{8.0}}
+  };
+  const auto createShaderEffect = controller.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_shader_effect"},
+    foundation::ProjectId{"proj_projection"},
+    createEffect.value().afterRevision,
+    project::CommandSource{project::CommandSourceKind::Agent, foundation::RunId{"run_1"}, "agent"},
+    project::CreateEffectCommand{
+      foundation::NodeId{"node_shader_effect"},
+      foundation::NodeId{"node_camera"},
+      foundation::EdgeId{"edge_shader_effect_targets_camera"},
+      shaderEffectPayload,
+      graph::PortName{"color"},
+      graph::PortName{"input"},
+      9
+    }
+  });
+  GRAPPLE_REQUIRE(createShaderEffect);
+
   const auto snapshot = controller.snapshot();
   GRAPPLE_REQUIRE(snapshot);
 
@@ -227,7 +274,7 @@ int main() {
   });
   GRAPPLE_REQUIRE(timelineResult);
   GRAPPLE_REQUIRE(timelineResult.value().timeline.projectId == foundation::ProjectId{"proj_projection"});
-  GRAPPLE_REQUIRE(timelineResult.value().timeline.revision == foundation::RevisionId{"rev_6"});
+  GRAPPLE_REQUIRE(timelineResult.value().timeline.revision == foundation::RevisionId{"rev_7"});
   GRAPPLE_REQUIRE(timelineResult.value().timeline.duration == foundation::TimeSeconds{10.0});
   GRAPPLE_REQUIRE(timelineResult.value().timeline.layers.size() == 1);
   GRAPPLE_REQUIRE(timelineResult.value().timeline.audioTracks.empty());
@@ -242,8 +289,28 @@ int main() {
   GRAPPLE_REQUIRE(timelineResult.value().timeline.cameras[0].state.lens.focalLength == 35.0);
   GRAPPLE_REQUIRE(timelineResult.value().timeline.effectGraphs.size() == 1);
   GRAPPLE_REQUIRE(timelineResult.value().timeline.effectGraphs[0].targetNodeId == foundation::NodeId{"node_camera"});
-  GRAPPLE_REQUIRE(timelineResult.value().timeline.effectGraphs[0].nodes.size() == 1);
-  GRAPPLE_REQUIRE(timelineResult.value().timeline.effectGraphs[0].nodes[0].payload.implementation.source.inlineSource == "def prepare(ctx):\n  return {'x': 1}\n");
+  GRAPPLE_REQUIRE(timelineResult.value().timeline.effectGraphs[0].nodes.size() == 2);
+  const auto timelinePythonEffect = std::find_if(
+    timelineResult.value().timeline.effectGraphs[0].nodes.begin(),
+    timelineResult.value().timeline.effectGraphs[0].nodes.end(),
+    [](const projection::TimelineEffectNode& node) {
+      return node.sourceNodeId == foundation::NodeId{"node_effect"};
+    }
+  );
+  GRAPPLE_REQUIRE(timelinePythonEffect != timelineResult.value().timeline.effectGraphs[0].nodes.end());
+  GRAPPLE_REQUIRE(timelinePythonEffect->payload.implementation.source.inlineSource == "def prepare(ctx):\n  return {'x': 1}\n");
+  const auto timelineShaderEffect = std::find_if(
+    timelineResult.value().timeline.effectGraphs[0].nodes.begin(),
+    timelineResult.value().timeline.effectGraphs[0].nodes.end(),
+    [](const projection::TimelineEffectNode& node) {
+      return node.sourceNodeId == foundation::NodeId{"node_shader_effect"};
+    }
+  );
+  GRAPPLE_REQUIRE(timelineShaderEffect != timelineResult.value().timeline.effectGraphs[0].nodes.end());
+  GRAPPLE_REQUIRE(timelineShaderEffect->payload.implementation.kind == timeline::EffectImplementationKind::Shader);
+  GRAPPLE_REQUIRE(timelineShaderEffect->payload.implementation.entrypoint == "mainImage");
+  GRAPPLE_REQUIRE(timelineShaderEffect->payload.implementation.source.language == "glsl");
+  GRAPPLE_REQUIRE(timelineShaderEffect->payload.implementation.source.inlineSource == shaderSource);
   GRAPPLE_REQUIRE(timelineResult.value().diagnostics.empty());
 
   const projection::RenderPlanBuilder builder;
@@ -252,7 +319,7 @@ int main() {
   });
   GRAPPLE_REQUIRE(planResult);
   GRAPPLE_REQUIRE(planResult.value().plan.projectId == foundation::ProjectId{"proj_projection"});
-  GRAPPLE_REQUIRE(planResult.value().plan.revision == foundation::RevisionId{"rev_6"});
+  GRAPPLE_REQUIRE(planResult.value().plan.revision == foundation::RevisionId{"rev_7"});
   GRAPPLE_REQUIRE(planResult.value().plan.duration == foundation::TimeSeconds{10.0});
   GRAPPLE_REQUIRE(planResult.value().plan.layers.size() == 1);
   GRAPPLE_REQUIRE(planResult.value().plan.audioTracks.empty());
@@ -263,24 +330,69 @@ int main() {
   GRAPPLE_REQUIRE(planResult.value().plan.cameras.size() == 1);
   GRAPPLE_REQUIRE(planResult.value().plan.effectGraphs.size() == 1);
   GRAPPLE_REQUIRE(planResult.value().plan.effectGraphs[0].id == foundation::GraphId{"effect_graph_node_camera"});
-  GRAPPLE_REQUIRE(planResult.value().plan.effectGraphs[0].nodes.size() == 1);
-  GRAPPLE_REQUIRE(planResult.value().plan.effectGraphs[0].nodes[0].sourceNodeId == foundation::NodeId{"node_effect"});
-  GRAPPLE_REQUIRE(planResult.value().plan.effectGraphs[0].nodes[0].payload.implementation.kind == timeline::EffectImplementationKind::Python);
-  GRAPPLE_REQUIRE(planResult.value().plan.effectGraphs[0].nodes[0].payload.implementation.entrypoint == "prepare");
-  GRAPPLE_REQUIRE(planResult.value().plan.effectGraphs[0].nodes[0].payload.ports.inputs[0].name == "input_frame");
-  GRAPPLE_REQUIRE(planResult.value().plan.effectGraphs[0].nodes[0].payload.ports.outputs[0].name == "camera_transform");
-  GRAPPLE_REQUIRE(std::get<double>(planResult.value().plan.effectGraphs[0].nodes[0].payload.params.values[0].value) == 0.77);
-  GRAPPLE_REQUIRE(planResult.value().plan.effectGraphs[0].nodes[0].payload.params.values[0].keyframes.size() == 1);
-  GRAPPLE_REQUIRE(planResult.value().plan.effectGraphs[0].nodes[0].payload.params.values[0].keyframes[0].id == foundation::KeyframeId{"key_target_x_1"});
-  GRAPPLE_REQUIRE(planResult.value().plan.effectGraphs[0].nodes[0].payload.params.values[0].keyframes[0].time == foundation::TimeSeconds{1.0});
-  GRAPPLE_REQUIRE(std::get<double>(planResult.value().plan.effectGraphs[0].nodes[0].payload.params.values[0].keyframes[0].value) == 0.8);
-  GRAPPLE_REQUIRE(planResult.value().plan.effectGraphs[0].nodes[0].payload.activeRange.end == foundation::TimeSeconds{10.0});
-  GRAPPLE_REQUIRE(planResult.value().plan.effectGraphs[0].edges.size() == 1);
-  GRAPPLE_REQUIRE(planResult.value().plan.effectGraphs[0].edges[0].sourceNodeId == foundation::NodeId{"node_effect"});
-  GRAPPLE_REQUIRE(planResult.value().plan.effectGraphs[0].edges[0].sourcePort == graph::PortName{"camera_transform"});
-  GRAPPLE_REQUIRE(planResult.value().plan.effectGraphs[0].edges[0].targetNodeId == foundation::NodeId{"node_camera"});
-  GRAPPLE_REQUIRE(planResult.value().plan.effectGraphs[0].edges[0].targetPort == graph::PortName{"input"});
-  GRAPPLE_REQUIRE(planResult.value().plan.effectGraphs[0].edges[0].order == 7);
+  GRAPPLE_REQUIRE(planResult.value().plan.effectGraphs[0].nodes.size() == 2);
+  const auto planPythonEffect = std::find_if(
+    planResult.value().plan.effectGraphs[0].nodes.begin(),
+    planResult.value().plan.effectGraphs[0].nodes.end(),
+    [](const projection::RenderEffectNode& node) {
+      return node.sourceNodeId == foundation::NodeId{"node_effect"};
+    }
+  );
+  GRAPPLE_REQUIRE(planPythonEffect != planResult.value().plan.effectGraphs[0].nodes.end());
+  GRAPPLE_REQUIRE(planPythonEffect->payload.implementation.kind == timeline::EffectImplementationKind::Python);
+  GRAPPLE_REQUIRE(planPythonEffect->payload.implementation.entrypoint == "prepare");
+  GRAPPLE_REQUIRE(planPythonEffect->payload.ports.inputs[0].name == "input_frame");
+  GRAPPLE_REQUIRE(planPythonEffect->payload.ports.outputs[0].name == "camera_transform");
+  GRAPPLE_REQUIRE(std::get<double>(planPythonEffect->payload.params.values[0].value) == 0.77);
+  GRAPPLE_REQUIRE(planPythonEffect->payload.params.values[0].keyframes.size() == 1);
+  GRAPPLE_REQUIRE(planPythonEffect->payload.params.values[0].keyframes[0].id == foundation::KeyframeId{"key_target_x_1"});
+  GRAPPLE_REQUIRE(planPythonEffect->payload.params.values[0].keyframes[0].time == foundation::TimeSeconds{1.0});
+  GRAPPLE_REQUIRE(std::get<double>(planPythonEffect->payload.params.values[0].keyframes[0].value) == 0.8);
+  GRAPPLE_REQUIRE(planPythonEffect->payload.activeRange.end == foundation::TimeSeconds{10.0});
+  const auto planShaderEffect = std::find_if(
+    planResult.value().plan.effectGraphs[0].nodes.begin(),
+    planResult.value().plan.effectGraphs[0].nodes.end(),
+    [](const projection::RenderEffectNode& node) {
+      return node.sourceNodeId == foundation::NodeId{"node_shader_effect"};
+    }
+  );
+  GRAPPLE_REQUIRE(planShaderEffect != planResult.value().plan.effectGraphs[0].nodes.end());
+  GRAPPLE_REQUIRE(planShaderEffect->payload.implementation.kind == timeline::EffectImplementationKind::Shader);
+  GRAPPLE_REQUIRE(planShaderEffect->payload.implementation.entrypoint == "mainImage");
+  GRAPPLE_REQUIRE(planShaderEffect->payload.implementation.source.language == "glsl");
+  GRAPPLE_REQUIRE(planShaderEffect->payload.implementation.source.inlineSource == shaderSource);
+  GRAPPLE_REQUIRE(planShaderEffect->payload.ports.inputs[0].name == "input_frame");
+  GRAPPLE_REQUIRE(planShaderEffect->payload.ports.outputs[0].name == "color");
+  GRAPPLE_REQUIRE(planShaderEffect->payload.params.values[0].name == "strength");
+  GRAPPLE_REQUIRE(planShaderEffect->payload.params.values[0].control.label == "Strength");
+  GRAPPLE_REQUIRE(std::get<double>(planShaderEffect->payload.params.values[0].value) == 0.4);
+  GRAPPLE_REQUIRE(planShaderEffect->payload.activeRange.start == foundation::TimeSeconds{2.0});
+  GRAPPLE_REQUIRE(planShaderEffect->payload.activeRange.end == foundation::TimeSeconds{8.0});
+  GRAPPLE_REQUIRE(planResult.value().plan.effectGraphs[0].edges.size() == 2);
+  const auto planPythonEdge = std::find_if(
+    planResult.value().plan.effectGraphs[0].edges.begin(),
+    planResult.value().plan.effectGraphs[0].edges.end(),
+    [](const projection::RenderEffectEdge& edge) {
+      return edge.sourceNodeId == foundation::NodeId{"node_effect"};
+    }
+  );
+  GRAPPLE_REQUIRE(planPythonEdge != planResult.value().plan.effectGraphs[0].edges.end());
+  GRAPPLE_REQUIRE(planPythonEdge->sourcePort == graph::PortName{"camera_transform"});
+  GRAPPLE_REQUIRE(planPythonEdge->targetNodeId == foundation::NodeId{"node_camera"});
+  GRAPPLE_REQUIRE(planPythonEdge->targetPort == graph::PortName{"input"});
+  GRAPPLE_REQUIRE(planPythonEdge->order == 7);
+  const auto planShaderEdge = std::find_if(
+    planResult.value().plan.effectGraphs[0].edges.begin(),
+    planResult.value().plan.effectGraphs[0].edges.end(),
+    [](const projection::RenderEffectEdge& edge) {
+      return edge.sourceNodeId == foundation::NodeId{"node_shader_effect"};
+    }
+  );
+  GRAPPLE_REQUIRE(planShaderEdge != planResult.value().plan.effectGraphs[0].edges.end());
+  GRAPPLE_REQUIRE(planShaderEdge->sourcePort == graph::PortName{"color"});
+  GRAPPLE_REQUIRE(planShaderEdge->targetNodeId == foundation::NodeId{"node_camera"});
+  GRAPPLE_REQUIRE(planShaderEdge->targetPort == graph::PortName{"input"});
+  GRAPPLE_REQUIRE(planShaderEdge->order == 9);
   GRAPPLE_REQUIRE(planResult.value().diagnostics.empty());
 
   const auto repeatedTimelineResult = projector.buildTimelineIR(projection::BuildTimelineIRRequest{
@@ -328,9 +440,14 @@ int main() {
   GRAPPLE_REQUIRE(serializedPlan.find("\"projectId\":\"proj_projection\"") != std::string::npos);
   GRAPPLE_REQUIRE(serializedPlan.find("\"duration\":10") != std::string::npos);
   GRAPPLE_REQUIRE(serializedPlan.find("\"inlineSource\":\"def prepare(ctx):\\n  return {'x': 1}\\n\"") != std::string::npos);
+  GRAPPLE_REQUIRE(serializedPlan.find("\"kind\":\"shader\",\"entrypoint\":\"mainImage\"") != std::string::npos);
+  GRAPPLE_REQUIRE(serializedPlan.find("\"language\":\"glsl\"") != std::string::npos);
+  GRAPPLE_REQUIRE(serializedPlan.find("\"name\":\"strength\",\"label\":\"Strength\",\"numeric\":{\"min\":0,\"max\":1,\"step\":0.050000000000000003},\"value\":0.40000000000000002") != std::string::npos);
   GRAPPLE_REQUIRE(serializedPlan.find("\"name\":\"target_x\",\"label\":\"Target X\",\"numeric\":{\"min\":0,\"max\":1,\"step\":0.01},\"value\":0.77000000000000002") != std::string::npos);
   GRAPPLE_REQUIRE(serializedPlan.find("\"sourceEdgeId\":\"edge_effect_targets_camera\"") != std::string::npos);
+  GRAPPLE_REQUIRE(serializedPlan.find("\"sourceEdgeId\":\"edge_shader_effect_targets_camera\"") != std::string::npos);
   GRAPPLE_REQUIRE(serializedPlan.find("\"sourcePort\":\"camera_transform\"") != std::string::npos);
+  GRAPPLE_REQUIRE(serializedPlan.find("\"sourcePort\":\"color\"") != std::string::npos);
   GRAPPLE_REQUIRE(serializedPlan.find("\"targetPort\":\"input\"") != std::string::npos);
   GRAPPLE_REQUIRE(serializedPlan.find("\"inputs\":[{\"name\":\"input_frame\"}]") != std::string::npos);
   requireNoSerializedRuntimeOutputs(serializedPlan);
@@ -516,7 +633,7 @@ int main() {
   const project::ProjectCommandEnvelope updateEffectParamValue{
     foundation::CommandId{"cmd_update_effect_param_value"},
     foundation::ProjectId{"proj_projection"},
-    createEffect.value().afterRevision,
+    createShaderEffect.value().afterRevision,
     project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
     project::UpdateEffectParamValueCommand{
       foundation::NodeId{"node_effect"},
@@ -532,7 +649,7 @@ int main() {
 
   const auto updateEffectParamValueResult = controller.apply(updateEffectParamValue);
   GRAPPLE_REQUIRE(updateEffectParamValueResult);
-  GRAPPLE_REQUIRE(updateEffectParamValueResult.value().afterRevision == foundation::RevisionId{"rev_7"});
+  GRAPPLE_REQUIRE(updateEffectParamValueResult.value().afterRevision == foundation::RevisionId{"rev_8"});
 
   const auto updatedSnapshot = controller.snapshot();
   GRAPPLE_REQUIRE(updatedSnapshot);
@@ -544,14 +661,22 @@ int main() {
     updatedTimeline.value().timeline
   });
   GRAPPLE_REQUIRE(updatedPlan);
-  GRAPPLE_REQUIRE(updatedPlan.value().plan.revision == foundation::RevisionId{"rev_7"});
+  GRAPPLE_REQUIRE(updatedPlan.value().plan.revision == foundation::RevisionId{"rev_8"});
   GRAPPLE_REQUIRE(updatedPlan.value().plan.effectGraphs.size() == 1);
-  GRAPPLE_REQUIRE(updatedPlan.value().plan.effectGraphs[0].nodes.size() == 1);
-  GRAPPLE_REQUIRE(updatedPlan.value().plan.effectGraphs[0].nodes[0].payload.implementation.entrypoint == "prepare");
-  GRAPPLE_REQUIRE(updatedPlan.value().plan.effectGraphs[0].nodes[0].payload.params.values.size() == 1);
-  GRAPPLE_REQUIRE(std::get<double>(updatedPlan.value().plan.effectGraphs[0].nodes[0].payload.params.values[0].value) == 0.5);
-  GRAPPLE_REQUIRE(updatedPlan.value().plan.effectGraphs[0].nodes[0].payload.params.values[0].keyframes.size() == 1);
-  GRAPPLE_REQUIRE(updatedPlan.value().plan.effectGraphs[0].nodes[0].payload.params.values[0].keyframes[0].id == foundation::KeyframeId{"key_target_x_1"});
+  GRAPPLE_REQUIRE(updatedPlan.value().plan.effectGraphs[0].nodes.size() == 2);
+  const auto updatedPythonEffect = std::find_if(
+    updatedPlan.value().plan.effectGraphs[0].nodes.begin(),
+    updatedPlan.value().plan.effectGraphs[0].nodes.end(),
+    [](const projection::RenderEffectNode& node) {
+      return node.sourceNodeId == foundation::NodeId{"node_effect"};
+    }
+  );
+  GRAPPLE_REQUIRE(updatedPythonEffect != updatedPlan.value().plan.effectGraphs[0].nodes.end());
+  GRAPPLE_REQUIRE(updatedPythonEffect->payload.implementation.entrypoint == "prepare");
+  GRAPPLE_REQUIRE(updatedPythonEffect->payload.params.values.size() == 1);
+  GRAPPLE_REQUIRE(std::get<double>(updatedPythonEffect->payload.params.values[0].value) == 0.5);
+  GRAPPLE_REQUIRE(updatedPythonEffect->payload.params.values[0].keyframes.size() == 1);
+  GRAPPLE_REQUIRE(updatedPythonEffect->payload.params.values[0].keyframes[0].id == foundation::KeyframeId{"key_target_x_1"});
 
   project::ProjectDocument connectedEffectsDocument = project::createEmptyProject(
     foundation::ProjectId{"proj_connected_effects"},
