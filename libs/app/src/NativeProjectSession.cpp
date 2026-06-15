@@ -244,6 +244,14 @@ struct AppCommandProvenance {
   std::vector<AppStewardEditRow> stewardEdits;
 };
 
+struct StewardKeyframeEditRowIndex {
+  foundation::RunId runId;
+  foundation::NodeId targetNodeId;
+  std::string editName;
+  std::string intent;
+  std::size_t rowIndex = 0;
+};
+
 foundation::Result<AppCommandProvenance> appCommandProvenance(
   const std::vector<history::CommandRecord>& commands,
   const std::vector<history::SnapshotRecord>& snapshots,
@@ -257,6 +265,7 @@ foundation::Result<AppCommandProvenance> appCommandProvenance(
 
   bool reachedContentRevision = false;
   std::vector<foundation::RunId> stewardEffectCreationRunIds;
+  std::vector<StewardKeyframeEditRowIndex> stewardKeyframeEditRows;
   for (const history::CommandRecord& command : commands) {
     auto parsedCommand = project::deserializeCanonicalCommandPayload(
       command.serializedName,
@@ -344,14 +353,42 @@ foundation::Result<AppCommandProvenance> appCommandProvenance(
         if (!targetDisplay) {
           return targetDisplay.error();
         }
-        provenance.stewardEdits.push_back(AppStewardEditRow{
-          command.id,
-          command.afterRevision,
-          targetDisplay.value().targetNodeId,
-          targetDisplay.value().targetName,
-          targetDisplay.value().effectName + " Keyframe",
-          intent
-        });
+        const std::string editName = targetDisplay.value().effectName + " Keyframe";
+        auto existingKeyframeEdit = command.sourceRunId.has_value()
+          ? std::find_if(
+              stewardKeyframeEditRows.begin(),
+              stewardKeyframeEditRows.end(),
+              [&](const StewardKeyframeEditRowIndex& row) {
+                return row.runId == command.sourceRunId.value() &&
+                       row.targetNodeId == targetDisplay.value().targetNodeId &&
+                       row.editName == editName &&
+                       row.intent == intent;
+              }
+            )
+          : stewardKeyframeEditRows.end();
+        if (existingKeyframeEdit != stewardKeyframeEditRows.end()) {
+          AppStewardEditRow& row = provenance.stewardEdits[existingKeyframeEdit->rowIndex];
+          row.commandId = command.id;
+          row.revision = command.afterRevision;
+        } else {
+          provenance.stewardEdits.push_back(AppStewardEditRow{
+            command.id,
+            command.afterRevision,
+            targetDisplay.value().targetNodeId,
+            targetDisplay.value().targetName,
+            editName,
+            intent
+          });
+          if (command.sourceRunId.has_value()) {
+            stewardKeyframeEditRows.push_back(StewardKeyframeEditRowIndex{
+              command.sourceRunId.value(),
+              targetDisplay.value().targetNodeId,
+              editName,
+              intent,
+              provenance.stewardEdits.size() - 1
+            });
+          }
+        }
       }
     } else if (stewardCommand && !intent.empty()) {
       if (const auto* updateClip = std::get_if<project::UpdateClipCommand>(&parsedCommand.value())) {

@@ -1508,11 +1508,10 @@ int main() {
   GRAPPLE_REQUIRE(std::get<double>(stewardPanViewModel.value().timeline.effectGraphs[0].effects[0].params[0].keyframes[0].value) == 0.0);
   GRAPPLE_REQUIRE(stewardPanViewModel.value().timeline.effectGraphs[0].effects[0].params[0].keyframes[1].time == foundation::TimeSeconds{3.0});
   GRAPPLE_REQUIRE(std::get<double>(stewardPanViewModel.value().timeline.effectGraphs[0].effects[0].params[0].keyframes[1].value) == 0.25);
-  GRAPPLE_REQUIRE(stewardPanViewModel.value().steward.edits.size() == 4);
+  GRAPPLE_REQUIRE(stewardPanViewModel.value().steward.edits.size() == 3);
   GRAPPLE_REQUIRE(stewardPanViewModel.value().steward.edits[2].editName == "Camera Transform Keyframe");
+  GRAPPLE_REQUIRE(stewardPanViewModel.value().steward.edits[2].revision == foundation::RevisionId{"rev_6"});
   GRAPPLE_REQUIRE(stewardPanViewModel.value().steward.edits[2].intent == "Pan right with existing editable camera controls.");
-  GRAPPLE_REQUIRE(stewardPanViewModel.value().steward.edits[3].editName == "Camera Transform Keyframe");
-  GRAPPLE_REQUIRE(stewardPanViewModel.value().steward.edits[3].intent == "Pan right with existing editable camera controls.");
   const auto stewardPanRefresh = stewardAdjustWorkspace.value().preview().refreshFromProject();
   GRAPPLE_REQUIRE(stewardPanRefresh);
   const auto stewardPanMidFrame = stewardAdjustWorkspace.value().preview().renderFrame(render::RenderFrameRequest{
