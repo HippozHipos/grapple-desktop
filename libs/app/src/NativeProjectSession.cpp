@@ -4,6 +4,7 @@
 #include <grapple/history/CommandRecord.hpp>
 #include <grapple/runtime/BuiltinEffects.hpp>
 #include <grapple/history/SnapshotRecord.hpp>
+#include <grapple/project/ProjectSerializer.hpp>
 #include <grapple/storage/ProjectPackageManifest.hpp>
 #include <grapple/storage/ProjectPackageWriter.hpp>
 
@@ -90,6 +91,53 @@ std::optional<std::string> snapshotLabelForRevision(
     return std::nullopt;
   }
   return snapshot->label;
+}
+
+foundation::Result<std::optional<foundation::NodeId>> stewardEditTargetNodeId(
+  const history::CommandRecord& command
+) {
+  auto parsedCommand = project::deserializeCanonicalCommandPayload(
+    command.serializedName,
+    command.serializedPayload
+  );
+  if (!parsedCommand) {
+    return parsedCommand.error();
+  }
+
+  if (const auto* createEffect = std::get_if<project::CreateEffectCommand>(&parsedCommand.value())) {
+    return std::optional<foundation::NodeId>{createEffect->targetNodeId};
+  }
+
+  return std::optional<foundation::NodeId>{};
+}
+
+foundation::Result<std::string> nodeDisplayName(
+  const project::ProjectSnapshot& snapshot,
+  const foundation::NodeId& nodeId
+) {
+  const graph::GraphNode* node = snapshot.graph.findNode(nodeId);
+  if (node == nullptr) {
+    return nodeId.value();
+  }
+
+  if (const auto* camera = std::get_if<timeline::CameraPayload>(&node->payload)) {
+    return camera->name;
+  }
+  if (const auto* track = std::get_if<timeline::TrackPayload>(&node->payload)) {
+    return track->name;
+  }
+  if (const auto* composition = std::get_if<timeline::CompositionPayload>(&node->payload)) {
+    return composition->name;
+  }
+  if (const auto* clip = std::get_if<timeline::ClipPayload>(&node->payload)) {
+    auto assetName = assetNameFor(snapshot.assets, clip->assetId);
+    if (!assetName) {
+      return assetName.error();
+    }
+    return assetName.value();
+  }
+
+  return nodeId.value();
 }
 
 project::RenderPlanInspectResult inspectRenderPlan(const projection::RenderPlan& plan) {
@@ -295,9 +343,23 @@ foundation::Result<NativeProjectViewModelResult> NativeProjectSession::buildView
     if (!intent.has_value()) {
       continue;
     }
+    auto targetNodeId = stewardEditTargetNodeId(command);
+    if (!targetNodeId) {
+      return targetNodeId.error();
+    }
+    std::string targetName;
+    if (targetNodeId.value().has_value()) {
+      auto displayName = nodeDisplayName(snapshot, targetNodeId.value().value());
+      if (!displayName) {
+        return displayName.error();
+      }
+      targetName = displayName.value();
+    }
     viewModel.steward.edits.push_back(AppStewardEditRow{
       command.id,
       command.afterRevision,
+      targetNodeId.value(),
+      std::move(targetName),
       intent.value()
     });
   }

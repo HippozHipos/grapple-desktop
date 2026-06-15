@@ -209,8 +209,12 @@ void StewardPanel::setViewModel(
     lines << "- no Steward edits yet";
   } else {
     for (auto edit = viewModel.steward.edits.rbegin(); edit != viewModel.steward.edits.rend(); ++edit) {
-      lines << QString{"- %1: %2"}
+      const QString targetText = edit->targetName.empty()
+        ? QString{}
+        : QString{" on %1"}.arg(qString(edit->targetName));
+      lines << QString{"- %1%2: %3"}
         .arg(qString(edit->revision.value()))
+        .arg(targetText)
         .arg(qString(edit->intent));
     }
   }

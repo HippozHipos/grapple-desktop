@@ -1086,7 +1086,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            steward.find("Position Y=0 [-1..1 step 0.01]") != std::string::npos &&
            steward.find("Zoom=1.1 [0.25..4 step 0.01]") != std::string::npos &&
            steward.find("Applied edits") != std::string::npos &&
-           steward.find("- rev_6: Center the walking subject with exposed controls.") != std::string::npos &&
+           steward.find("- rev_6 on Camera: Center the walking subject with exposed controls.") != std::string::npos &&
            steward.find("Recent Steward runs") != std::string::npos &&
            steward.find("- Center the walking subject with exposed controls. [succeeded]") != std::string::npos &&
            steward.find("project edit -> succeeded") != std::string::npos &&
@@ -1277,7 +1277,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            steward.find("1 clips | 1 cameras | 1 editable effects") != std::string::npos &&
            steward.find("Position X=0.25 [-1..1 step 0.01]") != std::string::npos &&
            steward.find("Applied edits") != std::string::npos &&
-           steward.find("Center the subject with editable camera controls.") != std::string::npos &&
+           steward.find("on Camera: Center the subject with editable camera controls.") != std::string::npos &&
            stewardActionText == "Editable Controls Shown" &&
            !stewardActionEnabled &&
            log.find("Imported starter-gradient") != std::string::npos &&
