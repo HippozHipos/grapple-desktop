@@ -1606,6 +1606,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     const auto selectedAfterShowControls = window.selectedNodeId();
     const int stewardRecentEdits = window.stewardRecentEditCount();
     window.clickStewardRecentEdit(0);
+    app.processEvents();
     const int stewardSelectedRecentEdit = window.stewardCurrentRecentEditRow();
     const auto selectedAfterRecentEdit = window.selectedNodeId();
     const std::string inspector = window.inspectorContents();
@@ -1616,6 +1617,9 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     const bool stewardActionEnabled = window.stewardPrimaryActionEnabled();
     const std::string effectParamTitle = window.effectParamTitleText();
     const std::string effectParamPanel = window.effectParamPanelText();
+    const bool positionXVisible = window.effectParamControlVisible(grapple::effects::builtin_effect::PositionXParam);
+    const bool positionYVisible = window.effectParamControlVisible(grapple::effects::builtin_effect::PositionYParam);
+    const bool zoomVisible = window.effectParamControlVisible(grapple::effects::builtin_effect::ZoomParam);
     const auto viewModel = workspace.value().project().buildViewModel();
     if (!viewModel) {
       printError(viewModel.error());
@@ -1636,6 +1640,9 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     }
     std::cout << "effectParamTitle=" << effectParamTitle << '\n';
     std::cout << "effectParamPanel=" << effectParamPanel << '\n';
+    std::cout << "positionXVisible=" << (positionXVisible ? "true" : "false") << '\n';
+    std::cout << "positionYVisible=" << (positionYVisible ? "true" : "false") << '\n';
+    std::cout << "zoomVisible=" << (zoomVisible ? "true" : "false") << '\n';
     const auto& snapshots = workspace.value().project().packageState().snapshots.records();
     const bool intentRecorded = !snapshots.empty() &&
                                 snapshots.back().label.has_value() &&
@@ -1701,6 +1708,9 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            effectParamPanel.find("Position X") != std::string::npos &&
            effectParamPanel.find("Position Y") != std::string::npos &&
            effectParamPanel.find("Zoom") != std::string::npos &&
+           positionXVisible &&
+           positionYVisible &&
+           zoomVisible &&
            logText.find("Preview refreshed") == std::string::npos &&
            logText.find("agent.camera_transform_exists") == std::string::npos &&
            logText.find("runtime.effect_runtime_missing") == std::string::npos

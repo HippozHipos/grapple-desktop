@@ -53,6 +53,7 @@ public:
   [[nodiscard]] std::string stewardRecentEditText(int row) const;
   [[nodiscard]] std::string effectParamTitleText() const;
   [[nodiscard]] std::string effectParamPanelText() const;
+  [[nodiscard]] bool effectParamControlVisible(const std::string& paramName) const;
   [[nodiscard]] std::string stewardIntent() const;
   void setStewardIntent(std::string intent);
   void clickStewardPrimaryAction();

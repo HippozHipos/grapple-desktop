@@ -1037,6 +1037,19 @@ public:
     return lines.join('\n').toStdString();
   }
 
+  bool effectParamControlVisible(const std::string& paramName) const {
+    auto* editor = findChild<QDoubleSpinBox*>(QString{"effectParamEditor_%1"}.arg(qString(paramName)));
+    if (editor == nullptr || effectParamsScroll_ == nullptr || effectParamsScroll_->viewport() == nullptr) {
+      return false;
+    }
+
+    const QRect editorRect = editor->rect();
+    const QPoint topLeft = editor->mapTo(effectParamsScroll_->viewport(), editorRect.topLeft());
+    const QPoint bottomRight = editor->mapTo(effectParamsScroll_->viewport(), editorRect.bottomRight());
+    const QRect viewportRect = effectParamsScroll_->viewport()->rect();
+    return viewportRect.contains(topLeft) && viewportRect.contains(bottomRight);
+  }
+
   std::string stewardIntent() const {
     return steward_->intent();
   }
@@ -2704,6 +2717,10 @@ std::string DesktopWindow::effectParamTitleText() const {
 
 std::string DesktopWindow::effectParamPanelText() const {
   return impl_->effectParamPanelText();
+}
+
+bool DesktopWindow::effectParamControlVisible(const std::string& paramName) const {
+  return impl_->effectParamControlVisible(paramName);
 }
 
 std::string DesktopWindow::stewardIntent() const {
