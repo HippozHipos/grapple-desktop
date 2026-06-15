@@ -995,6 +995,14 @@ public:
     return steward_->primaryActionEnabled();
   }
 
+  std::string effectParamTitleText() const {
+    auto* title = findChild<QLabel*>("effectParamTitle");
+    if (title == nullptr) {
+      return {};
+    }
+    return title->text().toStdString();
+  }
+
   void setStewardIntent(std::string intent) {
     steward_->setIntent(std::move(intent));
   }
@@ -2621,6 +2629,10 @@ std::string DesktopWindow::stewardPrimaryActionText() const {
 
 bool DesktopWindow::stewardPrimaryActionEnabled() const {
   return impl_->stewardPrimaryActionEnabled();
+}
+
+std::string DesktopWindow::effectParamTitleText() const {
+  return impl_->effectParamTitleText();
 }
 
 void DesktopWindow::setStewardIntent(std::string intent) {

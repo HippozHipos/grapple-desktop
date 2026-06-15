@@ -46,6 +46,7 @@ public:
   [[nodiscard]] std::string stewardContents() const;
   [[nodiscard]] std::string stewardPrimaryActionText() const;
   [[nodiscard]] bool stewardPrimaryActionEnabled() const;
+  [[nodiscard]] std::string effectParamTitleText() const;
   void setStewardIntent(std::string intent);
   void clickStewardCreateCameraEffect();
   void startPlayback();
