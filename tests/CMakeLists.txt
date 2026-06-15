@@ -115,6 +115,8 @@ add_test(NAME grapple_desktop_product_loop_smoke COMMAND grapple_desktop --produ
 set_tests_properties(grapple_desktop_product_loop_smoke PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 add_test(NAME grapple_desktop_empty_launch_smoke COMMAND grapple_desktop --empty-launch-smoke)
 set_tests_properties(grapple_desktop_empty_launch_smoke PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+add_test(NAME grapple_desktop_empty_save_smoke COMMAND grapple_desktop --empty-save-smoke)
+set_tests_properties(grapple_desktop_empty_save_smoke PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 add_test(NAME grapple_desktop_screenshot COMMAND grapple_desktop --screenshot /tmp/grapple-desktop-ctest.png)
 set_tests_properties(grapple_desktop_screenshot PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 add_test(NAME grapple_desktop_effect_screenshot COMMAND grapple_desktop --effect-screenshot /tmp/grapple-desktop-effect-ctest.png)
