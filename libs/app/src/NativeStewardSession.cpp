@@ -429,10 +429,15 @@ foundation::Result<NativeStewardMediaPlacementResult> NativeStewardSession::plac
     return dispatched.error();
   }
   if (!packageResult.has_value() || !placedClipNodeId.has_value()) {
-    return foundation::Error{
+    const foundation::Error error{
       "steward.media_placement_result_missing",
       "Steward media placement tool succeeded without a committed placement result."
     };
+    auto finished = finishRunWithError(runId.value(), error);
+    if (!finished) {
+      return finished.error();
+    }
+    return error;
   }
 
   auto runFinished = appendEvent(
@@ -487,6 +492,10 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::c
   agent::AgentToolRegistry registry;
   auto registered = agent::registerProjectTools(registry);
   if (!registered) {
+    auto finished = finishRunWithError(runId.value(), registered.error());
+    if (!finished) {
+      return finished.error();
+    }
     return registered.error();
   }
 
@@ -509,10 +518,15 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::c
     return dispatched.error();
   }
   if (!packageResult.has_value()) {
-    return foundation::Error{
+    const foundation::Error error{
       "steward.package_result_missing",
       "Steward camera transform tool succeeded without a committed package result."
     };
+    auto finished = finishRunWithError(runId.value(), error);
+    if (!finished) {
+      return finished.error();
+    }
+    return error;
   }
 
   auto runFinished = appendEvent(
