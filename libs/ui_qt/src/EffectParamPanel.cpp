@@ -410,7 +410,7 @@ void EffectParamPanel::setSelection(
           setKeyframe->setToolTip(keyframeActionTooltip(currentKeyframeId.has_value()));
           setKeyframe->setFixedWidth(50);
           setKeyframe->setObjectName(QString{"effectParamKeyframe_%1"}.arg(qString(param.name)));
-          const timeline::ParamValue paramValue = param.value;
+          const timeline::ParamValue paramValue = displayedValue;
           connect(setKeyframe, &QPushButton::clicked, this, [this, parameterEffectNodeId, paramName, paramValue, currentKeyframeId] {
             if (setKeyframeHandler_) {
               setKeyframeHandler_(parameterEffectNodeId, paramName, paramValue, currentKeyframeId);
