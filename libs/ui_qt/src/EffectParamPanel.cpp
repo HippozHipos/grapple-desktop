@@ -43,6 +43,14 @@ std::optional<foundation::KeyframeId> keyframeIdAtPlayhead(
   return std::nullopt;
 }
 
+QString keyframeActionText(bool hasCurrentKeyframe) {
+  return hasCurrentKeyframe ? "Update" : "Set";
+}
+
+QString keyframeActionTooltip(bool hasCurrentKeyframe) {
+  return hasCurrentKeyframe ? "Update keyframe at playhead" : "Set keyframe at playhead";
+}
+
 void appendLastEditedRow(QVBoxLayout* layout, const app::AppEffectParamRow& param) {
   if (!param.lastEditedRevision.has_value()) {
     return;
@@ -169,7 +177,8 @@ void EffectParamPanel::setSelection(
             }
             auto* keyframeLabel = new QLabel{keyframeText};
             keyframeLabel->setObjectName("effectParamHelp");
-            auto* deleteKeyframe = new QPushButton{"Delete Keyframe"};
+            auto* deleteKeyframe = new QPushButton{"Delete"};
+            deleteKeyframe->setToolTip("Delete keyframe");
             deleteKeyframe->setObjectName(QString{"effectParamDeleteKeyframe_%1_%2"}
               .arg(qString(param.name))
               .arg(static_cast<int>(keyframeIndex)));
@@ -192,7 +201,7 @@ void EffectParamPanel::setSelection(
         rowLayout->setSpacing(8);
 
         auto* label = new QLabel{displayName};
-        label->setMinimumWidth(92);
+        label->setMinimumWidth(82);
         label->setToolTip(qString(param.name));
 
         const auto* numericValue = std::get_if<double>(&param.value);
@@ -213,7 +222,9 @@ void EffectParamPanel::setSelection(
               applyHandler_(parameterEffectNodeId, paramName, timeline::ParamValue{value});
             }
           }, Qt::QueuedConnection);
-          auto* setKeyframe = new QPushButton{currentKeyframeId.has_value() ? "Update Keyframe" : "Set Keyframe"};
+          auto* setKeyframe = new QPushButton{keyframeActionText(currentKeyframeId.has_value())};
+          setKeyframe->setToolTip(keyframeActionTooltip(currentKeyframeId.has_value()));
+          setKeyframe->setFixedWidth(58);
           setKeyframe->setObjectName(QString{"effectParamKeyframe_%1"}.arg(qString(param.name)));
           connect(setKeyframe, &QPushButton::clicked, this, [this, editor, parameterEffectNodeId, paramName, currentKeyframeId] {
             if (setKeyframeHandler_) {
@@ -240,7 +251,9 @@ void EffectParamPanel::setSelection(
               applyHandler_(parameterEffectNodeId, paramName, timeline::ParamValue{value});
             }
           }, Qt::QueuedConnection);
-          auto* setKeyframe = new QPushButton{currentKeyframeId.has_value() ? "Update Keyframe" : "Set Keyframe"};
+          auto* setKeyframe = new QPushButton{keyframeActionText(currentKeyframeId.has_value())};
+          setKeyframe->setToolTip(keyframeActionTooltip(currentKeyframeId.has_value()));
+          setKeyframe->setFixedWidth(58);
           setKeyframe->setObjectName(QString{"effectParamKeyframe_%1"}.arg(qString(param.name)));
           connect(setKeyframe, &QPushButton::clicked, this, [this, editor, parameterEffectNodeId, paramName, currentKeyframeId] {
             if (setKeyframeHandler_) {
@@ -266,7 +279,9 @@ void EffectParamPanel::setSelection(
               applyHandler_(parameterEffectNodeId, paramName, timeline::ParamValue{editor->text().toStdString()});
             }
           });
-          auto* setKeyframe = new QPushButton{currentKeyframeId.has_value() ? "Update Keyframe" : "Set Keyframe"};
+          auto* setKeyframe = new QPushButton{keyframeActionText(currentKeyframeId.has_value())};
+          setKeyframe->setToolTip(keyframeActionTooltip(currentKeyframeId.has_value()));
+          setKeyframe->setFixedWidth(58);
           setKeyframe->setObjectName(QString{"effectParamKeyframe_%1"}.arg(qString(param.name)));
           connect(setKeyframe, &QPushButton::clicked, this, [this, editor, parameterEffectNodeId, paramName, currentKeyframeId] {
             if (setKeyframeHandler_) {
@@ -286,7 +301,9 @@ void EffectParamPanel::setSelection(
         {
           auto* value = new QLabel{qString(app::paramValueDisplayText(param.value))};
           value->setObjectName("effectParamHelp");
-          auto* setKeyframe = new QPushButton{currentKeyframeId.has_value() ? "Update Keyframe" : "Set Keyframe"};
+          auto* setKeyframe = new QPushButton{keyframeActionText(currentKeyframeId.has_value())};
+          setKeyframe->setToolTip(keyframeActionTooltip(currentKeyframeId.has_value()));
+          setKeyframe->setFixedWidth(58);
           setKeyframe->setObjectName(QString{"effectParamKeyframe_%1"}.arg(qString(param.name)));
           const timeline::ParamValue paramValue = param.value;
           connect(setKeyframe, &QPushButton::clicked, this, [this, parameterEffectNodeId, paramName, paramValue, currentKeyframeId] {
