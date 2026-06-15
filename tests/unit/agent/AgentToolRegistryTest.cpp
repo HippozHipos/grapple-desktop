@@ -252,7 +252,7 @@ int main() {
   agent::AgentToolRegistry registry;
   const auto registered = agent::registerProjectTools(registry);
   GRAPPLE_REQUIRE(registered);
-  GRAPPLE_REQUIRE(registry.tools().size() == 27);
+  GRAPPLE_REQUIRE(registry.tools().size() == 28);
   std::vector<std::string> serializedToolIds;
   serializedToolIds.reserve(registry.tools().size());
   for (const agent::AgentTool& tool : registry.tools()) {
@@ -265,6 +265,7 @@ int main() {
   GRAPPLE_REQUIRE(registry.findBySerializedId("composition.inspect") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("camera.create") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("camera.update") != nullptr);
+  GRAPPLE_REQUIRE(registry.findBySerializedId("timeline.place_asset") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("timeline.create_track") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("timeline.delete_track") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("timeline.create_clip") != nullptr);
@@ -314,6 +315,14 @@ int main() {
   GRAPPLE_REQUIRE(registeredUpdateCameraTool->schema.find("\"cameraNodeId\"") != std::string::npos);
   GRAPPLE_REQUIRE(registeredUpdateCameraTool->schema.find("\"focalLength\"") != std::string::npos);
   GRAPPLE_REQUIRE(registeredUpdateCameraTool->schema.find("\"commandId\"") == std::string::npos);
+  const agent::AgentTool* registeredPlaceAssetTool = registry.findBySerializedId("timeline.place_asset");
+  GRAPPLE_REQUIRE(registeredPlaceAssetTool != nullptr);
+  GRAPPLE_REQUIRE(registeredPlaceAssetTool->schema.find("\"assetId\"") != std::string::npos);
+  GRAPPLE_REQUIRE(registeredPlaceAssetTool->schema.find("\"start\"") != std::string::npos);
+  GRAPPLE_REQUIRE(registeredPlaceAssetTool->schema.find("\"duration\"") != std::string::npos);
+  GRAPPLE_REQUIRE(registeredPlaceAssetTool->schema.find("\"trackNodeId\"") == std::string::npos);
+  GRAPPLE_REQUIRE(registeredPlaceAssetTool->schema.find("\"clipNodeId\"") == std::string::npos);
+  GRAPPLE_REQUIRE(registeredPlaceAssetTool->schema.find("\"commandId\"") == std::string::npos);
   const agent::AgentTool* registeredCreateTrackTool = registry.findBySerializedId("timeline.create_track");
   GRAPPLE_REQUIRE(registeredCreateTrackTool != nullptr);
   GRAPPLE_REQUIRE(registeredCreateTrackTool->schema.find("\"compositionNodeId\"") != std::string::npos);
@@ -1912,6 +1921,83 @@ int main() {
   }
   GRAPPLE_REQUIRE(timelineDeleteCommands.applyCount() == 2);
   GRAPPLE_REQUIRE(timelineDeleteQueries.totalQueryCount() == 0);
+
+  project::ProjectController placeAssetProject{
+    project::createEmptyProject(foundation::ProjectId{"proj_place_asset"}, "Place Asset Project")
+  };
+  const auto placeAssetInitial = placeAssetProject.snapshot();
+  GRAPPLE_REQUIRE(placeAssetInitial);
+  const auto placeAssetRegistered = placeAssetProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_place_asset_setup"},
+    foundation::ProjectId{"proj_place_asset"},
+    placeAssetInitial.value().revision,
+    project::CommandSource{project::CommandSourceKind::Agent, foundation::RunId{"run_place_asset"}, "agent"},
+    project::RegisterAssetCommand{
+      asset::Asset{
+        foundation::AssetId{"asset_place_video"},
+        "Walking Woman",
+        asset::AssetMetadata{
+          asset::AssetMediaType::Video,
+          foundation::FilePath{"/media/walking-woman.mov"},
+          std::nullopt,
+          foundation::TimeSeconds{10.0},
+          foundation::Resolution{1080, 1920},
+          foundation::FrameRate{30000, 1001}
+        }
+      }
+    }
+  });
+  GRAPPLE_REQUIRE(placeAssetRegistered);
+
+  TestAgentCommandService placeAssetCommands{placeAssetProject};
+  TestAgentQueryService placeAssetQueries{placeAssetProject};
+  TestProjectIdAllocator placeAssetIds;
+  agent::AgentToolContext placeAssetContext{placeAssetCommands, placeAssetQueries, placeAssetIds};
+
+  const agent::AgentTool* placeAsset = registry.findBySerializedId("timeline.place_asset");
+  GRAPPLE_REQUIRE(placeAsset != nullptr);
+  const auto placeAssetResult = placeAsset->handler(
+    agent::ToolCall{
+      foundation::ToolId{"tool_timeline_place_asset"},
+      foundation::RunId{"run_place_asset"},
+      foundation::ProjectId{"proj_place_asset"},
+      placeAssetRegistered.value().afterRevision,
+      R"({
+        "assetId": "asset_place_video"
+      })"
+    },
+    placeAssetContext
+  );
+  GRAPPLE_REQUIRE(placeAssetResult);
+  GRAPPLE_REQUIRE(placeAssetResult.value().status == agent::ToolResultStatus::Succeeded);
+  GRAPPLE_REQUIRE(placeAssetResult.value().observedRevision == foundation::RevisionId{"rev_2"});
+  GRAPPLE_REQUIRE(
+    placeAssetResult.value().payload ==
+    "{\"commandId\":\"cmd_agent_1\",\"compositionNodeId\":\"node_agent_composition_1\",\"trackNodeId\":\"node_agent_track_2\",\"cameraNodeId\":\"node_agent_camera_3\",\"clipNodeId\":\"node_agent_clip_4\",\"assetId\":\"asset_place_video\",\"revision\":\"rev_2\"}"
+  );
+  GRAPPLE_REQUIRE(placeAssetCommands.applyCount() == 1);
+  GRAPPLE_REQUIRE(placeAssetQueries.assetCatalogQueryCount() == 1);
+  GRAPPLE_REQUIRE(placeAssetQueries.compositionQueryCount() == 1);
+
+  const auto afterPlaceAssetSnapshot = placeAssetProject.snapshot();
+  GRAPPLE_REQUIRE(afterPlaceAssetSnapshot);
+  GRAPPLE_REQUIRE(afterPlaceAssetSnapshot.value().graph.findNode(foundation::NodeId{"node_agent_composition_1"}) != nullptr);
+  const graph::GraphNode* placedTrack = afterPlaceAssetSnapshot.value().graph.findNode(foundation::NodeId{"node_agent_track_2"});
+  GRAPPLE_REQUIRE(placedTrack != nullptr);
+  const auto* placedTrackPayload = std::get_if<timeline::TrackPayload>(&placedTrack->payload);
+  GRAPPLE_REQUIRE(placedTrackPayload != nullptr);
+  GRAPPLE_REQUIRE(placedTrackPayload->kind == timeline::TrackKind::Visual);
+  GRAPPLE_REQUIRE(afterPlaceAssetSnapshot.value().graph.findNode(foundation::NodeId{"node_agent_camera_3"}) != nullptr);
+  const graph::GraphNode* placedClip = afterPlaceAssetSnapshot.value().graph.findNode(foundation::NodeId{"node_agent_clip_4"});
+  GRAPPLE_REQUIRE(placedClip != nullptr);
+  const auto* placedClipPayload = std::get_if<timeline::ClipPayload>(&placedClip->payload);
+  GRAPPLE_REQUIRE(placedClipPayload != nullptr);
+  GRAPPLE_REQUIRE(placedClipPayload->kind == timeline::ClipKind::Video);
+  GRAPPLE_REQUIRE(placedClipPayload->assetId == foundation::AssetId{"asset_place_video"});
+  GRAPPLE_REQUIRE(placedClipPayload->timelineRange.start == foundation::TimeSeconds{0.0});
+  GRAPPLE_REQUIRE(placedClipPayload->timelineRange.end == foundation::TimeSeconds{10.0});
+  GRAPPLE_REQUIRE(placedClipPayload->sourceRange.start == foundation::TimeSeconds{0.0});
+  GRAPPLE_REQUIRE(placedClipPayload->sourceRange.end == foundation::TimeSeconds{10.0});
 
   return 0;
 }

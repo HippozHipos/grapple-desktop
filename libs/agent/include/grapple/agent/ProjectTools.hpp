@@ -15,6 +15,7 @@ AgentTool makeAssetImportTool();
 AgentTool makeCompositionInspectTool();
 AgentTool makeCameraCreateTool();
 AgentTool makeCameraUpdateTool();
+AgentTool makeTimelinePlaceAssetTool();
 AgentTool makeTimelineCreateTrackTool();
 AgentTool makeTimelineDeleteTrackTool();
 AgentTool makeTimelineCreateClipTool();

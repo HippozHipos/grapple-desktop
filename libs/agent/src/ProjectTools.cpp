@@ -9,6 +9,7 @@
 
 #include <json/json.h>
 
+#include <algorithm>
 #include <cstdint>
 #include <cstdlib>
 #include <iomanip>
@@ -99,6 +100,17 @@ constexpr const char CameraUpdateSchema[] = R"json({
     "cameraNodeId": {"type": "string", "minLength": 1},
     "name": {"type": "string", "minLength": 1},
     "focalLength": {"type": "number"}
+  }
+})json";
+
+constexpr const char TimelinePlaceAssetSchema[] = R"json({
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["assetId"],
+  "properties": {
+    "assetId": {"type": "string", "minLength": 1},
+    "start": {"type": "number"},
+    "duration": {"type": "number"}
   }
 })json";
 
@@ -937,6 +949,216 @@ foundation::Result<project::AssetCatalogResult> readAssetCatalog(
   return *assetCatalogResult;
 }
 
+foundation::Result<project::CompositionInspectResult> readCompositions(
+  AgentToolContext& context,
+  std::string_view operation
+) {
+  auto query = context.queries.query(project::InspectCompositionsQuery{});
+  if (!query) {
+    return query.error();
+  }
+  const auto* compositionResult = std::get_if<project::CompositionInspectResult>(&query.value());
+  if (compositionResult == nullptr) {
+    return foundation::Error{
+      "agent.composition_result_missing",
+      std::string{operation} + " query returned the wrong result type."
+    };
+  }
+  return *compositionResult;
+}
+
+foundation::Result<timeline::ClipKind> clipKindForAssetMediaType(asset::AssetMediaType mediaType) {
+  switch (mediaType) {
+    case asset::AssetMediaType::Video:
+      return timeline::ClipKind::Video;
+    case asset::AssetMediaType::Audio:
+      return timeline::ClipKind::Audio;
+    case asset::AssetMediaType::Image:
+      return timeline::ClipKind::Image;
+  }
+
+  return foundation::Error{"agent.asset_media_type_unknown", "Asset media type is unknown."};
+}
+
+timeline::TrackKind trackKindForClipKind(timeline::ClipKind clipKind) {
+  switch (clipKind) {
+    case timeline::ClipKind::Video:
+    case timeline::ClipKind::Image:
+      return timeline::TrackKind::Visual;
+    case timeline::ClipKind::Audio:
+      return timeline::TrackKind::Audio;
+  }
+
+  std::abort();
+}
+
+foundation::Result<foundation::TimeSeconds> durationForPlacement(
+  const asset::Asset& selectedAsset,
+  const std::optional<double>& requestedDuration
+) {
+  if (requestedDuration.has_value()) {
+    return foundation::TimeSeconds{requestedDuration.value()};
+  }
+  if (selectedAsset.metadata.duration.has_value()) {
+    return selectedAsset.metadata.duration.value();
+  }
+  return foundation::Error{
+    "agent.asset_duration_missing",
+    "Placing this asset requires an explicit duration because the asset has no duration metadata."
+  };
+}
+
+foundation::TimeSeconds appendStartForComposition(const project::CompositionSummary& composition) {
+  double end = 0.0;
+  for (const project::CompositionTrackSummary& track : composition.tracks) {
+    for (const project::CompositionClipSummary& clip : track.clips) {
+      end = std::max(end, clip.timelineRange.end.value);
+    }
+  }
+  return foundation::TimeSeconds{end};
+}
+
+const project::CompositionTrackSummary* firstTrackOfKind(
+  const project::CompositionSummary& composition,
+  timeline::TrackKind kind
+) {
+  for (const project::CompositionTrackSummary& track : composition.tracks) {
+    if (track.kind == kind) {
+      return &track;
+    }
+  }
+  return nullptr;
+}
+
+struct TimelinePlacementDraft {
+  project::AddMediaToTimelineCommand command;
+  foundation::NodeId compositionNodeId;
+  foundation::NodeId trackNodeId;
+  foundation::NodeId clipNodeId;
+  std::optional<foundation::NodeId> createdCameraNodeId;
+};
+
+foundation::Result<TimelinePlacementDraft> buildTimelinePlacementDraft(
+  AgentToolContext& context,
+  const asset::Asset& selectedAsset,
+  foundation::AssetId assetId,
+  std::optional<double> requestedStart,
+  std::optional<double> requestedDuration
+) {
+  auto clipKind = clipKindForAssetMediaType(selectedAsset.metadata.mediaType);
+  if (!clipKind) {
+    return clipKind.error();
+  }
+  const timeline::TrackKind trackKind = trackKindForClipKind(clipKind.value());
+  auto duration = durationForPlacement(selectedAsset, requestedDuration);
+  if (!duration) {
+    return duration.error();
+  }
+
+  auto compositions = readCompositions(context, "timeline.place_asset");
+  if (!compositions) {
+    return compositions.error();
+  }
+
+  std::optional<project::CreateCompositionCommand> compositionCommand;
+  const project::CompositionSummary* targetComposition = compositions.value().compositions.empty()
+    ? nullptr
+    : &compositions.value().compositions.front();
+  foundation::NodeId compositionNodeId = targetComposition == nullptr
+    ? context.ids.nextNodeId("composition")
+    : targetComposition->nodeId;
+  if (targetComposition == nullptr) {
+    compositionCommand = project::CreateCompositionCommand{compositionNodeId, "Main"};
+  }
+
+  std::optional<project::CreateTrackCommand> trackCommand;
+  const project::CompositionTrackSummary* targetTrack = targetComposition == nullptr
+    ? nullptr
+    : firstTrackOfKind(*targetComposition, trackKind);
+  foundation::NodeId trackNodeId = targetTrack == nullptr
+    ? context.ids.nextNodeId("track")
+    : targetTrack->nodeId;
+  if (targetTrack == nullptr) {
+    const std::string trackName = trackKind == timeline::TrackKind::Audio ? "Audio" : "Video";
+    std::int64_t trackOrder = 0;
+    if (targetComposition != nullptr) {
+      for (const project::CompositionTrackSummary& track : targetComposition->tracks) {
+        if (track.kind == trackKind) {
+          ++trackOrder;
+        }
+      }
+    }
+    trackCommand = project::CreateTrackCommand{
+      trackNodeId,
+      compositionNodeId,
+      context.ids.nextEdgeId("contains_track"),
+      trackName,
+      trackKind,
+      trackOrder
+    };
+  }
+
+  std::optional<project::CreateCameraCommand> cameraCommand;
+  if (trackKind == timeline::TrackKind::Visual && (targetComposition == nullptr || targetComposition->cameras.empty())) {
+    cameraCommand = project::CreateCameraCommand{
+      context.ids.nextNodeId("camera"),
+      compositionNodeId,
+      context.ids.nextEdgeId("contains_camera"),
+      timeline::CameraPayload{
+        "Camera",
+        timeline::CameraState{
+          timeline::Transform2D{},
+          timeline::CameraLens{35.0}
+        }
+      },
+      targetComposition == nullptr ? 0 : static_cast<std::int64_t>(targetComposition->cameras.size())
+    };
+  }
+  const std::optional<foundation::NodeId> createdCameraNodeId = cameraCommand.has_value()
+    ? std::optional<foundation::NodeId>{cameraCommand->nodeId}
+    : std::nullopt;
+
+  const foundation::TimeSeconds timelineStart = requestedStart.has_value()
+    ? foundation::TimeSeconds{requestedStart.value()}
+    : (targetComposition == nullptr ? foundation::TimeSeconds{0.0} : appendStartForComposition(*targetComposition));
+  const foundation::NodeId clipNodeId = context.ids.nextNodeId("clip");
+  const std::int64_t clipOrder = targetTrack == nullptr
+    ? 0
+    : static_cast<std::int64_t>(targetTrack->clips.size());
+
+  return TimelinePlacementDraft{
+    project::AddMediaToTimelineCommand{
+      std::move(compositionCommand),
+      std::move(trackCommand),
+      std::move(cameraCommand),
+      project::CreateClipCommand{
+        clipNodeId,
+        trackNodeId,
+        context.ids.nextEdgeId("contains_clip"),
+        timeline::ClipPayload{
+          clipKind.value(),
+          foundation::TimeRange{
+            timelineStart,
+            foundation::TimeSeconds{timelineStart.value + duration.value().value}
+          },
+          foundation::TimeRange{
+            foundation::TimeSeconds{0.0},
+            duration.value()
+          },
+          1.0,
+          std::move(assetId),
+          timeline::Transform2D{}
+        },
+        clipOrder
+      }
+    },
+    compositionNodeId,
+    trackNodeId,
+    clipNodeId,
+    createdCameraNodeId
+  };
+}
+
 const char* assetMediaTypeText(asset::AssetMediaType mediaType) {
   switch (mediaType) {
     case asset::AssetMediaType::Video:
@@ -1486,6 +1708,10 @@ foundation::Result<void> registerProjectTools(AgentToolRegistry& registry) {
   if (!registered) {
     return registered.error();
   }
+  registered = registry.registerTool(makeTimelinePlaceAssetTool());
+  if (!registered) {
+    return registered.error();
+  }
   registered = registry.registerTool(makeTimelineCreateTrackTool());
   if (!registered) {
     return registered.error();
@@ -1962,6 +2188,88 @@ AgentTool makeCameraUpdateTool() {
       payload << '{'
               << "\"commandId\":" << foundation::jsonQuoted(commandId.value())
               << ",\"cameraNodeId\":" << foundation::jsonQuoted(cameraId.value())
+              << ",\"revision\":" << foundation::jsonQuoted(command.value().afterRevision.value())
+              << '}';
+      return ToolResult{
+        call.toolId,
+        ToolResultStatus::Succeeded,
+        command.value().afterRevision,
+        payload.str(),
+        {}
+      };
+    }
+  };
+}
+
+AgentTool makeTimelinePlaceAssetTool() {
+  return AgentTool{
+    foundation::ToolId{"tool_timeline_place_asset"},
+    "timeline.place_asset",
+    "Place Asset On Timeline",
+    "Places one registered asset on the timeline through Project Core. Creates the missing composition, matching track, and camera as one atomic edit.",
+    TimelinePlaceAssetSchema,
+    [](const ToolCall& call, AgentToolContext& context) -> foundation::Result<ToolResult> {
+      auto arguments = parseArguments(call.arguments);
+      if (!arguments) {
+        return arguments.error();
+      }
+      auto members = requireOnlyMembers(arguments.value(), {"assetId", "start", "duration"}, "$");
+      if (!members) {
+        return members.error();
+      }
+      auto assetId = requiredStringMember(arguments.value(), "assetId", "$");
+      if (!assetId) {
+        return assetId.error();
+      }
+      auto requestedStart = optionalDoubleMember(arguments.value(), "start", "$");
+      if (!requestedStart) {
+        return requestedStart.error();
+      }
+      auto requestedDuration = optionalDoubleMember(arguments.value(), "duration", "$");
+      if (!requestedDuration) {
+        return requestedDuration.error();
+      }
+
+      auto catalog = readAssetCatalog(context, "timeline.place_asset");
+      if (!catalog) {
+        return catalog.error();
+      }
+      const asset::Asset* selectedAsset = catalog.value().assets.find(foundation::AssetId{assetId.value()});
+      if (selectedAsset == nullptr) {
+        return foundation::Error{"agent.asset_missing", "timeline.place_asset requires an existing registered asset."};
+      }
+      auto placement = buildTimelinePlacementDraft(
+        context,
+        *selectedAsset,
+        foundation::AssetId{assetId.value()},
+        requestedStart.value(),
+        requestedDuration.value()
+      );
+      if (!placement) {
+        return placement.error();
+      }
+      const foundation::CommandId commandId = context.ids.nextCommandId();
+      auto command = context.commands.apply(project::ProjectCommandEnvelope{
+        commandId,
+        call.projectId,
+        call.expectedRevision,
+        project::CommandSource{project::CommandSourceKind::Agent, call.runId, "agent"},
+        std::move(placement.value().command)
+      });
+      if (!command) {
+        return command.error();
+      }
+
+      std::ostringstream payload;
+      payload << '{'
+              << "\"commandId\":" << foundation::jsonQuoted(commandId.value())
+              << ",\"compositionNodeId\":" << foundation::jsonQuoted(placement.value().compositionNodeId.value())
+              << ",\"trackNodeId\":" << foundation::jsonQuoted(placement.value().trackNodeId.value());
+      if (placement.value().createdCameraNodeId.has_value()) {
+        payload << ",\"cameraNodeId\":" << foundation::jsonQuoted(placement.value().createdCameraNodeId->value());
+      }
+      payload << ",\"clipNodeId\":" << foundation::jsonQuoted(placement.value().clipNodeId.value())
+              << ",\"assetId\":" << foundation::jsonQuoted(assetId.value())
               << ",\"revision\":" << foundation::jsonQuoted(command.value().afterRevision.value())
               << '}';
       return ToolResult{
