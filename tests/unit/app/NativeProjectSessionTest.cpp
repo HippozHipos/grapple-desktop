@@ -1769,6 +1769,74 @@ int main() {
   GRAPPLE_REQUIRE(zoomRenderedCamera->state.transform.scale.x == 1.25);
   GRAPPLE_REQUIRE(zoomRenderedCamera->state.transform.scale.y == 1.25);
 
+  const foundation::NodeId stewardBiggerCameraNodeId =
+    stewardMotionWorkspace.value().commandWriter().nextNodeId("camera");
+  const auto stewardBiggerCamera = stewardMotionWorkspace.value().commandWriter().apply(
+    project::CreateCameraCommand{
+      stewardBiggerCameraNodeId,
+      stewardMotionCompositionNodeId,
+      stewardMotionWorkspace.value().commandWriter().nextEdgeId("contains camera"),
+      timeline::CameraPayload{
+        "Bigger Subject Camera",
+        timeline::CameraState{
+          timeline::Transform2D{},
+          timeline::CameraLens{35.0}
+        }
+      }
+    },
+    userSource()
+  );
+  GRAPPLE_REQUIRE(stewardBiggerCamera);
+  const auto stewardBiggerEffect = stewardMotionWorkspace.value().steward().createCameraTransformEffect(
+    stewardBiggerCameraNodeId,
+    "Make the subject bigger over time with editable camera controls.",
+    foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{4.0}}
+  );
+  GRAPPLE_REQUIRE(stewardBiggerEffect);
+  const agent::AgentConversationState stewardBiggerConversation =
+    stewardMotionWorkspace.value().steward().conversationState();
+  GRAPPLE_REQUIRE(stewardBiggerConversation.runs.size() == 3);
+  GRAPPLE_REQUIRE(stewardBiggerConversation.runs[2].status == agent::AgentRunStatus::Succeeded);
+  GRAPPLE_REQUIRE(stewardBiggerConversation.runs[2].toolCalls.size() == 3);
+  GRAPPLE_REQUIRE(stewardBiggerConversation.runs[2].toolCalls[0].toolSerializedId == "camera.add_transform_controls");
+  GRAPPLE_REQUIRE(stewardBiggerConversation.runs[2].toolCalls[1].toolSerializedId == "camera.set_transform_keyframe");
+  GRAPPLE_REQUIRE(stewardBiggerConversation.runs[2].toolCalls[2].toolSerializedId == "camera.set_transform_keyframe");
+
+  const auto stewardBiggerViewModel = stewardMotionWorkspace.value().project().buildViewModel();
+  GRAPPLE_REQUIRE(stewardBiggerViewModel);
+  const app::AppEffectGraphRow* biggerEffectGraph = nullptr;
+  for (const app::AppEffectGraphRow& graph : stewardBiggerViewModel.value().timeline.effectGraphs) {
+    if (graph.targetNodeId == stewardBiggerCameraNodeId) {
+      biggerEffectGraph = &graph;
+    }
+  }
+  GRAPPLE_REQUIRE(biggerEffectGraph != nullptr);
+  GRAPPLE_REQUIRE(biggerEffectGraph->effects.size() == 1);
+  GRAPPLE_REQUIRE(biggerEffectGraph->effects[0].params[2].name == effects::builtin_effect::ZoomParam);
+  GRAPPLE_REQUIRE(biggerEffectGraph->effects[0].params[2].keyframes.size() == 2);
+  GRAPPLE_REQUIRE(biggerEffectGraph->effects[0].params[2].keyframes[0].time == foundation::TimeSeconds{0.0});
+  GRAPPLE_REQUIRE(std::get<double>(biggerEffectGraph->effects[0].params[2].keyframes[0].value) == 1.0);
+  GRAPPLE_REQUIRE(biggerEffectGraph->effects[0].params[2].keyframes[1].time == foundation::TimeSeconds{4.0});
+  GRAPPLE_REQUIRE(std::get<double>(biggerEffectGraph->effects[0].params[2].keyframes[1].value) == 1.5);
+
+  const auto stewardBiggerRefresh = stewardMotionWorkspace.value().preview().refreshFromProject();
+  GRAPPLE_REQUIRE(stewardBiggerRefresh);
+  const auto stewardBiggerMidFrame = stewardMotionWorkspace.value().preview().renderFrame(render::RenderFrameRequest{
+    foundation::TimeSeconds{2.0},
+    render::RenderQuality::Draft
+  });
+  GRAPPLE_REQUIRE(stewardBiggerMidFrame);
+  GRAPPLE_REQUIRE(stewardBiggerMidFrame.value().runtimeDiagnostics.empty());
+  const render::RenderedCamera* biggerRenderedCamera = nullptr;
+  for (const render::RenderedCamera& camera : stewardBiggerMidFrame.value().frame.cameras) {
+    if (camera.cameraNodeId == stewardBiggerCameraNodeId) {
+      biggerRenderedCamera = &camera;
+    }
+  }
+  GRAPPLE_REQUIRE(biggerRenderedCamera != nullptr);
+  GRAPPLE_REQUIRE(biggerRenderedCamera->state.transform.scale.x == 1.25);
+  GRAPPLE_REQUIRE(biggerRenderedCamera->state.transform.scale.y == 1.25);
+
   runtime::RuntimeEvaluator appRuntime;
   render::LocalRenderCore appRenderCore{appRuntime};
   render::LocalRenderSystem appRenderSystem{appRenderCore};

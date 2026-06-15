@@ -1745,6 +1745,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     window.clickStewardPrimaryAction();
     window.setStewardIntent("Move the camera framing right.");
     window.clickStewardPrimaryAction();
+    window.setStewardIntent("Make the subject bigger.");
+    window.clickStewardPrimaryAction();
     const int stewardRecentEdits = window.stewardRecentEditCount();
     window.clickStewardRecentEdit(0);
     const auto tunedViewModel = workspace.value().project().buildViewModel();
@@ -1763,7 +1765,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     const bool hasEvaluatedTunedPreview =
       tunedPreviewFrame.value().frame.sourceRevision == tunedViewModel.value().project.revision &&
       tunedPreviewFrame.value().frame.cameras.size() == 1 &&
-      tunedPreviewFrame.value().frame.cameras.front().state.transform.position.x == 0.25;
+      tunedPreviewFrame.value().frame.cameras.front().state.transform.position.x == 0.25 &&
+      tunedPreviewFrame.value().frame.cameras.front().state.transform.scale.x == 1.375;
     window.setExportResolutionControlValue(320, 180);
     window.setExportFrameRateControlValue(10.0);
     window.setExportCodecControlValue("mjpeg");
@@ -1800,17 +1803,28 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
             if (!effect.cameraTransformEffect) {
               return false;
             }
-            const auto param = std::find_if(
+            const auto positionParam = std::find_if(
               effect.params.begin(),
               effect.params.end(),
               [](const grapple::app::AppEffectParamRow& row) {
                 return row.name == grapple::effects::builtin_effect::PositionXParam;
               }
             );
-            return param != effect.params.end() &&
-                   std::holds_alternative<double>(param->value) &&
-                   std::get<double>(param->value) == 0.25 &&
-                   param->lastEditedActorName == "steward";
+            const auto zoomParam = std::find_if(
+              effect.params.begin(),
+              effect.params.end(),
+              [](const grapple::app::AppEffectParamRow& row) {
+                return row.name == grapple::effects::builtin_effect::ZoomParam;
+              }
+            );
+            return positionParam != effect.params.end() &&
+                   std::holds_alternative<double>(positionParam->value) &&
+                   std::get<double>(positionParam->value) == 0.25 &&
+                   positionParam->lastEditedActorName == "steward" &&
+                   zoomParam != effect.params.end() &&
+                   std::holds_alternative<double>(zoomParam->value) &&
+                   std::get<double>(zoomParam->value) == 1.375 &&
+                   zoomParam->lastEditedActorName == "steward";
           }
         );
       }
@@ -1845,20 +1859,22 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            hasEvaluatedTunedPreview &&
            stewardActionAfterImport == "Add Selected Media To Timeline" &&
            stewardActionEnabledAfterImport &&
-           stewardRecentEdits == 3 &&
+           stewardRecentEdits == 4 &&
            selectedAfterRecentEdit.has_value() &&
            selectedAfterRecentEdit.value() == viewModel.value().timeline.cameras.front().sourceNodeId &&
            steward.find("1 assets | 1 clips | 1 cameras | 1 editable effects") != std::string::npos &&
            steward.find("Next: apply the request to the exposed camera controls.") != std::string::npos &&
            steward.find("Applied edits: select one to inspect its target.") != std::string::npos &&
-           steward.find("- Move the camera framing right. [succeeded]") != std::string::npos &&
+           steward.find("- Make the subject bigger. [succeeded]") != std::string::npos &&
            steward.find("Update Effect Param Value -> succeeded") != std::string::npos &&
            stewardActionText == "Apply Request To Camera Controls" &&
            stewardActionEnabled &&
            effectParamTitle == "Camera Transform on Camera" &&
            inspector.find("Position X (position_x)=0.25") != std::string::npos &&
+           inspector.find("Zoom (zoom)=1.375") != std::string::npos &&
            inspector.find("last changed by steward at ") != std::string::npos &&
            effectParamPanel.find("Position X") != std::string::npos &&
+           effectParamPanel.find("Zoom") != std::string::npos &&
            effectParamPanel.find("Last changed by steward at ") != std::string::npos &&
            log.find("Imported starter-gradient") != std::string::npos &&
            log.find("Steward added selected media to timeline") != std::string::npos &&

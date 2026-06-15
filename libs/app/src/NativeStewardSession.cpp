@@ -89,6 +89,22 @@ bool containsAsciiWord(const std::string& value, std::string_view word) {
   return false;
 }
 
+bool cameraIntentRequestsZoomOut(const std::string& normalized) {
+  return containsText(normalized, "zoom out") ||
+         containsAsciiWord(normalized, "wide") ||
+         containsAsciiWord(normalized, "wider") ||
+         containsAsciiWord(normalized, "smaller") ||
+         containsAsciiWord(normalized, "shrink");
+}
+
+bool cameraIntentRequestsZoomIn(const std::string& normalized) {
+  return containsText(normalized, "zoom in") ||
+         containsAsciiWord(normalized, "closer") ||
+         containsAsciiWord(normalized, "close") ||
+         containsAsciiWord(normalized, "larger") ||
+         containsAsciiWord(normalized, "bigger");
+}
+
 CameraTransformIntentDefaults cameraTransformDefaultsForIntent(const std::string& intent) {
   const std::string normalized = lowercaseAscii(intent);
   CameraTransformIntentDefaults defaults;
@@ -105,13 +121,9 @@ CameraTransformIntentDefaults cameraTransformDefaultsForIntent(const std::string
     defaults.positionY = 0.2;
   }
 
-  if (containsText(normalized, "zoom out") ||
-      containsText(normalized, "wide") ||
-      containsText(normalized, "wider")) {
+  if (cameraIntentRequestsZoomOut(normalized)) {
     defaults.zoom = 0.8;
-  } else if (containsText(normalized, "zoom in") ||
-             containsText(normalized, "closer") ||
-             containsText(normalized, "close")) {
+  } else if (cameraIntentRequestsZoomIn(normalized)) {
     defaults.zoom = 1.5;
   } else if (containsText(normalized, "subject")) {
     defaults.zoom = 1.1;
@@ -131,7 +143,9 @@ std::optional<CameraTransformMotionKeyframes> cameraMotionKeyframesForIntent(
   const std::string normalized = lowercaseAscii(intent);
   if (!containsAsciiWord(normalized, "pan") && !containsAsciiWord(normalized, "move")) {
     const bool explicitZoomMotion =
-      containsText(normalized, "zoom") &&
+      (containsText(normalized, "zoom") ||
+       cameraIntentRequestsZoomIn(normalized) ||
+       cameraIntentRequestsZoomOut(normalized)) &&
       (containsText(normalized, "animate") ||
        containsText(normalized, "over time") ||
        containsText(normalized, "gradual") ||
@@ -140,7 +154,7 @@ std::optional<CameraTransformMotionKeyframes> cameraMotionKeyframesForIntent(
       return std::nullopt;
     }
 
-    if (containsAsciiWord(normalized, "out")) {
+    if (cameraIntentRequestsZoomOut(normalized)) {
       return CameraTransformMotionKeyframes{
         effects::builtin_effect::ZoomParam,
         NormalCameraTransformZoom,
@@ -148,7 +162,7 @@ std::optional<CameraTransformMotionKeyframes> cameraMotionKeyframesForIntent(
         activeRange.end
       };
     }
-    if (!containsAsciiWord(normalized, "in")) {
+    if (!cameraIntentRequestsZoomIn(normalized)) {
       return std::nullopt;
     }
 
@@ -351,22 +365,18 @@ foundation::Result<CameraTransformParamAdjustment> cameraTransformParamAdjustmen
   } else if (containsAsciiWord(normalized, "down")) {
     paramName = effects::builtin_effect::PositionYParam;
     delta = 0.2;
-  } else if (containsText(normalized, "zoom out") ||
-             containsAsciiWord(normalized, "wider") ||
-             containsAsciiWord(normalized, "wide")) {
+  } else if (cameraIntentRequestsZoomOut(normalized)) {
     paramName = effects::builtin_effect::ZoomParam;
     delta = 0.8;
     multiply = true;
-  } else if (containsText(normalized, "zoom in") ||
-             containsAsciiWord(normalized, "closer") ||
-             containsAsciiWord(normalized, "close")) {
+  } else if (cameraIntentRequestsZoomIn(normalized)) {
     paramName = effects::builtin_effect::ZoomParam;
     delta = 1.25;
     multiply = true;
   } else {
     return foundation::Error{
       "steward.camera_transform_intent_unknown",
-      "Camera Transform adjustments must explicitly mention left, right, up, down, zoom in, or zoom out."
+      "Camera Transform adjustments must explicitly mention left, right, up, down, zoom, bigger, or smaller."
     };
   }
 
