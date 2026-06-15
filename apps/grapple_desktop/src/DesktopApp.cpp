@@ -381,7 +381,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     }
     std::cout << "selected=" << selectedNodeId->value() << '\n';
     std::cout << "runs=" << workspace.value().steward().conversationState().runs.size() << '\n';
-    return selectedNodeId.value() == grapple::foundation::NodeId{"node_clip_3"} &&
+    return !viewModel.value().timeline.clips.empty() &&
+           selectedNodeId.value() == viewModel.value().timeline.clips.front().sourceNodeId &&
            workspace.value().steward().conversationState().runs.empty() &&
            viewModel.value().timeline.effectCount == 0 &&
            log.find("steward.selected_node_not_camera") == std::string::npos
