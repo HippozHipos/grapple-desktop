@@ -19,6 +19,7 @@
 #include <grapple/ui_qt/StewardPanel.hpp>
 #include <grapple/ui_qt/TimelinePanel.hpp>
 
+#include <QAction>
 #include <QApplication>
 #include <QComboBox>
 #include <QDoubleSpinBox>
@@ -51,6 +52,7 @@
 #include <cmath>
 #include <filesystem>
 #include <iomanip>
+#include <initializer_list>
 #include <memory>
 #include <optional>
 #include <sstream>
@@ -336,6 +338,20 @@ const grapple::app::AppClipRow* findClipRow(
   return nullptr;
 }
 
+bool actionsEnabled(std::initializer_list<const QAction*> actions) {
+  return std::all_of(actions.begin(), actions.end(), [](const QAction* action) {
+    return action != nullptr && action->isEnabled();
+  });
+}
+
+void setActionsEnabled(std::initializer_list<QAction*> actions, bool enabled) {
+  for (QAction* action : actions) {
+    if (action != nullptr) {
+      action->setEnabled(enabled);
+    }
+  }
+}
+
 bool targetHasEditableEffects(
   const grapple::app::AppViewModel& viewModel,
   const grapple::foundation::NodeId& targetNodeId
@@ -549,18 +565,18 @@ public:
     auto* saveAsPackageAction = moreMenu->addAction("Save As Package");
     auto* addTrackAction = moreMenu->addAction("Add Track");
     auto* addCameraAction = moreMenu->addAction("Add Camera");
-    auto* renameCameraAction = moreMenu->addAction("Rename Camera");
-    auto* setCameraFocalLengthAction = moreMenu->addAction("Set Camera Focal Length");
+    renameCameraAction_ = moreMenu->addAction("Rename Camera");
+    setCameraFocalLengthAction_ = moreMenu->addAction("Set Camera Focal Length");
     auto* addNoteAction = moreMenu->addAction("Add Note");
-    auto* editNoteAction = moreMenu->addAction("Edit Note");
-    auto* moveClipAction = moreMenu->addAction("Move Clip +1s");
-    auto* trimClipAction = moreMenu->addAction("Trim Clip End -1s");
-    auto* nudgeClipXAction = moreMenu->addAction("Nudge Clip X +0.1");
-    auto* nudgeClipYAction = moreMenu->addAction("Nudge Clip Y +0.1");
-    auto* scaleClipAction = moreMenu->addAction("Scale Clip 1.25x");
-    auto* opacityClipAction = moreMenu->addAction("Set Clip Opacity 0.5");
-    auto* deleteClipAction = moreMenu->addAction("Delete Clip");
-    auto* deleteTrackAction = moreMenu->addAction("Delete Track");
+    editNoteAction_ = moreMenu->addAction("Edit Note");
+    moveClipAction_ = moreMenu->addAction("Move Clip +1s");
+    trimClipAction_ = moreMenu->addAction("Trim Clip End -1s");
+    nudgeClipXAction_ = moreMenu->addAction("Nudge Clip X +0.1");
+    nudgeClipYAction_ = moreMenu->addAction("Nudge Clip Y +0.1");
+    scaleClipAction_ = moreMenu->addAction("Scale Clip 1.25x");
+    opacityClipAction_ = moreMenu->addAction("Set Clip Opacity 0.5");
+    deleteClipAction_ = moreMenu->addAction("Delete Clip");
+    deleteTrackAction_ = moreMenu->addAction("Delete Track");
     moreButton->setMenu(moreMenu);
     productTitle_ = new QLabel{"Grapple"};
     productTitle_->setObjectName("productTitle");
@@ -650,18 +666,18 @@ public:
     connect(saveAsPackageAction, &QAction::triggered, this, [this] { chooseAndSavePackageAs(); });
     connect(addTrackAction, &QAction::triggered, this, [this] { addTrack(); });
     connect(addCameraAction, &QAction::triggered, this, [this] { addCamera(); });
-    connect(renameCameraAction, &QAction::triggered, this, [this] { renameSelectedCamera(); });
-    connect(setCameraFocalLengthAction, &QAction::triggered, this, [this] { editSelectedCameraFocalLength(); });
+    connect(renameCameraAction_, &QAction::triggered, this, [this] { renameSelectedCamera(); });
+    connect(setCameraFocalLengthAction_, &QAction::triggered, this, [this] { editSelectedCameraFocalLength(); });
     connect(addNoteAction, &QAction::triggered, this, [this] { addNote(); });
-    connect(editNoteAction, &QAction::triggered, this, [this] { editSelectedNote(); });
-    connect(moveClipAction, &QAction::triggered, this, [this] { moveSelectedClip(grapple::foundation::TimeSeconds{1.0}); });
-    connect(trimClipAction, &QAction::triggered, this, [this] { trimSelectedClipEnd(grapple::foundation::TimeSeconds{-1.0}); });
-    connect(nudgeClipXAction, &QAction::triggered, this, [this] { nudgeSelectedClipX(0.1); });
-    connect(nudgeClipYAction, &QAction::triggered, this, [this] { nudgeSelectedClipY(0.1); });
-    connect(scaleClipAction, &QAction::triggered, this, [this] { setSelectedClipUniformScale(1.25); });
-    connect(opacityClipAction, &QAction::triggered, this, [this] { setSelectedClipOpacity(0.5); });
-    connect(deleteClipAction, &QAction::triggered, this, [this] { deleteSelectedClip(); });
-    connect(deleteTrackAction, &QAction::triggered, this, [this] { deleteSelectedTrack(); });
+    connect(editNoteAction_, &QAction::triggered, this, [this] { editSelectedNote(); });
+    connect(moveClipAction_, &QAction::triggered, this, [this] { moveSelectedClip(grapple::foundation::TimeSeconds{1.0}); });
+    connect(trimClipAction_, &QAction::triggered, this, [this] { trimSelectedClipEnd(grapple::foundation::TimeSeconds{-1.0}); });
+    connect(nudgeClipXAction_, &QAction::triggered, this, [this] { nudgeSelectedClipX(0.1); });
+    connect(nudgeClipYAction_, &QAction::triggered, this, [this] { nudgeSelectedClipY(0.1); });
+    connect(scaleClipAction_, &QAction::triggered, this, [this] { setSelectedClipUniformScale(1.25); });
+    connect(opacityClipAction_, &QAction::triggered, this, [this] { setSelectedClipOpacity(0.5); });
+    connect(deleteClipAction_, &QAction::triggered, this, [this] { deleteSelectedClip(); });
+    connect(deleteTrackAction_, &QAction::triggered, this, [this] { deleteSelectedTrack(); });
     connect(exportButton_, &QPushButton::clicked, this, [this] { chooseAndExportVideo(); });
     connect(saveButton_, &QPushButton::clicked, this, [this] { savePackage(); });
     steward_->setImportMediaHandler([this] { chooseAndImportMedia(); });
@@ -1153,6 +1169,26 @@ public:
 
   bool saveActionEnabled() const {
     return saveButton_ != nullptr && saveButton_->isEnabled();
+  }
+
+  bool selectedCameraMenuActionsEnabled() const {
+    return actionsEnabled({renameCameraAction_, setCameraFocalLengthAction_});
+  }
+
+  bool selectedClipMenuActionsEnabled() const {
+    return actionsEnabled({
+      moveClipAction_,
+      trimClipAction_,
+      nudgeClipXAction_,
+      nudgeClipYAction_,
+      scaleClipAction_,
+      opacityClipAction_,
+      deleteClipAction_
+    });
+  }
+
+  bool selectedTrackMenuActionEnabled() const {
+    return deleteTrackAction_ != nullptr && deleteTrackAction_->isEnabled();
   }
 
   std::string currentDetailTabText() const {
@@ -2640,6 +2676,55 @@ public:
 private:
   void updateActionAvailability() {
     addSelectedMediaButton_->setEnabled(selectedAssetId_.has_value());
+    bool selectedCamera = false;
+    bool selectedClip = false;
+    bool selectedTrack = false;
+    bool selectedNote = false;
+    if (currentViewModel_.has_value() && selectedNodeId_.has_value()) {
+      const grapple::foundation::NodeId selected = selectedNodeId_.value();
+      selectedCamera = std::any_of(
+        currentViewModel_->timeline.cameras.begin(),
+        currentViewModel_->timeline.cameras.end(),
+        [&](const grapple::app::AppCameraRow& camera) {
+          return camera.sourceNodeId == selected;
+        }
+      );
+      selectedClip = findClipRow(currentViewModel_.value(), selected) != nullptr;
+      selectedTrack =
+        std::any_of(
+          currentViewModel_->timeline.layers.begin(),
+          currentViewModel_->timeline.layers.end(),
+          [&](const grapple::app::AppLayerRow& layer) {
+            return layer.sourceNodeId == selected;
+          }
+        ) ||
+        std::any_of(
+          currentViewModel_->timeline.audioTracks.begin(),
+          currentViewModel_->timeline.audioTracks.end(),
+          [&](const grapple::app::AppLayerRow& track) {
+            return track.sourceNodeId == selected;
+          }
+        );
+      selectedNote = std::any_of(
+        currentViewModel_->notes.rows.begin(),
+        currentViewModel_->notes.rows.end(),
+        [&](const grapple::app::AppNoteRow& note) {
+          return note.sourceNodeId == selected;
+        }
+      );
+    }
+    setActionsEnabled({renameCameraAction_, setCameraFocalLengthAction_}, selectedCamera);
+    setActionsEnabled({editNoteAction_}, selectedNote);
+    setActionsEnabled({
+      moveClipAction_,
+      trimClipAction_,
+      nudgeClipXAction_,
+      nudgeClipYAction_,
+      scaleClipAction_,
+      opacityClipAction_,
+      deleteClipAction_
+    }, selectedClip);
+    setActionsEnabled({deleteTrackAction_}, selectedTrack);
     const bool unsaved =
       currentProjectRevision_.has_value() &&
       (!lastSavedRevision_.has_value() || lastSavedRevision_.value() != currentProjectRevision_.value());
@@ -2966,6 +3051,17 @@ private:
   QPushButton* addSelectedMediaButton_ = nullptr;
   QPushButton* saveButton_ = nullptr;
   QPushButton* exportButton_ = nullptr;
+  QAction* renameCameraAction_ = nullptr;
+  QAction* setCameraFocalLengthAction_ = nullptr;
+  QAction* editNoteAction_ = nullptr;
+  QAction* moveClipAction_ = nullptr;
+  QAction* trimClipAction_ = nullptr;
+  QAction* nudgeClipXAction_ = nullptr;
+  QAction* nudgeClipYAction_ = nullptr;
+  QAction* scaleClipAction_ = nullptr;
+  QAction* opacityClipAction_ = nullptr;
+  QAction* deleteClipAction_ = nullptr;
+  QAction* deleteTrackAction_ = nullptr;
   QTimer* playbackTimer_ = nullptr;
   QTimer* jobDispatchTimer_ = nullptr;
   grapple::jobs::MainThreadDispatcher jobDispatcher_;
@@ -3261,6 +3357,18 @@ bool DesktopWindow::exportActionEnabled() const {
 
 bool DesktopWindow::saveActionEnabled() const {
   return impl_->saveActionEnabled();
+}
+
+bool DesktopWindow::selectedCameraMenuActionsEnabled() const {
+  return impl_->selectedCameraMenuActionsEnabled();
+}
+
+bool DesktopWindow::selectedClipMenuActionsEnabled() const {
+  return impl_->selectedClipMenuActionsEnabled();
+}
+
+bool DesktopWindow::selectedTrackMenuActionEnabled() const {
+  return impl_->selectedTrackMenuActionEnabled();
 }
 
 void DesktopWindow::setEffectParamControlDraftValue(const std::string& paramName, double value) {

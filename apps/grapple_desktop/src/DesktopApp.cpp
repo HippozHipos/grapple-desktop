@@ -430,6 +430,9 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     const bool stewardActionEnabled = window.stewardPrimaryActionEnabled();
     const bool exportActionEnabled = window.exportActionEnabled();
     const bool saveActionEnabled = window.saveActionEnabled();
+    const bool selectedCameraMenuActionsEnabled = window.selectedCameraMenuActionsEnabled();
+    const bool selectedClipMenuActionsEnabled = window.selectedClipMenuActionsEnabled();
+    const bool selectedTrackMenuActionEnabled = window.selectedTrackMenuActionEnabled();
     std::cout << "revision=" << viewModel.value().project.revision.value() << '\n';
     std::cout << "assets=" << viewModel.value().assets.count << '\n';
     std::cout << "clips=" << viewModel.value().timeline.clips.size() << '\n';
@@ -439,6 +442,9 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "stewardActionEnabled=" << (stewardActionEnabled ? "true" : "false") << '\n';
     std::cout << "exportActionEnabled=" << (exportActionEnabled ? "true" : "false") << '\n';
     std::cout << "saveActionEnabled=" << (saveActionEnabled ? "true" : "false") << '\n';
+    std::cout << "selectedCameraMenuActionsEnabled=" << (selectedCameraMenuActionsEnabled ? "true" : "false") << '\n';
+    std::cout << "selectedClipMenuActionsEnabled=" << (selectedClipMenuActionsEnabled ? "true" : "false") << '\n';
+    std::cout << "selectedTrackMenuActionEnabled=" << (selectedTrackMenuActionEnabled ? "true" : "false") << '\n';
     std::cout << "steward=" << steward << '\n';
     return viewModel.value().assets.count == 0 &&
            viewModel.value().timeline.clips.empty() &&
@@ -447,6 +453,9 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            stewardActionEnabled &&
            !exportActionEnabled &&
            !saveActionEnabled &&
+           !selectedCameraMenuActionsEnabled &&
+           !selectedClipMenuActionsEnabled &&
+           !selectedTrackMenuActionEnabled &&
            stewardIntent.empty() &&
            steward.find("0 assets | 0 clips | 0 cameras | 0 editable effects") != std::string::npos &&
            steward.find("Next: import media to start the timeline.") != std::string::npos
@@ -537,6 +546,9 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       return 1;
     }
     const std::string log = window.logContents();
+    const bool selectedCameraMenuActionsEnabled = window.selectedCameraMenuActionsEnabled();
+    const bool selectedClipMenuActionsEnabled = window.selectedClipMenuActionsEnabled();
+    const bool selectedTrackMenuActionEnabled = window.selectedTrackMenuActionEnabled();
     const auto viewModel = workspace.value().project().buildViewModel();
     if (!viewModel) {
       printError(viewModel.error());
@@ -544,8 +556,14 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     }
     std::cout << "selected=" << selectedNodeId->value() << '\n';
     std::cout << "runs=" << workspace.value().steward().conversationState().runs.size() << '\n';
+    std::cout << "selectedCameraMenuActionsEnabled=" << (selectedCameraMenuActionsEnabled ? "true" : "false") << '\n';
+    std::cout << "selectedClipMenuActionsEnabled=" << (selectedClipMenuActionsEnabled ? "true" : "false") << '\n';
+    std::cout << "selectedTrackMenuActionEnabled=" << (selectedTrackMenuActionEnabled ? "true" : "false") << '\n';
     return !viewModel.value().timeline.clips.empty() &&
            selectedNodeId.value() == viewModel.value().timeline.clips.front().sourceNodeId &&
+           !selectedCameraMenuActionsEnabled &&
+           selectedClipMenuActionsEnabled &&
+           !selectedTrackMenuActionEnabled &&
            workspace.value().steward().conversationState().runs.empty() &&
            viewModel.value().timeline.effectCount == 0 &&
            log.find("steward.selected_node_not_camera") == std::string::npos
@@ -622,13 +640,22 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
 
     const std::string inspector = window.inspectorContents();
     const auto selectedNodeId = window.selectedNodeId();
+    const bool selectedCameraMenuActionsEnabled = window.selectedCameraMenuActionsEnabled();
+    const bool selectedClipMenuActionsEnabled = window.selectedClipMenuActionsEnabled();
+    const bool selectedTrackMenuActionEnabled = window.selectedTrackMenuActionEnabled();
     std::cout << "inspector=" << inspector << '\n';
     if (selectedNodeId.has_value()) {
       std::cout << "selected=" << selectedNodeId->value() << '\n';
     }
+    std::cout << "selectedCameraMenuActionsEnabled=" << (selectedCameraMenuActionsEnabled ? "true" : "false") << '\n';
+    std::cout << "selectedClipMenuActionsEnabled=" << (selectedClipMenuActionsEnabled ? "true" : "false") << '\n';
+    std::cout << "selectedTrackMenuActionEnabled=" << (selectedTrackMenuActionEnabled ? "true" : "false") << '\n';
     std::filesystem::remove(audioPath);
     return selectedNodeId.has_value() &&
            selectedNodeId.value() == viewModel.value().timeline.audioTracks.front().sourceNodeId &&
+           !selectedCameraMenuActionsEnabled &&
+           !selectedClipMenuActionsEnabled &&
+           selectedTrackMenuActionEnabled &&
            inspector.find("Inspector\nAudio Track") != std::string::npos &&
            inspector.find("Clips: 1") != std::string::npos
       ? 0
@@ -651,10 +678,19 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     }
     const std::string inspector = window.inspectorContents();
     const std::string log = window.logContents();
+    const bool selectedCameraMenuActionsEnabled = window.selectedCameraMenuActionsEnabled();
+    const bool selectedClipMenuActionsEnabled = window.selectedClipMenuActionsEnabled();
+    const bool selectedTrackMenuActionEnabled = window.selectedTrackMenuActionEnabled();
     std::cout << "selected=" << selectedNodeId->value() << '\n';
     std::cout << "inspector=" << inspector << '\n';
+    std::cout << "selectedCameraMenuActionsEnabled=" << (selectedCameraMenuActionsEnabled ? "true" : "false") << '\n';
+    std::cout << "selectedClipMenuActionsEnabled=" << (selectedClipMenuActionsEnabled ? "true" : "false") << '\n';
+    std::cout << "selectedTrackMenuActionEnabled=" << (selectedTrackMenuActionEnabled ? "true" : "false") << '\n';
     return !viewModel.value().timeline.cameras.empty() &&
            selectedNodeId.value() == viewModel.value().timeline.cameras.front().sourceNodeId &&
+           selectedCameraMenuActionsEnabled &&
+           !selectedClipMenuActionsEnabled &&
+           !selectedTrackMenuActionEnabled &&
            inspector.find("Camera\nName: Camera") != std::string::npos &&
            inspector.find("No effects attached.") != std::string::npos
       ? 0

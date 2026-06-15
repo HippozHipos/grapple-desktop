@@ -60,6 +60,9 @@ public:
   [[nodiscard]] std::string exportStatusText() const;
   [[nodiscard]] bool exportActionEnabled() const;
   [[nodiscard]] bool saveActionEnabled() const;
+  [[nodiscard]] bool selectedCameraMenuActionsEnabled() const;
+  [[nodiscard]] bool selectedClipMenuActionsEnabled() const;
+  [[nodiscard]] bool selectedTrackMenuActionEnabled() const;
   [[nodiscard]] std::string currentDetailTabText() const;
   [[nodiscard]] std::string stewardIntent() const;
   void setStewardIntent(std::string intent);
