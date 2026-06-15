@@ -66,24 +66,18 @@ QString timeText(grapple::foundation::TimeSeconds time) {
   return qString(output.str());
 }
 
-QString shortHashText(const grapple::foundation::Hash256& hash) {
-  return qString(hash.toHex().substr(0, 8));
-}
-
 QString renderProvenanceText(
   const grapple::render::RenderFrame& frame,
   const std::optional<grapple::foundation::RevisionId>& currentProjectRevision
 ) {
   if (currentProjectRevision.has_value() && frame.sourceRevision != currentProjectRevision.value()) {
-    return QString{"stale frame %1, project %2 | plan %3"}
+    return QString{"stale preview: frame %1, project %2"}
       .arg(qString(frame.sourceRevision.value()))
-      .arg(qString(currentProjectRevision->value()))
-      .arg(shortHashText(frame.renderPlanHash));
+      .arg(qString(currentProjectRevision->value()));
   }
 
-  return QString{"current %1 | plan %2"}
-    .arg(qString(frame.sourceRevision.value()))
-    .arg(shortHashText(frame.renderPlanHash));
+  return QString{"current preview: %1"}
+    .arg(qString(frame.sourceRevision.value()));
 }
 
 QString summaryText(const grapple::app::AppViewModel& viewModel) {
