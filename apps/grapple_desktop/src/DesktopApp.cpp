@@ -1076,6 +1076,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     window.clickStewardPrimaryAction();
     window.setEffectParamSliderRatio(grapple::runtime::builtin_effect::PositionXParam, 0.625);
     window.setEffectParamControlValue(grapple::runtime::builtin_effect::ZoomParam, 1.5);
+    window.setEffectParamSliderRatio(grapple::runtime::builtin_effect::PositionXParam, 0.625);
     const std::string inspector = window.inspectorContents();
     const std::string log = window.logContents();
     const auto viewModel = workspace.value().project().buildViewModel();

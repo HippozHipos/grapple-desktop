@@ -36,6 +36,10 @@ bool sameTime(foundation::TimeSeconds left, foundation::TimeSeconds right) {
   return std::abs(left.value - right.value) < 0.000001;
 }
 
+bool sameNumericValue(double left, double right) {
+  return std::abs(left - right) < 0.000001;
+}
+
 constexpr int ParamSliderTicks = 1000;
 
 int sliderIndexForParamValue(double value, double min, double max) {
@@ -265,8 +269,11 @@ void EffectParamPanel::setSelection(
             const QSignalBlocker blockEditor{editor};
             editor->setValue(paramValueForSliderIndex(index, min, max));
           });
-          connect(slider, &QSlider::sliderReleased, this, [this, editor, parameterEffectNodeId, paramName] {
+          connect(slider, &QSlider::sliderReleased, this, [this, editor, parameterEffectNodeId, paramName, initialValue = *numericValue] {
             const double value = editor->value();
+            if (sameNumericValue(value, initialValue)) {
+              return;
+            }
             QTimer::singleShot(0, this, [this, parameterEffectNodeId, paramName, value] {
               if (applyHandler_) {
                 applyHandler_(parameterEffectNodeId, paramName, timeline::ParamValue{value});
