@@ -109,15 +109,15 @@ CameraTransformIntentDefaults cameraTransformDefaultsForIntent(const std::string
   const std::string normalized = lowercaseAscii(intent);
   CameraTransformIntentDefaults defaults;
 
-  if (containsText(normalized, "left")) {
+  if (containsAsciiWord(normalized, "left")) {
     defaults.positionX = -0.25;
-  } else if (containsText(normalized, "right")) {
+  } else if (containsAsciiWord(normalized, "right")) {
     defaults.positionX = 0.25;
   }
 
-  if (containsText(normalized, "up")) {
+  if (containsAsciiWord(normalized, "up")) {
     defaults.positionY = -0.2;
-  } else if (containsText(normalized, "down")) {
+  } else if (containsAsciiWord(normalized, "down")) {
     defaults.positionY = 0.2;
   }
 

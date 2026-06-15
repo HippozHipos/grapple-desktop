@@ -1284,6 +1284,57 @@ int main() {
   GRAPPLE_REQUIRE(initialRuntimeFrame.value().frame.cameras[0].state.transform.position.y == 0.0);
   GRAPPLE_REQUIRE(initialRuntimeFrame.value().frame.cameras[0].state.transform.scale.x == 1.1);
   GRAPPLE_REQUIRE(initialRuntimeFrame.value().frame.cameras[0].state.transform.scale.y == 1.1);
+
+  app::NativeProjectSession wordBoundaryProject{
+    foundation::ProjectId{"proj_app_word_boundary"},
+    "Word Boundary Project",
+    storage::ProjectPackage{
+      foundation::ProjectId{"proj_app_word_boundary"},
+      foundation::FilePath{"word-boundary-app.grapple"},
+      storage::CurrentProjectPackageSchemaVersion
+    }
+  };
+  auto wordBoundaryWorkspace = app::NativeWorkspaceSession::fromProject(std::move(wordBoundaryProject));
+  GRAPPLE_REQUIRE(wordBoundaryWorkspace);
+  const foundation::NodeId wordBoundaryCompositionNodeId =
+    wordBoundaryWorkspace.value().commandWriter().nextNodeId("composition");
+  const auto wordBoundaryComposition = wordBoundaryWorkspace.value().commandWriter().apply(
+    project::CreateCompositionCommand{wordBoundaryCompositionNodeId, "Word Boundary Main"},
+    userSource()
+  );
+  GRAPPLE_REQUIRE(wordBoundaryComposition);
+  const foundation::NodeId wordBoundaryCameraNodeId =
+    wordBoundaryWorkspace.value().commandWriter().nextNodeId("camera");
+  const auto wordBoundaryCamera = wordBoundaryWorkspace.value().commandWriter().apply(
+    project::CreateCameraCommand{
+      wordBoundaryCameraNodeId,
+      wordBoundaryCompositionNodeId,
+      wordBoundaryWorkspace.value().commandWriter().nextEdgeId("contains camera"),
+      timeline::CameraPayload{
+        "Camera",
+        timeline::CameraState{
+          timeline::Transform2D{},
+          timeline::CameraLens{35.0}
+        }
+      }
+    },
+    userSource()
+  );
+  GRAPPLE_REQUIRE(wordBoundaryCamera);
+  const auto wordBoundaryEffect = wordBoundaryWorkspace.value().steward().createCameraTransformEffect(
+    wordBoundaryCameraNodeId,
+    "Make a bright setup around the subject with editable controls.",
+    foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}}
+  );
+  GRAPPLE_REQUIRE(wordBoundaryEffect);
+  const auto wordBoundaryViewModel = wordBoundaryWorkspace.value().project().buildViewModel();
+  GRAPPLE_REQUIRE(wordBoundaryViewModel);
+  GRAPPLE_REQUIRE(wordBoundaryViewModel.value().timeline.effectGraphs.size() == 1);
+  GRAPPLE_REQUIRE(wordBoundaryViewModel.value().timeline.effectGraphs[0].effects.size() == 1);
+  GRAPPLE_REQUIRE(std::get<double>(wordBoundaryViewModel.value().timeline.effectGraphs[0].effects[0].params[0].value) == 0.0);
+  GRAPPLE_REQUIRE(std::get<double>(wordBoundaryViewModel.value().timeline.effectGraphs[0].effects[0].params[1].value) == 0.0);
+  GRAPPLE_REQUIRE(std::get<double>(wordBoundaryViewModel.value().timeline.effectGraphs[0].effects[0].params[2].value) == 1.1);
+
   const auto updatedRuntimeEffect = runtimeWorkspace.value().effects().setParamValue(
     runtimeEffectNodeId,
     effects::builtin_effect::PositionXParam,
