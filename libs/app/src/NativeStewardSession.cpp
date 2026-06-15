@@ -374,6 +374,46 @@ foundation::Result<CameraTransformParamAdjustment> cameraTransformParamAdjustmen
   };
 }
 
+foundation::Result<CameraTransformMotionKeyframes> cameraTransformMotionAdjustmentForIntent(
+  const project::ProjectSnapshot& snapshot,
+  const foundation::NodeId& cameraNodeId,
+  const std::string& intent,
+  foundation::TimeRange activeRange
+) {
+  if (activeRange.end.value <= activeRange.start.value) {
+    return foundation::Error{
+      "steward.camera_transform_motion_range_invalid",
+      "Camera Transform motion adjustment requires a positive active range."
+    };
+  }
+
+  auto adjustment = cameraTransformParamAdjustmentForIntent(snapshot, cameraNodeId, intent);
+  if (!adjustment) {
+    return adjustment.error();
+  }
+
+  foundation::NodeId effectNodeId;
+  const timeline::EffectPayload* payload = cameraTransformEffectPayload(snapshot, cameraNodeId, effectNodeId);
+  if (payload == nullptr) {
+    return foundation::Error{
+      "steward.camera_transform_missing",
+      "Steward camera control adjustment requires existing Camera Transform controls."
+    };
+  }
+
+  auto currentValue = numericEffectParamValue(*payload, adjustment.value().paramName);
+  if (!currentValue) {
+    return currentValue.error();
+  }
+
+  return CameraTransformMotionKeyframes{
+    adjustment.value().paramName,
+    currentValue.value(),
+    adjustment.value().value,
+    activeRange.end
+  };
+}
+
 std::string runStartedPayload(const std::string& title) {
   std::ostringstream payload;
   payload << '{';
@@ -837,44 +877,15 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::a
   std::optional<CameraTransformMotionKeyframes> motion;
   std::optional<CameraTransformParamAdjustment> adjustment;
   if (motionRequested) {
-    const graph::GraphNode* cameraNode = snapshot.value().graph.findNode(cameraNodeId);
-    if (cameraNode == nullptr || cameraNode->kind != graph::NodeKind::Camera) {
-      const foundation::Error error{
-        "steward.camera_missing",
-        "Steward camera control adjustment requires an existing camera node."
-      };
-      auto finished = finishRunWithError(runId.value(), error);
+    auto motionAdjustment = cameraTransformMotionAdjustmentForIntent(snapshot.value(), cameraNodeId, intent, activeRange);
+    if (!motionAdjustment) {
+      auto finished = finishRunWithError(runId.value(), motionAdjustment.error());
       if (!finished) {
         return finished.error();
       }
-      return error;
+      return motionAdjustment.error();
     }
-
-    foundation::NodeId effectNodeId;
-    if (cameraTransformEffectPayload(snapshot.value(), cameraNodeId, effectNodeId) == nullptr) {
-      const foundation::Error error{
-        "steward.camera_transform_missing",
-        "Steward camera control adjustment requires existing Camera Transform controls."
-      };
-      auto finished = finishRunWithError(runId.value(), error);
-      if (!finished) {
-        return finished.error();
-      }
-      return error;
-    }
-
-    motion = cameraMotionKeyframesForIntent(intent, activeRange);
-    if (!motion.has_value()) {
-      const foundation::Error error{
-        "steward.camera_transform_motion_intent_unknown",
-        "Camera Transform motion adjustments must explicitly mention a direction or zoom direction."
-      };
-      auto finished = finishRunWithError(runId.value(), error);
-      if (!finished) {
-        return finished.error();
-      }
-      return error;
-    }
+    motion = motionAdjustment.value();
   } else {
     auto paramAdjustment = cameraTransformParamAdjustmentForIntent(snapshot.value(), cameraNodeId, intent);
     if (!paramAdjustment) {
