@@ -23,6 +23,8 @@ public:
   [[nodiscard]] foundation::EdgeId nextEdgeId(const std::string& stem) override;
   [[nodiscard]] foundation::KeyframeId nextKeyframeId(const std::string& stem) override;
   [[nodiscard]] foundation::SnapshotId nextSnapshotId(const std::string& stem);
+  [[nodiscard]] bool canUndoLastCommittedCommand() const;
+  [[nodiscard]] bool canRedoLastUndoneCommand() const;
 
   foundation::Result<storage::ProjectPackageSessionResult> apply(
     project::ProjectCommand command,

@@ -60,6 +60,8 @@ public:
   [[nodiscard]] std::string exportStatusText() const;
   [[nodiscard]] bool exportActionEnabled() const;
   [[nodiscard]] bool saveActionEnabled() const;
+  [[nodiscard]] bool undoActionEnabled() const;
+  [[nodiscard]] bool redoActionEnabled() const;
   [[nodiscard]] bool selectedCameraMenuActionsEnabled() const;
   [[nodiscard]] bool selectedClipMenuActionsEnabled() const;
   [[nodiscard]] bool selectedTrackMenuActionEnabled() const;

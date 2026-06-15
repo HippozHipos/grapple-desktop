@@ -554,8 +554,8 @@ public:
     auto* importMediaButton = new QPushButton{"Import"};
     addSelectedMediaButton_ = new QPushButton{"Add To Timeline"};
     addSelectedMediaButton_->setEnabled(false);
-    auto* undoButton = new QPushButton{"Undo"};
-    auto* redoButton = new QPushButton{"Redo"};
+    undoButton_ = new QPushButton{"Undo"};
+    redoButton_ = new QPushButton{"Redo"};
     exportButton_ = new QPushButton{"Export"};
     saveButton_ = new QPushButton{"Save"};
     auto* moreButton = new QPushButton{"More"};
@@ -603,8 +603,8 @@ public:
     actionRow->addWidget(stepBackButton);
     actionRow->addWidget(stepForwardButton);
     actionRow->addWidget(refreshButton);
-    actionRow->addWidget(undoButton);
-    actionRow->addWidget(redoButton);
+    actionRow->addWidget(undoButton_);
+    actionRow->addWidget(redoButton_);
     actionRow->addWidget(saveButton_);
     actionRow->addWidget(exportButton_);
     actionRow->addWidget(moreButton);
@@ -657,8 +657,8 @@ public:
     connect(seekStartButton, &QPushButton::clicked, this, [this] { seekTo(grapple::foundation::TimeSeconds{0.0}); });
     connect(stepBackButton, &QPushButton::clicked, this, [this] { stepPlayhead(-1.0); });
     connect(stepForwardButton, &QPushButton::clicked, this, [this] { stepPlayhead(1.0); });
-    connect(undoButton, &QPushButton::clicked, this, [this] { undoLastEdit(); });
-    connect(redoButton, &QPushButton::clicked, this, [this] { redoLastEdit(); });
+    connect(undoButton_, &QPushButton::clicked, this, [this] { undoLastEdit(); });
+    connect(redoButton_, &QPushButton::clicked, this, [this] { redoLastEdit(); });
     connect(importMediaButton, &QPushButton::clicked, this, [this] { chooseAndImportMedia(); });
     connect(addSelectedMediaButton_, &QPushButton::clicked, this, [this] { addSelectedMediaToTimeline(); });
     connect(newPackageAction, &QAction::triggered, this, [this] { chooseAndNewPackage(); });
@@ -1169,6 +1169,14 @@ public:
 
   bool saveActionEnabled() const {
     return saveButton_ != nullptr && saveButton_->isEnabled();
+  }
+
+  bool undoActionEnabled() const {
+    return undoButton_ != nullptr && undoButton_->isEnabled();
+  }
+
+  bool redoActionEnabled() const {
+    return redoButton_ != nullptr && redoButton_->isEnabled();
   }
 
   bool selectedCameraMenuActionsEnabled() const {
@@ -2680,6 +2688,8 @@ public:
 private:
   void updateActionAvailability() {
     addSelectedMediaButton_->setEnabled(selectedAssetId_.has_value());
+    undoButton_->setEnabled(workspace_.commandWriter().canUndoLastCommittedCommand());
+    redoButton_->setEnabled(workspace_.commandWriter().canRedoLastUndoneCommand());
     bool selectedCamera = false;
     bool selectedClip = false;
     bool selectedTrack = false;
@@ -3053,6 +3063,8 @@ private:
   QFrame* previewFrame_ = nullptr;
   QFrame* viewportFrame_ = nullptr;
   QPushButton* addSelectedMediaButton_ = nullptr;
+  QPushButton* undoButton_ = nullptr;
+  QPushButton* redoButton_ = nullptr;
   QPushButton* saveButton_ = nullptr;
   QPushButton* exportButton_ = nullptr;
   QAction* renameCameraAction_ = nullptr;
@@ -3361,6 +3373,14 @@ bool DesktopWindow::exportActionEnabled() const {
 
 bool DesktopWindow::saveActionEnabled() const {
   return impl_->saveActionEnabled();
+}
+
+bool DesktopWindow::undoActionEnabled() const {
+  return impl_->undoActionEnabled();
+}
+
+bool DesktopWindow::redoActionEnabled() const {
+  return impl_->redoActionEnabled();
 }
 
 bool DesktopWindow::selectedCameraMenuActionsEnabled() const {

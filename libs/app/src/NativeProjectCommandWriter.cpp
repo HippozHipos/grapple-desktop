@@ -35,6 +35,112 @@ bool keyframeIdExists(const project::ProjectSnapshot& snapshot, const foundation
   return false;
 }
 
+foundation::Result<const history::CommandRecord*> undoHeadCommand(
+  const storage::ProjectPackageState& state
+) {
+  if (!state.head.has_value() || !state.head->lastCommandId.has_value()) {
+    return foundation::Error{
+      "app.undo_command_missing",
+      "Undo requires a committed command at the current project head."
+    };
+  }
+
+  const std::vector<history::CommandRecord>& records = state.commandLog.records();
+  const auto command = std::find_if(records.rbegin(), records.rend(), [&](const history::CommandRecord& record) {
+    return record.id == *state.head->lastCommandId;
+  });
+  if (command == records.rend()) {
+    return foundation::Error{
+      "app.undo_head_command_missing",
+      "Undo could not find the command record for the current project head."
+    };
+  }
+  if (command->afterRevision != state.head->currentRevision) {
+    return foundation::Error{
+      "app.undo_head_revision_mismatch",
+      "Undo command record does not match the current project head revision."
+    };
+  }
+
+  return &*command;
+}
+
+struct RedoCommandIntent {
+  const history::CommandRecord* record = nullptr;
+  project::ProjectCommand command;
+};
+
+foundation::Result<RedoCommandIntent> redoCommandIntent(
+  const storage::ProjectPackageState& state
+) {
+  if (!state.head.has_value() || !state.head->lastCommandId.has_value()) {
+    return foundation::Error{
+      "app.redo_command_missing",
+      "Redo requires a committed restore command at the current project head."
+    };
+  }
+
+  const std::vector<history::CommandRecord>& records = state.commandLog.records();
+  const auto headCommand = std::find_if(records.rbegin(), records.rend(), [&](const history::CommandRecord& record) {
+    return record.id == *state.head->lastCommandId;
+  });
+  if (headCommand == records.rend()) {
+    return foundation::Error{
+      "app.redo_head_command_missing",
+      "Redo could not find the command record for the current project head."
+    };
+  }
+  if (headCommand->afterRevision != state.head->currentRevision) {
+    return foundation::Error{
+      "app.redo_head_revision_mismatch",
+      "Redo command record does not match the current project head revision."
+    };
+  }
+  if (headCommand->serializedName != "project.restore_snapshot") {
+    return foundation::Error{
+      "app.redo_requires_restore_head",
+      "Redo requires the current project head command to be a restore command."
+    };
+  }
+
+  auto restoredCommand = project::deserializeCanonicalCommandPayload(
+    headCommand->serializedName,
+    headCommand->serializedPayload
+  );
+  if (!restoredCommand) {
+    return restoredCommand.error();
+  }
+  const auto* restoredSnapshot = std::get_if<project::RestoreSnapshotCommand>(&restoredCommand.value());
+  if (restoredSnapshot == nullptr) {
+    return foundation::Error{
+      "app.redo_restore_payload_invalid",
+      "Redo restore command payload must contain a restored snapshot."
+    };
+  }
+
+  const auto redoneCommand = std::find_if(records.rbegin(), records.rend(), [&](const history::CommandRecord& record) {
+    return record.beforeRevision == restoredSnapshot->snapshot.revision &&
+      record.afterRevision == headCommand->beforeRevision &&
+      record.serializedName != "project.restore_snapshot";
+  });
+  if (redoneCommand == records.rend()) {
+    return foundation::Error{
+      "app.redo_intent_missing",
+      "Redo could not find the stored command intent reversed by the current restore command."
+    };
+  }
+
+  auto intent = project::deserializeCanonicalCommandPayload(
+    redoneCommand->serializedName,
+    redoneCommand->serializedPayload
+  );
+  if (!intent) {
+    return intent.error();
+  }
+
+  return RedoCommandIntent{&*redoneCommand, std::move(intent.value())};
+}
+
 } // namespace
 
 NativeProjectCommandWriter::NativeProjectCommandWriter(NativeProjectSession& session)
@@ -106,6 +212,14 @@ foundation::SnapshotId NativeProjectCommandWriter::nextSnapshotId(const std::str
       return candidate;
     }
   }
+}
+
+bool NativeProjectCommandWriter::canUndoLastCommittedCommand() const {
+  return static_cast<bool>(undoHeadCommand(session_.packageState()));
+}
+
+bool NativeProjectCommandWriter::canRedoLastUndoneCommand() const {
+  return static_cast<bool>(redoCommandIntent(session_.packageState()));
 }
 
 foundation::Result<storage::ProjectPackageSessionResult> NativeProjectCommandWriter::apply(
@@ -205,32 +319,13 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeProjectCommandWri
   std::optional<std::string> snapshotLabel
 ) {
   const storage::ProjectPackageState& state = session_.packageState();
-  if (!state.head.has_value() || !state.head->lastCommandId.has_value()) {
-    return foundation::Error{
-      "app.undo_command_missing",
-      "Undo requires a committed command at the current project head."
-    };
-  }
-
-  const std::vector<history::CommandRecord>& records = state.commandLog.records();
-  const auto command = std::find_if(records.rbegin(), records.rend(), [&](const history::CommandRecord& record) {
-    return record.id == *state.head->lastCommandId;
-  });
-  if (command == records.rend()) {
-    return foundation::Error{
-      "app.undo_head_command_missing",
-      "Undo could not find the command record for the current project head."
-    };
-  }
-  if (command->afterRevision != state.head->currentRevision) {
-    return foundation::Error{
-      "app.undo_head_revision_mismatch",
-      "Undo command record does not match the current project head revision."
-    };
+  auto command = undoHeadCommand(state);
+  if (!command) {
+    return command.error();
   }
 
   return restoreCommittedRevision(
-    command->beforeRevision,
+    command.value()->beforeRevision,
     std::move(source),
     std::move(snapshotLabel)
   );
@@ -240,75 +335,14 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeProjectCommandWri
   project::CommandSource source,
   std::optional<std::string> snapshotLabel
 ) {
-  const storage::ProjectPackageState& state = session_.packageState();
-  if (!state.head.has_value() || !state.head->lastCommandId.has_value()) {
-    return foundation::Error{
-      "app.redo_command_missing",
-      "Redo requires a committed restore command at the current project head."
-    };
-  }
-
-  const std::vector<history::CommandRecord>& records = state.commandLog.records();
-  const auto headCommand = std::find_if(records.rbegin(), records.rend(), [&](const history::CommandRecord& record) {
-    return record.id == *state.head->lastCommandId;
-  });
-  if (headCommand == records.rend()) {
-    return foundation::Error{
-      "app.redo_head_command_missing",
-      "Redo could not find the command record for the current project head."
-    };
-  }
-  if (headCommand->afterRevision != state.head->currentRevision) {
-    return foundation::Error{
-      "app.redo_head_revision_mismatch",
-      "Redo command record does not match the current project head revision."
-    };
-  }
-  if (headCommand->serializedName != "project.restore_snapshot") {
-    return foundation::Error{
-      "app.redo_requires_restore_head",
-      "Redo requires the current project head command to be a restore command."
-    };
-  }
-
-  auto restoredCommand = project::deserializeCanonicalCommandPayload(
-    headCommand->serializedName,
-    headCommand->serializedPayload
-  );
-  if (!restoredCommand) {
-    return restoredCommand.error();
-  }
-  const auto* restoredSnapshot = std::get_if<project::RestoreSnapshotCommand>(&restoredCommand.value());
-  if (restoredSnapshot == nullptr) {
-    return foundation::Error{
-      "app.redo_restore_payload_invalid",
-      "Redo restore command payload must contain a restored snapshot."
-    };
-  }
-
-  const auto redoneCommand = std::find_if(records.rbegin(), records.rend(), [&](const history::CommandRecord& record) {
-    return record.beforeRevision == restoredSnapshot->snapshot.revision &&
-      record.afterRevision == headCommand->beforeRevision &&
-      record.serializedName != "project.restore_snapshot";
-  });
-  if (redoneCommand == records.rend()) {
-    return foundation::Error{
-      "app.redo_intent_missing",
-      "Redo could not find the stored command intent reversed by the current restore command."
-    };
-  }
-
-  auto intent = project::deserializeCanonicalCommandPayload(
-    redoneCommand->serializedName,
-    redoneCommand->serializedPayload
-  );
+  auto intent = redoCommandIntent(session_.packageState());
   if (!intent) {
     return intent.error();
   }
 
-  foundation::SnapshotId snapshotId = nextSnapshotId("redo_" + redoneCommand->afterRevision.value());
+  foundation::SnapshotId snapshotId = nextSnapshotId("redo_" + intent.value().record->afterRevision.value());
   return apply(
-    std::move(intent.value()),
+    std::move(intent.value().command),
     std::move(source),
     storage::SnapshotCommitRecord{
       snapshotId,

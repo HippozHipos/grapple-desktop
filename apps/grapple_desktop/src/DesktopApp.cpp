@@ -430,6 +430,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     const bool stewardActionEnabled = window.stewardPrimaryActionEnabled();
     const bool exportActionEnabled = window.exportActionEnabled();
     const bool saveActionEnabled = window.saveActionEnabled();
+    const bool undoActionEnabled = window.undoActionEnabled();
+    const bool redoActionEnabled = window.redoActionEnabled();
     const bool selectedCameraMenuActionsEnabled = window.selectedCameraMenuActionsEnabled();
     const bool selectedClipMenuActionsEnabled = window.selectedClipMenuActionsEnabled();
     const bool selectedTrackMenuActionEnabled = window.selectedTrackMenuActionEnabled();
@@ -443,6 +445,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "stewardActionEnabled=" << (stewardActionEnabled ? "true" : "false") << '\n';
     std::cout << "exportActionEnabled=" << (exportActionEnabled ? "true" : "false") << '\n';
     std::cout << "saveActionEnabled=" << (saveActionEnabled ? "true" : "false") << '\n';
+    std::cout << "undoActionEnabled=" << (undoActionEnabled ? "true" : "false") << '\n';
+    std::cout << "redoActionEnabled=" << (redoActionEnabled ? "true" : "false") << '\n';
     std::cout << "selectedCameraMenuActionsEnabled=" << (selectedCameraMenuActionsEnabled ? "true" : "false") << '\n';
     std::cout << "selectedClipMenuActionsEnabled=" << (selectedClipMenuActionsEnabled ? "true" : "false") << '\n';
     std::cout << "selectedTrackMenuActionEnabled=" << (selectedTrackMenuActionEnabled ? "true" : "false") << '\n';
@@ -455,6 +459,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            stewardActionEnabled &&
            !exportActionEnabled &&
            !saveActionEnabled &&
+           !undoActionEnabled &&
+           !redoActionEnabled &&
            !selectedCameraMenuActionsEnabled &&
            !selectedClipMenuActionsEnabled &&
            !selectedTrackMenuActionEnabled &&
@@ -1228,31 +1234,49 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       printError(afterAdd.error());
       return 1;
     }
+    const bool afterAddUndoActionEnabled = window.undoActionEnabled();
+    const bool afterAddRedoActionEnabled = window.redoActionEnabled();
     window.undoLastEdit();
     auto afterUndo = workspace.value().project().buildViewModel();
     if (!afterUndo) {
       printError(afterUndo.error());
       return 1;
     }
+    const bool afterUndoUndoActionEnabled = window.undoActionEnabled();
+    const bool afterUndoRedoActionEnabled = window.redoActionEnabled();
     window.redoLastEdit();
     auto afterRedo = workspace.value().project().buildViewModel();
     if (!afterRedo) {
       printError(afterRedo.error());
       return 1;
     }
+    const bool afterRedoUndoActionEnabled = window.undoActionEnabled();
+    const bool afterRedoRedoActionEnabled = window.redoActionEnabled();
     std::cout << "afterAddRevision=" << afterAdd.value().project.revision.value() << '\n';
     std::cout << "afterAddLayers=" << afterAdd.value().timeline.layers.size() << '\n';
+    std::cout << "afterAddUndoActionEnabled=" << (afterAddUndoActionEnabled ? "true" : "false") << '\n';
+    std::cout << "afterAddRedoActionEnabled=" << (afterAddRedoActionEnabled ? "true" : "false") << '\n';
     std::cout << "afterUndoRevision=" << afterUndo.value().project.revision.value() << '\n';
     std::cout << "afterUndoLayers=" << afterUndo.value().timeline.layers.size() << '\n';
+    std::cout << "afterUndoUndoActionEnabled=" << (afterUndoUndoActionEnabled ? "true" : "false") << '\n';
+    std::cout << "afterUndoRedoActionEnabled=" << (afterUndoRedoActionEnabled ? "true" : "false") << '\n';
     std::cout << "afterRedoRevision=" << afterRedo.value().project.revision.value() << '\n';
     std::cout << "afterRedoLayers=" << afterRedo.value().timeline.layers.size() << '\n';
+    std::cout << "afterRedoUndoActionEnabled=" << (afterRedoUndoActionEnabled ? "true" : "false") << '\n';
+    std::cout << "afterRedoRedoActionEnabled=" << (afterRedoRedoActionEnabled ? "true" : "false") << '\n';
     const bool trackUndoRedoOk =
       afterAdd.value().project.revision == grapple::foundation::RevisionId{"rev_6"} &&
       afterAdd.value().timeline.layers.size() == 2 &&
+      afterAddUndoActionEnabled &&
+      !afterAddRedoActionEnabled &&
       afterUndo.value().project.revision == grapple::foundation::RevisionId{"rev_7"} &&
       afterUndo.value().timeline.layers.size() == 1 &&
+      afterUndoUndoActionEnabled &&
+      afterUndoRedoActionEnabled &&
       afterRedo.value().project.revision == grapple::foundation::RevisionId{"rev_8"} &&
-      afterRedo.value().timeline.layers.size() == 2;
+      afterRedo.value().timeline.layers.size() == 2 &&
+      afterRedoUndoActionEnabled &&
+      !afterRedoRedoActionEnabled;
 
     window.show();
     app.processEvents();
