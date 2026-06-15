@@ -1590,7 +1590,7 @@ int main() {
   GRAPPLE_REQUIRE(stewardAdjustConversation.runs[1].toolCalls.size() == 1);
   GRAPPLE_REQUIRE(stewardAdjustConversation.runs[1].toolCalls[0].toolSerializedId == "effect.update_param_value");
   GRAPPLE_REQUIRE(stewardAdjustConversation.runs[1].toolCalls[0].toolDisplayName == "Update Effect Param Value");
-  GRAPPLE_REQUIRE(stewardAdjustConversation.runs[1].toolCalls[0].toolCallId == foundation::ToolId{"tool_steward_camera_transform_param_2"});
+  GRAPPLE_REQUIRE(stewardAdjustConversation.runs[1].toolCalls[0].toolCallId == foundation::ToolId{"tool_steward_camera_transform_param_2_1"});
   GRAPPLE_REQUIRE(stewardAdjustConversation.runs[1].toolCalls[0].observedRevision == foundation::RevisionId{"rev_4"});
   const auto stewardAdjustViewModel = stewardAdjustWorkspace.value().project().buildViewModel();
   GRAPPLE_REQUIRE(stewardAdjustViewModel);
@@ -1686,6 +1686,81 @@ int main() {
   GRAPPLE_REQUIRE(stewardShiftMidFrame.value().runtimeDiagnostics.empty());
   GRAPPLE_REQUIRE(stewardShiftMidFrame.value().frame.cameras.size() == 1);
   GRAPPLE_REQUIRE(stewardShiftMidFrame.value().frame.cameras[0].state.transform.position.x == 0.625);
+
+  app::NativeProjectSession stewardRecenterProject{
+    foundation::ProjectId{"proj_app_steward_recenter"},
+    "Steward Recenter Project",
+    storage::ProjectPackage{
+      foundation::ProjectId{"proj_app_steward_recenter"},
+      foundation::FilePath{"steward-recenter-app.grapple"},
+      storage::CurrentProjectPackageSchemaVersion
+    }
+  };
+  auto stewardRecenterWorkspace = app::NativeWorkspaceSession::fromProject(std::move(stewardRecenterProject));
+  GRAPPLE_REQUIRE(stewardRecenterWorkspace);
+  const foundation::NodeId stewardRecenterCompositionNodeId =
+    stewardRecenterWorkspace.value().commandWriter().nextNodeId("composition");
+  const auto stewardRecenterComposition = stewardRecenterWorkspace.value().commandWriter().apply(
+    project::CreateCompositionCommand{stewardRecenterCompositionNodeId, "Steward Recenter Main"},
+    userSource()
+  );
+  GRAPPLE_REQUIRE(stewardRecenterComposition);
+  const foundation::NodeId stewardRecenterCameraNodeId =
+    stewardRecenterWorkspace.value().commandWriter().nextNodeId("camera");
+  const auto stewardRecenterCamera = stewardRecenterWorkspace.value().commandWriter().apply(
+    project::CreateCameraCommand{
+      stewardRecenterCameraNodeId,
+      stewardRecenterCompositionNodeId,
+      stewardRecenterWorkspace.value().commandWriter().nextEdgeId("contains camera"),
+      timeline::CameraPayload{
+        "Camera",
+        timeline::CameraState{
+          timeline::Transform2D{},
+          timeline::CameraLens{35.0}
+        }
+      }
+    },
+    userSource()
+  );
+  GRAPPLE_REQUIRE(stewardRecenterCamera);
+  const auto stewardRecenterEffect = stewardRecenterWorkspace.value().steward().createCameraTransformEffect(
+    stewardRecenterCameraNodeId,
+    "Move the subject right and down with editable camera controls.",
+    foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{3.0}}
+  );
+  GRAPPLE_REQUIRE(stewardRecenterEffect);
+  const auto stewardRecenteredControls = stewardRecenterWorkspace.value().steward().adjustCameraTransformControls(
+    stewardRecenterCameraNodeId,
+    "Recenter the subject.",
+    foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{3.0}}
+  );
+  GRAPPLE_REQUIRE(stewardRecenteredControls);
+  GRAPPLE_REQUIRE(stewardRecenteredControls.value().snapshot.revision == foundation::RevisionId{"rev_5"});
+  const agent::AgentConversationState stewardRecenterConversation =
+    stewardRecenterWorkspace.value().steward().conversationState();
+  GRAPPLE_REQUIRE(stewardRecenterConversation.diagnostics.empty());
+  GRAPPLE_REQUIRE(stewardRecenterConversation.runs.size() == 2);
+  GRAPPLE_REQUIRE(stewardRecenterConversation.runs[1].status == agent::AgentRunStatus::Succeeded);
+  GRAPPLE_REQUIRE(stewardRecenterConversation.runs[1].toolCalls.size() == 2);
+  GRAPPLE_REQUIRE(stewardRecenterConversation.runs[1].toolCalls[0].toolSerializedId == "effect.update_param_value");
+  GRAPPLE_REQUIRE(stewardRecenterConversation.runs[1].toolCalls[0].toolCallId == foundation::ToolId{"tool_steward_camera_transform_param_2_1"});
+  GRAPPLE_REQUIRE(stewardRecenterConversation.runs[1].toolCalls[0].observedRevision == foundation::RevisionId{"rev_4"});
+  GRAPPLE_REQUIRE(stewardRecenterConversation.runs[1].toolCalls[1].toolSerializedId == "effect.update_param_value");
+  GRAPPLE_REQUIRE(stewardRecenterConversation.runs[1].toolCalls[1].toolCallId == foundation::ToolId{"tool_steward_camera_transform_param_2_2"});
+  GRAPPLE_REQUIRE(stewardRecenterConversation.runs[1].toolCalls[1].observedRevision == foundation::RevisionId{"rev_5"});
+  const auto stewardRecenterViewModel = stewardRecenterWorkspace.value().project().buildViewModel();
+  GRAPPLE_REQUIRE(stewardRecenterViewModel);
+  GRAPPLE_REQUIRE(stewardRecenterViewModel.value().timeline.effectGraphs.size() == 1);
+  GRAPPLE_REQUIRE(stewardRecenterViewModel.value().timeline.effectGraphs[0].effects.size() == 1);
+  GRAPPLE_REQUIRE(stewardRecenterViewModel.value().timeline.effectGraphs[0].effects[0].params[0].name == effects::builtin_effect::PositionXParam);
+  GRAPPLE_REQUIRE(stewardRecenterViewModel.value().timeline.effectGraphs[0].effects[0].params[1].name == effects::builtin_effect::PositionYParam);
+  GRAPPLE_REQUIRE(std::get<double>(stewardRecenterViewModel.value().timeline.effectGraphs[0].effects[0].params[0].value) == 0.0);
+  GRAPPLE_REQUIRE(std::get<double>(stewardRecenterViewModel.value().timeline.effectGraphs[0].effects[0].params[1].value) == 0.0);
+  GRAPPLE_REQUIRE(stewardRecenterViewModel.value().timeline.effectGraphs[0].effects[0].params[0].lastEditedActorName == "steward");
+  GRAPPLE_REQUIRE(stewardRecenterViewModel.value().timeline.effectGraphs[0].effects[0].params[1].lastEditedActorName == "steward");
+  GRAPPLE_REQUIRE(stewardRecenterViewModel.value().steward.edits.size() == 3);
+  GRAPPLE_REQUIRE(stewardRecenterViewModel.value().steward.edits[1].intent == "Recenter the subject.");
+  GRAPPLE_REQUIRE(stewardRecenterViewModel.value().steward.edits[2].intent == "Recenter the subject.");
 
   app::NativeProjectSession stewardMotionProject{
     foundation::ProjectId{"proj_app_steward_motion"},
