@@ -599,6 +599,12 @@ public:
       showEffectControls();
     });
     steward_->setCreateCameraEffectHandler([this](std::string intent) { addEffectToSelectedTarget(std::move(intent)); });
+    steward_->setTransformSelectedClipHandler([this](
+      grapple::foundation::NodeId clipNodeId,
+      std::string intent
+    ) {
+      transformSelectedClipWithSteward(std::move(clipNodeId), std::move(intent));
+    });
     connect(mediaBin_, &QListWidget::currentRowChanged, this, [this](int row) { selectMediaAssetAtRow(row); });
     timeline_->setSeekHandler([this](grapple::foundation::TimeSeconds time) { seekTo(time); });
     timeline_->setSelectionHandler([this](grapple::foundation::NodeId nodeId) { selectNode(std::move(nodeId)); });
@@ -980,6 +986,14 @@ public:
     return steward_->primaryActionEnabled();
   }
 
+  std::string stewardSelectedClipActionText() const {
+    return steward_->selectedClipActionText();
+  }
+
+  bool stewardSelectedClipActionEnabled() const {
+    return steward_->selectedClipActionEnabled();
+  }
+
   std::string effectParamTitleText() const {
     auto* title = findChild<QLabel*>("effectParamTitle");
     if (title == nullptr) {
@@ -1002,6 +1016,10 @@ public:
 
   void clickStewardPrimaryAction() {
     steward_->triggerPrimaryAction();
+  }
+
+  void clickStewardSelectedClipAction() {
+    steward_->triggerSelectedClipAction();
   }
 
   void showEffectControls() {
@@ -1985,6 +2003,23 @@ public:
     log_->append("Steward applied camera edit");
   }
 
+  void transformSelectedClipWithSteward(
+    grapple::foundation::NodeId clipNodeId,
+    std::string intent
+  ) {
+    const auto transformed = workspace_.steward().transformClip(clipNodeId, std::move(intent));
+    if (!transformed) {
+      appendError(transformed.error());
+      refreshViewModel();
+      return;
+    }
+
+    selectedNodeId_ = clipNodeId;
+    selectedAssetId_ = std::nullopt;
+    refreshViewModelAndPreview();
+    log_->append("Steward transformed selected clip");
+  }
+
   void setSelectedTargetNumericEffectParam(const std::string& paramName, double value) {
     if (paramName.empty()) {
       appendError(grapple::foundation::Error{"desktop.effect_param_name_empty", "Effect parameter name must not be empty."});
@@ -2569,6 +2604,14 @@ bool DesktopWindow::stewardPrimaryActionEnabled() const {
   return impl_->stewardPrimaryActionEnabled();
 }
 
+std::string DesktopWindow::stewardSelectedClipActionText() const {
+  return impl_->stewardSelectedClipActionText();
+}
+
+bool DesktopWindow::stewardSelectedClipActionEnabled() const {
+  return impl_->stewardSelectedClipActionEnabled();
+}
+
 std::string DesktopWindow::effectParamTitleText() const {
   return impl_->effectParamTitleText();
 }
@@ -2583,6 +2626,10 @@ void DesktopWindow::setStewardIntent(std::string intent) {
 
 void DesktopWindow::clickStewardPrimaryAction() {
   impl_->clickStewardPrimaryAction();
+}
+
+void DesktopWindow::clickStewardSelectedClipAction() {
+  impl_->clickStewardSelectedClipAction();
 }
 
 void DesktopWindow::startPlayback() {

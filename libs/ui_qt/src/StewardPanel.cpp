@@ -4,6 +4,7 @@
 #include <QTextEdit>
 #include <QVBoxLayout>
 
+#include <algorithm>
 #include <utility>
 
 namespace grapple::ui {
@@ -53,6 +54,27 @@ QString diagnosticSeverityText(agent::DiagnosticSeverity severity) {
   }
 
   return "unknown";
+}
+
+std::optional<foundation::NodeId> selectedVisualClipNodeId(
+  const app::AppViewModel& viewModel,
+  const std::optional<foundation::NodeId>& selectedNodeId
+) {
+  if (!selectedNodeId.has_value()) {
+    return std::nullopt;
+  }
+
+  const auto selectedClip = std::find_if(
+    viewModel.timeline.clips.begin(),
+    viewModel.timeline.clips.end(),
+    [&](const app::AppClipRow& clip) {
+      return clip.sourceNodeId == selectedNodeId.value();
+    }
+  );
+  if (selectedClip == viewModel.timeline.clips.end()) {
+    return std::nullopt;
+  }
+  return selectedClip->sourceNodeId;
 }
 
 } // namespace
@@ -110,6 +132,15 @@ StewardPanel::StewardPanel(QWidget* parent)
     }
   });
 
+  selectedClipActionButton_ = new QPushButton{"Apply Request To Selected Clip"};
+  selectedClipActionButton_->setObjectName("stewardSelectedClipAction");
+  layout->addWidget(selectedClipActionButton_);
+  connect(selectedClipActionButton_, &QPushButton::clicked, this, [this] {
+    if (transformSelectedClipHandler_ && selectedClipTargetNodeId_.has_value()) {
+      transformSelectedClipHandler_(selectedClipTargetNodeId_.value(), intent());
+    }
+  });
+
   text_ = new QTextEdit;
   text_->setObjectName("stewardText");
   text_->setReadOnly(true);
@@ -138,6 +169,10 @@ void StewardPanel::setCreateCameraEffectHandler(CreateCameraEffectHandler handle
   createCameraEffectHandler_ = std::move(handler);
 }
 
+void StewardPanel::setTransformSelectedClipHandler(TransformSelectedClipHandler handler) {
+  transformSelectedClipHandler_ = std::move(handler);
+}
+
 void StewardPanel::setViewModel(
   const app::AppViewModel& viewModel,
   const agent::AgentConversationState& conversationState,
@@ -145,6 +180,12 @@ void StewardPanel::setViewModel(
   const std::optional<foundation::AssetId>& selectedAssetId
 ) {
   const std::optional<foundation::NodeId> cameraTargetId = app::stewardCameraTargetId(viewModel, selectedNodeId);
+  selectedClipTargetNodeId_ = selectedVisualClipNodeId(viewModel, selectedNodeId);
+  selectedClipActionButton_->setVisible(selectedClipTargetNodeId_.has_value());
+  selectedClipActionButton_->setEnabled(
+    selectedClipTargetNodeId_.has_value() &&
+    static_cast<bool>(transformSelectedClipHandler_)
+  );
   primaryTargetCameraNodeId_ = cameraTargetId;
   if (!cameraTargetId.has_value()) {
     primaryTargetCameraNodeId_ = std::nullopt;
@@ -221,6 +262,9 @@ void StewardPanel::setViewModel(
       .arg(viewModel.timeline.effectCount),
     nextStep
   };
+  if (selectedClipTargetNodeId_.has_value()) {
+    lines << "Selected clip action: apply the request to clip transform parameters.";
+  }
 
   if (viewModel.steward.edits.empty()) {
     lines << "Applied edits: none";
@@ -297,6 +341,10 @@ void StewardPanel::triggerPrimaryAction() {
   primaryActionButton_->click();
 }
 
+void StewardPanel::triggerSelectedClipAction() {
+  selectedClipActionButton_->click();
+}
+
 std::string StewardPanel::contents() const {
   return text_->toPlainText().toStdString();
 }
@@ -311,6 +359,14 @@ std::string StewardPanel::primaryActionText() const {
 
 bool StewardPanel::primaryActionEnabled() const {
   return primaryActionButton_->isEnabled();
+}
+
+std::string StewardPanel::selectedClipActionText() const {
+  return selectedClipActionButton_->text().toStdString();
+}
+
+bool StewardPanel::selectedClipActionEnabled() const {
+  return selectedClipActionButton_->isVisible() && selectedClipActionButton_->isEnabled();
 }
 
 } // namespace grapple::ui

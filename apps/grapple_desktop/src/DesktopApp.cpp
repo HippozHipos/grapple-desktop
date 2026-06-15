@@ -136,6 +136,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   bool effectKeyframeSmoke = false;
   bool stewardMotionSmoke = false;
   bool stewardZoomMotionSmoke = false;
+  bool stewardClipTransformSmoke = false;
   bool deleteEffectSmoke = false;
   bool deleteSmoke = false;
   bool deleteTrackSmoke = false;
@@ -207,6 +208,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       stewardMotionSmoke = true;
     } else if (argument == "--steward-zoom-motion-smoke") {
       stewardZoomMotionSmoke = true;
+    } else if (argument == "--steward-clip-transform-smoke") {
+      stewardClipTransformSmoke = true;
     } else if (argument == "--delete-effect-smoke") {
       deleteEffectSmoke = true;
     } else if (argument == "--delete-smoke") {
@@ -230,7 +233,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     } else if (argument == "--effect-screenshot" && index + 1 < argc) {
       effectScreenshotPath = argv[++index];
     } else {
-      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --select-audio-clip-smoke, --select-audio-track-smoke, --select-camera-smoke, --select-second-camera-smoke, --steward-smoke, --import-smoke, --import-media-types-smoke, --add-video-smoke, --empty-add-video-smoke, --empty-add-video-undo-smoke, --empty-add-track-smoke, --empty-add-camera-smoke, --update-camera-smoke, --add-note-smoke, --update-note-smoke, --move-clip-smoke, --trim-clip-smoke, --nudge-clip-smoke, --undo-redo-smoke, --add-effect-smoke, --set-effect-param-smoke, --effect-keyframe-smoke, --steward-motion-smoke, --steward-zoom-motion-smoke, --delete-effect-smoke, --delete-smoke, --delete-track-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, --export-settings-smoke, --product-loop-smoke, --empty-launch-smoke, --screenshot <path>, or --effect-screenshot <path>.\n";
+      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --select-audio-clip-smoke, --select-audio-track-smoke, --select-camera-smoke, --select-second-camera-smoke, --steward-smoke, --import-smoke, --import-media-types-smoke, --add-video-smoke, --empty-add-video-smoke, --empty-add-video-undo-smoke, --empty-add-track-smoke, --empty-add-camera-smoke, --update-camera-smoke, --add-note-smoke, --update-note-smoke, --move-clip-smoke, --trim-clip-smoke, --nudge-clip-smoke, --undo-redo-smoke, --add-effect-smoke, --set-effect-param-smoke, --effect-keyframe-smoke, --steward-motion-smoke, --steward-zoom-motion-smoke, --steward-clip-transform-smoke, --delete-effect-smoke, --delete-smoke, --delete-track-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, --export-settings-smoke, --product-loop-smoke, --empty-launch-smoke, --screenshot <path>, or --effect-screenshot <path>.\n";
       return 1;
     }
   }
@@ -1819,6 +1822,51 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            log.find(expectedExportProvenance) != std::string::npos &&
            exists &&
            size > 0U
+      ? 0
+      : 1;
+  }
+
+  if (stewardClipTransformSmoke) {
+    window.show();
+    app.processEvents();
+    window.importMediaFile(grapple::foundation::FilePath{"/tmp/grapple-native-demo/starter-gradient.avi"});
+    window.clickStewardPrimaryAction();
+    const std::string selectedClipActionText = window.stewardSelectedClipActionText();
+    const bool selectedClipActionEnabled = window.stewardSelectedClipActionEnabled();
+    window.setStewardIntent("Move selected clip right and make it smaller.");
+    window.clickStewardSelectedClipAction();
+    const auto viewModel = workspace.value().project().buildViewModel();
+    if (!viewModel) {
+      printError(viewModel.error());
+      return 1;
+    }
+    if (viewModel.value().timeline.clips.empty()) {
+      std::cerr << "Steward clip transform smoke requires a clip.\n";
+      return 1;
+    }
+    const auto& clip = viewModel.value().timeline.clips.front();
+    const std::string steward = window.stewardContents();
+    const std::string log = window.logContents();
+    std::cout << "revision=" << viewModel.value().project.revision.value() << '\n';
+    std::cout << "clipPositionX=" << clip.transform.position.x << '\n';
+    std::cout << "clipPositionY=" << clip.transform.position.y << '\n';
+    std::cout << "clipScaleX=" << clip.transform.scale.x << '\n';
+    std::cout << "clipScaleY=" << clip.transform.scale.y << '\n';
+    std::cout << "selectedClipActionText=" << selectedClipActionText << '\n';
+    std::cout << "selectedClipActionEnabled=" << (selectedClipActionEnabled ? "true" : "false") << '\n';
+    std::cout << "steward=" << steward << '\n';
+    std::cout << "log=" << log << '\n';
+    return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_3"} &&
+           clip.transform.position.x == 0.25 &&
+           clip.transform.position.y == 0.0 &&
+           clip.transform.scale.x == 0.75 &&
+           clip.transform.scale.y == 0.75 &&
+           clip.transform.opacity == 1.0 &&
+           selectedClipActionText == "Apply Request To Selected Clip" &&
+           selectedClipActionEnabled &&
+           steward.find("Selected clip action: apply the request to clip transform parameters.") != std::string::npos &&
+           steward.find("Update Clip Transform -> succeeded") != std::string::npos &&
+           log.find("Steward transformed selected clip") != std::string::npos
       ? 0
       : 1;
   }
