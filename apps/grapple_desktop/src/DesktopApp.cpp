@@ -1881,7 +1881,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            steward.find("Applied edits: select one to inspect its target.") != std::string::npos &&
            steward.find("- Recenter the subject. [succeeded]") != std::string::npos &&
            steward.find("- Make the subject bigger. [succeeded]") != std::string::npos &&
-           steward.find("Update Effect Param Value -> succeeded") != std::string::npos &&
+           steward.find("Update Effect Parameter -> succeeded") != std::string::npos &&
            stewardActionText == "Apply Request To Camera Controls" &&
            stewardActionEnabled &&
            effectParamTitle == "Camera Transform on Camera" &&

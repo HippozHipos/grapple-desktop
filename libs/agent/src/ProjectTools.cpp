@@ -3218,7 +3218,7 @@ AgentTool makeEffectUpdateParamValueTool() {
   return AgentTool{
     foundation::ToolId{"tool_effect_update_param_value"},
     "effect.update_param_value",
-    "Update Effect Param Value",
+    "Update Effect Parameter",
     "Updates one existing editable effect parameter value through Project Core without replacing controls or keyframes.",
     EffectUpdateParamValueSchema,
     [](const ToolCall& call, AgentToolContext& context) -> foundation::Result<ToolResult> {

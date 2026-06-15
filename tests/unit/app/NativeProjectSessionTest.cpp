@@ -1589,7 +1589,7 @@ int main() {
   GRAPPLE_REQUIRE(stewardAdjustConversation.runs[1].status == agent::AgentRunStatus::Succeeded);
   GRAPPLE_REQUIRE(stewardAdjustConversation.runs[1].toolCalls.size() == 1);
   GRAPPLE_REQUIRE(stewardAdjustConversation.runs[1].toolCalls[0].toolSerializedId == "effect.update_param_value");
-  GRAPPLE_REQUIRE(stewardAdjustConversation.runs[1].toolCalls[0].toolDisplayName == "Update Effect Param Value");
+  GRAPPLE_REQUIRE(stewardAdjustConversation.runs[1].toolCalls[0].toolDisplayName == "Update Effect Parameter");
   GRAPPLE_REQUIRE(stewardAdjustConversation.runs[1].toolCalls[0].toolCallId == foundation::ToolId{"tool_steward_camera_transform_param_2_1"});
   GRAPPLE_REQUIRE(stewardAdjustConversation.runs[1].toolCalls[0].observedRevision == foundation::RevisionId{"rev_4"});
   const auto stewardAdjustViewModel = stewardAdjustWorkspace.value().project().buildViewModel();
