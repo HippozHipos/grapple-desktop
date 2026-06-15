@@ -2473,6 +2473,18 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       return 1;
     }
     const auto saveAsConversation = reopenedSaveAs.value().steward().conversationState();
+    bool saveAsPackageLocalMediaCopied = false;
+    bool saveAsPackageLocalMediaMissing = false;
+    for (const grapple::app::AppAssetRow& asset : saveAsViewModel.value().assets.rows) {
+      const std::filesystem::path sourcePath{asset.sourcePath.value};
+      if (sourcePath.is_absolute()) {
+        continue;
+      }
+      saveAsPackageLocalMediaCopied = true;
+      if (!std::filesystem::exists(saveAsRoot / sourcePath)) {
+        saveAsPackageLocalMediaMissing = true;
+      }
+    }
     const bool saveAsRestored =
       saveAsViewModel.value().project.revision == grapple::foundation::RevisionId{"rev_9"} &&
       saveAsViewModel.value().timeline.effectCount == 1 &&
@@ -2480,7 +2492,9 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       saveAsConversation.runs.size() == 2 &&
       std::filesystem::exists(saveAsRoot / "manifest.json") &&
       std::filesystem::exists(saveAsRoot / "agent/runs.json") &&
-      std::filesystem::exists(saveAsRoot / "agent/events.json");
+      std::filesystem::exists(saveAsRoot / "agent/events.json") &&
+      saveAsPackageLocalMediaCopied &&
+      !saveAsPackageLocalMediaMissing;
     std::cout << "revision=" << viewModel.value().project.revision.value() << '\n';
     std::cout << "assets=" << viewModel.value().assets.count << '\n';
     std::cout << "clips=" << viewModel.value().timeline.clips.size() << '\n';
@@ -2491,6 +2505,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "stewardContextRestored=" << (stewardContextRestored ? "true" : "false") << '\n';
     std::cout << "reopenedExportMatchesPlan=" << (reopenedExportMatchesPlan ? "true" : "false") << '\n';
     std::cout << "reopenedExportSize=" << reopenedExportSize << '\n';
+    std::cout << "saveAsPackageLocalMediaCopied=" << (saveAsPackageLocalMediaCopied ? "true" : "false") << '\n';
+    std::cout << "saveAsPackageLocalMediaMissing=" << (saveAsPackageLocalMediaMissing ? "true" : "false") << '\n';
     std::cout << "saveAsRestored=" << (saveAsRestored ? "true" : "false") << '\n';
     return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_9"} &&
            viewModel.value().assets.count == 2 &&

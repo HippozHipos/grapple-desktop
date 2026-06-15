@@ -210,6 +210,63 @@ foundation::Result<foundation::FilePath> copyImportedMediaIntoPackage(
   return foundation::FilePath{relativePath.generic_string()};
 }
 
+foundation::Result<void> copyPackageLocalMediaFiles(
+  const storage::ProjectPackage& sourcePackage,
+  const storage::ProjectPackage& destinationPackage,
+  const project::ProjectSnapshot& snapshot
+) {
+  if (sourcePackage.rootPath.value.empty() || destinationPackage.rootPath.value.empty()) {
+    return foundation::Error{"app.package_root_empty", "Workspace package root path must not be empty."};
+  }
+
+  for (const asset::Asset& asset : snapshot.assets.assets()) {
+    const std::filesystem::path relativePath{asset.metadata.sourcePath.value};
+    if (relativePath.empty() || relativePath.is_absolute()) {
+      continue;
+    }
+
+    const std::filesystem::path sourcePath =
+      (std::filesystem::path{sourcePackage.rootPath.value} / relativePath).lexically_normal();
+    const std::filesystem::path destinationPath =
+      (std::filesystem::path{destinationPackage.rootPath.value} / relativePath).lexically_normal();
+
+    std::error_code equivalentError;
+    if (std::filesystem::equivalent(sourcePath, destinationPath, equivalentError) && !equivalentError) {
+      continue;
+    }
+
+    std::error_code sourceStatusError;
+    if (!std::filesystem::is_regular_file(sourcePath, sourceStatusError)) {
+      if (sourceStatusError) {
+        return foundation::Error{"app.package_media_source_stat_failed", sourceStatusError.message()};
+      }
+      return foundation::Error{
+        "app.package_media_source_missing",
+        "Package-local media source is missing: " + sourcePath.string() + "."
+      };
+    }
+
+    std::error_code directoryError;
+    std::filesystem::create_directories(destinationPath.parent_path(), directoryError);
+    if (directoryError) {
+      return foundation::Error{"app.package_media_directory_create_failed", directoryError.message()};
+    }
+
+    std::error_code copyError;
+    std::filesystem::copy_file(
+      sourcePath,
+      destinationPath,
+      std::filesystem::copy_options::overwrite_existing,
+      copyError
+    );
+    if (copyError) {
+      return foundation::Error{"app.package_media_copy_failed", copyError.message()};
+    }
+  }
+
+  return {};
+}
+
 foundation::Result<NativeProjectSession> createInitializedPackageProject(
   std::string projectName,
   storage::ProjectPackage package
@@ -650,9 +707,19 @@ foundation::Result<NativeWorkspaceWriteResult> NativeWorkspaceSession::savePacka
     currentPackage.schemaVersion
   };
 
+  auto snapshot = state_->project.snapshot();
+  if (!snapshot) {
+    return snapshot.error();
+  }
+
   auto projectWrite = state_->project.writePackageTo(package);
   if (!projectWrite) {
     return projectWrite.error();
+  }
+
+  auto mediaCopy = copyPackageLocalMediaFiles(currentPackage, package, snapshot.value());
+  if (!mediaCopy) {
+    return mediaCopy.error();
   }
 
   auto sidecarsWrite = writeWorkspacePackageSidecars(package, projectWrite.value(), state_->steward);
