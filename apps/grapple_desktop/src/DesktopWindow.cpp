@@ -1191,6 +1191,10 @@ public:
     return deleteTrackAction_ != nullptr && deleteTrackAction_->isEnabled();
   }
 
+  bool selectedNoteMenuActionEnabled() const {
+    return editNoteAction_ != nullptr && editNoteAction_->isEnabled();
+  }
+
   std::string currentDetailTabText() const {
     if (detailTabs_ == nullptr || detailTabs_->currentIndex() < 0) {
       return {};
@@ -3369,6 +3373,10 @@ bool DesktopWindow::selectedClipMenuActionsEnabled() const {
 
 bool DesktopWindow::selectedTrackMenuActionEnabled() const {
   return impl_->selectedTrackMenuActionEnabled();
+}
+
+bool DesktopWindow::selectedNoteMenuActionEnabled() const {
+  return impl_->selectedNoteMenuActionEnabled();
 }
 
 void DesktopWindow::setEffectParamControlDraftValue(const std::string& paramName, double value) {

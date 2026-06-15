@@ -63,6 +63,7 @@ public:
   [[nodiscard]] bool selectedCameraMenuActionsEnabled() const;
   [[nodiscard]] bool selectedClipMenuActionsEnabled() const;
   [[nodiscard]] bool selectedTrackMenuActionEnabled() const;
+  [[nodiscard]] bool selectedNoteMenuActionEnabled() const;
   [[nodiscard]] std::string currentDetailTabText() const;
   [[nodiscard]] std::string stewardIntent() const;
   void setStewardIntent(std::string intent);

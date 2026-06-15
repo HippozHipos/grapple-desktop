@@ -433,6 +433,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     const bool selectedCameraMenuActionsEnabled = window.selectedCameraMenuActionsEnabled();
     const bool selectedClipMenuActionsEnabled = window.selectedClipMenuActionsEnabled();
     const bool selectedTrackMenuActionEnabled = window.selectedTrackMenuActionEnabled();
+    const bool selectedNoteMenuActionEnabled = window.selectedNoteMenuActionEnabled();
     std::cout << "revision=" << viewModel.value().project.revision.value() << '\n';
     std::cout << "assets=" << viewModel.value().assets.count << '\n';
     std::cout << "clips=" << viewModel.value().timeline.clips.size() << '\n';
@@ -445,6 +446,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "selectedCameraMenuActionsEnabled=" << (selectedCameraMenuActionsEnabled ? "true" : "false") << '\n';
     std::cout << "selectedClipMenuActionsEnabled=" << (selectedClipMenuActionsEnabled ? "true" : "false") << '\n';
     std::cout << "selectedTrackMenuActionEnabled=" << (selectedTrackMenuActionEnabled ? "true" : "false") << '\n';
+    std::cout << "selectedNoteMenuActionEnabled=" << (selectedNoteMenuActionEnabled ? "true" : "false") << '\n';
     std::cout << "steward=" << steward << '\n';
     return viewModel.value().assets.count == 0 &&
            viewModel.value().timeline.clips.empty() &&
@@ -456,6 +458,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            !selectedCameraMenuActionsEnabled &&
            !selectedClipMenuActionsEnabled &&
            !selectedTrackMenuActionEnabled &&
+           !selectedNoteMenuActionEnabled &&
            stewardIntent.empty() &&
            steward.find("0 assets | 0 clips | 0 cameras | 0 editable effects") != std::string::npos &&
            steward.find("Next: import media to start the timeline.") != std::string::npos
@@ -1039,12 +1042,24 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       return 1;
     }
     const std::string inspector = window.inspectorContents();
+    const bool selectedCameraMenuActionsEnabled = window.selectedCameraMenuActionsEnabled();
+    const bool selectedClipMenuActionsEnabled = window.selectedClipMenuActionsEnabled();
+    const bool selectedTrackMenuActionEnabled = window.selectedTrackMenuActionEnabled();
+    const bool selectedNoteMenuActionEnabled = window.selectedNoteMenuActionEnabled();
     std::cout << "revision=" << viewModel.value().project.revision.value() << '\n';
     std::cout << "notes=" << viewModel.value().notes.rows.size() << '\n';
+    std::cout << "selectedCameraMenuActionsEnabled=" << (selectedCameraMenuActionsEnabled ? "true" : "false") << '\n';
+    std::cout << "selectedClipMenuActionsEnabled=" << (selectedClipMenuActionsEnabled ? "true" : "false") << '\n';
+    std::cout << "selectedTrackMenuActionEnabled=" << (selectedTrackMenuActionEnabled ? "true" : "false") << '\n';
+    std::cout << "selectedNoteMenuActionEnabled=" << (selectedNoteMenuActionEnabled ? "true" : "false") << '\n';
     std::cout << "inspector=" << inspector << '\n';
     return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_6"} &&
            viewModel.value().notes.rows.size() == 1 &&
            viewModel.value().notes.rows.front().title == "Note 1" &&
+           !selectedCameraMenuActionsEnabled &&
+           !selectedClipMenuActionsEnabled &&
+           !selectedTrackMenuActionEnabled &&
+           selectedNoteMenuActionEnabled &&
            inspector.find("Inspector\nNote\nNote 1") != std::string::npos
       ? 0
       : 1;
@@ -1059,13 +1074,16 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       return 1;
     }
     const std::string inspector = window.inspectorContents();
+    const bool selectedNoteMenuActionEnabled = window.selectedNoteMenuActionEnabled();
     std::cout << "revision=" << viewModel.value().project.revision.value() << '\n';
     std::cout << "notes=" << viewModel.value().notes.rows.size() << '\n';
+    std::cout << "selectedNoteMenuActionEnabled=" << (selectedNoteMenuActionEnabled ? "true" : "false") << '\n';
     std::cout << "inspector=" << inspector << '\n';
     return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_7"} &&
            viewModel.value().notes.rows.size() == 1 &&
            viewModel.value().notes.rows.front().title == "Updated Note" &&
            viewModel.value().notes.rows.front().markdown == "Updated project note" &&
+           selectedNoteMenuActionEnabled &&
            inspector.find("Inspector\nNote\nUpdated Note") != std::string::npos &&
            inspector.find("Updated project note") != std::string::npos
       ? 0
