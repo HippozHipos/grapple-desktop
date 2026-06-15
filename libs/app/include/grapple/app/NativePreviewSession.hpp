@@ -3,6 +3,7 @@
 #include <grapple/app/NativeProjectSession.hpp>
 #include <grapple/foundation/Hash.hpp>
 #include <grapple/foundation/Result.hpp>
+#include <grapple/projection/RenderPlan.hpp>
 #include <grapple/render/LocalRenderSystem.hpp>
 
 namespace grapple::app {
@@ -17,6 +18,7 @@ public:
   NativePreviewSession(NativeProjectSession& project, render::LocalRenderSystem& renderSystem);
 
   foundation::Result<NativePreviewRefreshResult> refreshFromProject();
+  foundation::Result<NativePreviewRefreshResult> refreshFromRenderPlan(const projection::RenderPlan& plan);
   foundation::Result<void> seek(foundation::TimeSeconds time);
   foundation::Result<void> play();
   foundation::Result<void> pause();

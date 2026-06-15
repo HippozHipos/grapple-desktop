@@ -254,6 +254,14 @@ foundation::Result<project::ProjectQueryResult> NativeProjectSession::query(cons
 }
 
 foundation::Result<AppViewModel> NativeProjectSession::buildViewModel() const {
+  auto result = buildViewModelAndRenderPlan();
+  if (!result) {
+    return result.error();
+  }
+  return std::move(result.value().viewModel);
+}
+
+foundation::Result<NativeProjectViewModelResult> NativeProjectSession::buildViewModelAndRenderPlan() const {
   auto snapshotResult = session_.snapshot();
   if (!snapshotResult) {
     return snapshotResult.error();
@@ -441,7 +449,10 @@ foundation::Result<AppViewModel> NativeProjectSession::buildViewModel() const {
     viewModel.timeline.effectGraphs.push_back(std::move(effectGraphRow));
   }
 
-  return viewModel;
+  return NativeProjectViewModelResult{
+    std::move(viewModel),
+    std::move(planResult.value().plan)
+  };
 }
 
 foundation::Result<projection::BuildTimelineIRResult> NativeProjectSession::buildTimelineIR() const {

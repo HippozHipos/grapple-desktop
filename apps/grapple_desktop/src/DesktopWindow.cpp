@@ -653,8 +653,7 @@ public:
     )");
 
     selectInitialCamera();
-    refreshViewModel();
-    refreshPreview();
+    refreshViewModelAndPreview();
   }
 
   ~DesktopWindowImpl() override {
@@ -683,22 +682,48 @@ public:
       appendError(viewModel.error());
       return;
     }
-    summary_->setText(summaryText(viewModel.value()));
-    rebuildMediaBin(viewModel.value());
-    previewSurface_->setAssetLabels(viewModel.value().assets);
-    steward_->setViewModel(viewModel.value(), workspace_.steward().conversationState(), selectedNodeId_);
-    timeline_->setViewModel(viewModel.value());
+    applyViewModel(viewModel.value());
+  }
+
+  void applyViewModel(const grapple::app::AppViewModel& viewModel) {
+    summary_->setText(summaryText(viewModel));
+    rebuildMediaBin(viewModel);
+    previewSurface_->setAssetLabels(viewModel.assets);
+    steward_->setViewModel(viewModel, workspace_.steward().conversationState(), selectedNodeId_);
+    timeline_->setViewModel(viewModel);
     timeline_->setPlayhead(workspace_.preview().state().playhead);
     timeline_->setSelectedNodeId(selectedNodeId_);
-    compositionViewport_->setViewModel(viewModel.value());
+    compositionViewport_->setViewModel(viewModel);
     compositionViewport_->setPlayhead(workspace_.preview().state().playhead);
     compositionViewport_->setSelectedNodeId(selectedNodeId_);
-    updateInspector(viewModel.value());
-    timelineDuration_ = viewModel.value().timeline.duration;
+    updateInspector(viewModel);
+    timelineDuration_ = viewModel.timeline.duration;
+  }
+
+  void refreshViewModelAndPreview(bool logRefresh = false) {
+    auto result = workspace_.project().buildViewModelAndRenderPlan();
+    if (!result) {
+      appendError(result.error());
+      return;
+    }
+    applyViewModel(result.value().viewModel);
+    refreshPreviewFromRenderPlan(result.value().renderPlan, logRefresh);
   }
 
   void refreshPreview(bool logRefresh = false) {
     const auto refresh = workspace_.preview().refreshFromProject();
+    if (!refresh) {
+      appendError(refresh.error());
+      return;
+    }
+    renderCurrentFrame(true);
+    if (logRefresh) {
+      log_->append("Preview refreshed");
+    }
+  }
+
+  void refreshPreviewFromRenderPlan(const grapple::projection::RenderPlan& plan, bool logRefresh = false) {
+    const auto refresh = workspace_.preview().refreshFromRenderPlan(plan);
     if (!refresh) {
       appendError(refresh.error());
       return;
@@ -1038,8 +1063,7 @@ public:
       return;
     }
 
-    refreshViewModel();
-    refreshPreview();
+    refreshViewModelAndPreview();
     log_->append("Added track");
   }
 
@@ -1080,8 +1104,7 @@ public:
 
     selectedNodeId_ = cameraNodeId;
     selectedAssetId_ = std::nullopt;
-    refreshViewModel();
-    refreshPreview();
+    refreshViewModelAndPreview();
     log_->append("Added camera");
   }
 
@@ -1108,8 +1131,7 @@ public:
     }
 
     selectedAssetId_ = std::nullopt;
-    refreshViewModel();
-    refreshPreview();
+    refreshViewModelAndPreview();
     log_->append("Renamed camera");
   }
 
@@ -1139,8 +1161,7 @@ public:
     }
 
     selectedAssetId_ = std::nullopt;
-    refreshViewModel();
-    refreshPreview();
+    refreshViewModelAndPreview();
     log_->append("Updated camera focal length");
   }
 
@@ -1187,8 +1208,7 @@ public:
 
     selectedNodeId_ = cameraNodeId;
     selectedAssetId_ = std::nullopt;
-    refreshViewModel();
-    refreshPreview();
+    refreshViewModelAndPreview();
     log_->append("Updated camera properties");
   }
 
@@ -1429,8 +1449,7 @@ public:
 
     selectedNodeId_ = std::nullopt;
     selectedAssetId_ = imported.value();
-    refreshViewModel();
-    refreshPreview();
+    refreshViewModelAndPreview();
     log_->append(QString{"Imported %1"}.arg(qString(std::filesystem::path{path.value}.stem().string())));
   }
 
@@ -1580,8 +1599,7 @@ public:
 
     selectedNodeId_ = clipNodeId;
     selectedAssetId_ = std::nullopt;
-    refreshViewModel();
-    refreshPreview();
+    refreshViewModelAndPreview();
     log_->append(QString{"Added %1 to timeline"}.arg(qString(assetName)));
   }
 
@@ -1614,8 +1632,7 @@ public:
 
     selectedNodeId_ = std::nullopt;
     selectedAssetId_ = std::nullopt;
-    refreshViewModel();
-    refreshPreview();
+    refreshViewModelAndPreview();
     log_->append("Deleted clip");
   }
 
@@ -1661,8 +1678,7 @@ public:
 
     selectedNodeId_ = std::nullopt;
     selectedAssetId_ = std::nullopt;
-    refreshViewModel();
-    refreshPreview();
+    refreshViewModelAndPreview();
     log_->append("Deleted track");
   }
 
@@ -1696,8 +1712,7 @@ public:
       return;
     }
 
-    refreshViewModel();
-    refreshPreview();
+    refreshViewModelAndPreview();
     log_->append("Moved clip");
   }
 
@@ -1749,8 +1764,7 @@ public:
       return;
     }
 
-    refreshViewModel();
-    refreshPreview();
+    refreshViewModelAndPreview();
     log_->append("Trimmed clip");
   }
 
@@ -1815,8 +1829,7 @@ public:
       return;
     }
 
-    refreshViewModel();
-    refreshPreview();
+    refreshViewModelAndPreview();
     log_->append(logMessage);
   }
 
@@ -1886,8 +1899,7 @@ public:
 
     selectedNodeId_ = std::nullopt;
     selectedAssetId_ = std::nullopt;
-    refreshViewModel();
-    refreshPreview();
+    refreshViewModelAndPreview();
     log_->append("Undo complete");
   }
 
@@ -1901,8 +1913,7 @@ public:
       return;
     }
 
-    refreshViewModel();
-    refreshPreview();
+    refreshViewModelAndPreview();
     log_->append("Redo complete");
   }
 
@@ -2049,8 +2060,7 @@ public:
 
     selectedNodeId_ = targetCameraNodeId.value();
     selectedAssetId_ = std::nullopt;
-    refreshViewModel();
-    refreshPreview();
+    refreshViewModelAndPreview();
     log_->append("Steward applied camera edit");
   }
 
@@ -2138,8 +2148,7 @@ public:
       return;
     }
 
-    refreshViewModel();
-    refreshPreview();
+    refreshViewModelAndPreview();
   }
 
   void setEffectParamKeyframe(
@@ -2166,8 +2175,7 @@ public:
       return;
     }
 
-    refreshViewModel();
-    refreshPreview();
+    refreshViewModelAndPreview();
     log_->append("Set effect keyframe");
   }
 
@@ -2187,8 +2195,7 @@ public:
       return;
     }
 
-    refreshViewModel();
-    refreshPreview();
+    refreshViewModelAndPreview();
     log_->append("Deleted effect keyframe");
   }
 
@@ -2202,8 +2209,7 @@ public:
       return;
     }
 
-    refreshViewModel();
-    refreshPreview();
+    refreshViewModelAndPreview();
     log_->append("Deleted effect");
   }
 
@@ -2341,8 +2347,7 @@ public:
     }
 
     selectedNodeId_ = std::nullopt;
-    refreshViewModel();
-    refreshPreview();
+    refreshViewModelAndPreview();
     log_->append(QString{"Opened package %1"}.arg(qString(rootPath.value)));
   }
 

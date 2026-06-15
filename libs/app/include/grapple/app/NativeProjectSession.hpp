@@ -5,6 +5,7 @@
 #include <grapple/project/ProjectDocument.hpp>
 #include <grapple/project/ProjectQuery.hpp>
 #include <grapple/projection/ProjectionQueryService.hpp>
+#include <grapple/projection/RenderPlan.hpp>
 #include <grapple/storage/ProjectPackageSession.hpp>
 
 #include <string>
@@ -17,6 +18,11 @@ struct NativePackageWriteResult {
   foundation::FilePath commandLogPath;
   foundation::FilePath eventLogPath;
   foundation::FilePath schemaMigrationLogPath;
+};
+
+struct NativeProjectViewModelResult {
+  AppViewModel viewModel;
+  projection::RenderPlan renderPlan;
 };
 
 class NativeProjectSession final : public project::IProjectQueryService {
@@ -35,6 +41,7 @@ public:
   [[nodiscard]] foundation::Result<project::ProjectSnapshot> snapshot() const;
   [[nodiscard]] foundation::Result<project::ProjectQueryResult> query(const project::ProjectQuery& query) const override;
   [[nodiscard]] foundation::Result<AppViewModel> buildViewModel() const;
+  [[nodiscard]] foundation::Result<NativeProjectViewModelResult> buildViewModelAndRenderPlan() const;
   [[nodiscard]] foundation::Result<projection::BuildTimelineIRResult> buildTimelineIR() const;
   [[nodiscard]] foundation::Result<projection::BuildRenderPlanResult> buildRenderPlan() const;
   [[nodiscard]] foundation::Result<NativePackageWriteResult> writePackage() const;

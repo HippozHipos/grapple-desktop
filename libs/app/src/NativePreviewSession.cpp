@@ -14,14 +14,21 @@ foundation::Result<NativePreviewRefreshResult> NativePreviewSession::refreshFrom
     return planResult.error();
   }
 
-  auto loadResult = renderSystem_.loadPlan(planResult.value().plan);
+  return refreshFromRenderPlan(planResult.value().plan);
+}
+
+foundation::Result<NativePreviewRefreshResult> NativePreviewSession::refreshFromRenderPlan(
+  const projection::RenderPlan& plan
+) {
+  const foundation::RevisionId revision = plan.revision;
+  auto loadResult = renderSystem_.loadPlan(plan);
   if (!loadResult) {
     return loadResult.error();
   }
 
   const render::LocalRenderSystemState renderState = renderSystem_.state();
   return NativePreviewRefreshResult{
-    planResult.value().plan.revision,
+    revision,
     renderState.core.preparedPlanHash.value()
   };
 }
