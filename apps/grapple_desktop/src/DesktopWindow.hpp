@@ -57,6 +57,7 @@ public:
   [[nodiscard]] std::string currentDetailTabText() const;
   [[nodiscard]] std::string stewardIntent() const;
   void setStewardIntent(std::string intent);
+  void pressStewardSubmitShortcut();
   void clickStewardPrimaryAction();
   void clickStewardSelectedClipAction();
   void clickStewardRecentEdit(int row);

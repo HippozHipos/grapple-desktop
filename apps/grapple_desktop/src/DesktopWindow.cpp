@@ -26,6 +26,7 @@
 #include <QGridLayout>
 #include <QHBoxLayout>
 #include <QInputDialog>
+#include <QKeyEvent>
 #include <QLabel>
 #include <QLineEdit>
 #include <QListView>
@@ -1074,6 +1075,29 @@ public:
 
   void setStewardIntent(std::string intent) {
     steward_->setIntent(std::move(intent));
+  }
+
+  void pressStewardSubmitShortcut() {
+    auto* intentEditor = findChild<QTextEdit*>("stewardIntent");
+    if (intentEditor == nullptr) {
+      appendError(grapple::foundation::Error{"desktop.steward_intent_missing", "Steward intent editor not found."});
+      return;
+    }
+
+    intentEditor->setFocus(Qt::OtherFocusReason);
+    QKeyEvent press{
+      QEvent::KeyPress,
+      Qt::Key_Return,
+      Qt::ControlModifier
+    };
+    QApplication::sendEvent(intentEditor, &press);
+    QKeyEvent release{
+      QEvent::KeyRelease,
+      Qt::Key_Return,
+      Qt::ControlModifier
+    };
+    QApplication::sendEvent(intentEditor, &release);
+    QApplication::processEvents();
   }
 
   void clickStewardPrimaryAction() {
@@ -2752,6 +2776,10 @@ std::string DesktopWindow::stewardIntent() const {
 
 void DesktopWindow::setStewardIntent(std::string intent) {
   impl_->setStewardIntent(std::move(intent));
+}
+
+void DesktopWindow::pressStewardSubmitShortcut() {
+  impl_->pressStewardSubmitShortcut();
 }
 
 void DesktopWindow::clickStewardPrimaryAction() {

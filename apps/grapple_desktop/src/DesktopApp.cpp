@@ -176,6 +176,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   bool undoRedoSmoke = false;
   bool addEffectSmoke = false;
   bool clipEffectControlsSmoke = false;
+  bool stewardSubmitShortcutSmoke = false;
   bool setEffectParamSmoke = false;
   bool effectKeyframeSmoke = false;
   bool stewardMotionSmoke = false;
@@ -246,6 +247,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       addEffectSmoke = true;
     } else if (argument == "--clip-effect-controls-smoke") {
       clipEffectControlsSmoke = true;
+    } else if (argument == "--steward-submit-shortcut-smoke") {
+      stewardSubmitShortcutSmoke = true;
     } else if (argument == "--set-effect-param-smoke") {
       setEffectParamSmoke = true;
     } else if (argument == "--effect-keyframe-smoke") {
@@ -279,7 +282,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     } else if (argument == "--effect-screenshot" && index + 1 < argc) {
       effectScreenshotPath = argv[++index];
     } else {
-      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --select-audio-clip-smoke, --select-audio-track-smoke, --select-camera-smoke, --select-second-camera-smoke, --steward-smoke, --import-smoke, --import-media-types-smoke, --add-video-smoke, --empty-add-video-smoke, --empty-add-video-undo-smoke, --empty-add-track-smoke, --empty-add-camera-smoke, --update-camera-smoke, --add-note-smoke, --update-note-smoke, --move-clip-smoke, --trim-clip-smoke, --nudge-clip-smoke, --undo-redo-smoke, --add-effect-smoke, --clip-effect-controls-smoke, --set-effect-param-smoke, --effect-keyframe-smoke, --steward-motion-smoke, --steward-zoom-motion-smoke, --steward-clip-transform-smoke, --delete-effect-smoke, --delete-smoke, --delete-track-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, --export-settings-smoke, --product-loop-smoke, --empty-launch-smoke, --screenshot <path>, or --effect-screenshot <path>.\n";
+      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --select-audio-clip-smoke, --select-audio-track-smoke, --select-camera-smoke, --select-second-camera-smoke, --steward-smoke, --import-smoke, --import-media-types-smoke, --add-video-smoke, --empty-add-video-smoke, --empty-add-video-undo-smoke, --empty-add-track-smoke, --empty-add-camera-smoke, --update-camera-smoke, --add-note-smoke, --update-note-smoke, --move-clip-smoke, --trim-clip-smoke, --nudge-clip-smoke, --undo-redo-smoke, --add-effect-smoke, --clip-effect-controls-smoke, --steward-submit-shortcut-smoke, --set-effect-param-smoke, --effect-keyframe-smoke, --steward-motion-smoke, --steward-zoom-motion-smoke, --steward-clip-transform-smoke, --delete-effect-smoke, --delete-smoke, --delete-track-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, --export-settings-smoke, --product-loop-smoke, --empty-launch-smoke, --screenshot <path>, or --effect-screenshot <path>.\n";
       return 1;
     }
   }
@@ -327,6 +330,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     undoRedoSmoke ||
     addEffectSmoke ||
     clipEffectControlsSmoke ||
+    stewardSubmitShortcutSmoke ||
     setEffectParamSmoke ||
     effectKeyframeSmoke ||
     stewardMotionSmoke ||
@@ -1729,6 +1733,36 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            logText.find("Preview refreshed") == std::string::npos &&
            logText.find("agent.camera_transform_exists") == std::string::npos &&
            logText.find("runtime.effect_runtime_missing") == std::string::npos
+      ? 0
+      : 1;
+  }
+
+  if (stewardSubmitShortcutSmoke) {
+    window.show();
+    app.processEvents();
+    window.clickFirstTimelineCamera();
+    window.setStewardIntent("Center with editable camera controls.");
+    window.pressStewardSubmitShortcut();
+    app.processEvents();
+
+    const auto viewModel = workspace.value().project().buildViewModel();
+    if (!viewModel) {
+      printError(viewModel.error());
+      return 1;
+    }
+    const std::string effectParamTitle = window.effectParamTitleText();
+    const std::string stewardIntent = window.stewardIntent();
+    const std::string steward = window.stewardContents();
+    std::cout << "revision=" << viewModel.value().project.revision.value() << '\n';
+    std::cout << "effects=" << viewModel.value().timeline.effectCount << '\n';
+    std::cout << "effectParamTitle=" << effectParamTitle << '\n';
+    std::cout << "stewardIntent=" << stewardIntent << '\n';
+    std::cout << "steward=" << steward << '\n';
+    return viewModel.value().timeline.effectCount == 1 &&
+           viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_6"} &&
+           effectParamTitle == "Camera Transform on Camera" &&
+           stewardIntent.empty() &&
+           steward.find("- Center with editable camera controls. [succeeded]") != std::string::npos
       ? 0
       : 1;
   }

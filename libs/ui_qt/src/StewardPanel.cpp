@@ -1,7 +1,9 @@
 #include <grapple/ui_qt/StewardPanel.hpp>
 
+#include <QKeySequence>
 #include <QListWidget>
 #include <QPushButton>
+#include <QShortcut>
 #include <QTextEdit>
 #include <QVBoxLayout>
 
@@ -146,6 +148,17 @@ StewardPanel::StewardPanel(QWidget* parent)
       case PrimaryAction::Disabled:
         return;
     }
+  });
+
+  auto* submitShortcut = new QShortcut{QKeySequence{QStringLiteral("Ctrl+Return")}, this};
+  submitShortcut->setContext(Qt::WidgetWithChildrenShortcut);
+  connect(submitShortcut, &QShortcut::activated, this, [this] {
+    triggerPrimaryAction();
+  });
+  auto* keypadSubmitShortcut = new QShortcut{QKeySequence{QStringLiteral("Ctrl+Enter")}, this};
+  keypadSubmitShortcut->setContext(Qt::WidgetWithChildrenShortcut);
+  connect(keypadSubmitShortcut, &QShortcut::activated, this, [this] {
+    triggerPrimaryAction();
   });
 
   selectedClipActionButton_ = new QPushButton{"Apply Request To Clip Transform"};
