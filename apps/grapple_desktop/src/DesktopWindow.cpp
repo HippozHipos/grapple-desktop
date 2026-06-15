@@ -511,7 +511,6 @@ public:
     auto* stepBackButton = new QPushButton{"-1s"};
     auto* stepForwardButton = new QPushButton{"+1s"};
     auto* importMediaButton = new QPushButton{"Import"};
-    auto* addMediaButton = new QPushButton{"Add To Timeline"};
     auto* undoButton = new QPushButton{"Undo"};
     auto* redoButton = new QPushButton{"Redo"};
     auto* exportButton = new QPushButton{"Export"};
@@ -552,7 +551,6 @@ public:
     actionRow->setSpacing(8);
     actionRow->addWidget(titleBlock, 1);
     actionRow->addWidget(importMediaButton);
-    actionRow->addWidget(addMediaButton);
     actionRow->addWidget(playheadLabel_);
     actionRow->addWidget(playButton);
     actionRow->addWidget(pauseButton);
@@ -615,7 +613,6 @@ public:
     connect(undoButton, &QPushButton::clicked, this, [this] { undoLastEdit(); });
     connect(redoButton, &QPushButton::clicked, this, [this] { redoLastEdit(); });
     connect(importMediaButton, &QPushButton::clicked, this, [this] { chooseAndImportMedia(); });
-    connect(addMediaButton, &QPushButton::clicked, this, [this] { addSelectedMediaToTimeline(); });
     connect(openPackageAction, &QAction::triggered, this, [this] { chooseAndOpenPackage(); });
     connect(addTrackAction, &QAction::triggered, this, [this] { addTrack(); });
     connect(addCameraAction, &QAction::triggered, this, [this] { addCamera(); });
@@ -1528,7 +1525,7 @@ public:
 
   void addSelectedMediaToTimeline() {
     if (!selectedAssetId_.has_value()) {
-      appendError(grapple::foundation::Error{"desktop.asset_selection_missing", "Add To Timeline requires a selected media asset."});
+      appendError(grapple::foundation::Error{"desktop.asset_selection_missing", "Adding media to the timeline requires a selected media asset."});
       return;
     }
 
@@ -1634,7 +1631,7 @@ public:
 
     const std::vector<grapple::app::AppLayerRow>& targetTracks = matchingTracks();
     if (targetTracks.empty()) {
-      appendError(grapple::foundation::Error{"desktop.track_missing_after_create", "Add To Timeline could not find the target track after creating it."});
+      appendError(grapple::foundation::Error{"desktop.track_missing_after_create", "Adding media to the timeline could not find the target track after creating it."});
       return;
     }
 

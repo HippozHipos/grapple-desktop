@@ -326,7 +326,7 @@ void TimelinePanel::drawEmptyTimelinePrompt(QPainter& painter, const QRect& boun
   painter.drawText(
     bounds.adjusted(18, 18, -18, -18),
     Qt::AlignCenter,
-    "Timeline is empty\nImport media, then Add To Timeline"
+    "Timeline is empty\nImport media, then use Steward to add it"
   );
 }
 
