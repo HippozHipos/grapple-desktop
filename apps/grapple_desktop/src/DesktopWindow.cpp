@@ -2376,6 +2376,7 @@ public:
     }
 
     refreshViewModelAndPreview();
+    log_->append(QString{"Updated effect parameter %1"}.arg(qString(paramName)));
   }
 
   void setEffectParamKeyframe(

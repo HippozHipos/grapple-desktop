@@ -1323,7 +1323,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_8"} &&
            inspector.find("Position X (position_x)=0.25") != std::string::npos &&
            inspector.find("Zoom (zoom)=1.5") != std::string::npos &&
-           log.find("Updated effect parameter") == std::string::npos
+           log.find("Updated effect parameter position_x") != std::string::npos &&
+           log.find("Updated effect parameter zoom") != std::string::npos
       ? 0
       : 1;
   }
