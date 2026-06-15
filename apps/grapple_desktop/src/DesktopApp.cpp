@@ -2050,7 +2050,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            clip.transform.scale.x == 0.75 &&
            clip.transform.scale.y == 0.75 &&
            clip.transform.opacity == 1.0 &&
-           selectedClipActionText == "Apply Request To Selected Clip" &&
+           selectedClipActionText == "Apply Request To Clip Transform" &&
            !selectedClipActionEnabledBeforeIntent &&
            selectedClipActionEnabledAfterIntent &&
            !window.stewardSelectedClipActionEnabled() &&

@@ -148,7 +148,7 @@ StewardPanel::StewardPanel(QWidget* parent)
     }
   });
 
-  selectedClipActionButton_ = new QPushButton{"Apply Request To Selected Clip"};
+  selectedClipActionButton_ = new QPushButton{"Apply Request To Clip Transform"};
   selectedClipActionButton_->setObjectName("stewardSelectedClipAction");
   layout->addWidget(selectedClipActionButton_);
   connect(selectedClipActionButton_, &QPushButton::clicked, this, [this] {
