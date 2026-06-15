@@ -121,6 +121,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   bool importMediaTypesSmoke = false;
   bool addVideoSmoke = false;
   bool emptyAddVideoSmoke = false;
+  bool emptyAddVideoUndoSmoke = false;
   bool emptyAddTrackSmoke = false;
   bool emptyAddCameraSmoke = false;
   bool updateCameraSmoke = false;
@@ -174,6 +175,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       addVideoSmoke = true;
     } else if (argument == "--empty-add-video-smoke") {
       emptyAddVideoSmoke = true;
+    } else if (argument == "--empty-add-video-undo-smoke") {
+      emptyAddVideoUndoSmoke = true;
     } else if (argument == "--empty-add-track-smoke") {
       emptyAddTrackSmoke = true;
     } else if (argument == "--empty-add-camera-smoke") {
@@ -221,7 +224,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     } else if (argument == "--effect-screenshot" && index + 1 < argc) {
       effectScreenshotPath = argv[++index];
     } else {
-      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --select-audio-clip-smoke, --select-audio-track-smoke, --select-camera-smoke, --select-second-camera-smoke, --steward-smoke, --import-smoke, --import-media-types-smoke, --add-video-smoke, --empty-add-video-smoke, --empty-add-track-smoke, --empty-add-camera-smoke, --update-camera-smoke, --add-note-smoke, --update-note-smoke, --move-clip-smoke, --trim-clip-smoke, --nudge-clip-smoke, --undo-redo-smoke, --add-effect-smoke, --set-effect-param-smoke, --effect-keyframe-smoke, --delete-effect-smoke, --delete-smoke, --delete-track-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, --export-settings-smoke, --product-loop-smoke, --empty-launch-smoke, --screenshot <path>, or --effect-screenshot <path>.\n";
+      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --select-audio-clip-smoke, --select-audio-track-smoke, --select-camera-smoke, --select-second-camera-smoke, --steward-smoke, --import-smoke, --import-media-types-smoke, --add-video-smoke, --empty-add-video-smoke, --empty-add-video-undo-smoke, --empty-add-track-smoke, --empty-add-camera-smoke, --update-camera-smoke, --add-note-smoke, --update-note-smoke, --move-clip-smoke, --trim-clip-smoke, --nudge-clip-smoke, --undo-redo-smoke, --add-effect-smoke, --set-effect-param-smoke, --effect-keyframe-smoke, --delete-effect-smoke, --delete-smoke, --delete-track-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, --export-settings-smoke, --product-loop-smoke, --empty-launch-smoke, --screenshot <path>, or --effect-screenshot <path>.\n";
       return 1;
     }
   }
@@ -271,6 +274,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   const bool needsStarterDemoVideo =
     populateStarterDemo ||
     emptyAddVideoSmoke ||
+    emptyAddVideoUndoSmoke ||
     productLoopSmoke;
 
   if (needsStarterDemoVideo) {
@@ -696,6 +700,46 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            stewardActionAfterImport == "Add Selected Media To Timeline" &&
            stewardActionEnabledAfterImport &&
            window.selectedNodeId().has_value()
+      ? 0
+      : 1;
+  }
+
+  if (emptyAddVideoUndoSmoke) {
+    window.show();
+    app.processEvents();
+    window.importMediaFile(grapple::foundation::FilePath{"/tmp/grapple-native-demo/starter-gradient.avi"});
+    window.clickStewardPrimaryAction();
+    const auto afterAdd = workspace.value().project().buildViewModel();
+    if (!afterAdd) {
+      printError(afterAdd.error());
+      return 1;
+    }
+    window.undoLastEdit();
+    const auto afterUndo = workspace.value().project().buildViewModel();
+    if (!afterUndo) {
+      printError(afterUndo.error());
+      return 1;
+    }
+    std::cout << "afterAddRevision=" << afterAdd.value().project.revision.value() << '\n';
+    std::cout << "afterAddAssets=" << afterAdd.value().assets.count << '\n';
+    std::cout << "afterAddClips=" << afterAdd.value().timeline.clips.size() << '\n';
+    std::cout << "afterAddCameras=" << afterAdd.value().timeline.cameras.size() << '\n';
+    std::cout << "afterUndoRevision=" << afterUndo.value().project.revision.value() << '\n';
+    std::cout << "afterUndoAssets=" << afterUndo.value().assets.count << '\n';
+    std::cout << "afterUndoCompositions=" << afterUndo.value().timeline.compositions.size() << '\n';
+    std::cout << "afterUndoLayers=" << afterUndo.value().timeline.layers.size() << '\n';
+    std::cout << "afterUndoCameras=" << afterUndo.value().timeline.cameras.size() << '\n';
+    std::cout << "afterUndoClips=" << afterUndo.value().timeline.clips.size() << '\n';
+    return afterAdd.value().project.revision == grapple::foundation::RevisionId{"rev_2"} &&
+           afterAdd.value().assets.count == 1 &&
+           afterAdd.value().timeline.clips.size() == 1 &&
+           afterAdd.value().timeline.cameras.size() == 1 &&
+           afterUndo.value().project.revision == grapple::foundation::RevisionId{"rev_3"} &&
+           afterUndo.value().assets.count == 1 &&
+           afterUndo.value().timeline.compositions.empty() &&
+           afterUndo.value().timeline.layers.empty() &&
+           afterUndo.value().timeline.cameras.empty() &&
+           afterUndo.value().timeline.clips.empty()
       ? 0
       : 1;
   }

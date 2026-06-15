@@ -100,6 +100,26 @@ std::string serializeCanonicalCommandPayload(const ProjectCommand& command) {
         stream << ",\"order\":" << typedCommand.order;
       } else if constexpr (std::is_same_v<Command, DeleteTrackCommand>) {
         writeIdProperty(stream, "nodeId", typedCommand.nodeId.value());
+      } else if constexpr (std::is_same_v<Command, AddMediaToTimelineCommand>) {
+        stream << "\"composition\":";
+        if (typedCommand.composition.has_value()) {
+          stream << serializeCanonicalCommandPayload(ProjectCommand{typedCommand.composition.value()});
+        } else {
+          stream << "null";
+        }
+        stream << ",\"track\":";
+        if (typedCommand.track.has_value()) {
+          stream << serializeCanonicalCommandPayload(ProjectCommand{typedCommand.track.value()});
+        } else {
+          stream << "null";
+        }
+        stream << ",\"camera\":";
+        if (typedCommand.camera.has_value()) {
+          stream << serializeCanonicalCommandPayload(ProjectCommand{typedCommand.camera.value()});
+        } else {
+          stream << "null";
+        }
+        stream << ",\"clip\":" << serializeCanonicalCommandPayload(ProjectCommand{typedCommand.clip});
       } else if constexpr (std::is_same_v<Command, CreateClipCommand>) {
         writeIdProperty(stream, "nodeId", typedCommand.nodeId.value());
         stream << ',';

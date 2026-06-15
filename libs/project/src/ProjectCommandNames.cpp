@@ -14,6 +14,8 @@ std::string_view serializedCommandName(CommandKind kind) {
       return "project.create_track";
     case CommandKind::DeleteTrack:
       return "project.delete_track";
+    case CommandKind::AddMediaToTimeline:
+      return "project.add_media_to_timeline";
     case CommandKind::CreateClip:
       return "project.create_clip";
     case CommandKind::MoveClip:

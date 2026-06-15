@@ -22,6 +22,7 @@ enum class CommandKind {
   CreateComposition,
   CreateTrack,
   DeleteTrack,
+  AddMediaToTimeline,
   CreateClip,
   MoveClip,
   TrimClip,
@@ -139,6 +140,13 @@ struct UpdateCameraCommand {
   timeline::CameraPayload payload;
 };
 
+struct AddMediaToTimelineCommand {
+  std::optional<CreateCompositionCommand> composition;
+  std::optional<CreateTrackCommand> track;
+  std::optional<CreateCameraCommand> camera;
+  CreateClipCommand clip;
+};
+
 struct CreateEffectCommand {
   foundation::NodeId nodeId;
   foundation::NodeId targetNodeId;
@@ -204,6 +212,7 @@ using ProjectCommand = std::variant<
   CreateCompositionCommand,
   CreateTrackCommand,
   DeleteTrackCommand,
+  AddMediaToTimelineCommand,
   CreateClipCommand,
   MoveClipCommand,
   TrimClipCommand,

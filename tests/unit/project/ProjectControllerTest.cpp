@@ -78,6 +78,7 @@ int main() {
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::CreateComposition) == "project.create_composition");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::CreateTrack) == "project.create_track");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::DeleteTrack) == "project.delete_track");
+  GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::AddMediaToTimeline) == "project.add_media_to_timeline");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::CreateClip) == "project.create_clip");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::MoveClip) == "project.move_clip");
   GRAPPLE_REQUIRE(project::serializedCommandName(project::CommandKind::TrimClip) == "project.trim_clip");
@@ -106,6 +107,7 @@ int main() {
     project::serializedCommandName(project::CommandKind::CreateComposition),
     project::serializedCommandName(project::CommandKind::CreateTrack),
     project::serializedCommandName(project::CommandKind::DeleteTrack),
+    project::serializedCommandName(project::CommandKind::AddMediaToTimeline),
     project::serializedCommandName(project::CommandKind::CreateClip),
     project::serializedCommandName(project::CommandKind::MoveClip),
     project::serializedCommandName(project::CommandKind::TrimClip),
@@ -526,6 +528,81 @@ int main() {
     }
   });
   GRAPPLE_REQUIRE(createClip);
+
+  project::ProjectController mediaProject{project::createEmptyProject(foundation::ProjectId{"proj_media_add"}, "Media Add")};
+  const auto registerMediaAsset = mediaProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_register_media_asset"},
+    foundation::ProjectId{"proj_media_add"},
+    foundation::RevisionId{"rev_0"},
+    project::CommandSource{project::CommandSourceKind::Importer, std::nullopt, "test"},
+    project::RegisterAssetCommand{makeVideoAsset(foundation::AssetId{"asset_media"}, "Media")}
+  });
+  GRAPPLE_REQUIRE(registerMediaAsset);
+  const project::AddMediaToTimelineCommand addMediaToTimeline{
+    project::CreateCompositionCommand{foundation::NodeId{"node_media_composition"}, "Main"},
+    project::CreateTrackCommand{
+      foundation::NodeId{"node_media_track"},
+      foundation::NodeId{"node_media_composition"},
+      foundation::EdgeId{"edge_media_contains_track"},
+      "Video",
+      timeline::TrackKind::Visual
+    },
+    project::CreateCameraCommand{
+      foundation::NodeId{"node_media_camera"},
+      foundation::NodeId{"node_media_composition"},
+      foundation::EdgeId{"edge_media_contains_camera"},
+      timeline::CameraPayload{
+        "Camera",
+        timeline::CameraState{
+          timeline::Transform2D{},
+          timeline::CameraLens{35.0}
+        }
+      }
+    },
+    project::CreateClipCommand{
+      foundation::NodeId{"node_media_clip"},
+      foundation::NodeId{"node_media_track"},
+      foundation::EdgeId{"edge_media_contains_clip"},
+      timeline::ClipPayload{
+        timeline::ClipKind::Video,
+        foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{5.0}},
+        foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{5.0}},
+        1.0,
+        foundation::AssetId{"asset_media"},
+        timeline::Transform2D{}
+      }
+    }
+  };
+  GRAPPLE_REQUIRE(project::commandKind(project::ProjectCommand{addMediaToTimeline}) == project::CommandKind::AddMediaToTimeline);
+  const std::string serializedMediaPlacement = project::serializeCanonicalCommandPayload(project::ProjectCommand{addMediaToTimeline});
+  GRAPPLE_REQUIRE(serializedMediaPlacement.find("\"composition\":{\"nodeId\":\"node_media_composition\",\"name\":\"Main\"}") != std::string::npos);
+  GRAPPLE_REQUIRE(serializedMediaPlacement.find("\"track\":{\"nodeId\":\"node_media_track\"") != std::string::npos);
+  GRAPPLE_REQUIRE(serializedMediaPlacement.find("\"camera\":{\"nodeId\":\"node_media_camera\"") != std::string::npos);
+  GRAPPLE_REQUIRE(serializedMediaPlacement.find("\"clip\":{\"nodeId\":\"node_media_clip\"") != std::string::npos);
+  const auto parsedMediaPlacement = project::deserializeCanonicalCommandPayload(
+    project::serializedCommandName(project::CommandKind::AddMediaToTimeline),
+    serializedMediaPlacement
+  );
+  GRAPPLE_REQUIRE(parsedMediaPlacement);
+  GRAPPLE_REQUIRE(project::commandKind(parsedMediaPlacement.value()) == project::CommandKind::AddMediaToTimeline);
+  GRAPPLE_REQUIRE(project::serializeCanonicalCommandPayload(parsedMediaPlacement.value()) == serializedMediaPlacement);
+  const auto mediaPlacementResult = mediaProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_add_media_to_timeline"},
+    foundation::ProjectId{"proj_media_add"},
+    registerMediaAsset.value().afterRevision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    addMediaToTimeline
+  });
+  GRAPPLE_REQUIRE(mediaPlacementResult);
+  GRAPPLE_REQUIRE(mediaPlacementResult.value().beforeRevision == foundation::RevisionId{"rev_1"});
+  GRAPPLE_REQUIRE(mediaPlacementResult.value().afterRevision == foundation::RevisionId{"rev_2"});
+  const auto mediaSnapshot = mediaProject.snapshot();
+  GRAPPLE_REQUIRE(mediaSnapshot);
+  GRAPPLE_REQUIRE(mediaSnapshot.value().graph.hasNode(foundation::NodeId{"node_media_composition"}));
+  GRAPPLE_REQUIRE(mediaSnapshot.value().graph.hasNode(foundation::NodeId{"node_media_track"}));
+  GRAPPLE_REQUIRE(mediaSnapshot.value().graph.hasNode(foundation::NodeId{"node_media_camera"}));
+  GRAPPLE_REQUIRE(mediaSnapshot.value().graph.hasNode(foundation::NodeId{"node_media_clip"}));
+
   const timeline::ClipPayload updatedClipPayload{
     timeline::ClipKind::Video,
     foundation::TimeRange{foundation::TimeSeconds{2.0}, foundation::TimeSeconds{12.0}},

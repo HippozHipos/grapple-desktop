@@ -125,6 +125,8 @@ CommandKind commandKind(const ProjectCommand& command) {
         return CommandKind::CreateTrack;
       } else if constexpr (std::is_same_v<Command, DeleteTrackCommand>) {
         return CommandKind::DeleteTrack;
+      } else if constexpr (std::is_same_v<Command, AddMediaToTimelineCommand>) {
+        return CommandKind::AddMediaToTimeline;
       } else if constexpr (std::is_same_v<Command, CreateClipCommand>) {
         return CommandKind::CreateClip;
       } else if constexpr (std::is_same_v<Command, MoveClipCommand>) {
@@ -193,6 +195,26 @@ foundation::Result<void> validateProjectCommandShape(const ProjectCommand& comma
         return requireNonEmptyId(typedCommand.containmentEdgeId, "project.containment_edge_id_empty", "Containment edge id must not be empty.");
       } else if constexpr (std::is_same_v<Command, DeleteTrackCommand>) {
         return requireNonEmptyId(typedCommand.nodeId, "project.node_id_empty", "Command node id must not be empty.");
+      } else if constexpr (std::is_same_v<Command, AddMediaToTimelineCommand>) {
+        if (typedCommand.composition.has_value()) {
+          auto composition = validateProjectCommandShape(ProjectCommand{typedCommand.composition.value()});
+          if (!composition) {
+            return composition;
+          }
+        }
+        if (typedCommand.track.has_value()) {
+          auto track = validateProjectCommandShape(ProjectCommand{typedCommand.track.value()});
+          if (!track) {
+            return track;
+          }
+        }
+        if (typedCommand.camera.has_value()) {
+          auto camera = validateProjectCommandShape(ProjectCommand{typedCommand.camera.value()});
+          if (!camera) {
+            return camera;
+          }
+        }
+        return validateProjectCommandShape(ProjectCommand{typedCommand.clip});
       } else if constexpr (std::is_same_v<Command, CreateClipCommand>) {
         auto nodeId = requireNonEmptyId(typedCommand.nodeId, "project.node_id_empty", "Command node id must not be empty.");
         if (!nodeId) {

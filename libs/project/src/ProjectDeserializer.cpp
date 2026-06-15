@@ -1309,6 +1309,153 @@ foundation::Result<ProjectCommand> validatedCommand(ProjectCommand command) {
   return command;
 }
 
+foundation::Result<CreateCompositionCommand> parseCreateCompositionCommand(
+  const Json::Value& object,
+  const std::string& path
+) {
+  auto members = requireOnlyMembers(object, {"nodeId", "name"}, path);
+  if (!members) {
+    return members.error();
+  }
+  auto nodeId = requiredStringMember(object, "nodeId", path);
+  if (!nodeId) {
+    return nodeId.error();
+  }
+  auto name = requiredStringMember(object, "name", path);
+  if (!name) {
+    return name.error();
+  }
+  return CreateCompositionCommand{foundation::NodeId{nodeId.value()}, name.value()};
+}
+
+foundation::Result<CreateTrackCommand> parseCreateTrackCommand(
+  const Json::Value& object,
+  const std::string& path
+) {
+  auto members = requireOnlyMembers(object, {"nodeId", "compositionNodeId", "containmentEdgeId", "name", "kind", "order"}, path);
+  if (!members) {
+    return members.error();
+  }
+  auto nodeId = requiredStringMember(object, "nodeId", path);
+  if (!nodeId) {
+    return nodeId.error();
+  }
+  auto compositionNodeId = requiredStringMember(object, "compositionNodeId", path);
+  if (!compositionNodeId) {
+    return compositionNodeId.error();
+  }
+  auto containmentEdgeId = requiredStringMember(object, "containmentEdgeId", path);
+  if (!containmentEdgeId) {
+    return containmentEdgeId.error();
+  }
+  auto name = requiredStringMember(object, "name", path);
+  if (!name) {
+    return name.error();
+  }
+  auto kindName = requiredStringMember(object, "kind", path);
+  if (!kindName) {
+    return kindName.error();
+  }
+  auto kind = parseTrackKind(kindName.value(), path + ".kind");
+  if (!kind) {
+    return kind.error();
+  }
+  auto order = requiredInt64Member(object, "order", path);
+  if (!order) {
+    return order.error();
+  }
+  return CreateTrackCommand{
+    foundation::NodeId{nodeId.value()},
+    foundation::NodeId{compositionNodeId.value()},
+    foundation::EdgeId{containmentEdgeId.value()},
+    name.value(),
+    kind.value(),
+    order.value()
+  };
+}
+
+foundation::Result<CreateCameraCommand> parseCreateCameraCommand(
+  const Json::Value& object,
+  const std::string& path
+) {
+  auto members = requireOnlyMembers(object, {"nodeId", "compositionNodeId", "containmentEdgeId", "payload", "order"}, path);
+  if (!members) {
+    return members.error();
+  }
+  auto nodeId = requiredStringMember(object, "nodeId", path);
+  if (!nodeId) {
+    return nodeId.error();
+  }
+  auto compositionNodeId = requiredStringMember(object, "compositionNodeId", path);
+  if (!compositionNodeId) {
+    return compositionNodeId.error();
+  }
+  auto containmentEdgeId = requiredStringMember(object, "containmentEdgeId", path);
+  if (!containmentEdgeId) {
+    return containmentEdgeId.error();
+  }
+  auto payloadObject = requiredObjectMember(object, "payload", path);
+  if (!payloadObject) {
+    return payloadObject.error();
+  }
+  auto payload = parseCameraPayload(payloadObject.value(), path + ".payload");
+  if (!payload) {
+    return payload.error();
+  }
+  auto order = requiredInt64Member(object, "order", path);
+  if (!order) {
+    return order.error();
+  }
+  return CreateCameraCommand{
+    foundation::NodeId{nodeId.value()},
+    foundation::NodeId{compositionNodeId.value()},
+    foundation::EdgeId{containmentEdgeId.value()},
+    payload.value(),
+    order.value()
+  };
+}
+
+foundation::Result<CreateClipCommand> parseCreateClipCommand(
+  const Json::Value& object,
+  const std::string& path
+) {
+  auto members = requireOnlyMembers(object, {"nodeId", "trackNodeId", "containmentEdgeId", "payload", "order"}, path);
+  if (!members) {
+    return members.error();
+  }
+  auto nodeId = requiredStringMember(object, "nodeId", path);
+  if (!nodeId) {
+    return nodeId.error();
+  }
+  auto trackNodeId = requiredStringMember(object, "trackNodeId", path);
+  if (!trackNodeId) {
+    return trackNodeId.error();
+  }
+  auto containmentEdgeId = requiredStringMember(object, "containmentEdgeId", path);
+  if (!containmentEdgeId) {
+    return containmentEdgeId.error();
+  }
+  auto payloadObject = requiredObjectMember(object, "payload", path);
+  if (!payloadObject) {
+    return payloadObject.error();
+  }
+  auto payload = parseClipPayload(payloadObject.value(), path + ".payload");
+  if (!payload) {
+    return payload.error();
+  }
+  auto order = requiredInt64Member(object, "order", path);
+  if (!order) {
+    return order.error();
+  }
+  return CreateClipCommand{
+    foundation::NodeId{nodeId.value()},
+    foundation::NodeId{trackNodeId.value()},
+    foundation::EdgeId{containmentEdgeId.value()},
+    payload.value(),
+    order.value()
+  };
+}
+
 } // namespace
 
 foundation::Result<ProjectCommand> deserializeCanonicalCommandPayload(
@@ -1402,6 +1549,70 @@ foundation::Result<ProjectCommand> deserializeCanonicalCommandPayload(
       return nodeId.error();
     }
     return validatedCommand(ProjectCommand{DeleteTrackCommand{foundation::NodeId{nodeId.value()}}});
+  }
+  if (serializedName == "project.add_media_to_timeline") {
+    auto members = requireOnlyMembers(root.value(), {"composition", "track", "camera", "clip"}, "$");
+    if (!members) {
+      return members.error();
+    }
+    auto compositionMember = requiredMember(root.value(), "composition", "$");
+    if (!compositionMember) {
+      return compositionMember.error();
+    }
+    auto trackMember = requiredMember(root.value(), "track", "$");
+    if (!trackMember) {
+      return trackMember.error();
+    }
+    auto cameraMember = requiredMember(root.value(), "camera", "$");
+    if (!cameraMember) {
+      return cameraMember.error();
+    }
+    auto clipObject = requiredObjectMember(root.value(), "clip", "$");
+    if (!clipObject) {
+      return clipObject.error();
+    }
+
+    auto clip = parseCreateClipCommand(clipObject.value(), "$.clip");
+    if (!clip) {
+      return clip.error();
+    }
+    AddMediaToTimelineCommand command{
+      std::nullopt,
+      std::nullopt,
+      std::nullopt,
+      clip.value()
+    };
+    if (!compositionMember.value().isNull()) {
+      if (!compositionMember.value().isObject()) {
+        return parseError("$.composition", "Expected object or null.");
+      }
+      auto composition = parseCreateCompositionCommand(compositionMember.value(), "$.composition");
+      if (!composition) {
+        return composition.error();
+      }
+      command.composition = composition.value();
+    }
+    if (!trackMember.value().isNull()) {
+      if (!trackMember.value().isObject()) {
+        return parseError("$.track", "Expected object or null.");
+      }
+      auto track = parseCreateTrackCommand(trackMember.value(), "$.track");
+      if (!track) {
+        return track.error();
+      }
+      command.track = track.value();
+    }
+    if (!cameraMember.value().isNull()) {
+      if (!cameraMember.value().isObject()) {
+        return parseError("$.camera", "Expected object or null.");
+      }
+      auto camera = parseCreateCameraCommand(cameraMember.value(), "$.camera");
+      if (!camera) {
+        return camera.error();
+      }
+      command.camera = camera.value();
+    }
+    return validatedCommand(ProjectCommand{command});
   }
   if (serializedName == "project.create_clip") {
     auto members = requireOnlyMembers(root.value(), {"nodeId", "trackNodeId", "containmentEdgeId", "payload", "order"}, "$");

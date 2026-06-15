@@ -199,6 +199,8 @@ foundation::Result<void> ProjectController::applyPayload(const ProjectCommand& p
         return handleCreateTrack(typedCommand);
       } else if constexpr (std::is_same_v<Command, DeleteTrackCommand>) {
         return handleDeleteTrack(typedCommand);
+      } else if constexpr (std::is_same_v<Command, AddMediaToTimelineCommand>) {
+        return handleAddMediaToTimeline(typedCommand);
       } else if constexpr (std::is_same_v<Command, CreateClipCommand>) {
         return handleCreateClip(typedCommand);
       } else if constexpr (std::is_same_v<Command, MoveClipCommand>) {
@@ -365,6 +367,28 @@ foundation::Result<void> ProjectController::handleDeleteTrack(const DeleteTrackC
   }
 
   return document_.graph.removeNode(command.nodeId);
+}
+
+foundation::Result<void> ProjectController::handleAddMediaToTimeline(const AddMediaToTimelineCommand& command) {
+  if (command.composition.has_value()) {
+    auto composition = handleCreateComposition(command.composition.value());
+    if (!composition) {
+      return composition.error();
+    }
+  }
+  if (command.track.has_value()) {
+    auto track = handleCreateTrack(command.track.value());
+    if (!track) {
+      return track.error();
+    }
+  }
+  if (command.camera.has_value()) {
+    auto camera = handleCreateCamera(command.camera.value());
+    if (!camera) {
+      return camera.error();
+    }
+  }
+  return handleCreateClip(command.clip);
 }
 
 foundation::Result<void> ProjectController::handleCreateClip(const CreateClipCommand& command) {
