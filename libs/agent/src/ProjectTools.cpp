@@ -2641,7 +2641,7 @@ AgentTool makeEffectInspectGraphsTool() {
     foundation::ToolId{"tool_effect_inspect_graphs"},
     "effect.inspect_graphs",
     "Inspect Effect Graphs",
-    "Returns authored effect graph data through Project Core: nodes, code metadata, ports, params, keyframes, ranges, and edges.",
+    "Returns authored effect graph data through Project Core: nodes, implementations, source, ports, params, keyframes, ranges, and edges.",
     EffectInspectGraphsSchema,
     [](const ToolCall& call, AgentToolContext& context) -> foundation::Result<ToolResult> {
       auto arguments = parseArguments(call.arguments);
