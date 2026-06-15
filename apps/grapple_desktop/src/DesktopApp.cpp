@@ -138,6 +138,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   bool openPackageSmoke = false;
   bool editSaveSmoke = false;
   bool exportSettingsSmoke = false;
+  bool productLoopSmoke = false;
   std::optional<std::string> screenshotPath;
   std::optional<std::string> effectScreenshotPath;
   for (int index = 1; index < argc; ++index) {
@@ -208,12 +209,14 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       editSaveSmoke = true;
     } else if (argument == "--export-settings-smoke") {
       exportSettingsSmoke = true;
+    } else if (argument == "--product-loop-smoke") {
+      productLoopSmoke = true;
     } else if (argument == "--screenshot" && index + 1 < argc) {
       screenshotPath = argv[++index];
     } else if (argument == "--effect-screenshot" && index + 1 < argc) {
       effectScreenshotPath = argv[++index];
     } else {
-      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --select-audio-clip-smoke, --select-audio-track-smoke, --select-camera-smoke, --select-second-camera-smoke, --steward-smoke, --import-smoke, --import-media-types-smoke, --add-video-smoke, --empty-add-video-smoke, --empty-add-track-smoke, --empty-add-camera-smoke, --update-camera-smoke, --add-note-smoke, --update-note-smoke, --move-clip-smoke, --trim-clip-smoke, --nudge-clip-smoke, --undo-redo-smoke, --add-effect-smoke, --set-effect-param-smoke, --effect-keyframe-smoke, --delete-effect-smoke, --delete-smoke, --delete-track-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, --export-settings-smoke, --screenshot <path>, or --effect-screenshot <path>.\n";
+      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --select-audio-clip-smoke, --select-audio-track-smoke, --select-camera-smoke, --select-second-camera-smoke, --steward-smoke, --import-smoke, --import-media-types-smoke, --add-video-smoke, --empty-add-video-smoke, --empty-add-track-smoke, --empty-add-camera-smoke, --update-camera-smoke, --add-note-smoke, --update-note-smoke, --move-clip-smoke, --trim-clip-smoke, --nudge-clip-smoke, --undo-redo-smoke, --add-effect-smoke, --set-effect-param-smoke, --effect-keyframe-smoke, --delete-effect-smoke, --delete-smoke, --delete-track-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, --export-settings-smoke, --product-loop-smoke, --screenshot <path>, or --effect-screenshot <path>.\n";
       return 1;
     }
   }
@@ -234,7 +237,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     return 1;
   }
 
-  if (!emptyAddVideoSmoke && !emptyAddTrackSmoke && !emptyAddCameraSmoke && !importMediaTypesSmoke) {
+  if (!emptyAddVideoSmoke && !emptyAddTrackSmoke && !emptyAddCameraSmoke && !importMediaTypesSmoke && !productLoopSmoke) {
     const auto populated = populateDemo(session, true);
     if (!populated) {
       printError(populated.error());
@@ -1108,6 +1111,83 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            size > 0U &&
            log.find("Export progress 100%") != std::string::npos &&
            log.find("Export evaluated 100 frames") != std::string::npos
+      ? 0
+      : 1;
+  }
+
+  if (productLoopSmoke) {
+    window.show();
+    app.processEvents();
+    const std::filesystem::path outputPath{"/tmp/grapple-desktop-product-loop.avi"};
+    std::filesystem::remove(outputPath);
+
+    window.importMediaFile(grapple::foundation::FilePath{"/tmp/grapple-native-demo/starter-gradient.avi"});
+    window.addSelectedMediaToTimeline();
+    window.setStewardIntent("Center the subject with editable camera controls.");
+    window.clickStewardCreateCameraEffect();
+    window.setSelectedTargetNumericEffectParam(grapple::runtime::builtin_effect::PositionXParam, 0.25);
+    window.setExportResolutionControlValue(320, 180);
+    window.setExportFrameRateControlValue(10.0);
+    window.setExportCodecControlValue("mjpeg");
+    window.exportVideoFile(grapple::foundation::FilePath{outputPath.string()});
+
+    const auto viewModel = workspace.value().project().buildViewModel();
+    if (!viewModel) {
+      printError(viewModel.error());
+      return 1;
+    }
+    const std::string steward = window.stewardContents();
+    const std::string log = window.logContents();
+    const bool exists = std::filesystem::exists(outputPath);
+    const auto size = exists ? std::filesystem::file_size(outputPath) : 0U;
+    const bool hasTunedEditableEffect = std::any_of(
+      viewModel.value().timeline.effectGraphs.begin(),
+      viewModel.value().timeline.effectGraphs.end(),
+      [](const grapple::app::AppEffectGraphRow& graph) {
+        return std::any_of(
+          graph.effects.begin(),
+          graph.effects.end(),
+          [](const grapple::app::AppEffectRow& effect) {
+            if (!effect.cameraTransformEffect) {
+              return false;
+            }
+            const auto param = std::find_if(
+              effect.params.begin(),
+              effect.params.end(),
+              [](const grapple::app::AppEffectParamRow& row) {
+                return row.name == grapple::runtime::builtin_effect::PositionXParam;
+              }
+            );
+            return param != effect.params.end() &&
+                   std::holds_alternative<double>(param->value) &&
+                   std::get<double>(param->value) == 0.25;
+          }
+        );
+      }
+    );
+
+    std::cout << "revision=" << viewModel.value().project.revision.value() << '\n';
+    std::cout << "assets=" << viewModel.value().assets.count << '\n';
+    std::cout << "clips=" << viewModel.value().timeline.clips.size() << '\n';
+    std::cout << "cameras=" << viewModel.value().timeline.cameras.size() << '\n';
+    std::cout << "effects=" << viewModel.value().timeline.effectCount << '\n';
+    std::cout << "exists=" << (exists ? "true" : "false") << '\n';
+    std::cout << "size=" << size << '\n';
+    std::cout << "steward=" << steward << '\n';
+    std::cout << "log=" << log << '\n';
+    return viewModel.value().assets.count == 1 &&
+           viewModel.value().timeline.clips.size() == 1 &&
+           viewModel.value().timeline.cameras.size() == 1 &&
+           viewModel.value().timeline.effectCount == 1 &&
+           hasTunedEditableEffect &&
+           steward.find("1 clips | 1 cameras | 1 editable effects") != std::string::npos &&
+           steward.find("Position X=0.25 [-1..1 step 0.01]") != std::string::npos &&
+           log.find("Imported starter-gradient") != std::string::npos &&
+           log.find("Added starter-gradient to timeline") != std::string::npos &&
+           log.find("Steward applied camera edit") != std::string::npos &&
+           log.find("Export evaluated 100 frames") != std::string::npos &&
+           exists &&
+           size > 0U
       ? 0
       : 1;
   }
