@@ -93,6 +93,35 @@ std::optional<std::string> snapshotLabelForRevision(
   return snapshot->label;
 }
 
+foundation::Result<foundation::RevisionId> currentContentRevision(
+  const std::vector<history::CommandRecord>& commands,
+  const project::ProjectSnapshot& snapshot
+) {
+  const auto headCommand = std::find_if(commands.rbegin(), commands.rend(), [&](const history::CommandRecord& command) {
+    return command.afterRevision == snapshot.revision;
+  });
+  if (headCommand == commands.rend() || headCommand->serializedName != "project.restore_snapshot") {
+    return snapshot.revision;
+  }
+
+  auto parsedCommand = project::deserializeCanonicalCommandPayload(
+    headCommand->serializedName,
+    headCommand->serializedPayload
+  );
+  if (!parsedCommand) {
+    return parsedCommand.error();
+  }
+
+  const auto* restoredSnapshot = std::get_if<project::RestoreSnapshotCommand>(&parsedCommand.value());
+  if (restoredSnapshot == nullptr) {
+    return foundation::Error{
+      "app.restore_payload_invalid",
+      "Restore command payload must contain a restored snapshot."
+    };
+  }
+  return restoredSnapshot->snapshot.revision;
+}
+
 foundation::Result<std::string> nodeDisplayName(
   const project::ProjectSnapshot& snapshot,
   const foundation::NodeId& nodeId
@@ -158,9 +187,11 @@ struct EffectCommandProvenance {
 
 foundation::Result<EffectCommandProvenance> effectCommandProvenance(
   const std::vector<history::CommandRecord>& commands,
-  const std::vector<history::SnapshotRecord>& snapshots
+  const std::vector<history::SnapshotRecord>& snapshots,
+  const foundation::RevisionId& contentRevision
 ) {
   EffectCommandProvenance provenance;
+  bool reachedContentRevision = contentRevision == foundation::RevisionId{"rev_0"};
   for (const history::CommandRecord& command : commands) {
     auto parsedCommand = project::deserializeCanonicalCommandPayload(
       command.serializedName,
@@ -199,6 +230,18 @@ foundation::Result<EffectCommandProvenance> effectCommandProvenance(
         command.sourceActorName
       });
     }
+
+    if (command.afterRevision == contentRevision) {
+      reachedContentRevision = true;
+      break;
+    }
+  }
+
+  if (!reachedContentRevision) {
+    return foundation::Error{
+      "app.content_revision_missing",
+      "Effect provenance requires the current content revision to exist in the command log."
+    };
   }
   return provenance;
 }
@@ -207,10 +250,10 @@ const EffectCreationProvenance* provenanceForEffect(
   const std::vector<EffectCreationProvenance>& provenance,
   const foundation::NodeId& effectNodeId
 ) {
-  const auto match = std::find_if(provenance.begin(), provenance.end(), [&](const EffectCreationProvenance& creation) {
+  const auto match = std::find_if(provenance.rbegin(), provenance.rend(), [&](const EffectCreationProvenance& creation) {
     return creation.effectNodeId == effectNodeId;
   });
-  if (match == provenance.end()) {
+  if (match == provenance.rend()) {
     return nullptr;
   }
   return &*match;
@@ -437,9 +480,14 @@ foundation::Result<NativeProjectViewModelResult> NativeProjectSession::buildView
     snapshot.canonicalHash
   };
   const storage::ProjectPackageState& packageState = session_.packageState();
+  auto contentRevision = currentContentRevision(packageState.commandLog.records(), snapshot);
+  if (!contentRevision) {
+    return contentRevision.error();
+  }
   auto effectProvenance = effectCommandProvenance(
     packageState.commandLog.records(),
-    packageState.snapshots.records()
+    packageState.snapshots.records(),
+    contentRevision.value()
   );
   if (!effectProvenance) {
     return effectProvenance.error();

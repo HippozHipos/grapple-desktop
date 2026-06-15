@@ -15,6 +15,7 @@
 #include <QString>
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
@@ -892,6 +893,39 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   }
 
   if (undoRedoSmoke) {
+    const auto approx = [](double lhs, double rhs) {
+      return std::abs(lhs - rhs) < 0.000001;
+    };
+    const auto renderCameraPositionX = [&]() -> grapple::foundation::Result<double> {
+      const grapple::render::PreviewRenderShellState previewState = workspace.value().preview().state();
+      const auto frame = workspace.value().preview().renderFrame(grapple::render::RenderFrameRequest{
+        previewState.playhead,
+        grapple::render::RenderQuality::Draft
+      });
+      if (!frame) {
+        return frame.error();
+      }
+      if (frame.value().frame.cameras.empty()) {
+        return grapple::foundation::Error{"desktop.undo_redo_camera_missing", "Undo/redo smoke requires an evaluated camera."};
+      }
+      return frame.value().frame.cameras.front().state.transform.position.x;
+    };
+    const auto effectPositionParam = [](
+      const grapple::app::AppViewModel& viewModel
+    ) -> grapple::foundation::Result<const grapple::app::AppEffectParamRow*> {
+      if (viewModel.timeline.effectGraphs.empty() || viewModel.timeline.effectGraphs.front().effects.empty()) {
+        return grapple::foundation::Error{"desktop.undo_redo_effect_missing", "Undo/redo smoke requires an editable effect."};
+      }
+      const auto& params = viewModel.timeline.effectGraphs.front().effects.front().params;
+      const auto param = std::find_if(params.begin(), params.end(), [](const grapple::app::AppEffectParamRow& row) {
+        return row.name == grapple::runtime::builtin_effect::PositionXParam;
+      });
+      if (param == params.end()) {
+        return grapple::foundation::Error{"desktop.undo_redo_param_missing", "Undo/redo smoke requires position_x."};
+      }
+      return &*param;
+    };
+
     window.addTrack();
     auto afterAdd = workspace.value().project().buildViewModel();
     if (!afterAdd) {
@@ -916,12 +950,98 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "afterUndoLayers=" << afterUndo.value().timeline.layers.size() << '\n';
     std::cout << "afterRedoRevision=" << afterRedo.value().project.revision.value() << '\n';
     std::cout << "afterRedoLayers=" << afterRedo.value().timeline.layers.size() << '\n';
-    return afterAdd.value().project.revision == grapple::foundation::RevisionId{"rev_6"} &&
-           afterAdd.value().timeline.layers.size() == 2 &&
-           afterUndo.value().project.revision == grapple::foundation::RevisionId{"rev_7"} &&
-           afterUndo.value().timeline.layers.size() == 1 &&
-           afterRedo.value().project.revision == grapple::foundation::RevisionId{"rev_8"} &&
-           afterRedo.value().timeline.layers.size() == 2
+    const bool trackUndoRedoOk =
+      afterAdd.value().project.revision == grapple::foundation::RevisionId{"rev_6"} &&
+      afterAdd.value().timeline.layers.size() == 2 &&
+      afterUndo.value().project.revision == grapple::foundation::RevisionId{"rev_7"} &&
+      afterUndo.value().timeline.layers.size() == 1 &&
+      afterRedo.value().project.revision == grapple::foundation::RevisionId{"rev_8"} &&
+      afterRedo.value().timeline.layers.size() == 2;
+
+    window.show();
+    app.processEvents();
+    window.clickFirstTimelineCamera();
+    window.setStewardIntent("Center the camera with editable controls.");
+    window.clickStewardCreateCameraEffect();
+    window.setEffectParamControlValue(grapple::runtime::builtin_effect::PositionXParam, 0.25);
+
+    const auto afterParamEdit = workspace.value().project().buildViewModel();
+    if (!afterParamEdit) {
+      printError(afterParamEdit.error());
+      return 1;
+    }
+    auto editedParam = effectPositionParam(afterParamEdit.value());
+    if (!editedParam) {
+      printError(editedParam.error());
+      return 1;
+    }
+    const auto editedCameraX = renderCameraPositionX();
+    if (!editedCameraX) {
+      printError(editedCameraX.error());
+      return 1;
+    }
+
+    window.undoLastEdit();
+    const auto afterParamUndo = workspace.value().project().buildViewModel();
+    if (!afterParamUndo) {
+      printError(afterParamUndo.error());
+      return 1;
+    }
+    auto undoneParam = effectPositionParam(afterParamUndo.value());
+    if (!undoneParam) {
+      printError(undoneParam.error());
+      return 1;
+    }
+    const auto undoneCameraX = renderCameraPositionX();
+    if (!undoneCameraX) {
+      printError(undoneCameraX.error());
+      return 1;
+    }
+    const std::string stewardAfterUndo = window.stewardContents();
+
+    window.redoLastEdit();
+    const auto afterParamRedo = workspace.value().project().buildViewModel();
+    if (!afterParamRedo) {
+      printError(afterParamRedo.error());
+      return 1;
+    }
+    auto redoneParam = effectPositionParam(afterParamRedo.value());
+    if (!redoneParam) {
+      printError(redoneParam.error());
+      return 1;
+    }
+    const auto redoneCameraX = renderCameraPositionX();
+    if (!redoneCameraX) {
+      printError(redoneCameraX.error());
+      return 1;
+    }
+    const std::string stewardAfterRedo = window.stewardContents();
+
+    std::cout << "afterParamEditRevision=" << afterParamEdit.value().project.revision.value() << '\n';
+    std::cout << "afterParamEditValue=" << std::get<double>(editedParam.value()->value) << '\n';
+    std::cout << "afterParamEditCameraX=" << editedCameraX.value() << '\n';
+    std::cout << "afterParamUndoRevision=" << afterParamUndo.value().project.revision.value() << '\n';
+    std::cout << "afterParamUndoValue=" << std::get<double>(undoneParam.value()->value) << '\n';
+    std::cout << "afterParamUndoCameraX=" << undoneCameraX.value() << '\n';
+    std::cout << "afterParamRedoRevision=" << afterParamRedo.value().project.revision.value() << '\n';
+    std::cout << "afterParamRedoValue=" << std::get<double>(redoneParam.value()->value) << '\n';
+    std::cout << "afterParamRedoCameraX=" << redoneCameraX.value() << '\n';
+    std::cout << "stewardAfterUndo=" << stewardAfterUndo << '\n';
+    std::cout << "stewardAfterRedo=" << stewardAfterRedo << '\n';
+    return trackUndoRedoOk &&
+           std::holds_alternative<double>(editedParam.value()->value) &&
+           std::holds_alternative<double>(undoneParam.value()->value) &&
+           std::holds_alternative<double>(redoneParam.value()->value) &&
+           approx(std::get<double>(editedParam.value()->value), 0.25) &&
+           approx(editedCameraX.value(), 0.25) &&
+           approx(std::get<double>(undoneParam.value()->value), 0.0) &&
+           approx(undoneCameraX.value(), 0.0) &&
+           !undoneParam.value()->lastEditedRevision.has_value() &&
+           stewardAfterUndo.find("Position X=0 [-1..1 step 0.01] last changed by desktop") == std::string::npos &&
+           approx(std::get<double>(redoneParam.value()->value), 0.25) &&
+           approx(redoneCameraX.value(), 0.25) &&
+           redoneParam.value()->lastEditedRevision.has_value() &&
+           stewardAfterRedo.find("Position X=0.25 [-1..1 step 0.01] last changed by desktop at ") != std::string::npos
       ? 0
       : 1;
   }
