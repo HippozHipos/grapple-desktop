@@ -2270,6 +2270,9 @@ public:
       appendError(updated.error());
       return;
     }
+    if (!updated.value().changed) {
+      return;
+    }
 
     refreshViewModelAndPreview();
     log_->append("Set effect keyframe");

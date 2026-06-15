@@ -45,7 +45,7 @@ NativeEffectSession::NativeEffectSession(NativeProjectSession& project, NativePr
   : project_{project},
     commandWriter_{commandWriter} {}
 
-foundation::Result<NativeEffectParamValueResult> NativeEffectSession::setParamValue(
+foundation::Result<NativeEffectEditResult> NativeEffectSession::setParamValue(
   foundation::NodeId effectNodeId,
   std::string paramName,
   timeline::ParamValue value,
@@ -64,7 +64,7 @@ foundation::Result<NativeEffectParamValueResult> NativeEffectSession::setParamVa
     return foundation::Error{"project.effect_param_value_type_mismatch", "Effect param value must match the existing parameter value type."};
   }
   if (currentParam.value()->value == value) {
-    return NativeEffectParamValueResult{
+    return NativeEffectEditResult{
       false,
       std::move(snapshot.value()),
       std::nullopt
@@ -84,20 +84,48 @@ foundation::Result<NativeEffectParamValueResult> NativeEffectSession::setParamVa
   }
   storage::ProjectPackageSessionResult committedValue = std::move(committed.value());
 
-  return NativeEffectParamValueResult{
+  return NativeEffectEditResult{
     true,
     committedValue.snapshot,
     std::move(committedValue)
   };
 }
 
-foundation::Result<storage::ProjectPackageSessionResult> NativeEffectSession::upsertParamKeyframe(
+foundation::Result<NativeEffectEditResult> NativeEffectSession::upsertParamKeyframe(
   foundation::NodeId effectNodeId,
   std::string paramName,
   timeline::Param::Keyframe keyframe,
   project::CommandSource source
 ) {
-  return commandWriter_.apply(
+  auto snapshot = project_.snapshot();
+  if (!snapshot) {
+    return snapshot.error();
+  }
+
+  auto currentParam = findEffectParam(snapshot.value(), effectNodeId, paramName);
+  if (!currentParam) {
+    return currentParam.error();
+  }
+  if (!sameParamValueType(currentParam.value()->value, keyframe.value)) {
+    return foundation::Error{"project.effect_keyframe_value_type_mismatch", "Effect keyframe value must match the parameter value type."};
+  }
+
+  const auto existingKeyframe = std::find_if(
+    currentParam.value()->keyframes.begin(),
+    currentParam.value()->keyframes.end(),
+    [&](const timeline::Param::Keyframe& current) {
+      return current.id == keyframe.id;
+    }
+  );
+  if (existingKeyframe != currentParam.value()->keyframes.end() && *existingKeyframe == keyframe) {
+    return NativeEffectEditResult{
+      false,
+      std::move(snapshot.value()),
+      std::nullopt
+    };
+  }
+
+  auto committed = commandWriter_.apply(
     project::UpsertEffectParamKeyframeCommand{
       std::move(effectNodeId),
       std::move(paramName),
@@ -105,6 +133,16 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeEffectSession::up
     },
     std::move(source)
   );
+  if (!committed) {
+    return committed.error();
+  }
+  storage::ProjectPackageSessionResult committedValue = std::move(committed.value());
+
+  return NativeEffectEditResult{
+    true,
+    committedValue.snapshot,
+    std::move(committedValue)
+  };
 }
 
 foundation::Result<storage::ProjectPackageSessionResult> NativeEffectSession::deleteParamKeyframe(

@@ -1139,6 +1139,12 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       printError(afterKeyframeUpdate.error());
       return 1;
     }
+    window.setEffectParamKeyframeAtPlayhead(grapple::runtime::builtin_effect::PositionXParam);
+    const auto afterNoopKeyframeUpdate = workspace.value().project().buildViewModel();
+    if (!afterNoopKeyframeUpdate) {
+      printError(afterNoopKeyframeUpdate.error());
+      return 1;
+    }
     const std::string buttonAtKeyframe = window.effectParamKeyframeButtonText(grapple::runtime::builtin_effect::PositionXParam);
     window.seekTo(grapple::foundation::TimeSeconds{0.0});
     const std::string buttonAwayFromKeyframe = window.effectParamKeyframeButtonText(grapple::runtime::builtin_effect::PositionXParam);
@@ -1159,6 +1165,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "afterSetKeyframes=" << keyframesAfterSet.size() << '\n';
     std::cout << "afterUpdateRevision=" << afterKeyframeUpdate.value().project.revision.value() << '\n';
     std::cout << "afterUpdateKeyframes=" << keyframesAfterUpdate.size() << '\n';
+    std::cout << "afterNoopUpdateRevision=" << afterNoopKeyframeUpdate.value().project.revision.value() << '\n';
     std::cout << "buttonAtKeyframe=" << buttonAtKeyframe << '\n';
     std::cout << "buttonAwayFromKeyframe=" << buttonAwayFromKeyframe << '\n';
     std::cout << "buttonBackAtKeyframe=" << buttonBackAtKeyframe << '\n';
@@ -1175,6 +1182,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            std::get<double>(keyframesAfterUpdate[0].value) == 0.5 &&
            keyframesAfterUpdate[0].lastEditedRevision == afterKeyframeUpdate.value().project.revision &&
            keyframesAfterUpdate[0].lastEditedActorName == "desktop" &&
+           afterNoopKeyframeUpdate.value().project.revision == afterKeyframeUpdate.value().project.revision &&
            buttonAtKeyframe == "Update" &&
            buttonAwayFromKeyframe == "Set" &&
            buttonBackAtKeyframe == "Update" &&

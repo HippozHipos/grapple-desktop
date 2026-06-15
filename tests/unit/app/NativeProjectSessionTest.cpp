@@ -883,6 +883,7 @@ int main() {
     userSource()
   );
   GRAPPLE_REQUIRE(appKeyframeUpsert);
+  GRAPPLE_REQUIRE(appKeyframeUpsert.value().changed);
   const auto keyframedEffectViewModel = effectSession.buildViewModel();
   GRAPPLE_REQUIRE(keyframedEffectViewModel);
   GRAPPLE_REQUIRE(keyframedEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].keyframes.size() == 1);
@@ -892,6 +893,22 @@ int main() {
   GRAPPLE_REQUIRE(keyframedEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].keyframes[0].lastEditedRevision == appKeyframeUpsert.value().snapshot.revision);
   GRAPPLE_REQUIRE(keyframedEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].keyframes[0].lastEditedSourceKind == "user");
   GRAPPLE_REQUIRE(keyframedEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].keyframes[0].lastEditedActorName == "test");
+  const std::size_t commandCountBeforeNoopKeyframeUpsert = effectSession.packageState().commandLog.records().size();
+  const auto noopKeyframeUpsert = effectEdits.upsertParamKeyframe(
+    effectNodeId,
+    "target_x",
+    timeline::Param::Keyframe{
+      foundation::KeyframeId{"key_target_x_2"},
+      foundation::TimeSeconds{1.25},
+      0.8
+    },
+    userSource()
+  );
+  GRAPPLE_REQUIRE(noopKeyframeUpsert);
+  GRAPPLE_REQUIRE(!noopKeyframeUpsert.value().changed);
+  GRAPPLE_REQUIRE(!noopKeyframeUpsert.value().committed.has_value());
+  GRAPPLE_REQUIRE(noopKeyframeUpsert.value().snapshot.revision == appKeyframeUpsert.value().snapshot.revision);
+  GRAPPLE_REQUIRE(effectSession.packageState().commandLog.records().size() == commandCountBeforeNoopKeyframeUpsert);
   app::NativeProjectCommandWriter sparseKeyframeWriter{effectSession};
   GRAPPLE_REQUIRE(sparseKeyframeWriter.nextKeyframeId("target x") == foundation::KeyframeId{"key_target_x_3"});
   const auto appParamValueUpdate = effectEdits.setParamValue(

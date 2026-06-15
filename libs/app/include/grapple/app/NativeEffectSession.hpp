@@ -12,7 +12,7 @@
 
 namespace grapple::app {
 
-struct NativeEffectParamValueResult {
+struct NativeEffectEditResult {
   bool changed = false;
   project::ProjectSnapshot snapshot;
   std::optional<storage::ProjectPackageSessionResult> committed;
@@ -22,13 +22,13 @@ class NativeEffectSession final {
 public:
   NativeEffectSession(NativeProjectSession& project, NativeProjectCommandWriter& commandWriter);
 
-  foundation::Result<NativeEffectParamValueResult> setParamValue(
+  foundation::Result<NativeEffectEditResult> setParamValue(
     foundation::NodeId effectNodeId,
     std::string paramName,
     timeline::ParamValue value,
     project::CommandSource source
   );
-  foundation::Result<storage::ProjectPackageSessionResult> upsertParamKeyframe(
+  foundation::Result<NativeEffectEditResult> upsertParamKeyframe(
     foundation::NodeId effectNodeId,
     std::string paramName,
     timeline::Param::Keyframe keyframe,
