@@ -6,6 +6,7 @@
 #include <grapple/foundation/Hash.hpp>
 #include <grapple/graph/GraphEdge.hpp>
 #include <grapple/jobs/MainThreadDispatcher.hpp>
+#include <grapple/project/ProjectMediaPlacement.hpp>
 #include <grapple/render/RenderDiagnostic.hpp>
 #include <grapple/runtime/RuntimeDiagnostic.hpp>
 #include <grapple/timeline/Payloads.hpp>
@@ -47,7 +48,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <cstdlib>
 #include <filesystem>
 #include <iomanip>
 #include <optional>
@@ -312,45 +312,6 @@ grapple::project::CommandSource userSource() {
     std::nullopt,
     "desktop"
   };
-}
-
-grapple::foundation::Result<grapple::timeline::ClipKind> clipKindForMediaTypeName(
-  const std::string& mediaType
-) {
-  if (mediaType == "video") {
-    return grapple::timeline::ClipKind::Video;
-  }
-  if (mediaType == "audio") {
-    return grapple::timeline::ClipKind::Audio;
-  }
-  if (mediaType == "image") {
-    return grapple::timeline::ClipKind::Image;
-  }
-  return grapple::foundation::Error{"desktop.asset_media_type_unknown", "Selected media asset has an unknown media type."};
-}
-
-grapple::timeline::TrackKind trackKindForClipKind(grapple::timeline::ClipKind clipKind) {
-  switch (clipKind) {
-    case grapple::timeline::ClipKind::Video:
-    case grapple::timeline::ClipKind::Image:
-      return grapple::timeline::TrackKind::Visual;
-    case grapple::timeline::ClipKind::Audio:
-      return grapple::timeline::TrackKind::Audio;
-  }
-
-  std::abort();
-}
-
-grapple::foundation::Result<grapple::foundation::TimeSeconds> timelineDurationForAsset(
-  const grapple::app::AppAssetRow& asset
-) {
-  if (asset.mediaType == "image") {
-    return grapple::foundation::TimeSeconds{DefaultImageClipDurationSeconds};
-  }
-  if (asset.duration.has_value()) {
-    return *asset.duration;
-  }
-  return grapple::foundation::Error{"desktop.asset_duration_missing", "Selected media asset requires a duration before it can be placed on the timeline."};
 }
 
 const grapple::app::AppClipRow* findClipRow(
@@ -1538,119 +1499,49 @@ public:
       return;
     }
 
-    auto viewModel = workspace_.project().buildViewModel();
-    if (!viewModel) {
-      appendError(viewModel.error());
+    auto snapshot = workspace_.project().snapshot();
+    if (!snapshot) {
+      appendError(snapshot.error());
       return;
     }
 
-    const grapple::app::AppAssetRow* selectedAsset = nullptr;
-    for (const grapple::app::AppAssetRow& asset : viewModel.value().assets.rows) {
-      if (asset.assetId == selectedAssetId_.value()) {
-        selectedAsset = &asset;
-        break;
-      }
-    }
+    const grapple::asset::Asset* selectedAsset = snapshot.value().assets.find(selectedAssetId_.value());
     if (selectedAsset == nullptr) {
       appendError(grapple::foundation::Error{"desktop.asset_selection_stale", "Selected media asset is not in the current project."});
       return;
     }
-    auto clipKind = clipKindForMediaTypeName(selectedAsset->mediaType);
-    if (!clipKind) {
-      appendError(clipKind.error());
+
+    auto compositionQuery = workspace_.project().query(grapple::project::InspectCompositionsQuery{});
+    if (!compositionQuery) {
+      appendError(compositionQuery.error());
       return;
     }
-    const grapple::timeline::TrackKind trackKind = trackKindForClipKind(clipKind.value());
-    auto duration = timelineDurationForAsset(*selectedAsset);
-    if (!duration) {
-      appendError(duration.error());
+    const auto* compositionResult = std::get_if<grapple::project::CompositionInspectResult>(&compositionQuery.value());
+    if (compositionResult == nullptr) {
+      appendError(grapple::foundation::Error{"desktop.composition_result_missing", "Composition inspection returned the wrong result type."});
       return;
     }
 
-    const grapple::foundation::AssetId assetId = selectedAsset->assetId;
+    std::optional<grapple::foundation::TimeSeconds> duration;
+    if (selectedAsset->metadata.mediaType == grapple::asset::AssetMediaType::Image) {
+      duration = grapple::foundation::TimeSeconds{DefaultImageClipDurationSeconds};
+    }
+    auto placement = grapple::project::buildMediaPlacementDraft(
+      workspace_.commandWriter(),
+      *selectedAsset,
+      std::nullopt,
+      duration,
+      compositionResult->compositions
+    );
+    if (!placement) {
+      appendError(placement.error());
+      return;
+    }
+
     const std::string assetName = selectedAsset->name;
-    const grapple::foundation::TimeSeconds clipDuration = duration.value();
-
-    std::optional<grapple::project::CreateCompositionCommand> compositionCommand;
-    grapple::foundation::NodeId compositionNodeId = viewModel.value().timeline.compositions.empty()
-      ? workspace_.commandWriter().nextNodeId("composition")
-      : viewModel.value().timeline.compositions.front().sourceNodeId;
-    if (viewModel.value().timeline.compositions.empty()) {
-      compositionCommand = grapple::project::CreateCompositionCommand{
-        compositionNodeId,
-        "Main"
-      };
-    }
-
-    const std::vector<grapple::app::AppLayerRow>& matchingTracks = trackKind == grapple::timeline::TrackKind::Audio
-      ? viewModel.value().timeline.audioTracks
-      : viewModel.value().timeline.layers;
-    std::optional<grapple::project::CreateTrackCommand> trackCommand;
-    grapple::foundation::NodeId targetTrackNodeId = matchingTracks.empty()
-      ? workspace_.commandWriter().nextNodeId("track")
-      : matchingTracks.front().sourceNodeId;
-    if (matchingTracks.empty()) {
-      const std::string trackName = trackKind == grapple::timeline::TrackKind::Audio ? "Audio" : "Video";
-      const std::int64_t trackOrder = trackKind == grapple::timeline::TrackKind::Audio
-        ? static_cast<std::int64_t>(viewModel.value().timeline.audioTracks.size())
-        : static_cast<std::int64_t>(viewModel.value().timeline.layers.size());
-      trackCommand = grapple::project::CreateTrackCommand{
-        targetTrackNodeId,
-        compositionNodeId,
-        workspace_.commandWriter().nextEdgeId("contains_track"),
-        trackName,
-        trackKind,
-        trackOrder
-      };
-    }
-
-    std::optional<grapple::project::CreateCameraCommand> cameraCommand;
-    if (trackKind == grapple::timeline::TrackKind::Visual && viewModel.value().timeline.cameras.empty()) {
-      cameraCommand = grapple::project::CreateCameraCommand{
-        workspace_.commandWriter().nextNodeId("camera"),
-        compositionNodeId,
-        workspace_.commandWriter().nextEdgeId("contains_camera"),
-        grapple::timeline::CameraPayload{
-          "Camera",
-          grapple::timeline::CameraState{
-            grapple::timeline::Transform2D{},
-            grapple::timeline::CameraLens{35.0}
-          }
-        },
-        static_cast<std::int64_t>(viewModel.value().timeline.cameras.size())
-      };
-    }
-
-    const grapple::foundation::NodeId clipNodeId = workspace_.commandWriter().nextNodeId("clip");
-    const std::int64_t clipOrder = trackKind == grapple::timeline::TrackKind::Audio
-      ? static_cast<std::int64_t>(viewModel.value().timeline.audioClips.size())
-      : static_cast<std::int64_t>(viewModel.value().timeline.clips.size());
+    const grapple::foundation::NodeId clipNodeId = placement.value().clipNodeId;
     const auto mediaPlacement = workspace_.commandWriter().apply(
-      grapple::project::AddMediaToTimelineCommand{
-        std::move(compositionCommand),
-        std::move(trackCommand),
-        std::move(cameraCommand),
-        grapple::project::CreateClipCommand{
-          clipNodeId,
-          targetTrackNodeId,
-          workspace_.commandWriter().nextEdgeId("contains_clip"),
-          grapple::timeline::ClipPayload{
-            clipKind.value(),
-            grapple::foundation::TimeRange{
-              viewModel.value().timeline.duration,
-              grapple::foundation::TimeSeconds{viewModel.value().timeline.duration.value + clipDuration.value}
-            },
-            grapple::foundation::TimeRange{
-              grapple::foundation::TimeSeconds{0.0},
-              clipDuration
-            },
-            1.0,
-            assetId,
-            grapple::timeline::Transform2D{}
-          },
-          clipOrder
-        },
-      },
+      std::move(placement.value().command),
       userSource()
     );
     if (!mediaPlacement) {

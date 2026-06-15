@@ -8,6 +8,7 @@ add_library(grapple_project
   src/ProjectController.cpp
   src/ProjectEventNames.cpp
   src/ProjectEvents.cpp
+  src/ProjectMediaPlacement.cpp
   src/ProjectQuery.cpp
   src/ProjectSerializer.cpp
   src/ProjectSnapshot.cpp

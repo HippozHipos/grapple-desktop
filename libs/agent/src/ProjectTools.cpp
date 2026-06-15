@@ -5,6 +5,7 @@
 #include <grapple/foundation/Json.hpp>
 #include <grapple/foundation/Hash.hpp>
 #include <grapple/project/ProjectCommand.hpp>
+#include <grapple/project/ProjectMediaPlacement.hpp>
 #include <grapple/project/ProjectQuery.hpp>
 
 #include <json/json.h>
@@ -965,198 +966,6 @@ foundation::Result<project::CompositionInspectResult> readCompositions(
     };
   }
   return *compositionResult;
-}
-
-foundation::Result<timeline::ClipKind> clipKindForAssetMediaType(asset::AssetMediaType mediaType) {
-  switch (mediaType) {
-    case asset::AssetMediaType::Video:
-      return timeline::ClipKind::Video;
-    case asset::AssetMediaType::Audio:
-      return timeline::ClipKind::Audio;
-    case asset::AssetMediaType::Image:
-      return timeline::ClipKind::Image;
-  }
-
-  return foundation::Error{"agent.asset_media_type_unknown", "Asset media type is unknown."};
-}
-
-timeline::TrackKind trackKindForClipKind(timeline::ClipKind clipKind) {
-  switch (clipKind) {
-    case timeline::ClipKind::Video:
-    case timeline::ClipKind::Image:
-      return timeline::TrackKind::Visual;
-    case timeline::ClipKind::Audio:
-      return timeline::TrackKind::Audio;
-  }
-
-  std::abort();
-}
-
-foundation::Result<foundation::TimeSeconds> durationForPlacement(
-  const asset::Asset& selectedAsset,
-  const std::optional<double>& requestedDuration
-) {
-  if (requestedDuration.has_value()) {
-    return foundation::TimeSeconds{requestedDuration.value()};
-  }
-  if (selectedAsset.metadata.duration.has_value()) {
-    return selectedAsset.metadata.duration.value();
-  }
-  return foundation::Error{
-    "agent.asset_duration_missing",
-    "Placing this asset requires an explicit duration because the asset has no duration metadata."
-  };
-}
-
-foundation::TimeSeconds appendStartForComposition(const project::CompositionSummary& composition) {
-  double end = 0.0;
-  for (const project::CompositionTrackSummary& track : composition.tracks) {
-    for (const project::CompositionClipSummary& clip : track.clips) {
-      end = std::max(end, clip.timelineRange.end.value);
-    }
-  }
-  return foundation::TimeSeconds{end};
-}
-
-const project::CompositionTrackSummary* firstTrackOfKind(
-  const project::CompositionSummary& composition,
-  timeline::TrackKind kind
-) {
-  for (const project::CompositionTrackSummary& track : composition.tracks) {
-    if (track.kind == kind) {
-      return &track;
-    }
-  }
-  return nullptr;
-}
-
-struct TimelinePlacementDraft {
-  project::AddMediaToTimelineCommand command;
-  foundation::NodeId compositionNodeId;
-  foundation::NodeId trackNodeId;
-  foundation::NodeId clipNodeId;
-  std::optional<foundation::NodeId> createdCameraNodeId;
-};
-
-foundation::Result<TimelinePlacementDraft> buildTimelinePlacementDraft(
-  AgentToolContext& context,
-  const asset::Asset& selectedAsset,
-  foundation::AssetId assetId,
-  std::optional<double> requestedStart,
-  std::optional<double> requestedDuration
-) {
-  auto clipKind = clipKindForAssetMediaType(selectedAsset.metadata.mediaType);
-  if (!clipKind) {
-    return clipKind.error();
-  }
-  const timeline::TrackKind trackKind = trackKindForClipKind(clipKind.value());
-  auto duration = durationForPlacement(selectedAsset, requestedDuration);
-  if (!duration) {
-    return duration.error();
-  }
-
-  auto compositions = readCompositions(context, "timeline.place_asset");
-  if (!compositions) {
-    return compositions.error();
-  }
-
-  std::optional<project::CreateCompositionCommand> compositionCommand;
-  const project::CompositionSummary* targetComposition = compositions.value().compositions.empty()
-    ? nullptr
-    : &compositions.value().compositions.front();
-  foundation::NodeId compositionNodeId = targetComposition == nullptr
-    ? context.ids.nextNodeId("composition")
-    : targetComposition->nodeId;
-  if (targetComposition == nullptr) {
-    compositionCommand = project::CreateCompositionCommand{compositionNodeId, "Main"};
-  }
-
-  std::optional<project::CreateTrackCommand> trackCommand;
-  const project::CompositionTrackSummary* targetTrack = targetComposition == nullptr
-    ? nullptr
-    : firstTrackOfKind(*targetComposition, trackKind);
-  foundation::NodeId trackNodeId = targetTrack == nullptr
-    ? context.ids.nextNodeId("track")
-    : targetTrack->nodeId;
-  if (targetTrack == nullptr) {
-    const std::string trackName = trackKind == timeline::TrackKind::Audio ? "Audio" : "Video";
-    std::int64_t trackOrder = 0;
-    if (targetComposition != nullptr) {
-      for (const project::CompositionTrackSummary& track : targetComposition->tracks) {
-        if (track.kind == trackKind) {
-          ++trackOrder;
-        }
-      }
-    }
-    trackCommand = project::CreateTrackCommand{
-      trackNodeId,
-      compositionNodeId,
-      context.ids.nextEdgeId("contains_track"),
-      trackName,
-      trackKind,
-      trackOrder
-    };
-  }
-
-  std::optional<project::CreateCameraCommand> cameraCommand;
-  if (trackKind == timeline::TrackKind::Visual && (targetComposition == nullptr || targetComposition->cameras.empty())) {
-    cameraCommand = project::CreateCameraCommand{
-      context.ids.nextNodeId("camera"),
-      compositionNodeId,
-      context.ids.nextEdgeId("contains_camera"),
-      timeline::CameraPayload{
-        "Camera",
-        timeline::CameraState{
-          timeline::Transform2D{},
-          timeline::CameraLens{35.0}
-        }
-      },
-      targetComposition == nullptr ? 0 : static_cast<std::int64_t>(targetComposition->cameras.size())
-    };
-  }
-  const std::optional<foundation::NodeId> createdCameraNodeId = cameraCommand.has_value()
-    ? std::optional<foundation::NodeId>{cameraCommand->nodeId}
-    : std::nullopt;
-
-  const foundation::TimeSeconds timelineStart = requestedStart.has_value()
-    ? foundation::TimeSeconds{requestedStart.value()}
-    : (targetComposition == nullptr ? foundation::TimeSeconds{0.0} : appendStartForComposition(*targetComposition));
-  const foundation::NodeId clipNodeId = context.ids.nextNodeId("clip");
-  const std::int64_t clipOrder = targetTrack == nullptr
-    ? 0
-    : static_cast<std::int64_t>(targetTrack->clips.size());
-
-  return TimelinePlacementDraft{
-    project::AddMediaToTimelineCommand{
-      std::move(compositionCommand),
-      std::move(trackCommand),
-      std::move(cameraCommand),
-      project::CreateClipCommand{
-        clipNodeId,
-        trackNodeId,
-        context.ids.nextEdgeId("contains_clip"),
-        timeline::ClipPayload{
-          clipKind.value(),
-          foundation::TimeRange{
-            timelineStart,
-            foundation::TimeSeconds{timelineStart.value + duration.value().value}
-          },
-          foundation::TimeRange{
-            foundation::TimeSeconds{0.0},
-            duration.value()
-          },
-          1.0,
-          std::move(assetId),
-          timeline::Transform2D{}
-        },
-        clipOrder
-      }
-    },
-    compositionNodeId,
-    trackNodeId,
-    clipNodeId,
-    createdCameraNodeId
-  };
 }
 
 const char* assetMediaTypeText(asset::AssetMediaType mediaType) {
@@ -2238,12 +2047,24 @@ AgentTool makeTimelinePlaceAssetTool() {
       if (selectedAsset == nullptr) {
         return foundation::Error{"agent.asset_missing", "timeline.place_asset requires an existing registered asset."};
       }
-      auto placement = buildTimelinePlacementDraft(
-        context,
+      auto compositions = readCompositions(context, "timeline.place_asset");
+      if (!compositions) {
+        return compositions.error();
+      }
+      std::optional<foundation::TimeSeconds> timelineStart;
+      if (requestedStart.value().has_value()) {
+        timelineStart = foundation::TimeSeconds{requestedStart.value().value()};
+      }
+      std::optional<foundation::TimeSeconds> duration;
+      if (requestedDuration.value().has_value()) {
+        duration = foundation::TimeSeconds{requestedDuration.value().value()};
+      }
+      auto placement = project::buildMediaPlacementDraft(
+        context.ids,
         *selectedAsset,
-        foundation::AssetId{assetId.value()},
-        requestedStart.value(),
-        requestedDuration.value()
+        timelineStart,
+        duration,
+        compositions.value().compositions
       );
       if (!placement) {
         return placement.error();
