@@ -1843,6 +1843,14 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     const std::string stewardActionAfterImport = window.stewardPrimaryActionText();
     const bool stewardActionEnabledAfterImport = window.stewardPrimaryActionEnabled();
     window.clickStewardPrimaryAction();
+    const auto basePreviewFrame = workspace.value().preview().renderFrame(grapple::render::RenderFrameRequest{
+      workspace.value().preview().state().playhead,
+      grapple::render::RenderQuality::Draft
+    });
+    if (!basePreviewFrame) {
+      printError(basePreviewFrame.error());
+      return 1;
+    }
     window.setStewardIntent("Center the subject with editable camera controls.");
     window.clickStewardPrimaryAction();
     window.setStewardIntent("Move the camera framing right.");
@@ -1873,6 +1881,11 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       tunedPreviewFrame.value().frame.cameras.size() == 1 &&
       tunedPreviewFrame.value().frame.cameras.front().state.transform.position.x == 0.0 &&
       tunedPreviewFrame.value().frame.cameras.front().state.transform.scale.x == 1.375;
+    const bool previewPixelsChanged =
+      basePreviewFrame.value().frame.image.has_value() &&
+      tunedPreviewFrame.value().frame.image.has_value() &&
+      basePreviewFrame.value().frame.image->resolution == tunedPreviewFrame.value().frame.image->resolution &&
+      basePreviewFrame.value().frame.image->rgbaPixels != tunedPreviewFrame.value().frame.image->rgbaPixels;
     window.setExportResolutionControlValue(320, 180);
     window.setExportFrameRateControlValue(10.0);
     window.setExportCodecControlValue("mjpeg");
@@ -1948,6 +1961,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "cameras=" << viewModel.value().timeline.cameras.size() << '\n';
     std::cout << "effects=" << viewModel.value().timeline.effectCount << '\n';
     std::cout << "evaluatedTunedPreview=" << (hasEvaluatedTunedPreview ? "true" : "false") << '\n';
+    std::cout << "previewPixelsChanged=" << (previewPixelsChanged ? "true" : "false") << '\n';
     std::cout << "recentEdits=" << stewardRecentEdits << '\n';
     std::cout << "selectedRecentEdit=" << stewardSelectedRecentEdit << '\n';
     std::cout << "selectedRecentEditText=" << stewardSelectedRecentEditText << '\n';
@@ -1973,6 +1987,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            viewModel.value().timeline.effectCount == 1 &&
            hasTunedEditableEffect &&
            hasEvaluatedTunedPreview &&
+           previewPixelsChanged &&
            stewardActionAfterImport == "Add Selected Media To Timeline" &&
            stewardActionEnabledAfterImport &&
            stewardRecentEdits == 5 &&
