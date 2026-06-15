@@ -35,6 +35,7 @@ struct AgentConversationToolCall {
   std::string argumentsJson;
   AgentConversationToolCallStatus status = AgentConversationToolCallStatus::Running;
   std::string resultJson;
+  std::optional<foundation::RevisionId> observedRevision;
 };
 
 struct AgentConversationDiagnostic {

@@ -93,6 +93,7 @@ int main() {
   GRAPPLE_REQUIRE(log.records()[1].sequence == 2);
   GRAPPLE_REQUIRE(log.records()[1].kind == agent::AgentRunEventKind::ToolCallFinished);
   GRAPPLE_REQUIRE(log.records()[1].payloadJson.find("\"status\":\"succeeded\"") != std::string::npos);
+  GRAPPLE_REQUIRE(log.records()[1].payloadJson.find("\"observedRevision\":\"rev_0\"") != std::string::npos);
 
   std::vector<agent::AgentRunEvent> conversationEvents{runStartedEvent()};
   conversationEvents.insert(conversationEvents.end(), log.records().begin(), log.records().end());
@@ -113,6 +114,7 @@ int main() {
   GRAPPLE_REQUIRE(state.runs[0].toolCalls[0].toolCallId == foundation::ToolId{"tool_call_project_inspect"});
   GRAPPLE_REQUIRE(state.runs[0].toolCalls[0].toolSerializedId == "project.inspect");
   GRAPPLE_REQUIRE(state.runs[0].toolCalls[0].status == agent::AgentConversationToolCallStatus::Succeeded);
+  GRAPPLE_REQUIRE(state.runs[0].toolCalls[0].observedRevision == foundation::RevisionId{"rev_0"});
 
   agent::AgentRunEventLog missingToolLog;
   std::int64_t missingToolNextSequence = 1;

@@ -135,7 +135,7 @@ int main() {
       foundation::RunId{"run_parent"},
       4,
       agent::AgentRunEventKind::ToolCallFinished,
-      R"({"toolCallId":"tool_call_1","status":"succeeded","resultJson":"{\"revision\":\"rev_1\"}"})"
+      R"({"toolCallId":"tool_call_1","status":"succeeded","resultJson":"{\"revision\":\"rev_1\"}","observedRevision":"rev_1"})"
     ),
     event(
       foundation::RunId{"run_parent"},
@@ -189,6 +189,7 @@ int main() {
   GRAPPLE_REQUIRE(parent.toolCalls[0].toolSerializedId == "composition.inspect");
   GRAPPLE_REQUIRE(parent.toolCalls[0].status == agent::AgentConversationToolCallStatus::Succeeded);
   GRAPPLE_REQUIRE(parent.toolCalls[0].resultJson == R"({"revision":"rev_1"})");
+  GRAPPLE_REQUIRE(parent.toolCalls[0].observedRevision == foundation::RevisionId{"rev_1"});
 
   GRAPPLE_REQUIRE(parent.diagnostics.size() == 1);
   GRAPPLE_REQUIRE(parent.diagnostics[0].code == "agent.note");

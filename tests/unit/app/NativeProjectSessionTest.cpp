@@ -1038,6 +1038,7 @@ int main() {
   GRAPPLE_REQUIRE(stewardConversation.runs[0].toolCalls.size() == 1);
   GRAPPLE_REQUIRE(stewardConversation.runs[0].toolCalls[0].toolSerializedId == "effect.create_node");
   GRAPPLE_REQUIRE(stewardConversation.runs[0].toolCalls[0].status == agent::AgentConversationToolCallStatus::Succeeded);
+  GRAPPLE_REQUIRE(stewardConversation.runs[0].toolCalls[0].observedRevision == runtimeEffect.value().snapshot.revision);
   GRAPPLE_REQUIRE(stewardConversation.runs[1].status == agent::AgentRunStatus::Failed);
   GRAPPLE_REQUIRE(stewardConversation.runs[1].toolCalls.empty());
   GRAPPLE_REQUIRE(stewardConversation.runs[1].diagnostics.size() == 1);
@@ -1569,6 +1570,7 @@ int main() {
   GRAPPLE_REQUIRE(reopenedStewardConversation.runs[0].toolCalls.size() == 1);
   GRAPPLE_REQUIRE(reopenedStewardConversation.runs[0].toolCalls[0].toolSerializedId == "effect.create_node");
   GRAPPLE_REQUIRE(reopenedStewardConversation.runs[0].toolCalls[0].toolCallId == foundation::ToolId{"tool_steward_camera_transform_1"});
+  GRAPPLE_REQUIRE(reopenedStewardConversation.runs[0].toolCalls[0].observedRevision == foundation::RevisionId{"rev_3"});
   const auto reopenedStewardViewModel = reopenedStewardWorkspace.value().project().buildViewModel();
   GRAPPLE_REQUIRE(reopenedStewardViewModel);
   GRAPPLE_REQUIRE(reopenedStewardViewModel.value().project.revision == foundation::RevisionId{"rev_3"});
@@ -1616,6 +1618,7 @@ int main() {
   GRAPPLE_REQUIRE(reopenedStewardConversationAfterSecondRun.runs[1].runId == foundation::RunId{"run_steward_2"});
   GRAPPLE_REQUIRE(reopenedStewardConversationAfterSecondRun.runs[1].toolCalls.size() == 1);
   GRAPPLE_REQUIRE(reopenedStewardConversationAfterSecondRun.runs[1].toolCalls[0].toolCallId == foundation::ToolId{"tool_steward_camera_transform_2"});
+  GRAPPLE_REQUIRE(reopenedStewardConversationAfterSecondRun.runs[1].toolCalls[0].observedRevision == reopenedSecondStewardEffect.value().snapshot.revision);
   std::filesystem::remove_all(stewardPackageRoot);
 
   app::NativeProjectSession noteSession{

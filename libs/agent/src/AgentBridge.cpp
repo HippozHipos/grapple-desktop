@@ -3,6 +3,7 @@
 #include <grapple/foundation/Json.hpp>
 
 #include <chrono>
+#include <optional>
 #include <sstream>
 #include <utility>
 
@@ -23,14 +24,18 @@ std::string toolCallStartedPayload(const AgentToolDispatchRequest& request) {
 std::string toolCallFinishedPayload(
   const foundation::ToolId& toolCallId,
   std::string status,
-  std::string resultJson
+  std::string resultJson,
+  std::optional<foundation::RevisionId> observedRevision
 ) {
   std::ostringstream payload;
   payload << '{'
           << "\"toolCallId\":" << foundation::jsonQuoted(toolCallId.value())
           << ",\"status\":" << foundation::jsonQuoted(status)
-          << ",\"resultJson\":" << foundation::jsonQuoted(resultJson)
-          << '}';
+          << ",\"resultJson\":" << foundation::jsonQuoted(resultJson);
+  if (observedRevision.has_value()) {
+    payload << ",\"observedRevision\":" << foundation::jsonQuoted(observedRevision->value());
+  }
+  payload << '}';
   return payload.str();
 }
 
@@ -74,7 +79,7 @@ foundation::Result<ToolResult> AgentBridge::dispatchToolCall(const AgentToolDisp
     auto finished = appendEvent(
       request.runId,
       AgentRunEventKind::ToolCallFinished,
-      toolCallFinishedPayload(request.toolCallId, "failed", errorResultJson(error))
+      toolCallFinishedPayload(request.toolCallId, "failed", errorResultJson(error), std::nullopt)
     );
     if (!finished) {
       return finished.error();
@@ -96,7 +101,7 @@ foundation::Result<ToolResult> AgentBridge::dispatchToolCall(const AgentToolDisp
     auto finished = appendEvent(
       request.runId,
       AgentRunEventKind::ToolCallFinished,
-      toolCallFinishedPayload(request.toolCallId, "failed", errorResultJson(result.error()))
+      toolCallFinishedPayload(request.toolCallId, "failed", errorResultJson(result.error()), std::nullopt)
     );
     if (!finished) {
       return finished.error();
@@ -107,7 +112,7 @@ foundation::Result<ToolResult> AgentBridge::dispatchToolCall(const AgentToolDisp
   auto finished = appendEvent(
     request.runId,
     AgentRunEventKind::ToolCallFinished,
-    toolCallFinishedPayload(request.toolCallId, "succeeded", result.value().payload)
+    toolCallFinishedPayload(request.toolCallId, "succeeded", result.value().payload, result.value().observedRevision)
   );
   if (!finished) {
     return finished.error();

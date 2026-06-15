@@ -46,7 +46,7 @@ int main() {
     event(
       3,
       agent::AgentRunEventKind::ToolCallFinished,
-      R"({"toolCallId":"tool_1","status":"succeeded","resultJson":"{\"revision\":\"rev_1\"}"})",
+      R"({"toolCallId":"tool_1","status":"succeeded","resultJson":"{\"revision\":\"rev_1\"}","observedRevision":"rev_1"})",
       1200
     ),
     event(4, agent::AgentRunEventKind::RunFinished, R"({"status":"succeeded","summary":"Done."})", 1300)
@@ -54,7 +54,7 @@ int main() {
 
   const std::string serialized = agent::serializeCanonicalAgentRunEvents(events);
   const std::string expected =
-    R"([{"runId":"run_serialized","sequence":1,"kind":"run_started","payloadJson":"{\"title\":\"Center subject\"}","createdAtMs":1000},{"runId":"run_serialized","sequence":2,"kind":"tool_call_started","payloadJson":"{\"toolCallId\":\"tool_1\",\"toolSerializedId\":\"composition.inspect\",\"argumentsJson\":\"{}\"}","createdAtMs":1100},{"runId":"run_serialized","sequence":3,"kind":"tool_call_finished","payloadJson":"{\"toolCallId\":\"tool_1\",\"status\":\"succeeded\",\"resultJson\":\"{\\\"revision\\\":\\\"rev_1\\\"}\"}","createdAtMs":1200},{"runId":"run_serialized","sequence":4,"kind":"run_finished","payloadJson":"{\"status\":\"succeeded\",\"summary\":\"Done.\"}","createdAtMs":1300}])";
+    R"([{"runId":"run_serialized","sequence":1,"kind":"run_started","payloadJson":"{\"title\":\"Center subject\"}","createdAtMs":1000},{"runId":"run_serialized","sequence":2,"kind":"tool_call_started","payloadJson":"{\"toolCallId\":\"tool_1\",\"toolSerializedId\":\"composition.inspect\",\"argumentsJson\":\"{}\"}","createdAtMs":1100},{"runId":"run_serialized","sequence":3,"kind":"tool_call_finished","payloadJson":"{\"toolCallId\":\"tool_1\",\"status\":\"succeeded\",\"resultJson\":\"{\\\"revision\\\":\\\"rev_1\\\"}\",\"observedRevision\":\"rev_1\"}","createdAtMs":1200},{"runId":"run_serialized","sequence":4,"kind":"run_finished","payloadJson":"{\"status\":\"succeeded\",\"summary\":\"Done.\"}","createdAtMs":1300}])";
   GRAPPLE_REQUIRE(serialized == expected);
 
   const auto deserialized = agent::deserializeCanonicalAgentRunEvents(serialized);
@@ -77,6 +77,7 @@ int main() {
   GRAPPLE_REQUIRE(state.runs.size() == 1);
   GRAPPLE_REQUIRE(state.runs[0].toolCalls.size() == 1);
   GRAPPLE_REQUIRE(state.runs[0].toolCalls[0].toolSerializedId == "composition.inspect");
+  GRAPPLE_REQUIRE(state.runs[0].toolCalls[0].observedRevision == foundation::RevisionId{"rev_1"});
   GRAPPLE_REQUIRE(state.runs[0].status == agent::AgentRunStatus::Succeeded);
 
   const std::string serializedRuns = agent::serializeCanonicalAgentRuns(runs);

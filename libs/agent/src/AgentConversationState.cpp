@@ -232,7 +232,8 @@ void applyToolCallStarted(
     toolSerializedId.value(),
     optionalString(payload, "argumentsJson").value_or("{}"),
     AgentConversationToolCallStatus::Running,
-    ""
+    "",
+    std::nullopt
   });
 }
 
@@ -257,6 +258,9 @@ void applyToolCallFinished(
   toolCall->finishedSequence = event.sequence;
   toolCall->status = parseToolCallStatus(status.value());
   toolCall->resultJson = optionalString(payload, "resultJson").value_or("{}");
+  if (auto observedRevision = optionalString(payload, "observedRevision"); observedRevision.has_value()) {
+    toolCall->observedRevision = foundation::RevisionId{observedRevision.value()};
+  }
 }
 
 void applyDiagnostic(
