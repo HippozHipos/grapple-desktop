@@ -27,6 +27,7 @@ constexpr const char CanonicalCameraTransformToolId[] = "camera.add_transform_co
 constexpr const char CanonicalCameraTransformKeyframeToolId[] = "camera.set_transform_keyframe";
 constexpr const char CanonicalPlaceAssetToolId[] = "timeline.place_asset";
 constexpr const char CanonicalUpdateClipTransformToolId[] = "timeline.update_clip_transform";
+constexpr const char CanonicalUpdateEffectParamToolId[] = "effect.update_param_value";
 constexpr double CenteredCameraTransformPositionX = 0.0;
 constexpr double CenteredCameraTransformPositionY = 0.0;
 constexpr double NormalCameraTransformZoom = 1.0;
@@ -43,6 +44,12 @@ struct CameraTransformMotionKeyframes {
   double startValue = 0.0;
   double endValue = 0.0;
   foundation::TimeSeconds endTime;
+};
+
+struct CameraTransformParamAdjustment {
+  foundation::NodeId effectNodeId;
+  std::string paramName;
+  double value = 0.0;
 };
 
 std::string lowercaseAscii(std::string value) {
@@ -236,6 +243,128 @@ foundation::Result<timeline::Transform2D> clipTransformForIntent(
   return transform;
 }
 
+const timeline::EffectPayload* cameraTransformEffectPayload(
+  const project::ProjectSnapshot& snapshot,
+  const foundation::NodeId& cameraNodeId,
+  foundation::NodeId& effectNodeId
+) {
+  for (const graph::GraphEdge& edge : snapshot.graph.edges()) {
+    if (!edge.enabled ||
+        edge.kind != graph::EdgeKind::Targets ||
+        edge.targetNodeId != cameraNodeId) {
+      continue;
+    }
+    const graph::GraphNode* effectNode = snapshot.graph.findNode(edge.sourceNodeId);
+    if (effectNode == nullptr || effectNode->kind != graph::NodeKind::Effect) {
+      continue;
+    }
+    const auto* payload = std::get_if<timeline::EffectPayload>(&effectNode->payload);
+    if (payload == nullptr ||
+        payload->displayName != effects::builtin_effect::CameraTransformDisplayName ||
+        payload->implementation.kind != timeline::EffectImplementationKind::Builtin ||
+        payload->implementation.entrypoint != effects::builtin_effect::CameraTransformEntrypoint) {
+      continue;
+    }
+
+    effectNodeId = effectNode->id;
+    return payload;
+  }
+  return nullptr;
+}
+
+foundation::Result<double> numericEffectParamValue(
+  const timeline::EffectPayload& payload,
+  const std::string& paramName
+) {
+  const auto param = std::find_if(payload.params.values.begin(), payload.params.values.end(), [&](const timeline::Param& value) {
+    return value.name == paramName;
+  });
+  if (param == payload.params.values.end()) {
+    return foundation::Error{
+      "steward.camera_transform_param_missing",
+      "Camera Transform controls are missing the requested parameter."
+    };
+  }
+  const auto* value = std::get_if<double>(&param->value);
+  if (value == nullptr) {
+    return foundation::Error{
+      "steward.camera_transform_param_not_numeric",
+      "Camera Transform control parameter must be numeric."
+    };
+  }
+  return *value;
+}
+
+foundation::Result<CameraTransformParamAdjustment> cameraTransformParamAdjustmentForIntent(
+  const project::ProjectSnapshot& snapshot,
+  const foundation::NodeId& cameraNodeId,
+  const std::string& intent
+) {
+  const graph::GraphNode* cameraNode = snapshot.graph.findNode(cameraNodeId);
+  if (cameraNode == nullptr || cameraNode->kind != graph::NodeKind::Camera) {
+    return foundation::Error{
+      "steward.camera_missing",
+      "Steward camera control adjustment requires an existing camera node."
+    };
+  }
+
+  foundation::NodeId effectNodeId;
+  const timeline::EffectPayload* payload = cameraTransformEffectPayload(snapshot, cameraNodeId, effectNodeId);
+  if (payload == nullptr) {
+    return foundation::Error{
+      "steward.camera_transform_missing",
+      "Steward camera control adjustment requires existing Camera Transform controls."
+    };
+  }
+
+  const std::string normalized = lowercaseAscii(intent);
+  std::string paramName;
+  double delta = 0.0;
+  bool multiply = false;
+
+  if (containsAsciiWord(normalized, "left")) {
+    paramName = effects::builtin_effect::PositionXParam;
+    delta = -0.25;
+  } else if (containsAsciiWord(normalized, "right")) {
+    paramName = effects::builtin_effect::PositionXParam;
+    delta = 0.25;
+  } else if (containsAsciiWord(normalized, "up")) {
+    paramName = effects::builtin_effect::PositionYParam;
+    delta = -0.2;
+  } else if (containsAsciiWord(normalized, "down")) {
+    paramName = effects::builtin_effect::PositionYParam;
+    delta = 0.2;
+  } else if (containsText(normalized, "zoom out") ||
+             containsAsciiWord(normalized, "wider") ||
+             containsAsciiWord(normalized, "wide")) {
+    paramName = effects::builtin_effect::ZoomParam;
+    delta = 0.8;
+    multiply = true;
+  } else if (containsText(normalized, "zoom in") ||
+             containsAsciiWord(normalized, "closer") ||
+             containsAsciiWord(normalized, "close")) {
+    paramName = effects::builtin_effect::ZoomParam;
+    delta = 1.25;
+    multiply = true;
+  } else {
+    return foundation::Error{
+      "steward.camera_transform_intent_unknown",
+      "Camera Transform adjustments must explicitly mention left, right, up, down, zoom in, or zoom out."
+    };
+  }
+
+  auto currentValue = numericEffectParamValue(*payload, paramName);
+  if (!currentValue) {
+    return currentValue.error();
+  }
+
+  return CameraTransformParamAdjustment{
+    effectNodeId,
+    paramName,
+    multiply ? currentValue.value() * delta : currentValue.value() + delta
+  };
+}
+
 std::string runStartedPayload(const std::string& title) {
   std::ostringstream payload;
   payload << '{';
@@ -344,6 +473,10 @@ foundation::ToolId stewardClipTransformToolCallIdForRun(const foundation::RunId&
   return foundation::ToolId{"tool_steward_clip_transform_" + std::to_string(stewardRunNumber(runId))};
 }
 
+foundation::ToolId stewardCameraTransformParamToolCallIdForRun(const foundation::RunId& runId) {
+  return foundation::ToolId{"tool_steward_camera_transform_param_" + std::to_string(stewardRunNumber(runId))};
+}
+
 std::string placeAssetArgumentsPayload(
   const foundation::AssetId& assetId,
   const std::optional<foundation::TimeSeconds>& duration
@@ -375,6 +508,21 @@ std::string clipTransformArgumentsPayload(
   arguments << "}";
   arguments << ",\"rotationDegrees\":" << transform.rotationDegrees;
   arguments << ",\"opacity\":" << transform.opacity;
+  arguments << '}';
+  return arguments.str();
+}
+
+std::string effectParamValueArgumentsPayload(
+  const foundation::NodeId& effectNodeId,
+  const std::string& paramName,
+  double value
+) {
+  std::ostringstream arguments;
+  arguments << '{';
+  foundation::writeJsonStringProperty(arguments, "effectNodeId", effectNodeId.value());
+  arguments << ',';
+  foundation::writeJsonStringProperty(arguments, "paramName", paramName);
+  arguments << ",\"value\":" << value;
   arguments << '}';
   return arguments.str();
 }
@@ -652,6 +800,96 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::t
     runId.value(),
     agent::AgentRunEventKind::RunFinished,
     runFinishedPayload("succeeded", "Updated selected clip transform.")
+  );
+  if (!runFinished) {
+    return runFinished.error();
+  }
+
+  markRunStatus(runId.value(), agent::AgentRunStatus::Succeeded);
+  return packageResult.value();
+}
+
+foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::adjustCameraTransformControls(
+  foundation::NodeId cameraNodeId,
+  std::string intent
+) {
+  auto snapshot = project_.snapshot();
+  if (!snapshot) {
+    return snapshot.error();
+  }
+
+  auto runId = startRun(snapshot.value(), intent);
+  if (!runId) {
+    return runId.error();
+  }
+
+  auto adjustment = cameraTransformParamAdjustmentForIntent(snapshot.value(), cameraNodeId, intent);
+  if (!adjustment) {
+    auto finished = finishRunWithError(runId.value(), adjustment.error());
+    if (!finished) {
+      return finished.error();
+    }
+    return adjustment.error();
+  }
+
+  auto message = appendEvent(
+    runId.value(),
+    agent::AgentRunEventKind::ModelMessage,
+    modelMessagePayload("assistant", "Updating the existing Camera Transform controls as an editable parameter change.")
+  );
+  if (!message) {
+    return message.error();
+  }
+
+  std::optional<storage::ProjectPackageSessionResult> packageResult;
+  CommittingAgentCommandService stewardCommands{project_, commandWriter_, intent, packageResult};
+  agent::AgentToolRegistry registry;
+  auto registered = agent::registerProjectTools(registry);
+  if (!registered) {
+    auto finished = finishRunWithError(runId.value(), registered.error());
+    if (!finished) {
+      return finished.error();
+    }
+    return registered.error();
+  }
+
+  agent::AgentToolContext toolContext{stewardCommands, project_, commandWriter_};
+  agent::AgentBridge bridge{registry, toolContext, events_, nextSequence_};
+  auto dispatched = bridge.dispatchToolCall(agent::AgentToolDispatchRequest{
+    runId.value(),
+    snapshot.value().info.id,
+    snapshot.value().revision,
+    stewardCameraTransformParamToolCallIdForRun(runId.value()),
+    CanonicalUpdateEffectParamToolId,
+    effectParamValueArgumentsPayload(
+      adjustment.value().effectNodeId,
+      adjustment.value().paramName,
+      adjustment.value().value
+    )
+  });
+  if (!dispatched) {
+    auto finished = finishRunWithError(runId.value(), dispatched.error());
+    if (!finished) {
+      return finished.error();
+    }
+    return dispatched.error();
+  }
+  if (!packageResult.has_value()) {
+    const foundation::Error error{
+      "steward.camera_transform_param_result_missing",
+      "Steward camera control update tool succeeded without a committed package result."
+    };
+    auto finished = finishRunWithError(runId.value(), error);
+    if (!finished) {
+      return finished.error();
+    }
+    return error;
+  }
+
+  auto runFinished = appendEvent(
+    runId.value(),
+    agent::AgentRunEventKind::RunFinished,
+    runFinishedPayload("succeeded", "Updated existing Camera Transform controls.")
   );
   if (!runFinished) {
     return runFinished.error();

@@ -1407,6 +1407,74 @@ int main() {
   GRAPPLE_REQUIRE(runtimeExport.value().runtimeDiagnostics.empty());
   GRAPPLE_REQUIRE(runtimeExport.value().framesEvaluated == 2);
 
+  app::NativeProjectSession stewardAdjustProject{
+    foundation::ProjectId{"proj_app_steward_adjust"},
+    "Steward Adjust Project",
+    storage::ProjectPackage{
+      foundation::ProjectId{"proj_app_steward_adjust"},
+      foundation::FilePath{"steward-adjust-app.grapple"},
+      storage::CurrentProjectPackageSchemaVersion
+    }
+  };
+  auto stewardAdjustWorkspace = app::NativeWorkspaceSession::fromProject(std::move(stewardAdjustProject));
+  GRAPPLE_REQUIRE(stewardAdjustWorkspace);
+  const foundation::NodeId stewardAdjustCompositionNodeId =
+    stewardAdjustWorkspace.value().commandWriter().nextNodeId("composition");
+  const auto stewardAdjustComposition = stewardAdjustWorkspace.value().commandWriter().apply(
+    project::CreateCompositionCommand{stewardAdjustCompositionNodeId, "Steward Adjust Main"},
+    userSource()
+  );
+  GRAPPLE_REQUIRE(stewardAdjustComposition);
+  const foundation::NodeId stewardAdjustCameraNodeId =
+    stewardAdjustWorkspace.value().commandWriter().nextNodeId("camera");
+  const auto stewardAdjustCamera = stewardAdjustWorkspace.value().commandWriter().apply(
+    project::CreateCameraCommand{
+      stewardAdjustCameraNodeId,
+      stewardAdjustCompositionNodeId,
+      stewardAdjustWorkspace.value().commandWriter().nextEdgeId("contains camera"),
+      timeline::CameraPayload{
+        "Camera",
+        timeline::CameraState{
+          timeline::Transform2D{},
+          timeline::CameraLens{35.0}
+        }
+      }
+    },
+    userSource()
+  );
+  GRAPPLE_REQUIRE(stewardAdjustCamera);
+  const auto stewardAdjustEffect = stewardAdjustWorkspace.value().steward().createCameraTransformEffect(
+    stewardAdjustCameraNodeId,
+    "Center the subject with editable camera controls.",
+    foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{3.0}}
+  );
+  GRAPPLE_REQUIRE(stewardAdjustEffect);
+  const auto stewardAdjustedControls = stewardAdjustWorkspace.value().steward().adjustCameraTransformControls(
+    stewardAdjustCameraNodeId,
+    "Move the camera framing right."
+  );
+  GRAPPLE_REQUIRE(stewardAdjustedControls);
+  GRAPPLE_REQUIRE(stewardAdjustedControls.value().snapshot.revision == foundation::RevisionId{"rev_4"});
+  const agent::AgentConversationState stewardAdjustConversation =
+    stewardAdjustWorkspace.value().steward().conversationState();
+  GRAPPLE_REQUIRE(stewardAdjustConversation.diagnostics.empty());
+  GRAPPLE_REQUIRE(stewardAdjustConversation.runs.size() == 2);
+  GRAPPLE_REQUIRE(stewardAdjustConversation.runs[1].status == agent::AgentRunStatus::Succeeded);
+  GRAPPLE_REQUIRE(stewardAdjustConversation.runs[1].toolCalls.size() == 1);
+  GRAPPLE_REQUIRE(stewardAdjustConversation.runs[1].toolCalls[0].toolSerializedId == "effect.update_param_value");
+  GRAPPLE_REQUIRE(stewardAdjustConversation.runs[1].toolCalls[0].toolDisplayName == "Update Effect Param Value");
+  GRAPPLE_REQUIRE(stewardAdjustConversation.runs[1].toolCalls[0].toolCallId == foundation::ToolId{"tool_steward_camera_transform_param_2"});
+  GRAPPLE_REQUIRE(stewardAdjustConversation.runs[1].toolCalls[0].observedRevision == foundation::RevisionId{"rev_4"});
+  const auto stewardAdjustViewModel = stewardAdjustWorkspace.value().project().buildViewModel();
+  GRAPPLE_REQUIRE(stewardAdjustViewModel);
+  GRAPPLE_REQUIRE(stewardAdjustViewModel.value().timeline.effectGraphs.size() == 1);
+  GRAPPLE_REQUIRE(stewardAdjustViewModel.value().timeline.effectGraphs[0].effects.size() == 1);
+  GRAPPLE_REQUIRE(stewardAdjustViewModel.value().timeline.effectGraphs[0].effects[0].params[0].name == effects::builtin_effect::PositionXParam);
+  GRAPPLE_REQUIRE(std::get<double>(stewardAdjustViewModel.value().timeline.effectGraphs[0].effects[0].params[0].value) == 0.25);
+  GRAPPLE_REQUIRE(stewardAdjustViewModel.value().timeline.effectGraphs[0].effects[0].params[0].lastEditedRevision == foundation::RevisionId{"rev_4"});
+  GRAPPLE_REQUIRE(stewardAdjustViewModel.value().timeline.effectGraphs[0].effects[0].params[0].lastEditedSourceKind == "agent");
+  GRAPPLE_REQUIRE(stewardAdjustViewModel.value().timeline.effectGraphs[0].effects[0].params[0].lastEditedActorName == "steward");
+
   app::NativeProjectSession stewardMotionProject{
     foundation::ProjectId{"proj_app_steward_motion"},
     "Steward Motion Project",

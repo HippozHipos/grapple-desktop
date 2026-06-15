@@ -37,6 +37,10 @@ public:
     foundation::NodeId clipNodeId,
     std::string intent
   );
+  foundation::Result<storage::ProjectPackageSessionResult> adjustCameraTransformControls(
+    foundation::NodeId cameraNodeId,
+    std::string intent
+  );
 
   [[nodiscard]] agent::AgentConversationState conversationState() const;
   [[nodiscard]] const std::vector<agent::AgentRun>& runs() const noexcept;
