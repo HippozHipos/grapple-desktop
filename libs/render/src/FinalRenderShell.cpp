@@ -12,6 +12,7 @@ foundation::Result<FinalRenderResult> FinalRenderShell::render(const FinalRender
     request.settings.range,
     request.settings.frameRate,
     request.settings.quality,
+    request.settings.resolution,
     request.sink
   });
   if (!range) {

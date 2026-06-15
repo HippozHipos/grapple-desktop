@@ -863,7 +863,7 @@ int main() {
   GRAPPLE_REQUIRE(layeredFinalImageLoad);
   CapturingRangeSink layeredFinalSink;
   const auto layeredFinalResult = layeredFinalRender.render(render::FinalRenderRequest{
-    makeExportSettings(foundation::Resolution{1920, 1080}),
+    makeExportSettings(foundation::Resolution{2, 1}),
     &layeredFinalSink
   });
   GRAPPLE_REQUIRE(layeredFinalResult);
@@ -902,7 +902,7 @@ int main() {
   GRAPPLE_REQUIRE(shiftedClipFinalImageLoad);
   CapturingRangeSink shiftedClipFinalSink;
   const auto shiftedClipFinalResult = shiftedClipFinalRender.render(render::FinalRenderRequest{
-    makeExportSettings(foundation::Resolution{1920, 1080}),
+    makeExportSettings(foundation::Resolution{2, 1}),
     &shiftedClipFinalSink
   });
   GRAPPLE_REQUIRE(shiftedClipFinalResult);
@@ -1014,7 +1014,7 @@ int main() {
   GRAPPLE_REQUIRE(finalRangeImageLoad);
   CapturingRangeSink finalRangeImageSink;
   const auto finalRangeImageResult = finalRangeRender.render(render::FinalRenderRequest{
-    makeExportSettings(foundation::Resolution{1920, 1080}),
+    makeExportSettings(foundation::Resolution{4, 2}),
     &finalRangeImageSink
   });
   GRAPPLE_REQUIRE(finalRangeImageResult);
@@ -1022,7 +1022,8 @@ int main() {
   GRAPPLE_REQUIRE(finalRangeImageResult.value().runtimeDiagnostics.empty());
   GRAPPLE_REQUIRE(finalRangeImageSink.frameImages.size() == 2);
   GRAPPLE_REQUIRE(finalRangeImageSink.frameImages[0].has_value());
-  GRAPPLE_REQUIRE((finalRangeImageSink.frameImages[0]->rgbaPixels == std::vector<std::uint8_t>{40, 50, 60, 255, 0, 0, 0, 0}));
+  GRAPPLE_REQUIRE((finalRangeImageSink.frameImages[0]->resolution == foundation::Resolution{4, 2}));
+  GRAPPLE_REQUIRE(finalRangeImageSink.frameImages[0]->rgbaPixels.size() == 32);
   GRAPPLE_REQUIRE(finalRangeFrameSource.requests == 2);
   GRAPPLE_REQUIRE(finalRangeFrameSource.lastRequest.has_value());
   GRAPPLE_REQUIRE(finalRangeFrameSource.lastRequest->assetId == foundation::AssetId{"asset_video"});

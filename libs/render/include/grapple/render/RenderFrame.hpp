@@ -102,6 +102,7 @@ struct RenderRangeRequest {
   foundation::TimeRange range;
   foundation::FrameRate frameRate;
   RenderQuality quality = RenderQuality::Final;
+  std::optional<foundation::Resolution> outputResolution;
   IRenderRangeSink* sink = nullptr;
 };
 

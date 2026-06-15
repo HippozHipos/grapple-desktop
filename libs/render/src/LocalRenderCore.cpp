@@ -277,7 +277,8 @@ RenderedImage transformedMediaImage(
 foundation::Result<std::optional<RenderedImage>> buildRenderedImage(
   const std::vector<RenderedMediaFrame>& mediaFrames,
   RenderQuality quality,
-  IRenderFrameSource* frameSource
+  IRenderFrameSource* frameSource,
+  std::optional<foundation::Resolution> outputResolution = std::nullopt
 ) {
   if (frameSource == nullptr || mediaFrames.empty()) {
     return std::optional<RenderedImage>{};
@@ -300,10 +301,11 @@ foundation::Result<std::optional<RenderedImage>> buildRenderedImage(
     }
 
     if (!canvas.has_value()) {
+      const foundation::Resolution canvasResolution = outputResolution.value_or(image.value().resolution);
       canvas = RenderedImage{
-        image.value().resolution,
+        canvasResolution,
         std::vector<std::uint8_t>(
-          static_cast<std::size_t>(image.value().resolution.width * image.value().resolution.height * 4),
+          static_cast<std::size_t>(canvasResolution.width * canvasResolution.height * 4),
           0
         )
       };
@@ -342,7 +344,8 @@ foundation::Result<RenderFrameResult> renderSampleFrame(
   runtime::RuntimeSample sample,
   const runtime::PreparedRuntimePlan& prepared,
   IRenderFrameSource* frameSource,
-  const RenderFrameRequest& request
+  const RenderFrameRequest& request,
+  std::optional<foundation::Resolution> outputResolution = std::nullopt
 );
 
 foundation::Result<RenderFrameResult> renderPreparedFrame(
@@ -365,7 +368,8 @@ foundation::Result<RenderFrameResult> renderPreparedFrame(
     std::move(sample),
     prepared,
     frameSource,
-    request
+    request,
+    std::nullopt
   );
 }
 
@@ -373,7 +377,8 @@ foundation::Result<RenderFrameResult> renderSampleFrame(
   runtime::RuntimeSample sample,
   const runtime::PreparedRuntimePlan& prepared,
   IRenderFrameSource* frameSource,
-  const RenderFrameRequest& request
+  const RenderFrameRequest& request,
+  std::optional<foundation::Resolution> outputResolution
 ) {
   applyCameraTransformOutputs(
     sample,
@@ -384,7 +389,7 @@ foundation::Result<RenderFrameResult> renderSampleFrame(
   const std::vector<RenderedMediaFrame> mediaFrames = buildMediaFrames(sample);
   const std::vector<RenderedAudioClip> audioClips = buildAudioClips(sample);
   const std::vector<RenderedCamera> cameras = buildRenderedCameras(sample);
-  auto image = buildRenderedImage(mediaFrames, request.quality, frameSource);
+  auto image = buildRenderedImage(mediaFrames, request.quality, frameSource, outputResolution);
   if (!image) {
     return image.error();
   }
@@ -476,7 +481,8 @@ foundation::Result<RenderRangeResult> LocalRenderCore::renderRange(const RenderR
       RenderFrameRequest{
         frameTime,
         request.quality
-      }
+      },
+      request.outputResolution
     );
     if (!frameResult) {
       return frameResult.error();
