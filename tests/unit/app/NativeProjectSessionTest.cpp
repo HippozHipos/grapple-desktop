@@ -91,12 +91,14 @@ public:
     frameIndexes.push_back(frameIndex);
     frameTimes.push_back(frame.frame.time);
     frameCameras.push_back(frame.frame.cameras);
+    frameImages.push_back(frame.frame.image);
     return {};
   }
 
   std::vector<std::size_t> frameIndexes;
   std::vector<grapple::foundation::TimeSeconds> frameTimes;
   std::vector<std::vector<grapple::render::RenderedCamera>> frameCameras;
+  std::vector<std::optional<grapple::render::RenderedImage>> frameImages;
 };
 
 class CancellingProgressSink final : public grapple::jobs::IProgressSink {
@@ -656,6 +658,7 @@ int main() {
   GRAPPLE_REQUIRE(workspaceJobProgress[0].progress == 1.0);
   auto exportOnlyPlan = cacheWorkspace.value().project().buildRenderPlan();
   GRAPPLE_REQUIRE(exportOnlyPlan);
+  CapturingRenderRangeSink exportOnlySink;
   const auto exportOnlyResult = cacheWorkspace.value().exportSession().renderPlan(exportOnlyPlan.value().plan, render::ExportSettings{
     foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}},
     foundation::FrameRate{1, 1},
@@ -663,9 +666,16 @@ int main() {
     render::Codec{"mjpeg"},
     render::RenderQuality::Final,
     foundation::FilePath{"/tmp/cache-export.mov"}
-  });
+  }, &exportOnlySink);
   GRAPPLE_REQUIRE(exportOnlyResult);
   GRAPPLE_REQUIRE(exportOnlyResult.value().framesEvaluated == 1);
+  GRAPPLE_REQUIRE(exportOnlySink.frameImages.size() == 1);
+  GRAPPLE_REQUIRE(exportOnlySink.frameImages[0].has_value());
+  GRAPPLE_REQUIRE((exportOnlySink.frameImages[0]->resolution == foundation::Resolution{2, 1}));
+  GRAPPLE_REQUIRE((exportOnlySink.frameImages[0]->rgbaPixels == std::vector<std::uint8_t>{
+    10, 20, 30, 255,
+    40, 50, 60, 255
+  }));
   GRAPPLE_REQUIRE(cacheWorkspace.value().cachedMediaFrameCount() == 1);
   const std::filesystem::path videoExportPath =
     std::filesystem::temp_directory_path() /
@@ -742,6 +752,7 @@ int main() {
   });
   GRAPPLE_REQUIRE(firstCachedFrame);
   GRAPPLE_REQUIRE(firstCachedFrame.value().frame.image.has_value());
+  GRAPPLE_REQUIRE(firstCachedFrame.value().frame.image->rgbaPixels == exportOnlySink.frameImages[0]->rgbaPixels);
   GRAPPLE_REQUIRE(cacheWorkspace.value().cachedMediaFrameCount() == 3);
   const auto secondCachedFrame = cacheWorkspace.value().preview().renderFrame(render::RenderFrameRequest{
     foundation::TimeSeconds{0.0},
