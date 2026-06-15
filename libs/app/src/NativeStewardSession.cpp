@@ -330,6 +330,10 @@ bool cameraIntentRequestsCenter(const std::string& normalized) {
          containsAsciiWord(normalized, "recentre");
 }
 
+bool cameraIntentRequestsReset(const std::string& normalized) {
+  return containsAsciiWord(normalized, "reset");
+}
+
 double applyCameraTransformOperation(
   double currentValue,
   CameraTransformAdjustmentOperation operation,
@@ -420,7 +424,9 @@ foundation::Result<std::vector<CameraTransformParamAdjustment>> cameraTransformP
     return {};
   };
 
-  if (cameraIntentRequestsCenter(normalized)) {
+  const bool centerRequested = cameraIntentRequestsCenter(normalized);
+  const bool resetRequested = cameraIntentRequestsReset(normalized);
+  if (centerRequested || resetRequested) {
     std::vector<CameraTransformParamAdjustment> adjustments;
     auto positionX = addAdjustment(
       adjustments,
@@ -439,6 +445,17 @@ foundation::Result<std::vector<CameraTransformParamAdjustment>> cameraTransformP
     );
     if (!positionY) {
       return positionY.error();
+    }
+    if (resetRequested) {
+      auto zoom = addAdjustment(
+        adjustments,
+        effects::builtin_effect::ZoomParam,
+        CameraTransformAdjustmentOperation::Set,
+        NormalCameraTransformZoom
+      );
+      if (!zoom) {
+        return zoom.error();
+      }
     }
     return adjustments;
   }
@@ -466,7 +483,7 @@ foundation::Result<std::vector<CameraTransformParamAdjustment>> cameraTransformP
   } else {
     return foundation::Error{
       "steward.camera_transform_intent_unknown",
-      "Camera Transform adjustments must explicitly mention center, left, right, up, down, zoom, bigger, or smaller."
+      "Camera Transform adjustments must explicitly mention center, reset, left, right, up, down, zoom, bigger, or smaller."
     };
   }
 

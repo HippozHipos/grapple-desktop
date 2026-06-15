@@ -1762,6 +1762,88 @@ int main() {
   GRAPPLE_REQUIRE(stewardRecenterViewModel.value().steward.edits[1].intent == "Recenter the subject.");
   GRAPPLE_REQUIRE(stewardRecenterViewModel.value().steward.edits[2].intent == "Recenter the subject.");
 
+  app::NativeProjectSession stewardResetProject{
+    foundation::ProjectId{"proj_app_steward_reset"},
+    "Steward Reset Project",
+    storage::ProjectPackage{
+      foundation::ProjectId{"proj_app_steward_reset"},
+      foundation::FilePath{"steward-reset-app.grapple"},
+      storage::CurrentProjectPackageSchemaVersion
+    }
+  };
+  auto stewardResetWorkspace = app::NativeWorkspaceSession::fromProject(std::move(stewardResetProject));
+  GRAPPLE_REQUIRE(stewardResetWorkspace);
+  const foundation::NodeId stewardResetCompositionNodeId =
+    stewardResetWorkspace.value().commandWriter().nextNodeId("composition");
+  const auto stewardResetComposition = stewardResetWorkspace.value().commandWriter().apply(
+    project::CreateCompositionCommand{stewardResetCompositionNodeId, "Steward Reset Main"},
+    userSource()
+  );
+  GRAPPLE_REQUIRE(stewardResetComposition);
+  const foundation::NodeId stewardResetCameraNodeId =
+    stewardResetWorkspace.value().commandWriter().nextNodeId("camera");
+  const auto stewardResetCamera = stewardResetWorkspace.value().commandWriter().apply(
+    project::CreateCameraCommand{
+      stewardResetCameraNodeId,
+      stewardResetCompositionNodeId,
+      stewardResetWorkspace.value().commandWriter().nextEdgeId("contains camera"),
+      timeline::CameraPayload{
+        "Camera",
+        timeline::CameraState{
+          timeline::Transform2D{},
+          timeline::CameraLens{35.0}
+        }
+      }
+    },
+    userSource()
+  );
+  GRAPPLE_REQUIRE(stewardResetCamera);
+  const auto stewardResetEffect = stewardResetWorkspace.value().steward().createCameraTransformEffect(
+    stewardResetCameraNodeId,
+    "Move the subject right, down, and bigger with editable camera controls.",
+    foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{3.0}}
+  );
+  GRAPPLE_REQUIRE(stewardResetEffect);
+  const auto stewardResetControls = stewardResetWorkspace.value().steward().adjustCameraTransformControls(
+    stewardResetCameraNodeId,
+    "Reset the camera controls.",
+    foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{3.0}}
+  );
+  GRAPPLE_REQUIRE(stewardResetControls);
+  GRAPPLE_REQUIRE(stewardResetControls.value().snapshot.revision == foundation::RevisionId{"rev_6"});
+  const agent::AgentConversationState stewardResetConversation =
+    stewardResetWorkspace.value().steward().conversationState();
+  GRAPPLE_REQUIRE(stewardResetConversation.diagnostics.empty());
+  GRAPPLE_REQUIRE(stewardResetConversation.runs.size() == 2);
+  GRAPPLE_REQUIRE(stewardResetConversation.runs[1].status == agent::AgentRunStatus::Succeeded);
+  GRAPPLE_REQUIRE(stewardResetConversation.runs[1].toolCalls.size() == 3);
+  GRAPPLE_REQUIRE(stewardResetConversation.runs[1].toolCalls[0].toolSerializedId == "effect.update_param_value");
+  GRAPPLE_REQUIRE(stewardResetConversation.runs[1].toolCalls[0].toolCallId == foundation::ToolId{"tool_steward_camera_transform_param_2_1"});
+  GRAPPLE_REQUIRE(stewardResetConversation.runs[1].toolCalls[0].observedRevision == foundation::RevisionId{"rev_4"});
+  GRAPPLE_REQUIRE(stewardResetConversation.runs[1].toolCalls[1].toolSerializedId == "effect.update_param_value");
+  GRAPPLE_REQUIRE(stewardResetConversation.runs[1].toolCalls[1].toolCallId == foundation::ToolId{"tool_steward_camera_transform_param_2_2"});
+  GRAPPLE_REQUIRE(stewardResetConversation.runs[1].toolCalls[1].observedRevision == foundation::RevisionId{"rev_5"});
+  GRAPPLE_REQUIRE(stewardResetConversation.runs[1].toolCalls[2].toolSerializedId == "effect.update_param_value");
+  GRAPPLE_REQUIRE(stewardResetConversation.runs[1].toolCalls[2].toolCallId == foundation::ToolId{"tool_steward_camera_transform_param_2_3"});
+  GRAPPLE_REQUIRE(stewardResetConversation.runs[1].toolCalls[2].observedRevision == foundation::RevisionId{"rev_6"});
+  const auto stewardResetViewModel = stewardResetWorkspace.value().project().buildViewModel();
+  GRAPPLE_REQUIRE(stewardResetViewModel);
+  GRAPPLE_REQUIRE(stewardResetViewModel.value().timeline.effectGraphs.size() == 1);
+  GRAPPLE_REQUIRE(stewardResetViewModel.value().timeline.effectGraphs[0].effects.size() == 1);
+  GRAPPLE_REQUIRE(stewardResetViewModel.value().timeline.effectGraphs[0].effects[0].params[0].name == effects::builtin_effect::PositionXParam);
+  GRAPPLE_REQUIRE(stewardResetViewModel.value().timeline.effectGraphs[0].effects[0].params[1].name == effects::builtin_effect::PositionYParam);
+  GRAPPLE_REQUIRE(stewardResetViewModel.value().timeline.effectGraphs[0].effects[0].params[2].name == effects::builtin_effect::ZoomParam);
+  GRAPPLE_REQUIRE(std::get<double>(stewardResetViewModel.value().timeline.effectGraphs[0].effects[0].params[0].value) == 0.0);
+  GRAPPLE_REQUIRE(std::get<double>(stewardResetViewModel.value().timeline.effectGraphs[0].effects[0].params[1].value) == 0.0);
+  GRAPPLE_REQUIRE(std::get<double>(stewardResetViewModel.value().timeline.effectGraphs[0].effects[0].params[2].value) == 1.0);
+  GRAPPLE_REQUIRE(stewardResetViewModel.value().timeline.effectGraphs[0].effects[0].params[0].lastEditedActorName == "steward");
+  GRAPPLE_REQUIRE(stewardResetViewModel.value().timeline.effectGraphs[0].effects[0].params[1].lastEditedActorName == "steward");
+  GRAPPLE_REQUIRE(stewardResetViewModel.value().timeline.effectGraphs[0].effects[0].params[2].lastEditedActorName == "steward");
+  GRAPPLE_REQUIRE(stewardResetViewModel.value().steward.edits.size() == 4);
+  GRAPPLE_REQUIRE(stewardResetViewModel.value().steward.edits[1].intent == "Reset the camera controls.");
+  GRAPPLE_REQUIRE(stewardResetViewModel.value().steward.edits[2].intent == "Reset the camera controls.");
+  GRAPPLE_REQUIRE(stewardResetViewModel.value().steward.edits[3].intent == "Reset the camera controls.");
+
   app::NativeProjectSession stewardMotionProject{
     foundation::ProjectId{"proj_app_steward_motion"},
     "Steward Motion Project",
