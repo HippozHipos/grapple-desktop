@@ -202,8 +202,21 @@ void StewardPanel::setViewModel(
       .arg(viewModel.timeline.cameras.size())
       .arg(viewModel.timeline.effectCount),
     "",
-    "Editable controls"
+    "Applied edits"
   };
+
+  if (viewModel.steward.edits.empty()) {
+    lines << "- no Steward edits yet";
+  } else {
+    for (auto edit = viewModel.steward.edits.rbegin(); edit != viewModel.steward.edits.rend(); ++edit) {
+      lines << QString{"- %1: %2"}
+        .arg(qString(edit->revision.value()))
+        .arg(qString(edit->intent));
+    }
+  }
+
+  lines << "";
+  lines << "Editable controls";
 
   bool hasEditableEffect = false;
   for (const app::AppEffectGraphRow& graph : viewModel.timeline.effectGraphs) {
