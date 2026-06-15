@@ -5,6 +5,7 @@
 #include <grapple/foundation/Transform.hpp>
 #include <grapple/media/AudioBuffer.hpp>
 #include <grapple/media/MediaFrame.hpp>
+#include <grapple/runtime/RuntimeHandle.hpp>
 
 #include <string>
 #include <variant>
@@ -20,6 +21,7 @@ using RuntimeValue = std::variant<
   foundation::Vec3,
   foundation::Rect,
   foundation::Transform2D,
+  TextureHandle,
   media::MediaFrame,
   media::AudioBuffer
 >;

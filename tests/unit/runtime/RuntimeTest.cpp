@@ -5,6 +5,8 @@
 #include <grapple/runtime/MemoryRuntimeCache.hpp>
 #include <grapple/effects/OutputNames.hpp>
 #include <grapple/runtime/RuntimeParamEvaluator.hpp>
+#include <grapple/runtime/ScriptRuntime.hpp>
+#include <grapple/runtime/ShaderRuntime.hpp>
 
 #include <TestAssert.hpp>
 
@@ -14,6 +16,118 @@
 #include <vector>
 
 namespace {
+
+class TestMediaReader final : public grapple::media::IMediaReader {
+public:
+  grapple::foundation::Result<grapple::media::MediaFrame> frameAt(
+    grapple::foundation::AssetId,
+    grapple::foundation::TimeSeconds,
+    grapple::media::MediaQuality
+  ) override {
+    return grapple::foundation::Error{"test.media_unused", "Test media reader should not be called."};
+  }
+
+  grapple::foundation::Result<grapple::media::AudioBuffer> audioRange(
+    grapple::foundation::AssetId,
+    grapple::foundation::TimeRange,
+    grapple::media::MediaQuality
+  ) override {
+    return grapple::foundation::Error{"test.media_unused", "Test media reader should not be called."};
+  }
+};
+
+class TestModelService final : public grapple::model::IModelService {
+public:
+  grapple::foundation::Result<grapple::model::ModelResponse> complete(
+    const grapple::model::ModelRequest&
+  ) override {
+    return grapple::foundation::Error{"test.model_unused", "Test model service should not be called."};
+  }
+
+  grapple::foundation::Result<grapple::model::VisionResponse> analyzeImage(
+    const grapple::model::VisionRequest&
+  ) override {
+    return grapple::foundation::Error{"test.model_unused", "Test model service should not be called."};
+  }
+
+  grapple::foundation::Result<grapple::model::SegmentationResponse> segment(
+    const grapple::model::SegmentationRequest&
+  ) override {
+    return grapple::foundation::Error{"test.model_unused", "Test model service should not be called."};
+  }
+};
+
+class TestScriptRuntime final : public grapple::runtime::IScriptRuntime {
+public:
+  grapple::foundation::Result<grapple::runtime::ScriptModuleHandle> compile(
+    const grapple::runtime::RuntimeSource& source
+  ) override {
+    compiledLanguage = source.language;
+    compiledInlineSource = source.inlineSource;
+    compiledSourceHash = source.sourceHash.toHex();
+    return grapple::runtime::ScriptModuleHandle{"script_module_" + compiledSourceHash};
+  }
+
+  grapple::foundation::Result<grapple::runtime::RuntimeValueMap> callPrepare(
+    const grapple::runtime::ScriptModuleHandle& module,
+    grapple::runtime::RuntimeContext& context
+  ) override {
+    prepareModule = module;
+    prepareNodeId = context.nodeId;
+    return grapple::runtime::RuntimeValueMap{
+      grapple::runtime::RuntimeNamedValue{"prepared_module", grapple::runtime::RuntimeValue{module.value()}}
+    };
+  }
+
+  grapple::foundation::Result<grapple::runtime::RuntimeValueMap> callProcess(
+    const grapple::runtime::ScriptModuleHandle& module,
+    grapple::runtime::RuntimeContext& context
+  ) override {
+    processModule = module;
+    processTime = context.time;
+    return grapple::runtime::RuntimeValueMap{
+      grapple::runtime::RuntimeNamedValue{"sample_time", grapple::runtime::RuntimeValue{context.time.value}}
+    };
+  }
+
+  std::string compiledLanguage;
+  std::string compiledInlineSource;
+  std::string compiledSourceHash;
+  grapple::runtime::ScriptModuleHandle prepareModule;
+  grapple::runtime::ScriptModuleHandle processModule;
+  grapple::foundation::NodeId prepareNodeId;
+  grapple::foundation::TimeSeconds processTime;
+};
+
+class TestShaderRuntime final : public grapple::runtime::IShaderRuntime {
+public:
+  grapple::foundation::Result<grapple::runtime::ShaderProgramHandle> compile(
+    const grapple::runtime::RuntimeSource& source,
+    const grapple::runtime::ShaderBindingLayout& layout
+  ) override {
+    compiledLanguage = source.language;
+    compiledInlineSource = source.inlineSource;
+    compiledLayout = layout;
+    return grapple::runtime::ShaderProgramHandle{"shader_program_" + source.sourceHash.toHex()};
+  }
+
+  grapple::foundation::Result<grapple::runtime::TextureHandle> execute(
+    const grapple::runtime::ShaderProgramHandle& program,
+    const grapple::runtime::ShaderExecutionInputs& inputs
+  ) override {
+    executedProgram = program;
+    executedInputs = inputs.values;
+    executedQuality = inputs.quality;
+    return grapple::runtime::TextureHandle{"texture_frame_1"};
+  }
+
+  std::string compiledLanguage;
+  std::string compiledInlineSource;
+  grapple::runtime::ShaderBindingLayout compiledLayout;
+  grapple::runtime::ShaderProgramHandle executedProgram;
+  grapple::runtime::RuntimeValueMap executedInputs;
+  grapple::runtime::RuntimeQuality executedQuality = grapple::runtime::RuntimeQuality::Interactive;
+};
 
 class TestEffectRuntime final : public grapple::runtime::IEffectRuntime {
 public:
@@ -503,6 +617,89 @@ bool containsDependency(
 
 int main() {
   using namespace grapple;
+
+  const std::string scriptSourceText = "def prepare(ctx): return {'ok': True}";
+  const runtime::RuntimeSource scriptSource{
+    runtime::RuntimeSourceKind::InlineSource,
+    "python",
+    scriptSourceText,
+    std::nullopt,
+    foundation::stableHash(scriptSourceText)
+  };
+  TestScriptRuntime scriptRuntime;
+  const auto scriptModule = scriptRuntime.compile(scriptSource);
+  GRAPPLE_REQUIRE(scriptModule);
+  GRAPPLE_REQUIRE(scriptRuntime.compiledLanguage == "python");
+  GRAPPLE_REQUIRE(scriptRuntime.compiledInlineSource == scriptSourceText);
+  GRAPPLE_REQUIRE(scriptModule.value() == runtime::ScriptModuleHandle{"script_module_" + scriptRuntime.compiledSourceHash});
+  TestMediaReader testMedia;
+  TestModelService testModels;
+  runtime::MemoryRuntimeCache scriptContextCache{2};
+  runtime::RuntimeContext scriptContext{
+    foundation::ProjectId{"proj_runtime"},
+    foundation::RevisionId{"rev_4"},
+    foundation::NodeId{"node_script"},
+    projection::RenderStage{"Runtime Test"},
+    foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{10.0}},
+    foundation::TimeSeconds{1.25},
+    foundation::FrameNumber{30},
+    foundation::FrameRate{24, 1},
+    testMedia,
+    scriptContextCache,
+    testModels
+  };
+  const auto scriptPrepare = scriptRuntime.callPrepare(scriptModule.value(), scriptContext);
+  GRAPPLE_REQUIRE(scriptPrepare);
+  GRAPPLE_REQUIRE(scriptRuntime.prepareModule == scriptModule.value());
+  GRAPPLE_REQUIRE(scriptRuntime.prepareNodeId == foundation::NodeId{"node_script"});
+  GRAPPLE_REQUIRE(scriptPrepare.value().size() == 1);
+  GRAPPLE_REQUIRE(std::get<std::string>(scriptPrepare.value()[0].value) == scriptModule.value().value());
+  scriptContext.time = foundation::TimeSeconds{2.5};
+  const auto scriptProcess = scriptRuntime.callProcess(scriptModule.value(), scriptContext);
+  GRAPPLE_REQUIRE(scriptProcess);
+  GRAPPLE_REQUIRE(scriptRuntime.processModule == scriptModule.value());
+  GRAPPLE_REQUIRE(scriptRuntime.processTime == foundation::TimeSeconds{2.5});
+  GRAPPLE_REQUIRE(std::get<double>(scriptProcess.value()[0].value) == 2.5);
+
+  const std::string shaderSourceText = "fragment main";
+  const runtime::RuntimeSource shaderSource{
+    runtime::RuntimeSourceKind::InlineSource,
+    "shader",
+    shaderSourceText,
+    std::nullopt,
+    foundation::stableHash(shaderSourceText)
+  };
+  const runtime::ShaderBindingLayout shaderLayout{
+    {
+      runtime::ShaderBinding{"frame", runtime::ShaderBindingKind::Texture},
+      runtime::ShaderBinding{"intensity", runtime::ShaderBindingKind::Value}
+    },
+    {
+      runtime::ShaderBinding{"output", runtime::ShaderBindingKind::Texture}
+    }
+  };
+  TestShaderRuntime shaderRuntime;
+  const auto shaderProgram = shaderRuntime.compile(shaderSource, shaderLayout);
+  GRAPPLE_REQUIRE(shaderProgram);
+  GRAPPLE_REQUIRE(shaderRuntime.compiledLanguage == "shader");
+  GRAPPLE_REQUIRE(shaderRuntime.compiledInlineSource == shaderSourceText);
+  GRAPPLE_REQUIRE(shaderRuntime.compiledLayout == shaderLayout);
+  const runtime::ShaderExecutionInputs shaderInputs{
+    {
+      runtime::RuntimeNamedValue{"frame", runtime::RuntimeValue{runtime::TextureHandle{"texture_input"}}},
+      runtime::RuntimeNamedValue{"intensity", runtime::RuntimeValue{0.75}}
+    },
+    runtime::RuntimeQuality::Final
+  };
+  const auto texture = shaderRuntime.execute(shaderProgram.value(), shaderInputs);
+  GRAPPLE_REQUIRE(texture);
+  GRAPPLE_REQUIRE(texture.value() == runtime::TextureHandle{"texture_frame_1"});
+  GRAPPLE_REQUIRE(shaderRuntime.executedProgram == shaderProgram.value());
+  GRAPPLE_REQUIRE(shaderRuntime.executedQuality == runtime::RuntimeQuality::Final);
+  GRAPPLE_REQUIRE(shaderRuntime.executedInputs.size() == 2);
+  GRAPPLE_REQUIRE(std::get<runtime::TextureHandle>(shaderRuntime.executedInputs[0].value) ==
+                  runtime::TextureHandle{"texture_input"});
+  GRAPPLE_REQUIRE(std::get<double>(shaderRuntime.executedInputs[1].value) == 0.75);
 
   const runtime::RuntimeDependencyPlanner planner;
   const runtime::RuntimeDependencyGraph first = planner.build(makePlan("Video"));
