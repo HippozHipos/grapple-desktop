@@ -1074,7 +1074,7 @@ int main() {
   GRAPPLE_REQUIRE(stewardMediaViewModel.value().steward.edits[0].revision == foundation::RevisionId{"rev_2"});
   GRAPPLE_REQUIRE(stewardMediaViewModel.value().steward.edits[0].targetNodeId == stewardMediaPlacement.value().clipNodeId);
   GRAPPLE_REQUIRE(stewardMediaViewModel.value().steward.edits[0].targetName == "Steward Video");
-  GRAPPLE_REQUIRE(stewardMediaViewModel.value().steward.edits[0].effectName == "Timeline Placement");
+  GRAPPLE_REQUIRE(stewardMediaViewModel.value().steward.edits[0].editName == "Timeline Placement");
   GRAPPLE_REQUIRE(stewardMediaViewModel.value().steward.edits[0].intent == "Add Steward Video to the timeline.");
   const auto stewardClipTransform = stewardMediaWorkspace.value().steward().transformClip(
     stewardMediaPlacement.value().clipNodeId,
@@ -1112,7 +1112,7 @@ int main() {
   GRAPPLE_REQUIRE(stewardClipTransformViewModel.value().steward.edits[1].revision == foundation::RevisionId{"rev_3"});
   GRAPPLE_REQUIRE(stewardClipTransformViewModel.value().steward.edits[1].targetNodeId == stewardMediaPlacement.value().clipNodeId);
   GRAPPLE_REQUIRE(stewardClipTransformViewModel.value().steward.edits[1].targetName == "Steward Video");
-  GRAPPLE_REQUIRE(stewardClipTransformViewModel.value().steward.edits[1].effectName == "Clip Transform");
+  GRAPPLE_REQUIRE(stewardClipTransformViewModel.value().steward.edits[1].editName == "Clip Transform");
   GRAPPLE_REQUIRE(stewardClipTransformViewModel.value().steward.edits[1].intent == "Move clip right and make it smaller.");
   const auto stewardMediaWrite = stewardMediaWorkspace.value().writePackage();
   GRAPPLE_REQUIRE(stewardMediaWrite);
@@ -1137,8 +1137,8 @@ int main() {
   GRAPPLE_REQUIRE(reopenedStewardMediaViewModel.value().timeline.clips[0].transform.position.x == 0.25);
   GRAPPLE_REQUIRE(reopenedStewardMediaViewModel.value().timeline.clips[0].transform.scale.x == 0.75);
   GRAPPLE_REQUIRE(reopenedStewardMediaViewModel.value().steward.edits.size() == 2);
-  GRAPPLE_REQUIRE(reopenedStewardMediaViewModel.value().steward.edits[0].effectName == "Timeline Placement");
-  GRAPPLE_REQUIRE(reopenedStewardMediaViewModel.value().steward.edits[1].effectName == "Clip Transform");
+  GRAPPLE_REQUIRE(reopenedStewardMediaViewModel.value().steward.edits[0].editName == "Timeline Placement");
+  GRAPPLE_REQUIRE(reopenedStewardMediaViewModel.value().steward.edits[1].editName == "Clip Transform");
   GRAPPLE_REQUIRE(reopenedStewardMediaViewModel.value().steward.edits[1].intent == "Move clip right and make it smaller.");
   std::filesystem::remove_all(stewardMediaPackageRoot);
 
@@ -1239,7 +1239,7 @@ int main() {
   GRAPPLE_REQUIRE(runtimeEffectViewModel.value().steward.edits[0].revision == foundation::RevisionId{"rev_3"});
   GRAPPLE_REQUIRE(runtimeEffectViewModel.value().steward.edits[0].targetNodeId == runtimeCameraNodeId);
   GRAPPLE_REQUIRE(runtimeEffectViewModel.value().steward.edits[0].targetName == "Camera");
-  GRAPPLE_REQUIRE(runtimeEffectViewModel.value().steward.edits[0].effectName == "Camera Transform");
+  GRAPPLE_REQUIRE(runtimeEffectViewModel.value().steward.edits[0].editName == "Camera Transform");
   GRAPPLE_REQUIRE(runtimeEffectViewModel.value().steward.edits[0].intent == "Center the subject with an editable camera transform.");
   const foundation::NodeId runtimeEffectNodeId = runtimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].sourceNodeId;
   const auto initialRuntimeRefresh = runtimeWorkspace.value().preview().refreshFromProject();
@@ -1922,7 +1922,7 @@ int main() {
   GRAPPLE_REQUIRE(reopenedStewardViewModel.value().steward.edits[0].revision == foundation::RevisionId{"rev_3"});
   GRAPPLE_REQUIRE(reopenedStewardViewModel.value().steward.edits[0].targetNodeId == stewardCameraNodeId);
   GRAPPLE_REQUIRE(reopenedStewardViewModel.value().steward.edits[0].targetName == "Camera");
-  GRAPPLE_REQUIRE(reopenedStewardViewModel.value().steward.edits[0].effectName == "Camera Transform");
+  GRAPPLE_REQUIRE(reopenedStewardViewModel.value().steward.edits[0].editName == "Camera Transform");
   GRAPPLE_REQUIRE(reopenedStewardViewModel.value().steward.edits[0].intent == durableIntent);
   const foundation::NodeId reopenedSecondCameraNodeId = reopenedStewardWorkspace.value().commandWriter().nextNodeId("camera");
   const auto reopenedSecondCamera = reopenedStewardWorkspace.value().commandWriter().apply(
