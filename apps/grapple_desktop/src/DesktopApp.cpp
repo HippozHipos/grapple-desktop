@@ -1424,14 +1424,25 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       param->keyframes[1].time == grapple::foundation::TimeSeconds{10.0} &&
       approx(std::get<double>(param->keyframes[1].value), 0.25) &&
       param->keyframes[1].lastEditedActorName == "steward" &&
-      frame.value().frame.sourceRevision == viewModel.value().project.revision &&
-      frame.value().frame.cameras.size() == 1 &&
-      approx(cameraX, 0.125) &&
-      inspector.find("Position X (position_x)=0.125") != std::string::npos &&
-      effectPanel.find("0s = 0 last changed by steward at ") != std::string::npos &&
-      effectPanel.find("10s = 0.25 last changed by steward at ") != std::string::npos;
+	      frame.value().frame.sourceRevision == viewModel.value().project.revision &&
+	      frame.value().frame.cameras.size() == 1 &&
+	      approx(cameraX, 0.125) &&
+	      inspector.find("Position X (position_x)=0.125") != std::string::npos &&
+	      effectPanel.find("0s = 0 last changed by steward at ") != std::string::npos &&
+	      effectPanel.find("10s = 0.25 last changed by steward at ") != std::string::npos;
 
-    window.seekTo(grapple::foundation::TimeSeconds{10.0});
+	    window.seekTo(grapple::foundation::TimeSeconds{0.0});
+	    window.startPlayback();
+	    for (int frameIndex = 0; frameIndex < 150; ++frameIndex) {
+	      window.advancePlaybackFrame();
+	    }
+	    const std::string playbackInspector = window.inspectorContents();
+	    const bool editControlsUpdatedDuringPlayback =
+	      playbackInspector.find("Position X (position_x)=0.125") != std::string::npos;
+	    window.pausePlayback();
+	    std::cout << "playbackInspector=" << playbackInspector << '\n';
+
+	    window.seekTo(grapple::foundation::TimeSeconds{10.0});
     window.setEffectParamControlValue(grapple::effects::builtin_effect::PositionXParam, 0.5);
     window.setEffectParamKeyframeAtPlayhead(grapple::effects::builtin_effect::PositionXParam);
     window.seekTo(grapple::foundation::TimeSeconds{5.0});
@@ -1473,13 +1484,14 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     return stewardCreatedMotion &&
            adjustedViewModel.value().project.revision == grapple::foundation::RevisionId{"rev_9"} &&
            adjustedParam->keyframes.size() == 2 &&
-           adjustedParam->keyframes[1].keyframeId == param->keyframes[1].keyframeId &&
-           adjustedParam->keyframes[1].time == grapple::foundation::TimeSeconds{10.0} &&
-           approx(std::get<double>(adjustedParam->keyframes[1].value), 0.5) &&
-           adjustedParam->keyframes[1].lastEditedActorName == "desktop" &&
-           adjustedFrame.value().frame.sourceRevision == adjustedViewModel.value().project.revision &&
-           approx(adjustedCameraX, 0.25)
-      ? 0
+	           adjustedParam->keyframes[1].keyframeId == param->keyframes[1].keyframeId &&
+	           adjustedParam->keyframes[1].time == grapple::foundation::TimeSeconds{10.0} &&
+	           approx(std::get<double>(adjustedParam->keyframes[1].value), 0.5) &&
+	           adjustedParam->keyframes[1].lastEditedActorName == "desktop" &&
+	           adjustedFrame.value().frame.sourceRevision == adjustedViewModel.value().project.revision &&
+	           approx(adjustedCameraX, 0.25) &&
+	           editControlsUpdatedDuringPlayback
+	      ? 0
       : 1;
   }
 

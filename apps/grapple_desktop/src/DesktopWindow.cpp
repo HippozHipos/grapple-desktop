@@ -724,6 +724,7 @@ public:
   }
 
   void applyViewModel(const grapple::app::AppViewModel& viewModel) {
+    currentViewModel_ = viewModel;
     currentProjectRevision_ = viewModel.project.revision;
     summary_->setText(summaryText(viewModel));
     rebuildMediaBin(viewModel);
@@ -793,6 +794,7 @@ public:
     viewportTitle_->setText(QString{"Composition  %1"}.arg(provenance));
     playheadLabel_->setText(QString{"Playhead: %1"}.arg(timeText(previewState.playhead)));
     timeline_->setPlayhead(previewState.playhead);
+    refreshPlaybackEditControlsIfNeeded();
   }
 
   void seekTo(grapple::foundation::TimeSeconds time, bool updateEditControls = true) {
@@ -2541,14 +2543,63 @@ private:
   }
 
   void refreshPlayheadEditControls() {
+    if (currentViewModel_.has_value()) {
+      refreshPlayheadEditControls(currentViewModel_.value());
+      return;
+    }
+
     const auto viewModel = workspace_.project().buildViewModel();
     if (!viewModel) {
       appendError(viewModel.error());
       return;
     }
+    currentViewModel_ = viewModel.value();
+    refreshPlayheadEditControls(currentViewModel_.value());
+  }
+
+  void refreshPlayheadEditControls(const grapple::app::AppViewModel& viewModel) {
     const grapple::foundation::TimeSeconds playhead = workspace_.preview().state().playhead;
-    inspector_->setPlainText(inspectorText(viewModel.value(), selectedNodeId_, selectedAssetId_, playhead));
-    effectParams_->setSelection(viewModel.value(), selectedNodeId_, playhead);
+    inspector_->setPlainText(inspectorText(viewModel, selectedNodeId_, selectedAssetId_, playhead));
+    effectParams_->setSelection(viewModel, selectedNodeId_, playhead);
+  }
+
+  bool selectedPlayheadSensitivePanelVisible() const {
+    if (detailTabs_ == nullptr) {
+      return false;
+    }
+    QWidget* current = detailTabs_->currentWidget();
+    return current == effectParamsScroll_ || current == inspector_;
+  }
+
+  bool selectedTargetHasAnimatedEffectParams(const grapple::app::AppViewModel& viewModel) const {
+    if (!selectedNodeId_.has_value()) {
+      return false;
+    }
+
+    for (const grapple::app::AppEffectGraphRow& graph : viewModel.timeline.effectGraphs) {
+      if (graph.targetNodeId != selectedNodeId_.value()) {
+        continue;
+      }
+      for (const grapple::app::AppEffectRow& effect : graph.effects) {
+        for (const grapple::app::AppEffectParamRow& param : effect.params) {
+          if (!param.keyframes.empty()) {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+  }
+
+  void refreshPlaybackEditControlsIfNeeded() {
+    if (workspace_.preview().state().playback != grapple::render::PreviewPlaybackState::Playing ||
+        !currentViewModel_.has_value() ||
+        !selectedPlayheadSensitivePanelVisible() ||
+        !selectedTargetHasAnimatedEffectParams(currentViewModel_.value())) {
+      return;
+    }
+
+    refreshPlayheadEditControls(currentViewModel_.value());
   }
 
   void rebuildMediaBin(const grapple::app::AppViewModel& viewModel) {
@@ -2653,6 +2704,7 @@ private:
   grapple::foundation::TimeSeconds timelineDuration_;
   grapple::ui::ExportSettingsDraft exportSettingsDraft_;
   std::optional<grapple::foundation::RevisionId> currentProjectRevision_;
+  std::optional<grapple::app::AppViewModel> currentViewModel_;
   std::optional<grapple::foundation::NodeId> selectedNodeId_;
   std::optional<grapple::foundation::AssetId> selectedAssetId_;
 };
