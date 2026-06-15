@@ -1002,6 +1002,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     window.seekTo(grapple::foundation::TimeSeconds{2.0});
     const std::string buttonBackAtKeyframe = window.effectParamKeyframeButtonText(grapple::runtime::builtin_effect::PositionXParam);
     const std::string effectParamPanelAfterUpdate = window.effectParamPanelText();
+    const std::string stewardAfterKeyframeUpdate = window.stewardContents();
     window.deleteEffectParamKeyframeControl(grapple::runtime::builtin_effect::PositionXParam, 0);
     const auto afterKeyframeDelete = workspace.value().project().buildViewModel();
     if (!afterKeyframeDelete) {
@@ -1020,6 +1021,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "buttonAwayFromKeyframe=" << buttonAwayFromKeyframe << '\n';
     std::cout << "buttonBackAtKeyframe=" << buttonBackAtKeyframe << '\n';
     std::cout << "effectParamPanelAfterUpdate=" << effectParamPanelAfterUpdate << '\n';
+    std::cout << "stewardAfterKeyframeUpdate=" << stewardAfterKeyframeUpdate << '\n';
     std::cout << "afterDeleteRevision=" << afterKeyframeDelete.value().project.revision.value() << '\n';
     std::cout << "afterDeleteKeyframes=" << keyframesAfterDelete.size() << '\n';
     return keyframesAfterSet.size() == 1 &&
@@ -1036,6 +1038,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            buttonAwayFromKeyframe == "Set Keyframe" &&
            buttonBackAtKeyframe == "Update Keyframe" &&
            effectParamPanelAfterUpdate.find("2s = 0.5 last changed by desktop at ") != std::string::npos &&
+           stewardAfterKeyframeUpdate.find("keyframe 2s=0.5 last changed by desktop at ") != std::string::npos &&
            keyframesAfterDelete.empty()
       ? 0
       : 1;

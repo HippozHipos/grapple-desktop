@@ -32,10 +32,25 @@ QString controlTextFor(const app::AppEffectParamRow& param) {
   return text;
 }
 
+QString keyframeTextFor(const app::AppEffectParamRow::Keyframe& keyframe) {
+  QString text = QString{"keyframe %1s=%2"}
+    .arg(keyframe.time.value)
+    .arg(qString(app::paramValueDisplayText(keyframe.value)));
+  if (keyframe.lastEditedRevision.has_value()) {
+    text += QString{" last changed by %1 at %2"}
+      .arg(qString(keyframe.lastEditedActorName.empty() ? keyframe.lastEditedSourceKind : keyframe.lastEditedActorName))
+      .arg(qString(keyframe.lastEditedRevision->value()));
+  }
+  return text;
+}
+
 QStringList exposedControlsFor(const app::AppEffectRow& effect) {
   QStringList controls;
   for (const app::AppEffectParamRow& param : effect.params) {
     controls << controlTextFor(param);
+    for (const app::AppEffectParamRow::Keyframe& keyframe : param.keyframes) {
+      controls << keyframeTextFor(keyframe);
+    }
   }
   return controls;
 }
