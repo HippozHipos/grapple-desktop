@@ -66,6 +66,10 @@ QString timeText(grapple::foundation::TimeSeconds time) {
   return qString(output.str());
 }
 
+QString shortHashText(const grapple::foundation::Hash256& hash) {
+  return qString(hash.toHex().substr(0, 8));
+}
+
 QString summaryText(const grapple::app::AppViewModel& viewModel) {
   QStringList lines{
     "Project",
@@ -749,6 +753,11 @@ public:
     }
     previewSurface_->setFrame(frame.value().frame);
     compositionViewport_->setFrame(frame.value().frame);
+    const QString provenance = QString{"rev %1 | plan %2"}
+      .arg(qString(frame.value().frame.sourceRevision.value()))
+      .arg(shortHashText(frame.value().frame.renderPlanHash));
+    previewTitle_->setText(QString{"Player  %1"}.arg(provenance));
+    viewportTitle_->setText(QString{"Composition  %1"}.arg(provenance));
     playheadLabel_->setText(QString{"Playhead: %1"}.arg(timeText(previewState.playhead)));
     timeline_->setPlayhead(previewState.playhead);
   }

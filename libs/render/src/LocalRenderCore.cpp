@@ -329,6 +329,8 @@ foundation::Result<RenderFrameResult> renderSampleFrame(
 
   return RenderFrameResult{
     RenderFrame{
+      prepared.sourceRevision,
+      prepared.planHash,
       request.time,
       describeSample(sample),
       mediaFrames,

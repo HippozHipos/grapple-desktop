@@ -1,5 +1,6 @@
 #pragma once
 
+#include <grapple/foundation/Hash.hpp>
 #include <grapple/foundation/Geometry.hpp>
 #include <grapple/foundation/Result.hpp>
 #include <grapple/foundation/StrongId.hpp>
@@ -70,6 +71,8 @@ public:
 };
 
 struct RenderFrame {
+  foundation::RevisionId sourceRevision;
+  foundation::Hash256 renderPlanHash;
   foundation::TimeSeconds time;
   std::string description;
   std::vector<RenderedMediaFrame> mediaFrames;

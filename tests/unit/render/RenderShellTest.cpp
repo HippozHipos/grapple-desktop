@@ -479,6 +479,8 @@ int main() {
     render::RenderQuality::Draft
   });
   GRAPPLE_REQUIRE(renderedActiveFrame);
+  GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.sourceRevision == foundation::RevisionId{"rev_3"});
+  GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.renderPlanHash == coreAfterLoad.preparedPlanHash.value());
   GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.time == foundation::TimeSeconds{4.0});
   GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.description == "layers=1 clips=1 audioClips=1 cameras=0 effects=0");
   GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.mediaFrames.size() == 1);
@@ -506,6 +508,8 @@ int main() {
     render::RenderQuality::Final
   });
   GRAPPLE_REQUIRE(renderedInactiveFrame);
+  GRAPPLE_REQUIRE(renderedInactiveFrame.value().frame.sourceRevision == foundation::RevisionId{"rev_3"});
+  GRAPPLE_REQUIRE(renderedInactiveFrame.value().frame.renderPlanHash == coreAfterLoad.preparedPlanHash.value());
   GRAPPLE_REQUIRE(renderedInactiveFrame.value().frame.description == "layers=1 clips=0 audioClips=0 cameras=0 effects=0");
   GRAPPLE_REQUIRE(renderedInactiveFrame.value().frame.mediaFrames.empty());
   GRAPPLE_REQUIRE(renderedInactiveFrame.value().frame.audioClips.empty());
@@ -816,6 +820,8 @@ int main() {
     render::RenderQuality::Draft
   });
   GRAPPLE_REQUIRE(cameraFrame);
+  GRAPPLE_REQUIRE(cameraFrame.value().frame.sourceRevision == foundation::RevisionId{"rev_4"});
+  GRAPPLE_REQUIRE(cameraFrame.value().frame.renderPlanHash == cameraCore.state().preparedPlanHash.value());
   GRAPPLE_REQUIRE(cameraFrame.value().frame.description == "layers=1 clips=1 audioClips=1 cameras=1 effects=1");
   GRAPPLE_REQUIRE(cameraFrame.value().frame.cameras.size() == 1);
   GRAPPLE_REQUIRE(cameraFrame.value().frame.cameras[0].cameraNodeId == foundation::NodeId{"node_camera"});

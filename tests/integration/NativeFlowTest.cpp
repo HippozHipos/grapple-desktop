@@ -285,6 +285,8 @@ int main() {
     render::RenderQuality::Draft
   });
   GRAPPLE_REQUIRE(previewFrame);
+  GRAPPLE_REQUIRE(previewFrame.value().frame.sourceRevision == renderPlan.value().plan.revision);
+  GRAPPLE_REQUIRE(previewFrame.value().frame.renderPlanHash == renderCore.state().preparedPlanHash.value());
   GRAPPLE_REQUIRE(previewFrame.value().frame.description == "layers=1 clips=1 audioClips=0 cameras=1 effects=1");
   GRAPPLE_REQUIRE(previewFrame.value().frame.mediaFrames.size() == 1);
   GRAPPLE_REQUIRE(previewFrame.value().frame.mediaFrames[0].assetId == foundation::AssetId{"asset_video"});

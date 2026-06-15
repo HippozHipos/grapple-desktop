@@ -126,6 +126,8 @@ int main(int argc, char* argv[]) {
     }
 
     std::cout << "revision=" << refresh.value().revision.value() << '\n';
+    std::cout << "frameRevision=" << frame.value().frame.sourceRevision.value() << '\n';
+    std::cout << "renderPlanHash=" << frame.value().frame.renderPlanHash.toHex() << '\n';
     std::cout << "frame=" << frame.value().frame.description << '\n';
     std::cout << "mediaFrames=" << frame.value().frame.mediaFrames.size() << '\n';
     for (const render::RenderedMediaFrame& mediaFrame : frame.value().frame.mediaFrames) {
