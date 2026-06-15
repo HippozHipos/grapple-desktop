@@ -17,6 +17,53 @@ check_no_matches() {
   fi
 }
 
+check_unique_serialized_ids() {
+  python3 - "$root" <<'PY'
+import pathlib
+import re
+import sys
+
+root = pathlib.Path(sys.argv[1])
+groups = {
+    "project command serialized names": (
+        root / "libs/project/src/ProjectCommandNames.cpp",
+        r'return\s+"([^"]+)";',
+    ),
+    "project event serialized names": (
+        root / "libs/project/src/ProjectEventNames.cpp",
+        r'return\s+"([^"]+)";',
+    ),
+    "agent tool ids": (
+        root / "libs/agent/src/ProjectTools.cpp",
+        r'AgentTool\s*\{\s*foundation::ToolId\s*\{\s*"([^"]+)"\s*\}',
+    ),
+    "agent tool serialized ids": (
+        root / "libs/agent/src/ProjectTools.cpp",
+        r'AgentTool\s*\{\s*foundation::ToolId\s*\{\s*"[^"]+"\s*\}\s*,\s*"([^"]+)"',
+    ),
+}
+
+failed = False
+for label, (path, pattern) in groups.items():
+    text = path.read_text()
+    ids = re.findall(pattern, text, flags=re.S)
+    counts = {}
+    for value in ids:
+        counts[value] = counts.get(value, 0) + 1
+    duplicates = sorted(value for value, count in counts.items() if count > 1)
+    if duplicates:
+        failed = True
+        for value in duplicates:
+            print(f"{path}:{label}: duplicate serialized id {value!r}")
+
+if failed:
+    print("Architecture guard failed: duplicate serialized ids.", file=sys.stderr)
+    sys.exit(1)
+PY
+}
+
+check_unique_serialized_ids
+
 if grep -RInE '\b(fallback|alias|compat|legacy)\b' "$root/libs" "$root/tests" 2>/dev/null; then
   echo "Architecture guard failed: forbidden support-path wording in source." >&2
   exit 1
