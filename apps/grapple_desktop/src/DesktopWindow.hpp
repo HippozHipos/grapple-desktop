@@ -71,6 +71,7 @@ public:
   [[nodiscard]] bool selectedNoteMenuActionEnabled() const;
   [[nodiscard]] std::string currentDetailTabText() const;
   [[nodiscard]] std::string stewardIntent() const;
+  [[nodiscard]] std::string stewardIntentPlaceholder() const;
   void setStewardIntent(std::string intent);
   void pressStewardSubmitShortcut();
   void clickStewardPrimaryAction();

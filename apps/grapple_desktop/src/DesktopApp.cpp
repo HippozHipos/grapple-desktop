@@ -426,6 +426,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     }
     const std::string steward = window.stewardContents();
     const std::string stewardIntent = window.stewardIntent();
+    const std::string stewardIntentPlaceholder = window.stewardIntentPlaceholder();
     const std::string stewardActionText = window.stewardPrimaryActionText();
     const bool stewardActionEnabled = window.stewardPrimaryActionEnabled();
     const bool exportActionEnabled = window.exportActionEnabled();
@@ -444,6 +445,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "clips=" << viewModel.value().timeline.clips.size() << '\n';
     std::cout << "cameras=" << viewModel.value().timeline.cameras.size() << '\n';
     std::cout << "stewardIntent=" << stewardIntent << '\n';
+    std::cout << "stewardIntentPlaceholder=" << stewardIntentPlaceholder << '\n';
     std::cout << "stewardAction=" << stewardActionText << '\n';
     std::cout << "stewardActionEnabled=" << (stewardActionEnabled ? "true" : "false") << '\n';
     std::cout << "exportActionEnabled=" << (exportActionEnabled ? "true" : "false") << '\n';
@@ -475,6 +477,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            !selectedTrackMenuActionEnabled &&
            !selectedNoteMenuActionEnabled &&
            stewardIntent.empty() &&
+           stewardIntentPlaceholder.find("Import media to start") != std::string::npos &&
            steward.find("0 assets | 0 clips | 0 cameras | 0 editable effects") != std::string::npos &&
            steward.find("Next: import media to start the timeline.") != std::string::npos
       ? 0
@@ -1848,6 +1851,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     const std::string logText = window.logContents();
     const std::string steward = window.stewardContents();
     const std::string stewardIntent = window.stewardIntent();
+    const std::string stewardIntentPlaceholder = window.stewardIntentPlaceholder();
     const std::string stewardActionText = window.stewardPrimaryActionText();
     const bool stewardActionEnabled = window.stewardPrimaryActionEnabled();
     const std::string effectParamTitle = window.effectParamTitleText();
@@ -1866,6 +1870,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "log=" << logText << '\n';
     std::cout << "steward=" << steward << '\n';
     std::cout << "stewardIntent=" << stewardIntent << '\n';
+    std::cout << "stewardIntentPlaceholder=" << stewardIntentPlaceholder << '\n';
     std::cout << "stewardAction=" << stewardActionText << '\n';
     std::cout << "stewardActionEnabled=" << (stewardActionEnabled ? "true" : "false") << '\n';
     std::cout << "recentEdits=" << stewardRecentEdits << '\n';
@@ -1939,6 +1944,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            selectedAfterRecentEdit.has_value() &&
            selectedAfterRecentEdit.value() == expectedCameraNodeId &&
            stewardIntent.empty() &&
+           stewardIntentPlaceholder.find("move far right") != std::string::npos &&
+           stewardIntentPlaceholder.find("zoom in a little") != std::string::npos &&
            stewardActionText == "Type Request To Apply Camera Controls" &&
            !stewardActionEnabled &&
            effectParamTitle == "Camera Transform on Camera" &&

@@ -47,6 +47,7 @@ public:
   void triggerPrimaryAction();
   [[nodiscard]] std::string contents() const;
   [[nodiscard]] std::string intent() const;
+  [[nodiscard]] std::string intentPlaceholder() const;
   [[nodiscard]] std::string primaryActionText() const;
   [[nodiscard]] bool primaryActionEnabled() const;
   void triggerSelectedClipAction();
@@ -70,6 +71,7 @@ private:
 
   void updateActionButtons();
   void updateActionLabels();
+  void updateIntentPlaceholder();
   [[nodiscard]] bool intentHasText() const;
   [[nodiscard]] bool primaryActionCanRun() const;
   [[nodiscard]] bool selectedClipActionCanRun() const;

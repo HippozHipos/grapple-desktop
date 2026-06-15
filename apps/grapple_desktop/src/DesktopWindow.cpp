@@ -1257,6 +1257,10 @@ public:
     return steward_->intent();
   }
 
+  std::string stewardIntentPlaceholder() const {
+    return steward_->intentPlaceholder();
+  }
+
   void setStewardIntent(std::string intent) {
     steward_->setIntent(std::move(intent));
   }
@@ -3278,6 +3282,10 @@ std::string DesktopWindow::currentDetailTabText() const {
 
 std::string DesktopWindow::stewardIntent() const {
   return impl_->stewardIntent();
+}
+
+std::string DesktopWindow::stewardIntentPlaceholder() const {
+  return impl_->stewardIntentPlaceholder();
 }
 
 void DesktopWindow::setStewardIntent(std::string intent) {

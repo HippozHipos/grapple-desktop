@@ -490,6 +490,7 @@ void StewardPanel::setViewModel(
   }
 
   updateActionLabels();
+  updateIntentPlaceholder();
   text_->setPlainText(lines.join('\n'));
   updateActionButtons();
 }
@@ -514,6 +515,10 @@ std::string StewardPanel::contents() const {
 
 std::string StewardPanel::intent() const {
   return intent_->toPlainText().toStdString();
+}
+
+std::string StewardPanel::intentPlaceholder() const {
+  return intent_->placeholderText().toStdString();
 }
 
 std::string StewardPanel::primaryActionText() const {
@@ -580,6 +585,45 @@ void StewardPanel::updateActionLabels() {
   selectedClipActionButton_->setText(
     hasIntent ? "Apply Request To Clip Transform" : "Type Request To Transform Clip"
   );
+}
+
+void StewardPanel::updateIntentPlaceholder() {
+  const bool selectedClipActionAvailable = selectedClipTargetNodeId_.has_value();
+  switch (primaryAction_) {
+    case PrimaryAction::ImportMedia:
+      intent_->setPlaceholderText("Import media to start. Then try: \"slowly zoom in\" or \"move clip slightly right\".");
+      return;
+    case PrimaryAction::AddSelectedMedia:
+      intent_->setPlaceholderText("Add selected media to the timeline. Then try: \"center the subject\".");
+      return;
+    case PrimaryAction::AddCamera:
+      intent_->setPlaceholderText("Add a camera first. Then try: \"center the subject and zoom in a little\".");
+      return;
+    case PrimaryAction::ShowCameraControls:
+      intent_->setPlaceholderText(
+        selectedClipActionAvailable
+          ? "Try: \"zoom in a little\", \"slowly pan right\", or use the clip action for \"move clip far right\"."
+          : "Show camera controls, then try: \"zoom in a little\" or \"slowly pan left\"."
+      );
+      return;
+    case PrimaryAction::CreateCameraEffect:
+      intent_->setPlaceholderText(
+        selectedClipActionAvailable
+          ? "Try: \"center the subject\", \"zoom in a little\", or use the clip action for \"make clip smaller\"."
+          : "Try: \"center the subject\", \"zoom in a little\", or \"slowly pan right\"."
+      );
+      return;
+    case PrimaryAction::AdjustCameraControls:
+      intent_->setPlaceholderText(
+        selectedClipActionAvailable
+          ? "Try: \"move far right\", \"zoom in a little\", \"reset camera\", or use the clip action for \"make clip smaller\"."
+          : "Try: \"move far right\", \"zoom in a little\", \"reset camera\", or \"slowly pan left\"."
+      );
+      return;
+    case PrimaryAction::Disabled:
+      intent_->setPlaceholderText("Select media, a clip, or a camera to make an editable request.");
+      return;
+  }
 }
 
 bool StewardPanel::intentHasText() const {
