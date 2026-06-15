@@ -1426,6 +1426,79 @@ int main() {
   GRAPPLE_REQUIRE(stewardMotionMidFrame.value().frame.cameras[0].cameraNodeId == stewardMotionCameraNodeId);
   GRAPPLE_REQUIRE(stewardMotionMidFrame.value().frame.cameras[0].state.transform.position.x == 0.125);
 
+  const foundation::NodeId stewardZoomCameraNodeId =
+    stewardMotionWorkspace.value().commandWriter().nextNodeId("camera");
+  const auto stewardZoomCamera = stewardMotionWorkspace.value().commandWriter().apply(
+    project::CreateCameraCommand{
+      stewardZoomCameraNodeId,
+      stewardMotionCompositionNodeId,
+      stewardMotionWorkspace.value().commandWriter().nextEdgeId("contains camera"),
+      timeline::CameraPayload{
+        "Zoom Camera",
+        timeline::CameraState{
+          timeline::Transform2D{},
+          timeline::CameraLens{35.0}
+        }
+      }
+    },
+    userSource()
+  );
+  GRAPPLE_REQUIRE(stewardZoomCamera);
+  const auto stewardZoomEffect = stewardMotionWorkspace.value().steward().createCameraTransformEffect(
+    stewardZoomCameraNodeId,
+    "Zoom in over time with editable camera controls.",
+    foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{4.0}}
+  );
+  GRAPPLE_REQUIRE(stewardZoomEffect);
+  GRAPPLE_REQUIRE(stewardZoomEffect.value().snapshot.revision == foundation::RevisionId{"rev_9"});
+  const agent::AgentConversationState stewardZoomConversation =
+    stewardMotionWorkspace.value().steward().conversationState();
+  GRAPPLE_REQUIRE(stewardZoomConversation.runs.size() == 2);
+  GRAPPLE_REQUIRE(stewardZoomConversation.runs[1].status == agent::AgentRunStatus::Succeeded);
+  GRAPPLE_REQUIRE(stewardZoomConversation.runs[1].toolCalls.size() == 3);
+  GRAPPLE_REQUIRE(stewardZoomConversation.runs[1].toolCalls[0].observedRevision == foundation::RevisionId{"rev_7"});
+  GRAPPLE_REQUIRE(stewardZoomConversation.runs[1].toolCalls[1].toolSerializedId == "camera.set_transform_keyframe");
+  GRAPPLE_REQUIRE(stewardZoomConversation.runs[1].toolCalls[1].observedRevision == foundation::RevisionId{"rev_8"});
+  GRAPPLE_REQUIRE(stewardZoomConversation.runs[1].toolCalls[2].toolSerializedId == "camera.set_transform_keyframe");
+  GRAPPLE_REQUIRE(stewardZoomConversation.runs[1].toolCalls[2].observedRevision == foundation::RevisionId{"rev_9"});
+
+  const auto stewardZoomViewModel = stewardMotionWorkspace.value().project().buildViewModel();
+  GRAPPLE_REQUIRE(stewardZoomViewModel);
+  const app::AppEffectGraphRow* zoomEffectGraph = nullptr;
+  for (const app::AppEffectGraphRow& graph : stewardZoomViewModel.value().timeline.effectGraphs) {
+    if (graph.targetNodeId == stewardZoomCameraNodeId) {
+      zoomEffectGraph = &graph;
+    }
+  }
+  GRAPPLE_REQUIRE(zoomEffectGraph != nullptr);
+  GRAPPLE_REQUIRE(zoomEffectGraph->effects.size() == 1);
+  GRAPPLE_REQUIRE(zoomEffectGraph->effects[0].params[2].name == effects::builtin_effect::ZoomParam);
+  GRAPPLE_REQUIRE(zoomEffectGraph->effects[0].params[2].keyframes.size() == 2);
+  GRAPPLE_REQUIRE(zoomEffectGraph->effects[0].params[2].keyframes[0].time == foundation::TimeSeconds{0.0});
+  GRAPPLE_REQUIRE(std::get<double>(zoomEffectGraph->effects[0].params[2].keyframes[0].value) == 1.0);
+  GRAPPLE_REQUIRE(zoomEffectGraph->effects[0].params[2].keyframes[0].lastEditedActorName == "steward");
+  GRAPPLE_REQUIRE(zoomEffectGraph->effects[0].params[2].keyframes[1].time == foundation::TimeSeconds{4.0});
+  GRAPPLE_REQUIRE(std::get<double>(zoomEffectGraph->effects[0].params[2].keyframes[1].value) == 1.5);
+  GRAPPLE_REQUIRE(zoomEffectGraph->effects[0].params[2].keyframes[1].lastEditedActorName == "steward");
+
+  const auto stewardZoomRefresh = stewardMotionWorkspace.value().preview().refreshFromProject();
+  GRAPPLE_REQUIRE(stewardZoomRefresh);
+  const auto stewardZoomMidFrame = stewardMotionWorkspace.value().preview().renderFrame(render::RenderFrameRequest{
+    foundation::TimeSeconds{2.0},
+    render::RenderQuality::Draft
+  });
+  GRAPPLE_REQUIRE(stewardZoomMidFrame);
+  GRAPPLE_REQUIRE(stewardZoomMidFrame.value().runtimeDiagnostics.empty());
+  const render::RenderedCamera* zoomRenderedCamera = nullptr;
+  for (const render::RenderedCamera& camera : stewardZoomMidFrame.value().frame.cameras) {
+    if (camera.cameraNodeId == stewardZoomCameraNodeId) {
+      zoomRenderedCamera = &camera;
+    }
+  }
+  GRAPPLE_REQUIRE(zoomRenderedCamera != nullptr);
+  GRAPPLE_REQUIRE(zoomRenderedCamera->state.transform.scale.x == 1.25);
+  GRAPPLE_REQUIRE(zoomRenderedCamera->state.transform.scale.y == 1.25);
+
   runtime::RuntimeEvaluator appRuntime;
   render::LocalRenderCore appRenderCore{appRuntime};
   render::LocalRenderSystem appRenderSystem{appRenderCore};

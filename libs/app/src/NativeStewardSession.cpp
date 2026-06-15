@@ -52,6 +52,24 @@ bool containsText(const std::string& value, std::string_view text) {
   return value.find(text) != std::string::npos;
 }
 
+bool containsAsciiWord(const std::string& value, std::string_view word) {
+  std::size_t position = value.find(word);
+  while (position != std::string::npos) {
+    const bool leftBoundary =
+      position == 0 ||
+      std::isalnum(static_cast<unsigned char>(value[position - 1])) == 0;
+    const std::size_t right = position + word.size();
+    const bool rightBoundary =
+      right >= value.size() ||
+      std::isalnum(static_cast<unsigned char>(value[right])) == 0;
+    if (leftBoundary && rightBoundary) {
+      return true;
+    }
+    position = value.find(word, position + 1);
+  }
+  return false;
+}
+
 CameraTransformIntentDefaults cameraTransformDefaultsForIntent(const std::string& intent) {
   const std::string normalized = lowercaseAscii(intent);
   CameraTransformIntentDefaults defaults;
@@ -92,11 +110,38 @@ std::optional<CameraTransformMotionKeyframes> cameraMotionKeyframesForIntent(
   }
 
   const std::string normalized = lowercaseAscii(intent);
-  if (!containsText(normalized, "pan") && !containsText(normalized, "move")) {
-    return std::nullopt;
+  if (!containsAsciiWord(normalized, "pan") && !containsAsciiWord(normalized, "move")) {
+    const bool explicitZoomMotion =
+      containsText(normalized, "zoom") &&
+      (containsText(normalized, "animate") ||
+       containsText(normalized, "over time") ||
+       containsText(normalized, "gradual") ||
+       containsText(normalized, "slowly"));
+    if (!explicitZoomMotion) {
+      return std::nullopt;
+    }
+
+    if (containsAsciiWord(normalized, "out")) {
+      return CameraTransformMotionKeyframes{
+        effects::builtin_effect::ZoomParam,
+        NormalCameraTransformZoom,
+        0.8,
+        activeRange.end
+      };
+    }
+    if (!containsAsciiWord(normalized, "in")) {
+      return std::nullopt;
+    }
+
+    return CameraTransformMotionKeyframes{
+      effects::builtin_effect::ZoomParam,
+      NormalCameraTransformZoom,
+      1.5,
+      activeRange.end
+    };
   }
 
-  if (containsText(normalized, "left")) {
+  if (containsAsciiWord(normalized, "left")) {
     return CameraTransformMotionKeyframes{
       effects::builtin_effect::PositionXParam,
       CenteredCameraTransformPositionX,
@@ -104,7 +149,7 @@ std::optional<CameraTransformMotionKeyframes> cameraMotionKeyframesForIntent(
       activeRange.end
     };
   }
-  if (containsText(normalized, "right")) {
+  if (containsAsciiWord(normalized, "right")) {
     return CameraTransformMotionKeyframes{
       effects::builtin_effect::PositionXParam,
       CenteredCameraTransformPositionX,
@@ -112,7 +157,7 @@ std::optional<CameraTransformMotionKeyframes> cameraMotionKeyframesForIntent(
       activeRange.end
     };
   }
-  if (containsText(normalized, "up")) {
+  if (containsAsciiWord(normalized, "up")) {
     return CameraTransformMotionKeyframes{
       effects::builtin_effect::PositionYParam,
       CenteredCameraTransformPositionY,
@@ -120,7 +165,7 @@ std::optional<CameraTransformMotionKeyframes> cameraMotionKeyframesForIntent(
       activeRange.end
     };
   }
-  if (containsText(normalized, "down")) {
+  if (containsAsciiWord(normalized, "down")) {
     return CameraTransformMotionKeyframes{
       effects::builtin_effect::PositionYParam,
       CenteredCameraTransformPositionY,
