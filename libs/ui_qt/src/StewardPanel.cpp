@@ -6,6 +6,7 @@
 #include <QVBoxLayout>
 
 #include <algorithm>
+#include <cctype>
 #include <utility>
 
 namespace grapple::ui {
@@ -78,6 +79,12 @@ std::optional<foundation::NodeId> selectedVisualClipNodeId(
   return selectedClip->sourceNodeId;
 }
 
+bool containsNonWhitespace(const std::string& value) {
+  return std::any_of(value.begin(), value.end(), [](unsigned char character) {
+    return std::isspace(character) == 0;
+  });
+}
+
 } // namespace
 
 StewardPanel::StewardPanel(QWidget* parent)
@@ -87,8 +94,9 @@ StewardPanel::StewardPanel(QWidget* parent)
   auto* layout = new QVBoxLayout{this};
   layout->setContentsMargins(0, 0, 0, 0);
 
-  intent_ = new QTextEdit{"Center the subject with an editable camera transform."};
+  intent_ = new QTextEdit;
   intent_->setObjectName("stewardIntent");
+  intent_->setPlaceholderText("Describe the edit you want Steward to apply.");
   intent_->setAcceptRichText(false);
   intent_->setLineWrapMode(QTextEdit::WidgetWidth);
   intent_->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
@@ -96,6 +104,9 @@ StewardPanel::StewardPanel(QWidget* parent)
   intent_->setMinimumHeight(54);
   intent_->setMaximumHeight(72);
   layout->addWidget(intent_);
+  connect(intent_, &QTextEdit::textChanged, this, [this] {
+    updateActionButtons();
+  });
 
   primaryActionButton_ = new QPushButton{"Create Editable Camera Controls"};
   primaryActionButton_->setObjectName("stewardPrimaryAction");
@@ -216,10 +227,6 @@ void StewardPanel::setViewModel(
   const std::optional<foundation::NodeId> cameraTargetId = app::stewardCameraTargetId(viewModel, selectedNodeId);
   selectedClipTargetNodeId_ = selectedVisualClipNodeId(viewModel, selectedNodeId);
   selectedClipActionButton_->setVisible(selectedClipTargetNodeId_.has_value());
-  selectedClipActionButton_->setEnabled(
-    selectedClipTargetNodeId_.has_value() &&
-    static_cast<bool>(transformSelectedClipHandler_)
-  );
   primaryTargetCameraNodeId_ = cameraTargetId;
   if (!cameraTargetId.has_value()) {
     primaryTargetCameraNodeId_ = std::nullopt;
@@ -227,39 +234,31 @@ void StewardPanel::setViewModel(
       if (selectedAssetId.has_value()) {
         primaryAction_ = PrimaryAction::AddSelectedMedia;
         primaryActionButton_->setText("Add Selected Media To Timeline");
-        primaryActionButton_->setEnabled(static_cast<bool>(addSelectedMediaHandler_));
       } else if (viewModel.assets.count == 0) {
         primaryAction_ = PrimaryAction::ImportMedia;
         primaryActionButton_->setText("Import Media");
-        primaryActionButton_->setEnabled(static_cast<bool>(importMediaHandler_));
       } else {
         primaryAction_ = PrimaryAction::Disabled;
         primaryActionButton_->setText("Select Media To Add");
-        primaryActionButton_->setEnabled(false);
       }
     } else if (viewModel.timeline.cameras.empty()) {
       primaryAction_ = PrimaryAction::AddCamera;
       primaryActionButton_->setText("Add Camera");
-      primaryActionButton_->setEnabled(static_cast<bool>(addCameraHandler_));
     } else {
       primaryAction_ = PrimaryAction::Disabled;
       primaryActionButton_->setText("Select Camera");
-      primaryActionButton_->setEnabled(false);
     }
   } else if (app::cameraHasTransformEffect(viewModel, cameraTargetId.value())) {
     if (selectedNodeId.has_value() && selectedNodeId.value() == cameraTargetId.value()) {
       primaryAction_ = PrimaryAction::AdjustCameraControls;
       primaryActionButton_->setText("Apply Request To Camera Controls");
-      primaryActionButton_->setEnabled(static_cast<bool>(adjustCameraControlsHandler_));
     } else {
       primaryAction_ = PrimaryAction::ShowCameraControls;
       primaryActionButton_->setText("Show Editable Controls");
-      primaryActionButton_->setEnabled(static_cast<bool>(showCameraControlsHandler_));
     }
   } else {
     primaryAction_ = PrimaryAction::CreateCameraEffect;
     primaryActionButton_->setText("Create Editable Camera Controls");
-    primaryActionButton_->setEnabled(static_cast<bool>(createCameraEffectHandler_));
   }
 
   QString nextStep;
@@ -378,11 +377,13 @@ void StewardPanel::setViewModel(
   }
 
   text_->setPlainText(lines.join('\n'));
+  updateActionButtons();
 }
 
 void StewardPanel::setIntent(std::string intent) {
   intent_->setPlainText(qString(intent));
   intent_->moveCursor(QTextCursor::Start);
+  updateActionButtons();
 }
 
 void StewardPanel::triggerPrimaryAction() {
@@ -442,6 +443,42 @@ std::string StewardPanel::recentEditText(int row) const {
   }
   const QListWidgetItem* item = recentEdits_->item(row);
   return item == nullptr ? std::string{} : item->text().toStdString();
+}
+
+void StewardPanel::updateActionButtons() {
+  primaryActionButton_->setEnabled(primaryActionCanRun());
+  selectedClipActionButton_->setEnabled(selectedClipActionCanRun());
+}
+
+bool StewardPanel::intentHasText() const {
+  return containsNonWhitespace(intent());
+}
+
+bool StewardPanel::primaryActionCanRun() const {
+  switch (primaryAction_) {
+    case PrimaryAction::ImportMedia:
+      return static_cast<bool>(importMediaHandler_);
+    case PrimaryAction::AddSelectedMedia:
+      return static_cast<bool>(addSelectedMediaHandler_);
+    case PrimaryAction::AddCamera:
+      return static_cast<bool>(addCameraHandler_);
+    case PrimaryAction::ShowCameraControls:
+      return static_cast<bool>(showCameraControlsHandler_) && primaryTargetCameraNodeId_.has_value();
+    case PrimaryAction::CreateCameraEffect:
+      return static_cast<bool>(createCameraEffectHandler_) && intentHasText();
+    case PrimaryAction::AdjustCameraControls:
+      return static_cast<bool>(adjustCameraControlsHandler_) && primaryTargetCameraNodeId_.has_value() && intentHasText();
+    case PrimaryAction::Disabled:
+      return false;
+  }
+
+  return false;
+}
+
+bool StewardPanel::selectedClipActionCanRun() const {
+  return selectedClipTargetNodeId_.has_value() &&
+         static_cast<bool>(transformSelectedClipHandler_) &&
+         intentHasText();
 }
 
 } // namespace grapple::ui

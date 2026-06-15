@@ -68,6 +68,11 @@ private:
     CreateCameraEffect
   };
 
+  void updateActionButtons();
+  [[nodiscard]] bool intentHasText() const;
+  [[nodiscard]] bool primaryActionCanRun() const;
+  [[nodiscard]] bool selectedClipActionCanRun() const;
+
   ImportMediaHandler importMediaHandler_;
   AddCameraHandler addCameraHandler_;
   AddSelectedMediaHandler addSelectedMediaHandler_;

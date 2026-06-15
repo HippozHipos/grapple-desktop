@@ -319,12 +319,14 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       return 1;
     }
     const std::string steward = window.stewardContents();
+    const std::string stewardIntent = window.stewardIntent();
     const std::string stewardActionText = window.stewardPrimaryActionText();
     const bool stewardActionEnabled = window.stewardPrimaryActionEnabled();
     std::cout << "revision=" << viewModel.value().project.revision.value() << '\n';
     std::cout << "assets=" << viewModel.value().assets.count << '\n';
     std::cout << "clips=" << viewModel.value().timeline.clips.size() << '\n';
     std::cout << "cameras=" << viewModel.value().timeline.cameras.size() << '\n';
+    std::cout << "stewardIntent=" << stewardIntent << '\n';
     std::cout << "stewardAction=" << stewardActionText << '\n';
     std::cout << "stewardActionEnabled=" << (stewardActionEnabled ? "true" : "false") << '\n';
     std::cout << "steward=" << steward << '\n';
@@ -333,6 +335,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            viewModel.value().timeline.cameras.empty() &&
            stewardActionText == "Import Media" &&
            stewardActionEnabled &&
+           stewardIntent.empty() &&
            steward.find("0 assets | 0 clips | 0 cameras | 0 editable effects") != std::string::npos &&
            steward.find("Next: import media to start the timeline.") != std::string::npos
       ? 0
@@ -1538,6 +1541,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     const std::string inspector = window.inspectorContents();
     const std::string logText = window.logContents();
     const std::string steward = window.stewardContents();
+    const std::string stewardIntent = window.stewardIntent();
     const std::string stewardActionText = window.stewardPrimaryActionText();
     const bool stewardActionEnabled = window.stewardPrimaryActionEnabled();
     const std::string effectParamTitle = window.effectParamTitleText();
@@ -1552,6 +1556,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "inspector=" << inspector << '\n';
     std::cout << "log=" << logText << '\n';
     std::cout << "steward=" << steward << '\n';
+    std::cout << "stewardIntent=" << stewardIntent << '\n';
     std::cout << "stewardAction=" << stewardActionText << '\n';
     std::cout << "stewardActionEnabled=" << (stewardActionEnabled ? "true" : "false") << '\n';
     std::cout << "recentEdits=" << stewardRecentEdits << '\n';
@@ -1619,8 +1624,9 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            selectedAfterShowControls.value() == expectedCameraNodeId &&
            selectedAfterRecentEdit.has_value() &&
            selectedAfterRecentEdit.value() == expectedCameraNodeId &&
+           stewardIntent.empty() &&
            stewardActionText == "Apply Request To Camera Controls" &&
-           stewardActionEnabled &&
+           !stewardActionEnabled &&
            effectParamTitle == "Camera Transform on Camera" &&
            effectParamPanel.find("Position X") != std::string::npos &&
            effectParamPanel.find("Position Y") != std::string::npos &&
@@ -1889,7 +1895,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            steward.find("Update Effect Parameter -> succeeded") != std::string::npos &&
            stewardIntent.empty() &&
            stewardActionText == "Apply Request To Camera Controls" &&
-           stewardActionEnabled &&
+           !stewardActionEnabled &&
            effectParamTitle == "Camera Transform on Camera" &&
            inspector.find("Position X (position_x)=0") != std::string::npos &&
            inspector.find("Zoom (zoom)=1.375") != std::string::npos &&
@@ -1914,8 +1920,9 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     window.importMediaFile(grapple::foundation::FilePath{"/tmp/grapple-native-demo/starter-gradient.avi"});
     window.clickStewardPrimaryAction();
     const std::string selectedClipActionText = window.stewardSelectedClipActionText();
-    const bool selectedClipActionEnabled = window.stewardSelectedClipActionEnabled();
+    const bool selectedClipActionEnabledBeforeIntent = window.stewardSelectedClipActionEnabled();
     window.setStewardIntent("Move selected clip right and make it smaller.");
+    const bool selectedClipActionEnabledAfterIntent = window.stewardSelectedClipActionEnabled();
     window.clickStewardSelectedClipAction();
     const auto viewModel = workspace.value().project().buildViewModel();
     if (!viewModel) {
@@ -1936,7 +1943,9 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "clipScaleX=" << clip.transform.scale.x << '\n';
     std::cout << "clipScaleY=" << clip.transform.scale.y << '\n';
     std::cout << "selectedClipActionText=" << selectedClipActionText << '\n';
-    std::cout << "selectedClipActionEnabled=" << (selectedClipActionEnabled ? "true" : "false") << '\n';
+    std::cout << "selectedClipActionEnabledBeforeIntent=" << (selectedClipActionEnabledBeforeIntent ? "true" : "false") << '\n';
+    std::cout << "selectedClipActionEnabledAfterIntent=" << (selectedClipActionEnabledAfterIntent ? "true" : "false") << '\n';
+    std::cout << "selectedClipActionEnabledAfterAction=" << (window.stewardSelectedClipActionEnabled() ? "true" : "false") << '\n';
     std::cout << "steward=" << steward << '\n';
     std::cout << "stewardIntent=" << stewardIntent << '\n';
     std::cout << "log=" << log << '\n';
@@ -1947,7 +1956,9 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            clip.transform.scale.y == 0.75 &&
            clip.transform.opacity == 1.0 &&
            selectedClipActionText == "Apply Request To Selected Clip" &&
-           selectedClipActionEnabled &&
+           !selectedClipActionEnabledBeforeIntent &&
+           selectedClipActionEnabledAfterIntent &&
+           !window.stewardSelectedClipActionEnabled() &&
            stewardIntent.empty() &&
            steward.find("Selected clip action: apply the request to clip transform parameters.") != std::string::npos &&
            steward.find("Update Clip Transform -> succeeded") != std::string::npos &&
