@@ -30,6 +30,7 @@ struct AppStewardEditRow {
   foundation::RevisionId revision;
   std::optional<foundation::NodeId> targetNodeId;
   std::string targetName;
+  std::string effectName;
   std::string intent;
 };
 

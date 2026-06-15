@@ -190,11 +190,15 @@ void StewardPanel::setViewModel(
     lines << "- no Steward edits yet";
   } else {
     for (auto edit = viewModel.steward.edits.rbegin(); edit != viewModel.steward.edits.rend(); ++edit) {
+      const QString effectText = edit->effectName.empty()
+        ? QString{}
+        : QString{" %1"}.arg(qString(edit->effectName));
       const QString targetText = edit->targetName.empty()
         ? QString{}
         : QString{" on %1"}.arg(qString(edit->targetName));
-      lines << QString{"- %1%2: %3"}
+      lines << QString{"- %1%2%3: %4"}
         .arg(qString(edit->revision.value()))
+        .arg(effectText)
         .arg(targetText)
         .arg(qString(edit->intent));
     }

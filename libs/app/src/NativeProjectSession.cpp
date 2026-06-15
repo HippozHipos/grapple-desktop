@@ -129,6 +129,7 @@ struct EffectCreationProvenance {
   foundation::RevisionId revision;
   std::string sourceKind;
   std::string sourceActorName;
+  std::string effectName;
   std::string intent;
 };
 
@@ -158,6 +159,7 @@ foundation::Result<std::vector<EffectCreationProvenance>> effectCreationProvenan
       command.afterRevision,
       command.sourceKind,
       command.sourceActorName,
+      createEffect->payload.displayName,
       snapshotLabelForRevision(snapshots, command.afterRevision).value_or(std::string{})
     });
   }
@@ -390,6 +392,7 @@ foundation::Result<NativeProjectViewModelResult> NativeProjectSession::buildView
       creation.revision,
       creation.targetNodeId,
       targetName.value(),
+      creation.effectName,
       creation.intent
     });
   }

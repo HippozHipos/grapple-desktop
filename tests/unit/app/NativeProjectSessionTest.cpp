@@ -1062,6 +1062,7 @@ int main() {
   GRAPPLE_REQUIRE(runtimeEffectViewModel.value().steward.edits[0].revision == foundation::RevisionId{"rev_3"});
   GRAPPLE_REQUIRE(runtimeEffectViewModel.value().steward.edits[0].targetNodeId == runtimeCameraNodeId);
   GRAPPLE_REQUIRE(runtimeEffectViewModel.value().steward.edits[0].targetName == "Camera");
+  GRAPPLE_REQUIRE(runtimeEffectViewModel.value().steward.edits[0].effectName == "Camera Transform");
   GRAPPLE_REQUIRE(runtimeEffectViewModel.value().steward.edits[0].intent == "Center the subject with an editable camera transform.");
   const foundation::NodeId runtimeEffectNodeId = runtimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].sourceNodeId;
   const auto initialRuntimeRefresh = runtimeWorkspace.value().preview().refreshFromProject();
@@ -1560,6 +1561,7 @@ int main() {
   GRAPPLE_REQUIRE(reopenedStewardViewModel.value().steward.edits[0].revision == foundation::RevisionId{"rev_3"});
   GRAPPLE_REQUIRE(reopenedStewardViewModel.value().steward.edits[0].targetNodeId == stewardCameraNodeId);
   GRAPPLE_REQUIRE(reopenedStewardViewModel.value().steward.edits[0].targetName == "Camera");
+  GRAPPLE_REQUIRE(reopenedStewardViewModel.value().steward.edits[0].effectName == "Camera Transform");
   GRAPPLE_REQUIRE(reopenedStewardViewModel.value().steward.edits[0].intent == durableIntent);
   const foundation::NodeId reopenedSecondCameraNodeId = reopenedStewardWorkspace.value().commandWriter().nextNodeId("camera");
   const auto reopenedSecondCamera = reopenedStewardWorkspace.value().commandWriter().apply(
