@@ -2150,7 +2150,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            stewardRecentEdits == 5 &&
            stewardSelectedRecentEdit == 0 &&
            stewardSelectedRecentEditText.find("Recenter the subject.") != std::string::npos &&
-           stewardSelectedRecentEditText.find("Camera Transform Controls on Camera") != std::string::npos &&
+           stewardSelectedRecentEditText.find("Camera Transform on Camera") != std::string::npos &&
            selectedAfterRecentEdit.has_value() &&
 	           selectedAfterRecentEdit.value() == viewModel.value().timeline.cameras.front().sourceNodeId &&
 	           steward.find("1 assets | 1 clips | 1 cameras | 1 editable effects") != std::string::npos &&
