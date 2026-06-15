@@ -1791,6 +1791,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       return 1;
     }
     const std::string steward = window.stewardContents();
+    const std::string stewardIntent = window.stewardIntent();
     const std::string inspector = window.inspectorContents();
     const auto selectedAfterRecentEdit = window.selectedNodeId();
     const std::string stewardActionText = window.stewardPrimaryActionText();
@@ -1859,6 +1860,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "size=" << size << '\n';
     std::cout << "inspector=" << inspector << '\n';
     std::cout << "steward=" << steward << '\n';
+    std::cout << "stewardIntent=" << stewardIntent << '\n';
     std::cout << "stewardActionAfterImport=" << stewardActionAfterImport << '\n';
     std::cout << "stewardActionEnabledAfterImport=" << (stewardActionEnabledAfterImport ? "true" : "false") << '\n';
     std::cout << "stewardAction=" << stewardActionText << '\n';
@@ -1885,6 +1887,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            steward.find("- Recenter the subject. [succeeded]") != std::string::npos &&
            steward.find("- Make the subject bigger. [succeeded]") != std::string::npos &&
            steward.find("Update Effect Parameter -> succeeded") != std::string::npos &&
+           stewardIntent.empty() &&
            stewardActionText == "Apply Request To Camera Controls" &&
            stewardActionEnabled &&
            effectParamTitle == "Camera Transform on Camera" &&
@@ -1925,6 +1928,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     }
     const auto& clip = viewModel.value().timeline.clips.front();
     const std::string steward = window.stewardContents();
+    const std::string stewardIntent = window.stewardIntent();
     const std::string log = window.logContents();
     std::cout << "revision=" << viewModel.value().project.revision.value() << '\n';
     std::cout << "clipPositionX=" << clip.transform.position.x << '\n';
@@ -1934,6 +1938,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "selectedClipActionText=" << selectedClipActionText << '\n';
     std::cout << "selectedClipActionEnabled=" << (selectedClipActionEnabled ? "true" : "false") << '\n';
     std::cout << "steward=" << steward << '\n';
+    std::cout << "stewardIntent=" << stewardIntent << '\n';
     std::cout << "log=" << log << '\n';
     return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_3"} &&
            clip.transform.position.x == 0.25 &&
@@ -1943,6 +1948,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            clip.transform.opacity == 1.0 &&
            selectedClipActionText == "Apply Request To Selected Clip" &&
            selectedClipActionEnabled &&
+           stewardIntent.empty() &&
            steward.find("Selected clip action: apply the request to clip transform parameters.") != std::string::npos &&
            steward.find("Update Clip Transform -> succeeded") != std::string::npos &&
            log.find("Steward transformed selected clip") != std::string::npos

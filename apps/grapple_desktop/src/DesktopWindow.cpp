@@ -1037,6 +1037,10 @@ public:
     return lines.join('\n').toStdString();
   }
 
+  std::string stewardIntent() const {
+    return steward_->intent();
+  }
+
   void setStewardIntent(std::string intent) {
     steward_->setIntent(std::move(intent));
   }
@@ -2031,6 +2035,7 @@ public:
     selectedAssetId_ = std::nullopt;
     showEffectControls();
     refreshViewModelAndPreview();
+    steward_->setIntent({});
     log_->append("Steward applied camera edit");
   }
 
@@ -2048,6 +2053,7 @@ public:
     selectedNodeId_ = clipNodeId;
     selectedAssetId_ = std::nullopt;
     refreshViewModelAndPreview();
+    steward_->setIntent({});
     log_->append("Steward transformed selected clip");
   }
 
@@ -2070,6 +2076,7 @@ public:
     selectedAssetId_ = std::nullopt;
     showEffectControls();
     refreshViewModelAndPreview();
+    steward_->setIntent({});
     log_->append("Steward adjusted camera controls");
   }
 
@@ -2685,6 +2692,10 @@ std::string DesktopWindow::effectParamTitleText() const {
 
 std::string DesktopWindow::effectParamPanelText() const {
   return impl_->effectParamPanelText();
+}
+
+std::string DesktopWindow::stewardIntent() const {
+  return impl_->stewardIntent();
 }
 
 void DesktopWindow::setStewardIntent(std::string intent) {
