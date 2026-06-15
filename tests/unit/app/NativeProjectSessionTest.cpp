@@ -82,6 +82,23 @@ public:
   std::vector<double> records;
 };
 
+class CapturingRenderRangeSink final : public grapple::render::IRenderRangeSink {
+public:
+  grapple::foundation::Result<void> writeFrame(
+    std::size_t frameIndex,
+    const grapple::render::RenderFrameResult& frame
+  ) override {
+    frameIndexes.push_back(frameIndex);
+    frameTimes.push_back(frame.frame.time);
+    frameCameras.push_back(frame.frame.cameras);
+    return {};
+  }
+
+  std::vector<std::size_t> frameIndexes;
+  std::vector<grapple::foundation::TimeSeconds> frameTimes;
+  std::vector<std::vector<grapple::render::RenderedCamera>> frameCameras;
+};
+
 class CancellingProgressSink final : public grapple::jobs::IProgressSink {
 public:
   explicit CancellingProgressSink(grapple::jobs::CancellationToken& cancellation)
@@ -1653,6 +1670,31 @@ int main() {
   GRAPPLE_REQUIRE(stewardMotionMidFrame.value().frame.cameras.size() == 1);
   GRAPPLE_REQUIRE(stewardMotionMidFrame.value().frame.cameras[0].cameraNodeId == stewardMotionCameraNodeId);
   GRAPPLE_REQUIRE(stewardMotionMidFrame.value().frame.cameras[0].state.transform.position.x == 0.125);
+  const auto stewardMotionExportPlan = stewardMotionWorkspace.value().project().buildRenderPlan();
+  GRAPPLE_REQUIRE(stewardMotionExportPlan);
+  CapturingRenderRangeSink stewardMotionExportFrames;
+  const auto stewardMotionExport = stewardMotionWorkspace.value().exportSession().renderPlan(
+    stewardMotionExportPlan.value().plan,
+    render::ExportSettings{
+      foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{3.0}},
+      foundation::FrameRate{1, 1},
+      foundation::Resolution{1920, 1080},
+      render::Codec{"mjpeg"},
+      render::RenderQuality::Final,
+      foundation::FilePath{"/tmp/app-steward-motion-export.mov"}
+    },
+    &stewardMotionExportFrames
+  );
+  GRAPPLE_REQUIRE(stewardMotionExport);
+  GRAPPLE_REQUIRE(stewardMotionExport.value().sourceRevision == stewardMotionExportPlan.value().plan.revision);
+  GRAPPLE_REQUIRE(stewardMotionExport.value().renderPlanHash == stewardMotionMidFrame.value().frame.renderPlanHash);
+  GRAPPLE_REQUIRE(stewardMotionExport.value().framesEvaluated == 3);
+  GRAPPLE_REQUIRE(stewardMotionExport.value().runtimeDiagnostics.empty());
+  GRAPPLE_REQUIRE(stewardMotionExportFrames.frameTimes.size() == 3);
+  GRAPPLE_REQUIRE(stewardMotionExportFrames.frameTimes[2] == foundation::TimeSeconds{2.0});
+  GRAPPLE_REQUIRE(stewardMotionExportFrames.frameCameras[2].size() == 1);
+  GRAPPLE_REQUIRE(stewardMotionExportFrames.frameCameras[2][0].cameraNodeId == stewardMotionCameraNodeId);
+  GRAPPLE_REQUIRE(stewardMotionExportFrames.frameCameras[2][0].state.transform.position.x == 0.125);
 
   const foundation::NodeId stewardZoomCameraNodeId =
     stewardMotionWorkspace.value().commandWriter().nextNodeId("camera");

@@ -14,7 +14,8 @@ public:
 
   foundation::Result<render::FinalRenderResult> renderPlan(
     const projection::RenderPlan& plan,
-    render::ExportSettings settings
+    render::ExportSettings settings,
+    render::IRenderRangeSink* sink = nullptr
   );
   foundation::Result<render::FinalRenderResult> renderPlanToVideo(
     const projection::RenderPlan& plan,

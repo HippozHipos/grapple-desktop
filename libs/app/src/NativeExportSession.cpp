@@ -165,11 +165,13 @@ NativeExportSession::NativeExportSession(render::LocalRenderSystem& renderSystem
 
 foundation::Result<render::FinalRenderResult> NativeExportSession::renderPlan(
   const projection::RenderPlan& plan,
-  render::ExportSettings settings
+  render::ExportSettings settings,
+  render::IRenderRangeSink* sink
 ) {
   return renderSystem_.exportPlanRange(render::ExportPlanRequest{
     plan,
-    std::move(settings)
+    std::move(settings),
+    sink
   });
 }
 
