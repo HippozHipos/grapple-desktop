@@ -37,6 +37,7 @@
 #include <QPushButton>
 #include <QScrollArea>
 #include <QStringList>
+#include <QSlider>
 #include <QSpinBox>
 #include <QTabWidget>
 #include <QTextEdit>
@@ -45,6 +46,7 @@
 #include <QWidget>
 
 #include <algorithm>
+#include <cmath>
 #include <cstdlib>
 #include <filesystem>
 #include <iomanip>
@@ -1998,6 +2000,21 @@ public:
     QApplication::processEvents();
   }
 
+  void setEffectParamSliderRatio(const std::string& paramName, double ratio) {
+    auto* slider = findChild<QSlider*>(QString{"effectParamSlider_%1"}.arg(qString(paramName)));
+    if (slider == nullptr) {
+      appendError(grapple::foundation::Error{"desktop.effect_param_slider_missing", "Effect parameter slider not found."});
+      return;
+    }
+
+    const double normalized = std::clamp(ratio, 0.0, 1.0);
+    const int value = slider->minimum() +
+                      static_cast<int>(std::lround(normalized * static_cast<double>(slider->maximum() - slider->minimum())));
+    slider->setValue(value);
+    Q_EMIT slider->sliderReleased();
+    QApplication::processEvents();
+  }
+
   void setSelectedCameraNameControlValue(std::string name) {
     auto* editor = findChild<QLineEdit*>("cameraPropertyName");
     if (editor == nullptr) {
@@ -2841,6 +2858,10 @@ void DesktopWindow::setExportCodecControlValue(std::string codec) {
 
 void DesktopWindow::setEffectParamControlValue(const std::string& paramName, double value) {
   impl_->setEffectParamControlValue(paramName, value);
+}
+
+void DesktopWindow::setEffectParamSliderRatio(const std::string& paramName, double ratio) {
+  impl_->setEffectParamSliderRatio(paramName, ratio);
 }
 
 void DesktopWindow::setEffectParamKeyframeAtPlayhead(const std::string& paramName) {

@@ -79,6 +79,7 @@ public:
   void setExportFrameRateControlValue(double framesPerSecond);
   void setExportCodecControlValue(std::string codec);
   void setEffectParamControlValue(const std::string& paramName, double value);
+  void setEffectParamSliderRatio(const std::string& paramName, double ratio);
   void setEffectParamKeyframeAtPlayhead(const std::string& paramName);
   [[nodiscard]] std::string effectParamKeyframeButtonText(const std::string& paramName) const;
   void deleteEffectParamKeyframeControl(const std::string& paramName, int keyframeIndex);

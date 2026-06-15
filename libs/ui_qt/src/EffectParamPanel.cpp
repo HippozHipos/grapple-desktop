@@ -7,8 +7,12 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
+#include <QSignalBlocker>
+#include <QSlider>
+#include <QTimer>
 #include <QVBoxLayout>
 
+#include <algorithm>
 #include <cmath>
 #include <sstream>
 #include <utility>
@@ -30,6 +34,25 @@ QString timeText(foundation::TimeSeconds time) {
 
 bool sameTime(foundation::TimeSeconds left, foundation::TimeSeconds right) {
   return std::abs(left.value - right.value) < 0.000001;
+}
+
+constexpr int ParamSliderTicks = 1000;
+
+int sliderIndexForParamValue(double value, double min, double max) {
+  if (max <= min) {
+    return 0;
+  }
+  const double normalized = std::clamp((value - min) / (max - min), 0.0, 1.0);
+  return static_cast<int>(std::lround(normalized * ParamSliderTicks));
+}
+
+double paramValueForSliderIndex(int index, double min, double max) {
+  if (max <= min) {
+    return min;
+  }
+  const double normalized = static_cast<double>(std::clamp(index, 0, ParamSliderTicks)) /
+                            static_cast<double>(ParamSliderTicks);
+  return min + ((max - min) * normalized);
 }
 
 std::optional<foundation::KeyframeId> keyframeIdAtPlayhead(
@@ -223,12 +246,33 @@ void EffectParamPanel::setSelection(
           }
           editor->setValue(*numericValue);
           editor->setToolTip(QString{"%1..%2"}.arg(*param.numericMin).arg(*param.numericMax));
+          auto* slider = new QSlider{Qt::Horizontal};
+          slider->setObjectName(QString{"effectParamSlider_%1"}.arg(qString(param.name)));
+          slider->setRange(0, ParamSliderTicks);
+          slider->setValue(sliderIndexForParamValue(*numericValue, *param.numericMin, *param.numericMax));
+          slider->setEnabled(*param.numericMax > *param.numericMin);
 
-          connect(editor, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, [this, parameterEffectNodeId, paramName](double value) {
-            if (applyHandler_) {
-              applyHandler_(parameterEffectNodeId, paramName, timeline::ParamValue{value});
-            }
-          }, Qt::QueuedConnection);
+          connect(editor, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, [this, slider, parameterEffectNodeId, paramName, min = *param.numericMin, max = *param.numericMax](double value) {
+            const QSignalBlocker blockSlider{slider};
+            slider->setValue(sliderIndexForParamValue(value, min, max));
+            QTimer::singleShot(0, this, [this, parameterEffectNodeId, paramName, value] {
+              if (applyHandler_) {
+                applyHandler_(parameterEffectNodeId, paramName, timeline::ParamValue{value});
+              }
+            });
+          });
+          connect(slider, &QSlider::valueChanged, this, [editor, min = *param.numericMin, max = *param.numericMax](int index) {
+            const QSignalBlocker blockEditor{editor};
+            editor->setValue(paramValueForSliderIndex(index, min, max));
+          });
+          connect(slider, &QSlider::sliderReleased, this, [this, editor, parameterEffectNodeId, paramName] {
+            const double value = editor->value();
+            QTimer::singleShot(0, this, [this, parameterEffectNodeId, paramName, value] {
+              if (applyHandler_) {
+                applyHandler_(parameterEffectNodeId, paramName, timeline::ParamValue{value});
+              }
+            });
+          });
           auto* setKeyframe = new QPushButton{keyframeActionText(currentKeyframeId.has_value())};
           setKeyframe->setToolTip(keyframeActionTooltip(currentKeyframeId.has_value()));
           setKeyframe->setFixedWidth(58);
@@ -240,6 +284,7 @@ void EffectParamPanel::setSelection(
           });
 
           controlLayout->addWidget(editor, 1);
+          controlLayout->addWidget(slider, 2);
           controlLayout->addWidget(setKeyframe);
           rowLayout->addWidget(controlRow);
           layout_->addWidget(row);
