@@ -634,6 +634,7 @@ public:
     connect(exportButton, &QPushButton::clicked, this, [this] { chooseAndExportVideo(); });
     connect(saveButton, &QPushButton::clicked, this, [this] { savePackage(); });
     steward_->setAddCameraHandler([this] { addCamera(); });
+    steward_->setAddSelectedMediaHandler([this] { addSelectedMediaToTimeline(); });
     steward_->setShowCameraControlsHandler([this](grapple::foundation::NodeId cameraNodeId) {
       selectNode(std::move(cameraNodeId));
     });
@@ -734,7 +735,7 @@ public:
     summary_->setText(summaryText(viewModel));
     rebuildMediaBin(viewModel);
     previewSurface_->setAssetLabels(viewModel.assets);
-    steward_->setViewModel(viewModel, workspace_.steward().conversationState(), selectedNodeId_);
+    steward_->setViewModel(viewModel, workspace_.steward().conversationState(), selectedNodeId_, selectedAssetId_);
     timeline_->setViewModel(viewModel);
     timeline_->setPlayhead(workspace_.preview().state().playhead);
     timeline_->setSelectedNodeId(selectedNodeId_);
@@ -1039,8 +1040,8 @@ public:
     steward_->setIntent(std::move(intent));
   }
 
-  void clickStewardCreateCameraEffect() {
-    steward_->triggerCreateCameraEffect();
+  void clickStewardPrimaryAction() {
+    steward_->triggerPrimaryAction();
   }
 
   void startPlayback() {
@@ -2518,7 +2519,7 @@ private:
 
   void updateSelectionPanels(const grapple::app::AppViewModel& viewModel) {
     updateInspector(viewModel);
-    steward_->setViewModel(viewModel, workspace_.steward().conversationState(), selectedNodeId_);
+    steward_->setViewModel(viewModel, workspace_.steward().conversationState(), selectedNodeId_, selectedAssetId_);
   }
 
   void refreshPlayheadEditControls() {
@@ -2725,8 +2726,8 @@ void DesktopWindow::setStewardIntent(std::string intent) {
   impl_->setStewardIntent(std::move(intent));
 }
 
-void DesktopWindow::clickStewardCreateCameraEffect() {
-  impl_->clickStewardCreateCameraEffect();
+void DesktopWindow::clickStewardPrimaryAction() {
+  impl_->clickStewardPrimaryAction();
 }
 
 void DesktopWindow::startPlayback() {

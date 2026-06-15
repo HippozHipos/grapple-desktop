@@ -49,7 +49,7 @@ public:
   [[nodiscard]] std::string effectParamTitleText() const;
   [[nodiscard]] std::string effectParamPanelText() const;
   void setStewardIntent(std::string intent);
-  void clickStewardCreateCameraEffect();
+  void clickStewardPrimaryAction();
   void startPlayback();
   void pausePlayback();
   void advancePlaybackFrame();

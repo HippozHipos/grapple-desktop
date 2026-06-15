@@ -115,14 +115,19 @@ StewardPanel::StewardPanel(QWidget* parent)
   intent_->setMaximumHeight(72);
   layout->addWidget(intent_);
 
-  createCameraEffectButton_ = new QPushButton{"Create Editable Camera Controls"};
-  createCameraEffectButton_->setObjectName("stewardCreateCameraEffect");
-  layout->addWidget(createCameraEffectButton_);
-  connect(createCameraEffectButton_, &QPushButton::clicked, this, [this] {
+  primaryActionButton_ = new QPushButton{"Create Editable Camera Controls"};
+  primaryActionButton_->setObjectName("stewardPrimaryAction");
+  layout->addWidget(primaryActionButton_);
+  connect(primaryActionButton_, &QPushButton::clicked, this, [this] {
     switch (primaryAction_) {
       case PrimaryAction::AddCamera:
         if (addCameraHandler_) {
           addCameraHandler_();
+        }
+        return;
+      case PrimaryAction::AddSelectedMedia:
+        if (addSelectedMediaHandler_) {
+          addSelectedMediaHandler_();
         }
         return;
       case PrimaryAction::ShowCameraControls:
@@ -153,6 +158,10 @@ void StewardPanel::setAddCameraHandler(AddCameraHandler handler) {
   addCameraHandler_ = std::move(handler);
 }
 
+void StewardPanel::setAddSelectedMediaHandler(AddSelectedMediaHandler handler) {
+  addSelectedMediaHandler_ = std::move(handler);
+}
+
 void StewardPanel::setShowCameraControlsHandler(ShowCameraControlsHandler handler) {
   showCameraControlsHandler_ = std::move(handler);
 }
@@ -164,39 +173,46 @@ void StewardPanel::setCreateCameraEffectHandler(CreateCameraEffectHandler handle
 void StewardPanel::setViewModel(
   const app::AppViewModel& viewModel,
   const agent::AgentConversationState& conversationState,
-  const std::optional<foundation::NodeId>& selectedNodeId
+  const std::optional<foundation::NodeId>& selectedNodeId,
+  const std::optional<foundation::AssetId>& selectedAssetId
 ) {
   const std::optional<foundation::NodeId> cameraTargetId = app::stewardCameraTargetId(viewModel, selectedNodeId);
   primaryTargetCameraNodeId_ = cameraTargetId;
   if (!cameraTargetId.has_value()) {
     primaryTargetCameraNodeId_ = std::nullopt;
     if (viewModel.timeline.clips.empty()) {
-      primaryAction_ = PrimaryAction::Disabled;
-      createCameraEffectButton_->setText("Import Media First");
-      createCameraEffectButton_->setEnabled(false);
+      if (selectedAssetId.has_value()) {
+        primaryAction_ = PrimaryAction::AddSelectedMedia;
+        primaryActionButton_->setText("Add Selected Media To Timeline");
+        primaryActionButton_->setEnabled(static_cast<bool>(addSelectedMediaHandler_));
+      } else {
+        primaryAction_ = PrimaryAction::Disabled;
+        primaryActionButton_->setText(viewModel.assets.count == 0 ? "Import Media First" : "Select Media To Add");
+        primaryActionButton_->setEnabled(false);
+      }
     } else if (viewModel.timeline.cameras.empty()) {
       primaryAction_ = PrimaryAction::AddCamera;
-      createCameraEffectButton_->setText("Add Camera");
-      createCameraEffectButton_->setEnabled(static_cast<bool>(addCameraHandler_));
+      primaryActionButton_->setText("Add Camera");
+      primaryActionButton_->setEnabled(static_cast<bool>(addCameraHandler_));
     } else {
       primaryAction_ = PrimaryAction::Disabled;
-      createCameraEffectButton_->setText("Select Camera");
-      createCameraEffectButton_->setEnabled(false);
+      primaryActionButton_->setText("Select Camera");
+      primaryActionButton_->setEnabled(false);
     }
   } else if (app::cameraHasTransformEffect(viewModel, cameraTargetId.value())) {
     if (selectedNodeId.has_value() && selectedNodeId.value() == cameraTargetId.value()) {
       primaryAction_ = PrimaryAction::ControlsShown;
-      createCameraEffectButton_->setText("Editable Controls Shown");
-      createCameraEffectButton_->setEnabled(false);
+      primaryActionButton_->setText("Editable Controls Shown");
+      primaryActionButton_->setEnabled(false);
     } else {
       primaryAction_ = PrimaryAction::ShowCameraControls;
-      createCameraEffectButton_->setText("Show Editable Controls");
-      createCameraEffectButton_->setEnabled(static_cast<bool>(showCameraControlsHandler_));
+      primaryActionButton_->setText("Show Editable Controls");
+      primaryActionButton_->setEnabled(static_cast<bool>(showCameraControlsHandler_));
     }
   } else {
     primaryAction_ = PrimaryAction::CreateCameraEffect;
-    createCameraEffectButton_->setText("Create Editable Camera Controls");
-    createCameraEffectButton_->setEnabled(static_cast<bool>(createCameraEffectHandler_));
+    primaryActionButton_->setText("Create Editable Camera Controls");
+    primaryActionButton_->setEnabled(static_cast<bool>(createCameraEffectHandler_));
   }
 
   QStringList lines{
@@ -311,8 +327,8 @@ void StewardPanel::setIntent(std::string intent) {
   intent_->moveCursor(QTextCursor::Start);
 }
 
-void StewardPanel::triggerCreateCameraEffect() {
-  createCameraEffectButton_->click();
+void StewardPanel::triggerPrimaryAction() {
+  primaryActionButton_->click();
 }
 
 std::string StewardPanel::contents() const {
@@ -324,11 +340,11 @@ std::string StewardPanel::intent() const {
 }
 
 std::string StewardPanel::primaryActionText() const {
-  return createCameraEffectButton_->text().toStdString();
+  return primaryActionButton_->text().toStdString();
 }
 
 bool StewardPanel::primaryActionEnabled() const {
-  return createCameraEffectButton_->isEnabled();
+  return primaryActionButton_->isEnabled();
 }
 
 } // namespace grapple::ui

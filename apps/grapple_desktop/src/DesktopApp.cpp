@@ -667,8 +667,12 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   }
 
   if (emptyAddVideoSmoke) {
+    window.show();
+    app.processEvents();
     window.importMediaFile(grapple::foundation::FilePath{"/tmp/grapple-native-demo/starter-gradient.avi"});
-    window.addSelectedMediaToTimeline();
+    const std::string stewardActionAfterImport = window.stewardPrimaryActionText();
+    const bool stewardActionEnabledAfterImport = window.stewardPrimaryActionEnabled();
+    window.clickStewardPrimaryAction();
     const auto viewModel = workspace.value().project().buildViewModel();
     if (!viewModel) {
       printError(viewModel.error());
@@ -680,6 +684,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "cameras=" << viewModel.value().timeline.cameras.size() << '\n';
     std::cout << "clips=" << viewModel.value().timeline.clips.size() << '\n';
     std::cout << "duration=" << viewModel.value().timeline.duration.value << '\n';
+    std::cout << "stewardActionAfterImport=" << stewardActionAfterImport << '\n';
+    std::cout << "stewardActionEnabledAfterImport=" << (stewardActionEnabledAfterImport ? "true" : "false") << '\n';
     if (window.selectedNodeId().has_value()) {
       std::cout << "selectedNode=" << window.selectedNodeId()->value() << '\n';
     }
@@ -689,6 +695,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            viewModel.value().timeline.cameras.size() == 1 &&
            viewModel.value().timeline.clips.size() == 1 &&
            viewModel.value().timeline.duration.value > 9.9 &&
+           stewardActionAfterImport == "Add Selected Media To Timeline" &&
+           stewardActionEnabledAfterImport &&
            window.selectedNodeId().has_value()
       ? 0
       : 1;
@@ -987,7 +995,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     app.processEvents();
     window.clickFirstTimelineCamera();
     window.setStewardIntent("Center the camera with editable controls.");
-    window.clickStewardCreateCameraEffect();
+    window.clickStewardPrimaryAction();
     window.setEffectParamControlValue(grapple::runtime::builtin_effect::PositionXParam, 0.25);
 
     const auto afterParamEdit = workspace.value().project().buildViewModel();
@@ -1076,7 +1084,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     app.processEvents();
     window.clickFirstTimelineCamera();
     window.setStewardIntent("Shift the camera right with editable controls.");
-    window.clickStewardCreateCameraEffect();
+    window.clickStewardPrimaryAction();
     window.setEffectParamControlValue(grapple::runtime::builtin_effect::PositionXParam, 0.25);
     window.setEffectParamControlValue(grapple::runtime::builtin_effect::ZoomParam, 1.5);
     const std::string inspector = window.inspectorContents();
@@ -1102,7 +1110,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     app.processEvents();
     window.clickFirstTimelineCamera();
     window.setStewardIntent("Add then remove an editable camera transform.");
-    window.clickStewardCreateCameraEffect();
+    window.clickStewardPrimaryAction();
     window.deleteSelectedTargetEffect();
     const std::string inspector = window.inspectorContents();
     const auto viewModel = workspace.value().project().buildViewModel();
@@ -1125,7 +1133,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     app.processEvents();
     window.clickFirstTimelineCamera();
     window.setStewardIntent("Animate camera position with editable controls.");
-    window.clickStewardCreateCameraEffect();
+    window.clickStewardPrimaryAction();
     window.seekTo(grapple::foundation::TimeSeconds{2.0});
     window.setEffectParamControlValue(grapple::runtime::builtin_effect::PositionXParam, 0.25);
     window.setEffectParamKeyframeAtPlayhead(grapple::runtime::builtin_effect::PositionXParam);
@@ -1195,11 +1203,11 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     window.clickFirstTimelineClip();
     const auto selectedClipBeforeCreate = window.selectedNodeId();
     window.setStewardIntent("Center the walking subject with exposed controls.");
-    window.clickStewardCreateCameraEffect();
+    window.clickStewardPrimaryAction();
     const auto selectedAfterCreate = window.selectedNodeId();
     window.clickFirstTimelineClip();
     const auto selectedClipBeforeShowControls = window.selectedNodeId();
-    window.clickStewardCreateCameraEffect();
+    window.clickStewardPrimaryAction();
     const auto selectedAfterShowControls = window.selectedNodeId();
     const std::string inspector = window.inspectorContents();
     const std::string logText = window.logContents();
@@ -1378,9 +1386,11 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::filesystem::remove(outputPath);
 
     window.importMediaFile(grapple::foundation::FilePath{"/tmp/grapple-native-demo/starter-gradient.avi"});
-    window.addSelectedMediaToTimeline();
+    const std::string stewardActionAfterImport = window.stewardPrimaryActionText();
+    const bool stewardActionEnabledAfterImport = window.stewardPrimaryActionEnabled();
+    window.clickStewardPrimaryAction();
     window.setStewardIntent("Center the subject with editable camera controls.");
-    window.clickStewardCreateCameraEffect();
+    window.clickStewardPrimaryAction();
     window.setSelectedTargetNumericEffectParam(grapple::runtime::builtin_effect::PositionXParam, 0.25);
     const auto tunedViewModel = workspace.value().project().buildViewModel();
     if (!tunedViewModel) {
@@ -1459,6 +1469,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "size=" << size << '\n';
     std::cout << "inspector=" << inspector << '\n';
     std::cout << "steward=" << steward << '\n';
+    std::cout << "stewardActionAfterImport=" << stewardActionAfterImport << '\n';
+    std::cout << "stewardActionEnabledAfterImport=" << (stewardActionEnabledAfterImport ? "true" : "false") << '\n';
     std::cout << "stewardAction=" << stewardActionText << '\n';
     std::cout << "stewardActionEnabled=" << (stewardActionEnabled ? "true" : "false") << '\n';
     std::cout << "effectParamTitle=" << effectParamTitle << '\n';
@@ -1470,6 +1482,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            viewModel.value().timeline.effectCount == 1 &&
            hasTunedEditableEffect &&
            hasEvaluatedTunedPreview &&
+           stewardActionAfterImport == "Add Selected Media To Timeline" &&
+           stewardActionEnabledAfterImport &&
            steward.find("1 clips | 1 cameras | 1 editable effects") != std::string::npos &&
            steward.find("Position X=0.25 [-1..1 step 0.01]") != std::string::npos &&
            steward.find("Position X=0.25 [-1..1 step 0.01] last changed by desktop at ") != std::string::npos &&
@@ -1496,7 +1510,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     window.addSelectedMediaToTimeline();
     window.clickFirstTimelineCamera();
     window.setStewardIntent("Persist editable camera controls.");
-    window.clickStewardCreateCameraEffect();
+    window.clickStewardPrimaryAction();
     window.setSelectedTargetNumericEffectParam(grapple::runtime::builtin_effect::PositionXParam, 0.25);
     const auto write = workspace.value().writePackage();
     if (!write) {
@@ -1634,7 +1648,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     app.processEvents();
     window.clickFirstTimelineCamera();
     window.setStewardIntent("Center the subject with editable camera controls.");
-    window.clickStewardCreateCameraEffect();
+    window.clickStewardPrimaryAction();
     window.setSelectedTargetNumericEffectParam(grapple::runtime::builtin_effect::PositionXParam, 0.25);
     window.setSelectedTargetNumericEffectParam(grapple::runtime::builtin_effect::ZoomParam, 1.5);
     app.processEvents();
