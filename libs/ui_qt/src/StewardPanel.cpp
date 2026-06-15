@@ -14,47 +14,6 @@ QString qString(const std::string& value) {
   return QString::fromStdString(value);
 }
 
-QString controlTextFor(const app::AppEffectParamRow& param) {
-  const QString displayName = param.label.empty() ? qString(param.name) : qString(param.label);
-  QString text = QString{"%1=%2"}.arg(displayName).arg(qString(app::paramValueDisplayText(param.value)));
-  if (param.numericMin.has_value() && param.numericMax.has_value()) {
-    text += QString{" [%1..%2"}.arg(*param.numericMin).arg(*param.numericMax);
-    if (param.numericStep.has_value()) {
-      text += QString{" step %1"}.arg(*param.numericStep);
-    }
-    text += "]";
-  }
-  if (param.lastEditedRevision.has_value()) {
-    text += QString{" last changed by %1 at %2"}
-      .arg(qString(param.lastEditedActorName.empty() ? param.lastEditedSourceKind : param.lastEditedActorName))
-      .arg(qString(param.lastEditedRevision->value()));
-  }
-  return text;
-}
-
-QString keyframeTextFor(const app::AppEffectParamRow::Keyframe& keyframe) {
-  QString text = QString{"keyframe %1s=%2"}
-    .arg(keyframe.time.value)
-    .arg(qString(app::paramValueDisplayText(keyframe.value)));
-  if (keyframe.lastEditedRevision.has_value()) {
-    text += QString{" last changed by %1 at %2"}
-      .arg(qString(keyframe.lastEditedActorName.empty() ? keyframe.lastEditedSourceKind : keyframe.lastEditedActorName))
-      .arg(qString(keyframe.lastEditedRevision->value()));
-  }
-  return text;
-}
-
-QStringList exposedControlsFor(const app::AppEffectRow& effect) {
-  QStringList controls;
-  for (const app::AppEffectParamRow& param : effect.params) {
-    controls << controlTextFor(param);
-    for (const app::AppEffectParamRow::Keyframe& keyframe : param.keyframes) {
-      controls << keyframeTextFor(keyframe);
-    }
-  }
-  return controls;
-}
-
 QString runStatusText(agent::AgentRunStatus status) {
   switch (status) {
     case agent::AgentRunStatus::Pending:
@@ -243,31 +202,6 @@ void StewardPanel::setViewModel(
         .arg(targetText)
         .arg(qString(edit->intent));
     }
-  }
-
-  lines << "";
-  lines << "Editable controls";
-
-  bool hasEditableEffect = false;
-  for (const app::AppEffectGraphRow& graph : viewModel.timeline.effectGraphs) {
-    for (const app::AppEffectRow& effect : graph.effects) {
-      const QStringList controls = exposedControlsFor(effect);
-      if (controls.empty()) {
-        continue;
-      }
-
-      hasEditableEffect = true;
-      lines << QString{"- %1 on %2"}
-        .arg(qString(effect.displayName))
-        .arg(qString(graph.targetName));
-      for (const QString& control : controls) {
-        lines << QString{"  - %1"}.arg(control);
-      }
-    }
-  }
-
-  if (!hasEditableEffect) {
-    lines << "- no editable controls yet";
   }
 
   lines << "";

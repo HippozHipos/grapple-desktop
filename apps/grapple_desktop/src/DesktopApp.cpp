@@ -546,8 +546,6 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            steward.find("Loop") != std::string::npos &&
            steward.find("Create an editable result") != std::string::npos &&
            steward.find("editable graph") == std::string::npos &&
-           steward.find("Editable controls") != std::string::npos &&
-           steward.find("- no editable controls yet") != std::string::npos &&
            steward.find("Recent Steward runs") != std::string::npos &&
            steward.find("- no runs yet") != std::string::npos &&
            !viewModel.value().timeline.cameras.empty() &&
@@ -1030,8 +1028,6 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       printError(undoneCameraX.error());
       return 1;
     }
-    const std::string stewardAfterUndo = window.stewardContents();
-
     window.redoLastEdit();
     const auto afterParamRedo = workspace.value().project().buildViewModel();
     if (!afterParamRedo) {
@@ -1048,8 +1044,6 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       printError(redoneCameraX.error());
       return 1;
     }
-    const std::string stewardAfterRedo = window.stewardContents();
-
     std::cout << "afterParamEditRevision=" << afterParamEdit.value().project.revision.value() << '\n';
     std::cout << "afterParamEditValue=" << std::get<double>(editedParam.value()->value) << '\n';
     std::cout << "afterParamEditCameraX=" << editedCameraX.value() << '\n';
@@ -1059,8 +1053,6 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "afterParamRedoRevision=" << afterParamRedo.value().project.revision.value() << '\n';
     std::cout << "afterParamRedoValue=" << std::get<double>(redoneParam.value()->value) << '\n';
     std::cout << "afterParamRedoCameraX=" << redoneCameraX.value() << '\n';
-    std::cout << "stewardAfterUndo=" << stewardAfterUndo << '\n';
-    std::cout << "stewardAfterRedo=" << stewardAfterRedo << '\n';
     return trackUndoRedoOk &&
            std::holds_alternative<double>(editedParam.value()->value) &&
            std::holds_alternative<double>(undoneParam.value()->value) &&
@@ -1070,11 +1062,9 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            approx(std::get<double>(undoneParam.value()->value), 0.0) &&
            approx(undoneCameraX.value(), 0.0) &&
            !undoneParam.value()->lastEditedRevision.has_value() &&
-           stewardAfterUndo.find("Position X=0 [-1..1 step 0.01] last changed by desktop") == std::string::npos &&
            approx(std::get<double>(redoneParam.value()->value), 0.25) &&
            approx(redoneCameraX.value(), 0.25) &&
-           redoneParam.value()->lastEditedRevision.has_value() &&
-           stewardAfterRedo.find("Position X=0.25 [-1..1 step 0.01] last changed by desktop at ") != std::string::npos
+           redoneParam.value()->lastEditedRevision.has_value()
       ? 0
       : 1;
   }
@@ -1155,7 +1145,6 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     window.seekTo(grapple::foundation::TimeSeconds{2.0});
     const std::string buttonBackAtKeyframe = window.effectParamKeyframeButtonText(grapple::runtime::builtin_effect::PositionXParam);
     const std::string effectParamPanelAfterUpdate = window.effectParamPanelText();
-    const std::string stewardAfterKeyframeUpdate = window.stewardContents();
     window.deleteEffectParamKeyframeControl(grapple::runtime::builtin_effect::PositionXParam, 0);
     const auto afterKeyframeDelete = workspace.value().project().buildViewModel();
     if (!afterKeyframeDelete) {
@@ -1174,7 +1163,6 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "buttonAwayFromKeyframe=" << buttonAwayFromKeyframe << '\n';
     std::cout << "buttonBackAtKeyframe=" << buttonBackAtKeyframe << '\n';
     std::cout << "effectParamPanelAfterUpdate=" << effectParamPanelAfterUpdate << '\n';
-    std::cout << "stewardAfterKeyframeUpdate=" << stewardAfterKeyframeUpdate << '\n';
     std::cout << "afterDeleteRevision=" << afterKeyframeDelete.value().project.revision.value() << '\n';
     std::cout << "afterDeleteKeyframes=" << keyframesAfterDelete.size() << '\n';
     return keyframesAfterSet.size() == 1 &&
@@ -1191,7 +1179,6 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            buttonAwayFromKeyframe == "Set" &&
            buttonBackAtKeyframe == "Update" &&
            effectParamPanelAfterUpdate.find("2s = 0.5 last changed by desktop at ") != std::string::npos &&
-           stewardAfterKeyframeUpdate.find("keyframe 2s=0.5 last changed by desktop at ") != std::string::npos &&
            keyframesAfterDelete.empty()
       ? 0
       : 1;
@@ -1215,6 +1202,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     const std::string stewardActionText = window.stewardPrimaryActionText();
     const bool stewardActionEnabled = window.stewardPrimaryActionEnabled();
     const std::string effectParamTitle = window.effectParamTitleText();
+    const std::string effectParamPanel = window.effectParamPanelText();
     const auto viewModel = workspace.value().project().buildViewModel();
     if (!viewModel) {
       printError(viewModel.error());
@@ -1228,6 +1216,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "stewardAction=" << stewardActionText << '\n';
     std::cout << "stewardActionEnabled=" << (stewardActionEnabled ? "true" : "false") << '\n';
     std::cout << "effectParamTitle=" << effectParamTitle << '\n';
+    std::cout << "effectParamPanel=" << effectParamPanel << '\n';
     const auto& snapshots = workspace.value().project().packageState().snapshots.records();
     const bool intentRecorded = !snapshots.empty() &&
                                 snapshots.back().label.has_value() &&
@@ -1268,9 +1257,6 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            inspector.find("Entrypoint:") == std::string::npos &&
            inspector.find("Position X (position_x)=0") != std::string::npos &&
            intentRecorded &&
-           steward.find("Position X=0 [-1..1 step 0.01]") != std::string::npos &&
-           steward.find("Position Y=0 [-1..1 step 0.01]") != std::string::npos &&
-           steward.find("Zoom=1.1 [0.25..4 step 0.01]") != std::string::npos &&
            steward.find("Applied edits") != std::string::npos &&
            steward.find("- " + createdRevisionText + " Camera Transform on Camera: Center the walking subject with exposed controls.") != std::string::npos &&
            steward.find("Recent Steward runs") != std::string::npos &&
@@ -1289,6 +1275,9 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            stewardActionText == "Editable Controls Shown" &&
            !stewardActionEnabled &&
            effectParamTitle == "Camera Transform on Camera" &&
+           effectParamPanel.find("Position X") != std::string::npos &&
+           effectParamPanel.find("Position Y") != std::string::npos &&
+           effectParamPanel.find("Zoom") != std::string::npos &&
            logText.find("Preview refreshed") == std::string::npos &&
            logText.find("steward.camera_transform_exists") == std::string::npos &&
            logText.find("runtime.effect_runtime_missing") == std::string::npos
@@ -1485,8 +1474,6 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            stewardActionAfterImport == "Add Selected Media To Timeline" &&
            stewardActionEnabledAfterImport &&
            steward.find("1 assets | 1 clips | 1 cameras | 1 editable effects") != std::string::npos &&
-           steward.find("Position X=0.25 [-1..1 step 0.01]") != std::string::npos &&
-           steward.find("Position X=0.25 [-1..1 step 0.01] last changed by desktop at ") != std::string::npos &&
            steward.find("Applied edits") != std::string::npos &&
            steward.find("Camera Transform on Camera: Center the subject with editable camera controls.") != std::string::npos &&
            stewardActionText == "Editable Controls Shown" &&
@@ -1494,6 +1481,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            effectParamTitle == "Camera Transform on Camera" &&
            inspector.find("Position X (position_x)=0.25") != std::string::npos &&
            inspector.find("last changed by desktop at ") != std::string::npos &&
+           effectParamPanel.find("Position X") != std::string::npos &&
            effectParamPanel.find("Last changed by desktop at ") != std::string::npos &&
            log.find("Imported starter-gradient") != std::string::npos &&
            log.find("Added starter-gradient to timeline") != std::string::npos &&
