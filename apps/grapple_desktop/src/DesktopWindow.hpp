@@ -86,6 +86,7 @@ public:
   void setExportResolutionControlValue(int width, int height);
   void setExportFrameRateControlValue(double framesPerSecond);
   void setExportCodecControlValue(std::string codec);
+  void setEffectParamControlDraftValue(const std::string& paramName, double value);
   void setEffectParamControlValue(const std::string& paramName, double value);
   void setEffectParamSliderRatio(const std::string& paramName, double ratio);
   void setEffectParamKeyframeAtPlayhead(const std::string& paramName);

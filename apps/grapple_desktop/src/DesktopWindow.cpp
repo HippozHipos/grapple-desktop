@@ -1883,6 +1883,18 @@ public:
     }
 
     editor->setValue(value);
+    Q_EMIT editor->editingFinished();
+    QApplication::processEvents();
+  }
+
+  void setEffectParamControlDraftValue(const std::string& paramName, double value) {
+    auto* editor = findChild<QDoubleSpinBox*>(QString{"effectParamEditor_%1"}.arg(qString(paramName)));
+    if (editor == nullptr) {
+      appendError(grapple::foundation::Error{"desktop.effect_param_control_missing", "Effect parameter control not found."});
+      return;
+    }
+
+    editor->setValue(value);
     QApplication::processEvents();
   }
 
@@ -2824,6 +2836,10 @@ void DesktopWindow::setExportFrameRateControlValue(double framesPerSecond) {
 
 void DesktopWindow::setExportCodecControlValue(std::string codec) {
   impl_->setExportCodecControlValue(std::move(codec));
+}
+
+void DesktopWindow::setEffectParamControlDraftValue(const std::string& paramName, double value) {
+  impl_->setEffectParamControlDraftValue(paramName, value);
 }
 
 void DesktopWindow::setEffectParamControlValue(const std::string& paramName, double value) {

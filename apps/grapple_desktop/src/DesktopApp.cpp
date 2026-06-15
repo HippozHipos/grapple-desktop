@@ -1182,6 +1182,29 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     window.clickFirstTimelineCamera();
     window.setStewardIntent("Create editable camera controls.");
     window.clickStewardPrimaryAction();
+    window.setEffectParamControlDraftValue(grapple::effects::builtin_effect::ZoomParam, 1.5);
+    const auto afterDraftEdit = workspace.value().project().buildViewModel();
+    if (!afterDraftEdit) {
+      printError(afterDraftEdit.error());
+      return 1;
+    }
+    if (afterDraftEdit.value().timeline.effectGraphs.empty() ||
+        afterDraftEdit.value().timeline.effectGraphs.front().effects.empty()) {
+      std::cerr << "Set effect param smoke requires an editable effect.\n";
+      return 1;
+    }
+    const auto draftZoomParam = std::find_if(
+      afterDraftEdit.value().timeline.effectGraphs.front().effects.front().params.begin(),
+      afterDraftEdit.value().timeline.effectGraphs.front().effects.front().params.end(),
+      [](const grapple::app::AppEffectParamRow& row) {
+        return row.name == grapple::effects::builtin_effect::ZoomParam;
+      }
+    );
+    if (draftZoomParam == afterDraftEdit.value().timeline.effectGraphs.front().effects.front().params.end() ||
+        !std::holds_alternative<double>(draftZoomParam->value)) {
+      std::cerr << "Set effect param smoke requires a numeric zoom parameter.\n";
+      return 1;
+    }
     window.setEffectParamSliderRatio(grapple::effects::builtin_effect::PositionXParam, 0.625);
     window.setEffectParamControlValue(grapple::effects::builtin_effect::ZoomParam, 1.5);
     window.setEffectParamSliderRatio(grapple::effects::builtin_effect::PositionXParam, 0.625);
@@ -1192,10 +1215,14 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       printError(viewModel.error());
       return 1;
     }
+    std::cout << "afterDraftRevision=" << afterDraftEdit.value().project.revision.value() << '\n';
+    std::cout << "afterDraftZoom=" << std::get<double>(draftZoomParam->value) << '\n';
     std::cout << "revision=" << viewModel.value().project.revision.value() << '\n';
     std::cout << "inspector=" << inspector << '\n';
     std::cout << "log=" << log << '\n';
-    return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_8"} &&
+    return afterDraftEdit.value().project.revision == grapple::foundation::RevisionId{"rev_6"} &&
+           std::get<double>(draftZoomParam->value) == 1.0 &&
+           viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_8"} &&
            inspector.find("Position X (position_x)=0.25") != std::string::npos &&
            inspector.find("Zoom (zoom)=1.5") != std::string::npos &&
            log.find("Updated effect parameter") == std::string::npos

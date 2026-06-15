@@ -10,7 +10,6 @@
 #include <QSignalBlocker>
 #include <QSizePolicy>
 #include <QSlider>
-#include <QTimer>
 #include <QVBoxLayout>
 
 #include <algorithm>
@@ -277,12 +276,16 @@ void EffectParamPanel::setSelection(
           slider->setValue(sliderIndexForParamValue(*numericValue, *param.numericMin, *param.numericMax));
           slider->setEnabled(*param.numericMax > *param.numericMin);
 
-          connect(editor, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, [this, slider, commitEditedValue, min = *param.numericMin, max = *param.numericMax](double value) {
+          connect(editor, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, [slider, min = *param.numericMin, max = *param.numericMax](double value) {
             const QSignalBlocker blockSlider{slider};
             slider->setValue(sliderIndexForParamValue(value, min, max));
-            QTimer::singleShot(0, this, [commitEditedValue, value] {
-              commitEditedValue(timeline::ParamValue{value});
-            });
+          });
+          connect(editor, &QDoubleSpinBox::editingFinished, this, [editor, commitEditedValue, initialValue = *numericValue] {
+            const double value = editor->value();
+            if (sameNumericValue(value, initialValue)) {
+              return;
+            }
+            commitEditedValue(timeline::ParamValue{value});
           });
           connect(slider, &QSlider::valueChanged, this, [editor, min = *param.numericMin, max = *param.numericMax](int index) {
             const QSignalBlocker blockEditor{editor};
@@ -293,9 +296,7 @@ void EffectParamPanel::setSelection(
             if (sameNumericValue(value, initialValue)) {
               return;
             }
-            QTimer::singleShot(0, this, [commitEditedValue, value] {
-              commitEditedValue(timeline::ParamValue{value});
-            });
+            commitEditedValue(timeline::ParamValue{value});
           });
           auto* setKeyframe = new QPushButton{keyframeActionText(currentKeyframeId.has_value())};
           setKeyframe->setToolTip(keyframeActionTooltip(currentKeyframeId.has_value()));
