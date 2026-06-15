@@ -134,6 +134,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   bool addEffectSmoke = false;
   bool setEffectParamSmoke = false;
   bool effectKeyframeSmoke = false;
+  bool stewardMotionSmoke = false;
   bool deleteEffectSmoke = false;
   bool deleteSmoke = false;
   bool deleteTrackSmoke = false;
@@ -201,6 +202,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       setEffectParamSmoke = true;
     } else if (argument == "--effect-keyframe-smoke") {
       effectKeyframeSmoke = true;
+    } else if (argument == "--steward-motion-smoke") {
+      stewardMotionSmoke = true;
     } else if (argument == "--delete-effect-smoke") {
       deleteEffectSmoke = true;
     } else if (argument == "--delete-smoke") {
@@ -224,7 +227,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     } else if (argument == "--effect-screenshot" && index + 1 < argc) {
       effectScreenshotPath = argv[++index];
     } else {
-      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --select-audio-clip-smoke, --select-audio-track-smoke, --select-camera-smoke, --select-second-camera-smoke, --steward-smoke, --import-smoke, --import-media-types-smoke, --add-video-smoke, --empty-add-video-smoke, --empty-add-video-undo-smoke, --empty-add-track-smoke, --empty-add-camera-smoke, --update-camera-smoke, --add-note-smoke, --update-note-smoke, --move-clip-smoke, --trim-clip-smoke, --nudge-clip-smoke, --undo-redo-smoke, --add-effect-smoke, --set-effect-param-smoke, --effect-keyframe-smoke, --delete-effect-smoke, --delete-smoke, --delete-track-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, --export-settings-smoke, --product-loop-smoke, --empty-launch-smoke, --screenshot <path>, or --effect-screenshot <path>.\n";
+      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --select-audio-clip-smoke, --select-audio-track-smoke, --select-camera-smoke, --select-second-camera-smoke, --steward-smoke, --import-smoke, --import-media-types-smoke, --add-video-smoke, --empty-add-video-smoke, --empty-add-video-undo-smoke, --empty-add-track-smoke, --empty-add-camera-smoke, --update-camera-smoke, --add-note-smoke, --update-note-smoke, --move-clip-smoke, --trim-clip-smoke, --nudge-clip-smoke, --undo-redo-smoke, --add-effect-smoke, --set-effect-param-smoke, --effect-keyframe-smoke, --steward-motion-smoke, --delete-effect-smoke, --delete-smoke, --delete-track-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, --export-settings-smoke, --product-loop-smoke, --empty-launch-smoke, --screenshot <path>, or --effect-screenshot <path>.\n";
       return 1;
     }
   }
@@ -263,6 +266,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     addEffectSmoke ||
     setEffectParamSmoke ||
     effectKeyframeSmoke ||
+    stewardMotionSmoke ||
     deleteEffectSmoke ||
     deleteSmoke ||
     deleteTrackSmoke ||
@@ -1233,6 +1237,90 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            buttonBackAtKeyframe == "Update" &&
            effectParamPanelAfterUpdate.find("2s = 0.5 last changed by desktop at ") != std::string::npos &&
            keyframesAfterDelete.empty()
+      ? 0
+      : 1;
+  }
+
+  if (stewardMotionSmoke) {
+    const auto approx = [](double lhs, double rhs) {
+      return std::abs(lhs - rhs) < 0.000001;
+    };
+
+    window.show();
+    app.processEvents();
+    window.clickFirstTimelineCamera();
+    window.setStewardIntent("Pan right with editable camera controls.");
+    window.clickStewardPrimaryAction();
+    window.seekTo(grapple::foundation::TimeSeconds{5.0});
+
+    const auto viewModel = workspace.value().project().buildViewModel();
+    if (!viewModel) {
+      printError(viewModel.error());
+      return 1;
+    }
+    if (viewModel.value().timeline.effectGraphs.empty() ||
+        viewModel.value().timeline.effectGraphs.front().effects.empty()) {
+      std::cerr << "Steward motion smoke requires an editable effect.\n";
+      return 1;
+    }
+
+    const auto& effect = viewModel.value().timeline.effectGraphs.front().effects.front();
+    const auto param = std::find_if(
+      effect.params.begin(),
+      effect.params.end(),
+      [](const grapple::app::AppEffectParamRow& row) {
+        return row.name == grapple::effects::builtin_effect::PositionXParam;
+      }
+    );
+    if (param == effect.params.end()) {
+      std::cerr << "Steward motion smoke requires position_x.\n";
+      return 1;
+    }
+
+    const auto frame = workspace.value().preview().renderFrame(grapple::render::RenderFrameRequest{
+      workspace.value().preview().state().playhead,
+      grapple::render::RenderQuality::Draft
+    });
+    if (!frame) {
+      printError(frame.error());
+      return 1;
+    }
+
+    const auto conversation = workspace.value().steward().conversationState();
+    const std::string effectPanel = window.effectParamPanelText();
+    if (frame.value().frame.cameras.empty()) {
+      std::cerr << "Steward motion smoke requires an evaluated camera.\n";
+      return 1;
+    }
+    const double cameraX = frame.value().frame.cameras.front().state.transform.position.x;
+
+    std::cout << "revision=" << viewModel.value().project.revision.value() << '\n';
+    std::cout << "runs=" << conversation.runs.size() << '\n';
+    if (!conversation.runs.empty()) {
+      std::cout << "toolCalls=" << conversation.runs.front().toolCalls.size() << '\n';
+    }
+    std::cout << "positionXKeyframes=" << param->keyframes.size() << '\n';
+    std::cout << "cameraXAtMidpoint=" << cameraX << '\n';
+    std::cout << "effectPanel=" << effectPanel << '\n';
+
+    return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_8"} &&
+           conversation.runs.size() == 1 &&
+           conversation.runs.front().toolCalls.size() == 3 &&
+           conversation.runs.front().toolCalls[0].toolSerializedId == "camera.add_transform_controls" &&
+           conversation.runs.front().toolCalls[1].toolSerializedId == "camera.set_transform_keyframe" &&
+           conversation.runs.front().toolCalls[2].toolSerializedId == "camera.set_transform_keyframe" &&
+           param->keyframes.size() == 2 &&
+           param->keyframes[0].time == grapple::foundation::TimeSeconds{0.0} &&
+           approx(std::get<double>(param->keyframes[0].value), 0.0) &&
+           param->keyframes[0].lastEditedActorName == "steward" &&
+           param->keyframes[1].time == grapple::foundation::TimeSeconds{10.0} &&
+           approx(std::get<double>(param->keyframes[1].value), 0.25) &&
+           param->keyframes[1].lastEditedActorName == "steward" &&
+           frame.value().frame.sourceRevision == viewModel.value().project.revision &&
+           frame.value().frame.cameras.size() == 1 &&
+           approx(cameraX, 0.125) &&
+           effectPanel.find("0s = 0 last changed by steward at ") != std::string::npos &&
+           effectPanel.find("10s = 0.25 last changed by steward at ") != std::string::npos
       ? 0
       : 1;
   }
