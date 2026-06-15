@@ -13,7 +13,7 @@
 #include <grapple/project/ProjectSerializer.hpp>
 #include <grapple/render/LocalRenderCore.hpp>
 #include <grapple/render/LocalRenderSystem.hpp>
-#include <grapple/runtime/BuiltinEffects.hpp>
+#include <grapple/effects/BuiltinEffects.hpp>
 #include <grapple/runtime/EffectRuntime.hpp>
 #include <grapple/runtime/RuntimeEvaluator.hpp>
 #include <grapple/storage/ProjectPackageManifest.hpp>
@@ -129,7 +129,7 @@ class CountingCameraTransformRuntime final : public grapple::runtime::IEffectRun
 public:
   bool supports(const grapple::projection::RenderEffectNode& node) const override {
     return node.payload.implementation.kind == grapple::timeline::EffectImplementationKind::Builtin &&
-           node.payload.implementation.entrypoint == grapple::runtime::builtin_effect::CameraTransformEntrypoint;
+           node.payload.implementation.entrypoint == grapple::effects::builtin_effect::CameraTransformEntrypoint;
   }
 
   grapple::foundation::Result<grapple::runtime::EffectPrepareResult> prepare(
@@ -1179,7 +1179,7 @@ int main() {
   GRAPPLE_REQUIRE(initialRuntimeFrame.value().frame.cameras[0].state.transform.scale.y == 1.1);
   const auto updatedRuntimeEffect = runtimeWorkspace.value().effects().setParamValue(
     runtimeEffectNodeId,
-    runtime::builtin_effect::PositionXParam,
+    effects::builtin_effect::PositionXParam,
     0.25,
     userSource()
   );
@@ -1187,7 +1187,7 @@ int main() {
   GRAPPLE_REQUIRE(updatedRuntimeEffect.value().changed);
   const auto updatedRuntimeZoom = runtimeWorkspace.value().effects().setParamValue(
     runtimeEffectNodeId,
-    runtime::builtin_effect::ZoomParam,
+    effects::builtin_effect::ZoomParam,
     1.5,
     userSource()
   );

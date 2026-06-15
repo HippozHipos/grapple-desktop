@@ -1,7 +1,7 @@
 #include <grapple/render/LocalRenderCore.hpp>
 
 #include <grapple/projection/RenderPlanHashes.hpp>
-#include <grapple/runtime/RuntimeOutputNames.hpp>
+#include <grapple/effects/OutputNames.hpp>
 
 #include <algorithm>
 #include <cstddef>
@@ -87,7 +87,7 @@ void applyCameraTransformOutputs(
 ) {
   for (const runtime::RuntimeEffectOutput& output : sample.effectOutputs) {
     for (const runtime::RuntimeNamedValue& value : output.values) {
-      if (value.name != runtime::output_name::CameraTransform) {
+      if (value.name != effects::output_name::CameraTransform) {
         continue;
       }
 

@@ -1,9 +1,9 @@
 #include <grapple/runtime/BuiltinEffectRuntime.hpp>
-#include <grapple/runtime/BuiltinEffects.hpp>
+#include <grapple/effects/BuiltinEffects.hpp>
 #include <grapple/runtime/RuntimeDependencyPlanner.hpp>
 #include <grapple/runtime/RuntimeEvaluator.hpp>
 #include <grapple/runtime/MemoryRuntimeCache.hpp>
-#include <grapple/runtime/RuntimeOutputNames.hpp>
+#include <grapple/effects/OutputNames.hpp>
 #include <grapple/runtime/RuntimeParamEvaluator.hpp>
 
 #include <TestAssert.hpp>
@@ -208,30 +208,30 @@ grapple::projection::RenderPlan makeBuiltinCameraTransformPlan(bool includePosit
     grapple::timeline::CameraLens{}
   });
   grapple::timeline::ParamSet params{
-    {grapple::timeline::Param{grapple::runtime::builtin_effect::PositionXParam, 0.25}}
+    {grapple::timeline::Param{grapple::effects::builtin_effect::PositionXParam, 0.25}}
   };
   if (includePositionY) {
-    params.values.push_back(grapple::timeline::Param{grapple::runtime::builtin_effect::PositionYParam, -0.5});
+    params.values.push_back(grapple::timeline::Param{grapple::effects::builtin_effect::PositionYParam, -0.5});
   }
   if (includeZoom) {
-    params.values.push_back(grapple::timeline::Param{grapple::runtime::builtin_effect::ZoomParam, 1.75});
+    params.values.push_back(grapple::timeline::Param{grapple::effects::builtin_effect::ZoomParam, 1.75});
   }
   grapple::timeline::EffectPayload payload{
-    grapple::runtime::builtin_effect::CameraTransformDisplayName,
+    grapple::effects::builtin_effect::CameraTransformDisplayName,
     grapple::timeline::EffectImplementation{
       grapple::timeline::EffectImplementationKind::Builtin,
-      grapple::runtime::builtin_effect::CameraTransformEntrypoint,
+      grapple::effects::builtin_effect::CameraTransformEntrypoint,
       grapple::timeline::EffectSource{
         grapple::timeline::EffectSourceKind::InlineSource,
         "builtin",
-        grapple::runtime::builtin_effect::CameraTransformSource,
+        grapple::effects::builtin_effect::CameraTransformSource,
         std::nullopt,
-        grapple::foundation::stableHash(grapple::runtime::builtin_effect::CameraTransformSource)
+        grapple::foundation::stableHash(grapple::effects::builtin_effect::CameraTransformSource)
       }
     },
     grapple::timeline::EffectPortSet{
       {grapple::timeline::EffectPort{"frame"}},
-      {grapple::timeline::EffectPort{grapple::runtime::output_name::CameraTransform}}
+      {grapple::timeline::EffectPort{grapple::effects::output_name::CameraTransform}}
     },
     std::move(params),
     grapple::foundation::TimeRange{grapple::foundation::TimeSeconds{0.0}, grapple::foundation::TimeSeconds{10.0}}
@@ -249,7 +249,7 @@ grapple::projection::RenderPlan makeBuiltinCameraTransformPlan(bool includePosit
       grapple::projection::RenderEffectEdge{
         grapple::foundation::EdgeId{"edge_builtin_effect_targets_camera"},
         grapple::foundation::NodeId{"node_builtin_effect"},
-        grapple::graph::PortName{grapple::runtime::output_name::CameraTransform},
+        grapple::graph::PortName{grapple::effects::output_name::CameraTransform},
         grapple::foundation::NodeId{"node_camera"},
         grapple::graph::PortName{"input"},
         0
@@ -262,7 +262,7 @@ grapple::projection::RenderPlan makeBuiltinCameraTransformPlan(bool includePosit
 grapple::projection::RenderPlan makeKeyframedBuiltinCameraTransformPlan() {
   grapple::projection::RenderPlan plan = makeBuiltinCameraTransformPlan();
   for (grapple::timeline::Param& param : plan.effectGraphs[0].nodes[0].payload.params.values) {
-    if (param.name != grapple::runtime::builtin_effect::PositionXParam) {
+    if (param.name != grapple::effects::builtin_effect::PositionXParam) {
       continue;
     }
     param.keyframes = {
@@ -860,7 +860,7 @@ int main() {
     foundation::TimeSeconds{1.0}
   );
   GRAPPLE_REQUIRE(sampledParams.size() == 3);
-  GRAPPLE_REQUIRE(sampledParams[0].name == runtime::builtin_effect::PositionXParam);
+  GRAPPLE_REQUIRE(sampledParams[0].name == effects::builtin_effect::PositionXParam);
   GRAPPLE_REQUIRE(std::get<double>(sampledParams[0].value) == 0.5);
   const runtime::RuntimeValueMap steppedParams = runtime::evaluateRuntimeParams(
     runtime::RuntimeParamSet{
@@ -894,7 +894,7 @@ int main() {
   GRAPPLE_REQUIRE(builtinEffectSample.value().sample.effectOutputs.size() == 1);
   GRAPPLE_REQUIRE(builtinEffectSample.value().sample.effectOutputs[0].targetNodeId == foundation::NodeId{"node_camera"});
   GRAPPLE_REQUIRE(builtinEffectSample.value().sample.effectOutputs[0].values.size() == 1);
-  GRAPPLE_REQUIRE(builtinEffectSample.value().sample.effectOutputs[0].values[0].name == runtime::output_name::CameraTransform);
+  GRAPPLE_REQUIRE(builtinEffectSample.value().sample.effectOutputs[0].values[0].name == effects::output_name::CameraTransform);
   const auto* transform = std::get_if<foundation::Transform2D>(&builtinEffectSample.value().sample.effectOutputs[0].values[0].value);
   GRAPPLE_REQUIRE(transform != nullptr);
   GRAPPLE_REQUIRE(transform->position.x == 0.25);
@@ -943,7 +943,7 @@ int main() {
   GRAPPLE_REQUIRE(preparedMissingZoomBuiltinEffectPlan);
   GRAPPLE_REQUIRE(preparedMissingZoomBuiltinEffectPlan.value().diagnostics.size() == 1);
   GRAPPLE_REQUIRE(preparedMissingZoomBuiltinEffectPlan.value().diagnostics[0].code == "runtime.builtin_camera_transform_param_invalid");
-  GRAPPLE_REQUIRE(preparedMissingZoomBuiltinEffectPlan.value().diagnostics[0].message.find(runtime::builtin_effect::ZoomParam) != std::string::npos);
+  GRAPPLE_REQUIRE(preparedMissingZoomBuiltinEffectPlan.value().diagnostics[0].message.find(effects::builtin_effect::ZoomParam) != std::string::npos);
 
   const auto invalidBuiltinSample = evaluatorWithBuiltinRuntime.sample(runtime::RuntimeSampleRequest{
     preparedInvalidBuiltinEffectPlan.value().prepared,

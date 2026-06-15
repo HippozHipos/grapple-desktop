@@ -9,6 +9,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 enable_testing()
 
 add_subdirectory(libs/foundation)
+add_subdirectory(libs/effects)
 add_subdirectory(libs/asset)
 add_subdirectory(libs/timeline)
 add_subdirectory(libs/graph)

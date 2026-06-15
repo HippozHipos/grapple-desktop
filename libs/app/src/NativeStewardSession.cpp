@@ -6,8 +6,8 @@
 #include <grapple/foundation/FilePath.hpp>
 #include <grapple/foundation/Json.hpp>
 #include <grapple/graph/GraphNode.hpp>
-#include <grapple/runtime/BuiltinEffects.hpp>
-#include <grapple/runtime/RuntimeOutputNames.hpp>
+#include <grapple/effects/BuiltinEffects.hpp>
+#include <grapple/effects/OutputNames.hpp>
 #include <grapple/timeline/EffectPayload.hpp>
 
 #include <algorithm>
@@ -106,7 +106,7 @@ foundation::Result<void> ensureCameraCanReceiveTransformEffect(
     }
 
     if (effectPayload->implementation.kind == timeline::EffectImplementationKind::Builtin &&
-        effectPayload->implementation.entrypoint == runtime::builtin_effect::CameraTransformEntrypoint) {
+        effectPayload->implementation.entrypoint == effects::builtin_effect::CameraTransformEntrypoint) {
       return foundation::Error{"steward.camera_transform_exists", "Selected camera already has a Camera Transform effect."};
     }
   }
@@ -161,23 +161,23 @@ std::string createCameraTransformEffectArgumentsPayload(
   arguments << '{';
   foundation::writeJsonStringProperty(arguments, "targetNodeId", cameraNodeId.value());
   arguments << ',';
-  foundation::writeJsonStringProperty(arguments, "displayName", runtime::builtin_effect::CameraTransformDisplayName);
+  foundation::writeJsonStringProperty(arguments, "displayName", effects::builtin_effect::CameraTransformDisplayName);
   arguments << ',';
   foundation::writeJsonStringProperty(arguments, "implementationKind", "builtin");
   arguments << ',';
   foundation::writeJsonStringProperty(arguments, "language", "builtin");
   arguments << ',';
-  foundation::writeJsonStringProperty(arguments, "entrypoint", runtime::builtin_effect::CameraTransformEntrypoint);
+  foundation::writeJsonStringProperty(arguments, "entrypoint", effects::builtin_effect::CameraTransformEntrypoint);
   arguments << ',';
-  foundation::writeJsonStringProperty(arguments, "source", runtime::builtin_effect::CameraTransformSource);
+  foundation::writeJsonStringProperty(arguments, "source", effects::builtin_effect::CameraTransformSource);
   arguments << ',';
-  foundation::writeJsonStringProperty(arguments, "sourcePort", runtime::output_name::CameraTransform);
+  foundation::writeJsonStringProperty(arguments, "sourcePort", effects::output_name::CameraTransform);
   arguments << ',';
   foundation::writeJsonStringProperty(arguments, "targetPort", "input");
   arguments << ",\"inputPorts\":[";
   arguments << foundation::jsonQuoted("frame");
   arguments << "],\"outputPorts\":[";
-  arguments << foundation::jsonQuoted(runtime::output_name::CameraTransform);
+  arguments << foundation::jsonQuoted(effects::output_name::CameraTransform);
   arguments << ']';
   arguments << ",\"activeRange\":{";
   arguments << "\"start\":" << activeRange.start.value;
@@ -185,8 +185,8 @@ std::string createCameraTransformEffectArgumentsPayload(
   arguments << "},\"params\":[";
   writeNumericParamJson(
     arguments,
-    runtime::builtin_effect::PositionXParam,
-    runtime::builtin_effect::PositionXLabel,
+    effects::builtin_effect::PositionXParam,
+    effects::builtin_effect::PositionXLabel,
     defaults.positionX,
     -1.0,
     1.0,
@@ -195,8 +195,8 @@ std::string createCameraTransformEffectArgumentsPayload(
   arguments << ',';
   writeNumericParamJson(
     arguments,
-    runtime::builtin_effect::PositionYParam,
-    runtime::builtin_effect::PositionYLabel,
+    effects::builtin_effect::PositionYParam,
+    effects::builtin_effect::PositionYLabel,
     defaults.positionY,
     -1.0,
     1.0,
@@ -205,8 +205,8 @@ std::string createCameraTransformEffectArgumentsPayload(
   arguments << ',';
   writeNumericParamJson(
     arguments,
-    runtime::builtin_effect::ZoomParam,
-    runtime::builtin_effect::ZoomLabel,
+    effects::builtin_effect::ZoomParam,
+    effects::builtin_effect::ZoomLabel,
     defaults.zoom,
     0.25,
     4.0,

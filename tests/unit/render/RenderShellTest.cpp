@@ -2,7 +2,7 @@
 #include <grapple/render/LocalRenderSystem.hpp>
 #include <grapple/render/PreviewRenderShell.hpp>
 #include <grapple/runtime/EffectRuntime.hpp>
-#include <grapple/runtime/RuntimeOutputNames.hpp>
+#include <grapple/effects/OutputNames.hpp>
 
 #include <TestAssert.hpp>
 
@@ -60,7 +60,7 @@ public:
         request.prepared.sourceNodeId,
         {
           grapple::runtime::RuntimeNamedValue{
-            grapple::runtime::output_name::CameraTransform,
+            grapple::effects::output_name::CameraTransform,
             std::move(transformValue)
           }
         }
@@ -221,7 +221,7 @@ public:
         request.prepared.sourceNodeId,
         {
           grapple::runtime::RuntimeNamedValue{
-            grapple::runtime::output_name::CameraTransform,
+            grapple::effects::output_name::CameraTransform,
             grapple::runtime::RuntimeValue{
               grapple::timeline::Transform2D{
                 grapple::foundation::Vec2{0.5, 0.0},
@@ -271,7 +271,7 @@ public:
         request.prepared.sourceNodeId,
         {
           grapple::runtime::RuntimeNamedValue{
-            grapple::runtime::output_name::CameraTransform,
+            grapple::effects::output_name::CameraTransform,
             grapple::runtime::RuntimeValue{
               grapple::timeline::Transform2D{
                 grapple::foundation::Vec2{0.0, 0.0},
@@ -391,7 +391,7 @@ grapple::projection::RenderPlan makeCameraEffectRenderPlan() {
       grapple::projection::RenderEffectEdge{
         grapple::foundation::EdgeId{"edge_camera_effect_targets_camera"},
         grapple::foundation::NodeId{"node_camera_effect"},
-        grapple::graph::PortName{grapple::runtime::output_name::CameraTransform},
+        grapple::graph::PortName{grapple::effects::output_name::CameraTransform},
         grapple::foundation::NodeId{"node_camera"},
         grapple::graph::PortName{"input"},
         0

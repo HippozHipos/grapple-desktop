@@ -28,6 +28,7 @@ target_link_directories(grapple_agent
 
 target_link_libraries(grapple_agent
   PUBLIC
+    Grapple::Effects
     Grapple::Foundation
     Grapple::Project
     Grapple::History

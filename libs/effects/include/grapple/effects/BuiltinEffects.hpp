@@ -1,8 +1,8 @@
 #pragma once
 
-#include <grapple/runtime/RuntimeOutputNames.hpp>
+#include <grapple/effects/OutputNames.hpp>
 
-namespace grapple::runtime::builtin_effect {
+namespace grapple::effects::builtin_effect {
 
 inline constexpr char CameraTransformDisplayName[] = "Camera Transform";
 inline constexpr char CameraTransformEntrypoint[] = "camera_transform";
@@ -14,4 +14,4 @@ inline constexpr char PositionXLabel[] = "Position X";
 inline constexpr char PositionYLabel[] = "Position Y";
 inline constexpr char ZoomLabel[] = "Zoom";
 
-} // namespace grapple::runtime::builtin_effect
+} // namespace grapple::effects::builtin_effect

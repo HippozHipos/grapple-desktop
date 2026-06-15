@@ -16,6 +16,7 @@ target_include_directories(grapple_runtime
 
 target_link_libraries(grapple_runtime
   PUBLIC
+    Grapple::Effects
     Grapple::Foundation
     Grapple::Projection
     Grapple::Media

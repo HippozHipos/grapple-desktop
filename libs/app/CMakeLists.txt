@@ -25,6 +25,7 @@ target_include_directories(grapple_app
 target_link_libraries(grapple_app
   PUBLIC
     Grapple::Agent
+    Grapple::Effects
     Grapple::Foundation
     Grapple::Jobs
     Grapple::Media

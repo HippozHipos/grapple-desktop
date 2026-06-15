@@ -7,7 +7,7 @@
 #include <grapple/app/NativeWorkspaceSession.hpp>
 #include <grapple/foundation/Hash.hpp>
 #include <grapple/render/RenderQuality.hpp>
-#include <grapple/runtime/BuiltinEffects.hpp>
+#include <grapple/effects/BuiltinEffects.hpp>
 #include <grapple/storage/ProjectCommitBuilder.hpp>
 
 #include <QApplication>
@@ -993,7 +993,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       }
       const auto& params = viewModel.timeline.effectGraphs.front().effects.front().params;
       const auto param = std::find_if(params.begin(), params.end(), [](const grapple::app::AppEffectParamRow& row) {
-        return row.name == grapple::runtime::builtin_effect::PositionXParam;
+        return row.name == grapple::effects::builtin_effect::PositionXParam;
       });
       if (param == params.end()) {
         return grapple::foundation::Error{"desktop.undo_redo_param_missing", "Undo/redo smoke requires position_x."};
@@ -1038,7 +1038,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     window.clickFirstTimelineCamera();
     window.setStewardIntent("Center the camera with editable controls.");
     window.clickStewardPrimaryAction();
-    window.setEffectParamControlValue(grapple::runtime::builtin_effect::PositionXParam, 0.25);
+    window.setEffectParamControlValue(grapple::effects::builtin_effect::PositionXParam, 0.25);
 
     const auto afterParamEdit = workspace.value().project().buildViewModel();
     if (!afterParamEdit) {
@@ -1119,9 +1119,9 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     window.clickFirstTimelineCamera();
     window.setStewardIntent("Create editable camera controls.");
     window.clickStewardPrimaryAction();
-    window.setEffectParamSliderRatio(grapple::runtime::builtin_effect::PositionXParam, 0.625);
-    window.setEffectParamControlValue(grapple::runtime::builtin_effect::ZoomParam, 1.5);
-    window.setEffectParamSliderRatio(grapple::runtime::builtin_effect::PositionXParam, 0.625);
+    window.setEffectParamSliderRatio(grapple::effects::builtin_effect::PositionXParam, 0.625);
+    window.setEffectParamControlValue(grapple::effects::builtin_effect::ZoomParam, 1.5);
+    window.setEffectParamSliderRatio(grapple::effects::builtin_effect::PositionXParam, 0.625);
     const std::string inspector = window.inspectorContents();
     const std::string log = window.logContents();
     const auto viewModel = workspace.value().project().buildViewModel();
@@ -1170,33 +1170,33 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     window.setStewardIntent("Animate camera position with editable controls.");
     window.clickStewardPrimaryAction();
     window.seekTo(grapple::foundation::TimeSeconds{2.0});
-    window.setEffectParamControlValue(grapple::runtime::builtin_effect::PositionXParam, 0.25);
-    window.setEffectParamKeyframeAtPlayhead(grapple::runtime::builtin_effect::PositionXParam);
+    window.setEffectParamControlValue(grapple::effects::builtin_effect::PositionXParam, 0.25);
+    window.setEffectParamKeyframeAtPlayhead(grapple::effects::builtin_effect::PositionXParam);
     const auto afterKeyframe = workspace.value().project().buildViewModel();
     if (!afterKeyframe) {
       printError(afterKeyframe.error());
       return 1;
     }
-    window.setEffectParamControlValue(grapple::runtime::builtin_effect::PositionXParam, 0.5);
-    window.setEffectParamKeyframeAtPlayhead(grapple::runtime::builtin_effect::PositionXParam);
+    window.setEffectParamControlValue(grapple::effects::builtin_effect::PositionXParam, 0.5);
+    window.setEffectParamKeyframeAtPlayhead(grapple::effects::builtin_effect::PositionXParam);
     const auto afterKeyframeUpdate = workspace.value().project().buildViewModel();
     if (!afterKeyframeUpdate) {
       printError(afterKeyframeUpdate.error());
       return 1;
     }
-    window.setEffectParamKeyframeAtPlayhead(grapple::runtime::builtin_effect::PositionXParam);
+    window.setEffectParamKeyframeAtPlayhead(grapple::effects::builtin_effect::PositionXParam);
     const auto afterNoopKeyframeUpdate = workspace.value().project().buildViewModel();
     if (!afterNoopKeyframeUpdate) {
       printError(afterNoopKeyframeUpdate.error());
       return 1;
     }
-    const std::string buttonAtKeyframe = window.effectParamKeyframeButtonText(grapple::runtime::builtin_effect::PositionXParam);
+    const std::string buttonAtKeyframe = window.effectParamKeyframeButtonText(grapple::effects::builtin_effect::PositionXParam);
     window.seekTo(grapple::foundation::TimeSeconds{0.0});
-    const std::string buttonAwayFromKeyframe = window.effectParamKeyframeButtonText(grapple::runtime::builtin_effect::PositionXParam);
+    const std::string buttonAwayFromKeyframe = window.effectParamKeyframeButtonText(grapple::effects::builtin_effect::PositionXParam);
     window.seekTo(grapple::foundation::TimeSeconds{2.0});
-    const std::string buttonBackAtKeyframe = window.effectParamKeyframeButtonText(grapple::runtime::builtin_effect::PositionXParam);
+    const std::string buttonBackAtKeyframe = window.effectParamKeyframeButtonText(grapple::effects::builtin_effect::PositionXParam);
     const std::string effectParamPanelAfterUpdate = window.effectParamPanelText();
-    window.deleteEffectParamKeyframeControl(grapple::runtime::builtin_effect::PositionXParam, 0);
+    window.deleteEffectParamKeyframeControl(grapple::effects::builtin_effect::PositionXParam, 0);
     const auto afterKeyframeDelete = workspace.value().project().buildViewModel();
     if (!afterKeyframeDelete) {
       printError(afterKeyframeDelete.error());
@@ -1439,7 +1439,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     window.clickStewardPrimaryAction();
     window.setStewardIntent("Center the subject with editable camera controls.");
     window.clickStewardPrimaryAction();
-    window.setSelectedTargetNumericEffectParam(grapple::runtime::builtin_effect::PositionXParam, 0.25);
+    window.setSelectedTargetNumericEffectParam(grapple::effects::builtin_effect::PositionXParam, 0.25);
     const auto tunedViewModel = workspace.value().project().buildViewModel();
     if (!tunedViewModel) {
       printError(tunedViewModel.error());
@@ -1496,7 +1496,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
               effect.params.begin(),
               effect.params.end(),
               [](const grapple::app::AppEffectParamRow& row) {
-                return row.name == grapple::runtime::builtin_effect::PositionXParam;
+                return row.name == grapple::effects::builtin_effect::PositionXParam;
               }
             );
             return param != effect.params.end() &&
@@ -1559,7 +1559,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     window.clickFirstTimelineCamera();
     window.setStewardIntent("Persist editable camera controls.");
     window.clickStewardPrimaryAction();
-    window.setSelectedTargetNumericEffectParam(grapple::runtime::builtin_effect::PositionXParam, 0.25);
+    window.setSelectedTargetNumericEffectParam(grapple::effects::builtin_effect::PositionXParam, 0.25);
     const auto write = workspace.value().writePackage();
     if (!write) {
       printError(write.error());
@@ -1601,7 +1601,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
               effect.params.begin(),
               effect.params.end(),
               [](const grapple::app::AppEffectParamRow& row) {
-                return row.name == grapple::runtime::builtin_effect::PositionXParam;
+                return row.name == grapple::effects::builtin_effect::PositionXParam;
               }
             );
             return effect.cameraTransformEffect &&
@@ -1701,8 +1701,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     window.clickFirstTimelineCamera();
     window.setStewardIntent("Center the subject with editable camera controls.");
     window.clickStewardPrimaryAction();
-    window.setSelectedTargetNumericEffectParam(grapple::runtime::builtin_effect::PositionXParam, 0.25);
-    window.setSelectedTargetNumericEffectParam(grapple::runtime::builtin_effect::ZoomParam, 1.5);
+    window.setSelectedTargetNumericEffectParam(grapple::effects::builtin_effect::PositionXParam, 0.25);
+    window.setSelectedTargetNumericEffectParam(grapple::effects::builtin_effect::ZoomParam, 1.5);
     app.processEvents();
     const QPixmap pixmap = window.grab();
     if (!pixmap.save(QString::fromStdString(*effectScreenshotPath))) {

@@ -1,7 +1,7 @@
 #include <grapple/runtime/BuiltinEffectRuntime.hpp>
 
-#include <grapple/runtime/BuiltinEffects.hpp>
-#include <grapple/runtime/RuntimeOutputNames.hpp>
+#include <grapple/effects/BuiltinEffects.hpp>
+#include <grapple/effects/OutputNames.hpp>
 
 #include <optional>
 #include <string>
@@ -44,31 +44,31 @@ RuntimeDiagnostic makeParamDiagnostic(
 
 bool BuiltinEffectRuntime::supports(const projection::RenderEffectNode& node) const {
   return node.payload.implementation.kind == timeline::EffectImplementationKind::Builtin &&
-         node.payload.implementation.entrypoint == builtin_effect::CameraTransformEntrypoint;
+         node.payload.implementation.entrypoint == effects::builtin_effect::CameraTransformEntrypoint;
 }
 
 foundation::Result<EffectPrepareResult> BuiltinEffectRuntime::prepare(const EffectPrepareRequest& request) {
   std::vector<RuntimeDiagnostic> diagnostics;
   const RuntimeParamSet params = runtimeParamsFromEffectNode(request.node);
-  const std::optional<double> positionX = numericParam(params, builtin_effect::PositionXParam);
-  const std::optional<double> positionY = numericParam(params, builtin_effect::PositionYParam);
-  const std::optional<double> zoom = numericParam(params, builtin_effect::ZoomParam);
+  const std::optional<double> positionX = numericParam(params, effects::builtin_effect::PositionXParam);
+  const std::optional<double> positionY = numericParam(params, effects::builtin_effect::PositionYParam);
+  const std::optional<double> zoom = numericParam(params, effects::builtin_effect::ZoomParam);
 
   if (!positionX.has_value()) {
-    diagnostics.push_back(makeParamDiagnostic(request, builtin_effect::PositionXParam));
+    diagnostics.push_back(makeParamDiagnostic(request, effects::builtin_effect::PositionXParam));
   }
   if (!positionY.has_value()) {
-    diagnostics.push_back(makeParamDiagnostic(request, builtin_effect::PositionYParam));
+    diagnostics.push_back(makeParamDiagnostic(request, effects::builtin_effect::PositionYParam));
   }
   if (!zoom.has_value()) {
-    diagnostics.push_back(makeParamDiagnostic(request, builtin_effect::ZoomParam));
+    diagnostics.push_back(makeParamDiagnostic(request, effects::builtin_effect::ZoomParam));
   }
 
   RuntimeValueMap preparedValues;
   if (positionX.has_value() && positionY.has_value() && zoom.has_value()) {
-    preparedValues.push_back(RuntimeNamedValue{builtin_effect::PositionXParam, RuntimeValue{*positionX}});
-    preparedValues.push_back(RuntimeNamedValue{builtin_effect::PositionYParam, RuntimeValue{*positionY}});
-    preparedValues.push_back(RuntimeNamedValue{builtin_effect::ZoomParam, RuntimeValue{*zoom}});
+    preparedValues.push_back(RuntimeNamedValue{effects::builtin_effect::PositionXParam, RuntimeValue{*positionX}});
+    preparedValues.push_back(RuntimeNamedValue{effects::builtin_effect::PositionYParam, RuntimeValue{*positionY}});
+    preparedValues.push_back(RuntimeNamedValue{effects::builtin_effect::ZoomParam, RuntimeValue{*zoom}});
   }
 
   return EffectPrepareResult{
@@ -95,11 +95,11 @@ foundation::Result<EffectProcessResult> BuiltinEffectRuntime::process(const Effe
     if (numeric == nullptr) {
       continue;
     }
-    if (value.name == builtin_effect::PositionXParam) {
+    if (value.name == effects::builtin_effect::PositionXParam) {
       positionX = *numeric;
-    } else if (value.name == builtin_effect::PositionYParam) {
+    } else if (value.name == effects::builtin_effect::PositionYParam) {
       positionY = *numeric;
-    } else if (value.name == builtin_effect::ZoomParam) {
+    } else if (value.name == effects::builtin_effect::ZoomParam) {
       zoom = *numeric;
     }
   }
@@ -107,7 +107,7 @@ foundation::Result<EffectProcessResult> BuiltinEffectRuntime::process(const Effe
   RuntimeValueMap outputValues;
   if (positionX.has_value() && positionY.has_value() && zoom.has_value()) {
     outputValues.push_back(RuntimeNamedValue{
-      output_name::CameraTransform,
+      effects::output_name::CameraTransform,
       RuntimeValue{
         foundation::Transform2D{
           foundation::Vec2{*positionX, *positionY},
