@@ -636,6 +636,7 @@ public:
     steward_->setAddSelectedMediaHandler([this] { addSelectedMediaToTimeline(); });
     steward_->setShowCameraControlsHandler([this](grapple::foundation::NodeId cameraNodeId) {
       selectNode(std::move(cameraNodeId));
+      showEffectControls();
     });
     steward_->setCreateCameraEffectHandler([this](std::string intent) { addEffectToSelectedTarget(std::move(intent)); });
     connect(mediaBin_, &QListWidget::currentRowChanged, this, [this](int row) { selectMediaAssetAtRow(row); });
@@ -1041,6 +1042,10 @@ public:
 
   void clickStewardPrimaryAction() {
     steward_->triggerPrimaryAction();
+  }
+
+  void showEffectControls() {
+    detailTabs_->setCurrentWidget(effectParamsScroll_);
   }
 
   void startPlayback() {
@@ -2147,6 +2152,7 @@ public:
 
     selectedNodeId_ = targetCameraNodeId.value();
     selectedAssetId_ = std::nullopt;
+    showEffectControls();
     refreshViewModelAndPreview();
     log_->append("Steward applied camera edit");
   }
