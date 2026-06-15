@@ -712,14 +712,14 @@ foundation::Result<NativeWorkspaceWriteResult> NativeWorkspaceSession::savePacka
     return snapshot.error();
   }
 
-  auto projectWrite = state_->project.writePackageTo(package);
-  if (!projectWrite) {
-    return projectWrite.error();
-  }
-
   auto mediaCopy = copyPackageLocalMediaFiles(currentPackage, package, snapshot.value());
   if (!mediaCopy) {
     return mediaCopy.error();
+  }
+
+  auto projectWrite = state_->project.writePackageTo(package);
+  if (!projectWrite) {
+    return projectWrite.error();
   }
 
   auto sidecarsWrite = writeWorkspacePackageSidecars(package, projectWrite.value(), state_->steward);
