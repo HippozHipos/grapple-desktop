@@ -17,6 +17,7 @@ namespace grapple::ui {
 
 class StewardPanel final : public QWidget {
 public:
+  using ImportMediaHandler = std::function<void()>;
   using AddCameraHandler = std::function<void()>;
   using AddSelectedMediaHandler = std::function<void()>;
   using ShowCameraControlsHandler = std::function<void(foundation::NodeId)>;
@@ -24,6 +25,7 @@ public:
 
   explicit StewardPanel(QWidget* parent = nullptr);
 
+  void setImportMediaHandler(ImportMediaHandler handler);
   void setAddCameraHandler(AddCameraHandler handler);
   void setAddSelectedMediaHandler(AddSelectedMediaHandler handler);
   void setShowCameraControlsHandler(ShowCameraControlsHandler handler);
@@ -44,6 +46,7 @@ public:
 private:
   enum class PrimaryAction {
     Disabled,
+    ImportMedia,
     AddSelectedMedia,
     AddCamera,
     ControlsShown,
@@ -51,6 +54,7 @@ private:
     CreateCameraEffect
   };
 
+  ImportMediaHandler importMediaHandler_;
   AddCameraHandler addCameraHandler_;
   AddSelectedMediaHandler addSelectedMediaHandler_;
   ShowCameraControlsHandler showCameraControlsHandler_;

@@ -632,6 +632,7 @@ public:
     connect(deleteTrackAction, &QAction::triggered, this, [this] { deleteSelectedTrack(); });
     connect(exportButton, &QPushButton::clicked, this, [this] { chooseAndExportVideo(); });
     connect(saveButton, &QPushButton::clicked, this, [this] { savePackage(); });
+    steward_->setImportMediaHandler([this] { chooseAndImportMedia(); });
     steward_->setAddCameraHandler([this] { addCamera(); });
     steward_->setAddSelectedMediaHandler([this] { addSelectedMediaToTimeline(); });
     steward_->setShowCameraControlsHandler([this](grapple::foundation::NodeId cameraNodeId) {

@@ -84,6 +84,11 @@ StewardPanel::StewardPanel(QWidget* parent)
           addCameraHandler_();
         }
         return;
+      case PrimaryAction::ImportMedia:
+        if (importMediaHandler_) {
+          importMediaHandler_();
+        }
+        return;
       case PrimaryAction::AddSelectedMedia:
         if (addSelectedMediaHandler_) {
           addSelectedMediaHandler_();
@@ -111,6 +116,10 @@ StewardPanel::StewardPanel(QWidget* parent)
   text_->setMinimumHeight(110);
   text_->setLineWrapMode(QTextEdit::WidgetWidth);
   layout->addWidget(text_);
+}
+
+void StewardPanel::setImportMediaHandler(ImportMediaHandler handler) {
+  importMediaHandler_ = std::move(handler);
 }
 
 void StewardPanel::setAddCameraHandler(AddCameraHandler handler) {
@@ -144,9 +153,13 @@ void StewardPanel::setViewModel(
         primaryAction_ = PrimaryAction::AddSelectedMedia;
         primaryActionButton_->setText("Add Selected Media To Timeline");
         primaryActionButton_->setEnabled(static_cast<bool>(addSelectedMediaHandler_));
+      } else if (viewModel.assets.count == 0) {
+        primaryAction_ = PrimaryAction::ImportMedia;
+        primaryActionButton_->setText("Import Media");
+        primaryActionButton_->setEnabled(static_cast<bool>(importMediaHandler_));
       } else {
         primaryAction_ = PrimaryAction::Disabled;
-        primaryActionButton_->setText(viewModel.assets.count == 0 ? "Import Media First" : "Select Media To Add");
+        primaryActionButton_->setText("Select Media To Add");
         primaryActionButton_->setEnabled(false);
       }
     } else if (viewModel.timeline.cameras.empty()) {

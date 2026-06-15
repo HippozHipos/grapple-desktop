@@ -316,8 +316,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     return viewModel.value().assets.count == 0 &&
            viewModel.value().timeline.clips.empty() &&
            viewModel.value().timeline.cameras.empty() &&
-           stewardActionText == "Import Media First" &&
-           !stewardActionEnabled &&
+           stewardActionText == "Import Media" &&
+           stewardActionEnabled &&
            steward.find("0 assets | 0 clips | 0 cameras | 0 editable effects") != std::string::npos
       ? 0
       : 1;
@@ -744,8 +744,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_2"} &&
            viewModel.value().timeline.compositions.size() == 1 &&
            viewModel.value().timeline.cameras.size() == 1 &&
-           stewardActionBefore == "Import Media First" &&
-           !stewardActionEnabledBefore &&
+           stewardActionBefore == "Import Media" &&
+           stewardActionEnabledBefore &&
            stewardBefore.find("0 assets | 0 clips | 0 cameras | 0 editable effects") != std::string::npos &&
            stewardAfter.find("0 assets | 0 clips | 1 cameras | 0 editable effects") != std::string::npos &&
            window.selectedNodeId().has_value() &&
