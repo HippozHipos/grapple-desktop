@@ -1,6 +1,8 @@
 #include <grapple/agent/ProjectTools.hpp>
 
 #include <grapple/agent/AgentToolRegistry.hpp>
+#include <grapple/effects/BuiltinEffects.hpp>
+#include <grapple/effects/OutputNames.hpp>
 #include <grapple/foundation/Geometry.hpp>
 #include <grapple/foundation/Json.hpp>
 #include <grapple/foundation/Hash.hpp>
@@ -101,6 +103,27 @@ constexpr const char CameraUpdateSchema[] = R"json({
     "cameraNodeId": {"type": "string", "minLength": 1},
     "name": {"type": "string", "minLength": 1},
     "focalLength": {"type": "number"}
+  }
+})json";
+
+constexpr const char CameraAddTransformControlsSchema[] = R"json({
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["cameraNodeId", "activeRange", "positionX", "positionY", "zoom"],
+  "properties": {
+    "cameraNodeId": {"type": "string", "minLength": 1},
+    "activeRange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start", "end"],
+      "properties": {
+        "start": {"type": "number"},
+        "end": {"type": "number"}
+      }
+    },
+    "positionX": {"type": "number"},
+    "positionY": {"type": "number"},
+    "zoom": {"type": "number"}
   }
 })json";
 
@@ -1517,6 +1540,10 @@ foundation::Result<void> registerProjectTools(AgentToolRegistry& registry) {
   if (!registered) {
     return registered.error();
   }
+  registered = registry.registerTool(makeCameraAddTransformControlsTool());
+  if (!registered) {
+    return registered.error();
+  }
   registered = registry.registerTool(makeTimelinePlaceAssetTool());
   if (!registered) {
     return registered.error();
@@ -1997,6 +2024,177 @@ AgentTool makeCameraUpdateTool() {
       payload << '{'
               << "\"commandId\":" << foundation::jsonQuoted(commandId.value())
               << ",\"cameraNodeId\":" << foundation::jsonQuoted(cameraId.value())
+              << ",\"revision\":" << foundation::jsonQuoted(command.value().afterRevision.value())
+              << '}';
+      return ToolResult{
+        call.toolId,
+        ToolResultStatus::Succeeded,
+        command.value().afterRevision,
+        payload.str(),
+        {}
+      };
+    }
+  };
+}
+
+AgentTool makeCameraAddTransformControlsTool() {
+  return AgentTool{
+    foundation::ToolId{"tool_camera_add_transform_controls"},
+    "camera.add_transform_controls",
+    "Add Camera Transform Controls",
+    "Creates editable built-in Camera Transform controls on an existing camera through Project Core. The tool owns the built-in implementation, ports, and graph connection.",
+    CameraAddTransformControlsSchema,
+    [](const ToolCall& call, AgentToolContext& context) -> foundation::Result<ToolResult> {
+      auto arguments = parseArguments(call.arguments);
+      if (!arguments) {
+        return arguments.error();
+      }
+      auto members = requireOnlyMembers(
+        arguments.value(),
+        {"cameraNodeId", "activeRange", "positionX", "positionY", "zoom"},
+        "$"
+      );
+      if (!members) {
+        return members.error();
+      }
+      auto cameraNodeId = requiredStringMember(arguments.value(), "cameraNodeId", "$");
+      if (!cameraNodeId) {
+        return cameraNodeId.error();
+      }
+      auto activeRangeObject = requiredMember(arguments.value(), "activeRange", "$");
+      if (!activeRangeObject) {
+        return activeRangeObject.error();
+      }
+      auto activeRange = parseTimeRange(activeRangeObject.value(), "$.activeRange");
+      if (!activeRange) {
+        return activeRange.error();
+      }
+      auto positionX = requiredDoubleMember(arguments.value(), "positionX", "$");
+      if (!positionX) {
+        return positionX.error();
+      }
+      auto positionY = requiredDoubleMember(arguments.value(), "positionY", "$");
+      if (!positionY) {
+        return positionY.error();
+      }
+      auto zoom = requiredDoubleMember(arguments.value(), "zoom", "$");
+      if (!zoom) {
+        return zoom.error();
+      }
+
+      auto snapshot = readProjectSnapshot(context, "camera.add_transform_controls");
+      if (!snapshot) {
+        return snapshot.error();
+      }
+
+      const foundation::NodeId cameraId{cameraNodeId.value()};
+      const graph::GraphNode* cameraNode = snapshot.value().graph.findNode(cameraId);
+      if (cameraNode == nullptr || cameraNode->kind != graph::NodeKind::Camera) {
+        return foundation::Error{"agent.camera_missing", "Camera transform controls require an existing camera node."};
+      }
+
+      for (const graph::GraphEdge& edge : snapshot.value().graph.edges()) {
+        if (!edge.enabled ||
+            edge.kind != graph::EdgeKind::Targets ||
+            edge.targetNodeId != cameraId) {
+          continue;
+        }
+
+        const graph::GraphNode* effectNode = snapshot.value().graph.findNode(edge.sourceNodeId);
+        if (effectNode == nullptr || effectNode->kind != graph::NodeKind::Effect) {
+          return foundation::Error{"agent.effect_node_invalid", "Camera target edge points to a missing or invalid effect node."};
+        }
+
+        const auto* effectPayload = std::get_if<timeline::EffectPayload>(&effectNode->payload);
+        if (effectPayload == nullptr) {
+          return foundation::Error{"agent.effect_payload_invalid", "Camera target effect node must carry an effect payload."};
+        }
+
+        if (effectPayload->implementation.kind == timeline::EffectImplementationKind::Builtin &&
+            effectPayload->implementation.entrypoint == effects::builtin_effect::CameraTransformEntrypoint) {
+          return foundation::Error{"agent.camera_transform_exists", "Camera already has Camera Transform controls."};
+        }
+      }
+
+      const timeline::ParamSet params{
+        {
+          timeline::Param{
+            effects::builtin_effect::PositionXParam,
+            positionX.value(),
+            timeline::Param::Control{
+              effects::builtin_effect::PositionXLabel,
+              timeline::Param::NumericControl{-1.0, 1.0, 0.01}
+            },
+            {}
+          },
+          timeline::Param{
+            effects::builtin_effect::PositionYParam,
+            positionY.value(),
+            timeline::Param::Control{
+              effects::builtin_effect::PositionYLabel,
+              timeline::Param::NumericControl{-1.0, 1.0, 0.01}
+            },
+            {}
+          },
+          timeline::Param{
+            effects::builtin_effect::ZoomParam,
+            zoom.value(),
+            timeline::Param::Control{
+              effects::builtin_effect::ZoomLabel,
+              timeline::Param::NumericControl{0.25, 4.0, 0.01}
+            },
+            {}
+          }
+        }
+      };
+
+      const foundation::CommandId commandId = context.ids.nextCommandId();
+      const foundation::NodeId effectNodeId = context.ids.nextNodeId("effect");
+      const foundation::EdgeId targetEdgeId = context.ids.nextEdgeId("effect_targets");
+      auto command = context.commands.apply(project::ProjectCommandEnvelope{
+        commandId,
+        call.projectId,
+        call.expectedRevision,
+        project::CommandSource{project::CommandSourceKind::Agent, call.runId, "agent"},
+        project::CreateEffectCommand{
+          effectNodeId,
+          cameraId,
+          targetEdgeId,
+          timeline::EffectPayload{
+            effects::builtin_effect::CameraTransformDisplayName,
+            timeline::EffectImplementation{
+              timeline::EffectImplementationKind::Builtin,
+              effects::builtin_effect::CameraTransformEntrypoint,
+              timeline::EffectSource{
+                timeline::EffectSourceKind::InlineSource,
+                "builtin",
+                effects::builtin_effect::CameraTransformSource,
+                std::nullopt,
+                foundation::stableHash(effects::builtin_effect::CameraTransformSource)
+              }
+            },
+            timeline::EffectPortSet{
+              {timeline::EffectPort{"frame"}},
+              {timeline::EffectPort{effects::output_name::CameraTransform}}
+            },
+            params,
+            activeRange.value()
+          },
+          graph::PortName{effects::output_name::CameraTransform},
+          graph::PortName{"input"},
+          0
+        }
+      });
+      if (!command) {
+        return command.error();
+      }
+
+      std::ostringstream payload;
+      payload << '{'
+              << "\"commandId\":" << foundation::jsonQuoted(commandId.value())
+              << ",\"effectNodeId\":" << foundation::jsonQuoted(effectNodeId.value())
+              << ",\"targetEdgeId\":" << foundation::jsonQuoted(targetEdgeId.value())
+              << ",\"targetNodeId\":" << foundation::jsonQuoted(cameraId.value())
               << ",\"revision\":" << foundation::jsonQuoted(command.value().afterRevision.value())
               << '}';
       return ToolResult{

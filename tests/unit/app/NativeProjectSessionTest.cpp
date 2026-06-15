@@ -1116,7 +1116,7 @@ int main() {
     foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}}
   );
   GRAPPLE_REQUIRE(!duplicateRuntimeEffect);
-  GRAPPLE_REQUIRE(duplicateRuntimeEffect.error().code == "steward.camera_transform_exists");
+  GRAPPLE_REQUIRE(duplicateRuntimeEffect.error().code == "agent.camera_transform_exists");
   const agent::AgentConversationState stewardConversation = runtimeWorkspace.value().steward().conversationState();
   GRAPPLE_REQUIRE(stewardConversation.diagnostics.empty());
   GRAPPLE_REQUIRE(stewardConversation.runs.size() == 2);
@@ -1124,13 +1124,15 @@ int main() {
   GRAPPLE_REQUIRE(stewardConversation.runs[0].title == "Center the subject with an editable camera transform.");
   GRAPPLE_REQUIRE(stewardConversation.runs[0].messages.size() == 1);
   GRAPPLE_REQUIRE(stewardConversation.runs[0].toolCalls.size() == 1);
-  GRAPPLE_REQUIRE(stewardConversation.runs[0].toolCalls[0].toolSerializedId == "effect.create_node");
+  GRAPPLE_REQUIRE(stewardConversation.runs[0].toolCalls[0].toolSerializedId == "camera.add_transform_controls");
   GRAPPLE_REQUIRE(stewardConversation.runs[0].toolCalls[0].status == agent::AgentConversationToolCallStatus::Succeeded);
   GRAPPLE_REQUIRE(stewardConversation.runs[0].toolCalls[0].observedRevision == runtimeEffect.value().snapshot.revision);
   GRAPPLE_REQUIRE(stewardConversation.runs[1].status == agent::AgentRunStatus::Failed);
-  GRAPPLE_REQUIRE(stewardConversation.runs[1].toolCalls.empty());
+  GRAPPLE_REQUIRE(stewardConversation.runs[1].toolCalls.size() == 1);
+  GRAPPLE_REQUIRE(stewardConversation.runs[1].toolCalls[0].toolSerializedId == "camera.add_transform_controls");
+  GRAPPLE_REQUIRE(stewardConversation.runs[1].toolCalls[0].status == agent::AgentConversationToolCallStatus::Failed);
   GRAPPLE_REQUIRE(stewardConversation.runs[1].diagnostics.size() == 1);
-  GRAPPLE_REQUIRE(stewardConversation.runs[1].diagnostics[0].code == "steward.camera_transform_exists");
+  GRAPPLE_REQUIRE(stewardConversation.runs[1].diagnostics[0].code == "agent.camera_transform_exists");
   GRAPPLE_REQUIRE(runtimeWorkspace.value().project().packageState().commandLog.records().back().sourceRunId.has_value());
   GRAPPLE_REQUIRE(runtimeWorkspace.value().project().packageState().commandLog.records().back().sourceRunId.value() == stewardConversation.runs[0].runId);
   const auto runtimeEffectViewModel = runtimeWorkspace.value().project().buildViewModel();
@@ -1658,7 +1660,7 @@ int main() {
   GRAPPLE_REQUIRE(reopenedStewardConversation.runs.size() == 1);
   GRAPPLE_REQUIRE(reopenedStewardConversation.runs[0].status == agent::AgentRunStatus::Succeeded);
   GRAPPLE_REQUIRE(reopenedStewardConversation.runs[0].toolCalls.size() == 1);
-  GRAPPLE_REQUIRE(reopenedStewardConversation.runs[0].toolCalls[0].toolSerializedId == "effect.create_node");
+  GRAPPLE_REQUIRE(reopenedStewardConversation.runs[0].toolCalls[0].toolSerializedId == "camera.add_transform_controls");
   GRAPPLE_REQUIRE(reopenedStewardConversation.runs[0].toolCalls[0].toolCallId == foundation::ToolId{"tool_steward_camera_transform_1"});
   GRAPPLE_REQUIRE(reopenedStewardConversation.runs[0].toolCalls[0].observedRevision == foundation::RevisionId{"rev_3"});
   const auto reopenedStewardViewModel = reopenedStewardWorkspace.value().project().buildViewModel();

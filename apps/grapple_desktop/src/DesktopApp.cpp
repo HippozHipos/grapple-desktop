@@ -1314,8 +1314,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            steward.find("- " + createdRevisionText + " Camera Transform on Camera: Center the walking subject with exposed controls.") != std::string::npos &&
            steward.find("Recent runs:") != std::string::npos &&
            steward.find("- Center the walking subject with exposed controls. [succeeded]") != std::string::npos &&
-           steward.find("effect.create_node -> succeeded at " + createdRevisionText) != std::string::npos &&
-           steward.find("effect.create_node -> failed") == std::string::npos &&
+           steward.find("camera.add_transform_controls -> succeeded at " + createdRevisionText) != std::string::npos &&
+           steward.find("camera.add_transform_controls -> failed") == std::string::npos &&
            steward.find("- Center the walking subject with exposed controls.") != std::string::npos &&
            selectedClipBeforeCreate.has_value() &&
            selectedClipBeforeCreate.value() == expectedClipNodeId &&
@@ -1332,7 +1332,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            effectParamPanel.find("Position Y") != std::string::npos &&
            effectParamPanel.find("Zoom") != std::string::npos &&
            logText.find("Preview refreshed") == std::string::npos &&
-           logText.find("steward.camera_transform_exists") == std::string::npos &&
+           logText.find("agent.camera_transform_exists") == std::string::npos &&
            logText.find("runtime.effect_runtime_missing") == std::string::npos
       ? 0
       : 1;
@@ -1629,7 +1629,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       conversation.runs[0].toolCalls[0].observedRevision == grapple::foundation::RevisionId{"rev_7"} &&
       conversation.runs[1].status == grapple::agent::AgentRunStatus::Succeeded &&
       conversation.runs[1].toolCalls.size() == 1 &&
-      conversation.runs[1].toolCalls[0].toolSerializedId == "effect.create_node" &&
+      conversation.runs[1].toolCalls[0].toolSerializedId == "camera.add_transform_controls" &&
       conversation.runs[1].toolCalls[0].observedRevision == grapple::foundation::RevisionId{"rev_8"};
     const std::filesystem::path reopenedExportPath{"/tmp/grapple-desktop-reopened-export.avi"};
     std::filesystem::remove(reopenedExportPath);

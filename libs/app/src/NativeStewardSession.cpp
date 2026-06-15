@@ -5,10 +5,6 @@
 #include <grapple/agent/ProjectTools.hpp>
 #include <grapple/foundation/FilePath.hpp>
 #include <grapple/foundation/Json.hpp>
-#include <grapple/graph/GraphNode.hpp>
-#include <grapple/effects/BuiltinEffects.hpp>
-#include <grapple/effects/OutputNames.hpp>
-#include <grapple/timeline/EffectPayload.hpp>
 
 #include <algorithm>
 #include <chrono>
@@ -18,13 +14,12 @@
 #include <string>
 #include <string_view>
 #include <utility>
-#include <variant>
 
 namespace grapple::app {
 
 namespace {
 
-constexpr const char CanonicalCreateEffectToolId[] = "effect.create_node";
+constexpr const char CanonicalCameraTransformToolId[] = "camera.add_transform_controls";
 constexpr const char CanonicalPlaceAssetToolId[] = "timeline.place_asset";
 constexpr double CenteredCameraTransformPositionX = 0.0;
 constexpr double CenteredCameraTransformPositionY = 0.0;
@@ -79,41 +74,6 @@ CameraTransformIntentDefaults cameraTransformDefaultsForIntent(const std::string
   return defaults;
 }
 
-foundation::Result<void> ensureCameraCanReceiveTransformEffect(
-  const project::ProjectSnapshot& snapshot,
-  const foundation::NodeId& cameraNodeId
-) {
-  const graph::GraphNode* selectedNode = snapshot.graph.findNode(cameraNodeId);
-  if (selectedNode == nullptr || selectedNode->kind != graph::NodeKind::Camera) {
-    return foundation::Error{"steward.selected_node_not_camera", "Camera Transform requires a selected camera node."};
-  }
-
-  for (const graph::GraphEdge& edge : snapshot.graph.edges()) {
-    if (!edge.enabled ||
-        edge.kind != graph::EdgeKind::Targets ||
-        edge.targetNodeId != cameraNodeId) {
-      continue;
-    }
-
-    const graph::GraphNode* effectNode = snapshot.graph.findNode(edge.sourceNodeId);
-    if (effectNode == nullptr || effectNode->kind != graph::NodeKind::Effect) {
-      return foundation::Error{"steward.effect_node_invalid", "Camera target edge points to a missing or invalid effect node."};
-    }
-
-    const auto* effectPayload = std::get_if<timeline::EffectPayload>(&effectNode->payload);
-    if (effectPayload == nullptr) {
-      return foundation::Error{"steward.effect_payload_invalid", "Camera target effect node must carry an effect payload."};
-    }
-
-    if (effectPayload->implementation.kind == timeline::EffectImplementationKind::Builtin &&
-        effectPayload->implementation.entrypoint == effects::builtin_effect::CameraTransformEntrypoint) {
-      return foundation::Error{"steward.camera_transform_exists", "Selected camera already has a Camera Transform effect."};
-    }
-  }
-
-  return {};
-}
-
 std::string runStartedPayload(const std::string& title) {
   std::ostringstream payload;
   payload << '{';
@@ -132,87 +92,21 @@ std::string modelMessagePayload(std::string role, std::string content) {
   return payload.str();
 }
 
-void writeNumericParamJson(
-  std::ostream& stream,
-  const std::string& name,
-  const std::string& label,
-  double value,
-  double min,
-  double max,
-  double step
-) {
-  stream << '{';
-  foundation::writeJsonStringProperty(stream, "name", name);
-  stream << ',';
-  foundation::writeJsonStringProperty(stream, "label", label);
-  stream << ",\"value\":" << value;
-  stream << ",\"numeric\":{\"min\":" << min
-         << ",\"max\":" << max
-         << ",\"step\":" << step
-         << "}}";
-}
-
-std::string createCameraTransformEffectArgumentsPayload(
+std::string cameraTransformArgumentsPayload(
   const foundation::NodeId& cameraNodeId,
   foundation::TimeRange activeRange,
   CameraTransformIntentDefaults defaults
 ) {
   std::ostringstream arguments;
   arguments << '{';
-  foundation::writeJsonStringProperty(arguments, "targetNodeId", cameraNodeId.value());
-  arguments << ',';
-  foundation::writeJsonStringProperty(arguments, "displayName", effects::builtin_effect::CameraTransformDisplayName);
-  arguments << ',';
-  foundation::writeJsonStringProperty(arguments, "implementationKind", "builtin");
-  arguments << ',';
-  foundation::writeJsonStringProperty(arguments, "language", "builtin");
-  arguments << ',';
-  foundation::writeJsonStringProperty(arguments, "entrypoint", effects::builtin_effect::CameraTransformEntrypoint);
-  arguments << ',';
-  foundation::writeJsonStringProperty(arguments, "source", effects::builtin_effect::CameraTransformSource);
-  arguments << ',';
-  foundation::writeJsonStringProperty(arguments, "sourcePort", effects::output_name::CameraTransform);
-  arguments << ',';
-  foundation::writeJsonStringProperty(arguments, "targetPort", "input");
-  arguments << ",\"inputPorts\":[";
-  arguments << foundation::jsonQuoted("frame");
-  arguments << "],\"outputPorts\":[";
-  arguments << foundation::jsonQuoted(effects::output_name::CameraTransform);
-  arguments << ']';
+  foundation::writeJsonStringProperty(arguments, "cameraNodeId", cameraNodeId.value());
   arguments << ",\"activeRange\":{";
   arguments << "\"start\":" << activeRange.start.value;
   arguments << ",\"end\":" << activeRange.end.value;
-  arguments << "},\"params\":[";
-  writeNumericParamJson(
-    arguments,
-    effects::builtin_effect::PositionXParam,
-    effects::builtin_effect::PositionXLabel,
-    defaults.positionX,
-    -1.0,
-    1.0,
-    0.01
-  );
-  arguments << ',';
-  writeNumericParamJson(
-    arguments,
-    effects::builtin_effect::PositionYParam,
-    effects::builtin_effect::PositionYLabel,
-    defaults.positionY,
-    -1.0,
-    1.0,
-    0.01
-  );
-  arguments << ',';
-  writeNumericParamJson(
-    arguments,
-    effects::builtin_effect::ZoomParam,
-    effects::builtin_effect::ZoomLabel,
-    defaults.zoom,
-    0.25,
-    4.0,
-    0.01
-  );
-  arguments << ']';
+  arguments << "}";
+  arguments << ",\"positionX\":" << defaults.positionX;
+  arguments << ",\"positionY\":" << defaults.positionY;
+  arguments << ",\"zoom\":" << defaults.zoom;
   arguments << '}';
   return arguments.str();
 }
@@ -468,15 +362,6 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::c
     return runId.error();
   }
 
-  auto targetReady = ensureCameraCanReceiveTransformEffect(snapshot.value(), cameraNodeId);
-  if (!targetReady) {
-    auto finished = finishRunWithError(runId.value(), targetReady.error());
-    if (!finished) {
-      return finished.error();
-    }
-    return targetReady.error();
-  }
-
   auto message = appendEvent(
     runId.value(),
     agent::AgentRunEventKind::ModelMessage,
@@ -507,8 +392,8 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::c
     snapshot.value().info.id,
     snapshot.value().revision,
     toolCallId,
-    CanonicalCreateEffectToolId,
-    createCameraTransformEffectArgumentsPayload(cameraNodeId, activeRange, defaults)
+    CanonicalCameraTransformToolId,
+    cameraTransformArgumentsPayload(cameraNodeId, activeRange, defaults)
   });
   if (!dispatched) {
     auto finished = finishRunWithError(runId.value(), dispatched.error());

@@ -1,6 +1,8 @@
 #include <grapple/agent/AgentToolRegistry.hpp>
 #include <grapple/agent/ProjectTools.hpp>
 #include <grapple/asset/Asset.hpp>
+#include <grapple/effects/BuiltinEffects.hpp>
+#include <grapple/effects/OutputNames.hpp>
 #include <grapple/foundation/Hash.hpp>
 #include <grapple/graph/GraphNode.hpp>
 #include <grapple/project/ProjectController.hpp>
@@ -252,7 +254,7 @@ int main() {
   agent::AgentToolRegistry registry;
   const auto registered = agent::registerProjectTools(registry);
   GRAPPLE_REQUIRE(registered);
-  GRAPPLE_REQUIRE(registry.tools().size() == 28);
+  GRAPPLE_REQUIRE(registry.tools().size() == 29);
   std::vector<std::string> serializedToolIds;
   serializedToolIds.reserve(registry.tools().size());
   for (const agent::AgentTool& tool : registry.tools()) {
@@ -265,6 +267,7 @@ int main() {
   GRAPPLE_REQUIRE(registry.findBySerializedId("composition.inspect") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("camera.create") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("camera.update") != nullptr);
+  GRAPPLE_REQUIRE(registry.findBySerializedId("camera.add_transform_controls") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("timeline.place_asset") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("timeline.create_track") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("timeline.delete_track") != nullptr);
@@ -315,6 +318,19 @@ int main() {
   GRAPPLE_REQUIRE(registeredUpdateCameraTool->schema.find("\"cameraNodeId\"") != std::string::npos);
   GRAPPLE_REQUIRE(registeredUpdateCameraTool->schema.find("\"focalLength\"") != std::string::npos);
   GRAPPLE_REQUIRE(registeredUpdateCameraTool->schema.find("\"commandId\"") == std::string::npos);
+  const agent::AgentTool* registeredCameraTransformTool = registry.findBySerializedId("camera.add_transform_controls");
+  GRAPPLE_REQUIRE(registeredCameraTransformTool != nullptr);
+  GRAPPLE_REQUIRE(registeredCameraTransformTool->schema.find("\"cameraNodeId\"") != std::string::npos);
+  GRAPPLE_REQUIRE(registeredCameraTransformTool->schema.find("\"activeRange\"") != std::string::npos);
+  GRAPPLE_REQUIRE(registeredCameraTransformTool->schema.find("\"positionX\"") != std::string::npos);
+  GRAPPLE_REQUIRE(registeredCameraTransformTool->schema.find("\"positionY\"") != std::string::npos);
+  GRAPPLE_REQUIRE(registeredCameraTransformTool->schema.find("\"zoom\"") != std::string::npos);
+  GRAPPLE_REQUIRE(registeredCameraTransformTool->schema.find("\"source\"") == std::string::npos);
+  GRAPPLE_REQUIRE(registeredCameraTransformTool->schema.find("\"entrypoint\"") == std::string::npos);
+  GRAPPLE_REQUIRE(registeredCameraTransformTool->schema.find("\"inputPorts\"") == std::string::npos);
+  GRAPPLE_REQUIRE(registeredCameraTransformTool->schema.find("\"outputPorts\"") == std::string::npos);
+  GRAPPLE_REQUIRE(registeredCameraTransformTool->schema.find("\"commandId\"") == std::string::npos);
+  GRAPPLE_REQUIRE(registeredCameraTransformTool->schema.find("\"effectNodeId\"") == std::string::npos);
   const agent::AgentTool* registeredPlaceAssetTool = registry.findBySerializedId("timeline.place_asset");
   GRAPPLE_REQUIRE(registeredPlaceAssetTool != nullptr);
   GRAPPLE_REQUIRE(registeredPlaceAssetTool->schema.find("\"assetId\"") != std::string::npos);
@@ -1788,6 +1804,133 @@ int main() {
   GRAPPLE_REQUIRE(transformedClipPayload->transform.opacity == 0.6);
   GRAPPLE_REQUIRE(clipTransformCommands.applyCount() == 1);
   GRAPPLE_REQUIRE(clipTransformQueries.snapshotQueryCount() == 1);
+
+  project::ProjectController cameraTransformProject{
+    project::createEmptyProject(foundation::ProjectId{"proj_agent_camera_controls"}, "Agent Camera Controls Project")
+  };
+  const auto cameraTransformInitial = cameraTransformProject.snapshot();
+  GRAPPLE_REQUIRE(cameraTransformInitial);
+  const auto cameraTransformComposition = cameraTransformProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_camera_controls_composition"},
+    foundation::ProjectId{"proj_agent_camera_controls"},
+    cameraTransformInitial.value().revision,
+    project::CommandSource{project::CommandSourceKind::Agent, foundation::RunId{"run_camera_controls"}, "agent"},
+    project::CreateCompositionCommand{foundation::NodeId{"node_camera_controls_composition"}, "Camera Controls Main"}
+  });
+  GRAPPLE_REQUIRE(cameraTransformComposition);
+  const auto cameraTransformCamera = cameraTransformProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_camera_controls_camera"},
+    foundation::ProjectId{"proj_agent_camera_controls"},
+    cameraTransformComposition.value().afterRevision,
+    project::CommandSource{project::CommandSourceKind::Agent, foundation::RunId{"run_camera_controls"}, "agent"},
+    project::CreateCameraCommand{
+      foundation::NodeId{"node_camera_controls_camera"},
+      foundation::NodeId{"node_camera_controls_composition"},
+      foundation::EdgeId{"edge_camera_controls_camera"},
+      timeline::CameraPayload{
+        "Camera",
+        timeline::CameraState{timeline::Transform2D{}, timeline::CameraLens{35.0}}
+      }
+    }
+  });
+  GRAPPLE_REQUIRE(cameraTransformCamera);
+
+  TestAgentCommandService cameraTransformCommands{cameraTransformProject};
+  TestAgentQueryService cameraTransformQueries{cameraTransformProject};
+  TestProjectIdAllocator cameraTransformIds;
+  agent::AgentToolContext cameraTransformContext{cameraTransformCommands, cameraTransformQueries, cameraTransformIds};
+
+  const agent::AgentTool* addCameraTransformControls = registry.findBySerializedId("camera.add_transform_controls");
+  GRAPPLE_REQUIRE(addCameraTransformControls != nullptr);
+  const auto cameraTransformResult = addCameraTransformControls->handler(
+    agent::ToolCall{
+      foundation::ToolId{"tool_camera_add_transform_controls"},
+      foundation::RunId{"run_camera_controls"},
+      foundation::ProjectId{"proj_agent_camera_controls"},
+      cameraTransformCamera.value().afterRevision,
+      R"({
+        "cameraNodeId": "node_camera_controls_camera",
+        "activeRange": {"start": 0, "end": 6},
+        "positionX": 0.25,
+        "positionY": -0.1,
+        "zoom": 1.5
+      })"
+    },
+    cameraTransformContext
+  );
+  GRAPPLE_REQUIRE(cameraTransformResult);
+  GRAPPLE_REQUIRE(cameraTransformResult.value().status == agent::ToolResultStatus::Succeeded);
+  GRAPPLE_REQUIRE(cameraTransformResult.value().observedRevision == foundation::RevisionId{"rev_3"});
+  GRAPPLE_REQUIRE(cameraTransformResult.value().payload == "{\"commandId\":\"cmd_agent_1\",\"effectNodeId\":\"node_agent_effect_1\",\"targetEdgeId\":\"edge_agent_effect_targets_1\",\"targetNodeId\":\"node_camera_controls_camera\",\"revision\":\"rev_3\"}");
+
+  const auto afterCameraTransformSnapshot = cameraTransformProject.snapshot();
+  GRAPPLE_REQUIRE(afterCameraTransformSnapshot);
+  const graph::GraphNode* cameraTransformEffectNode =
+    afterCameraTransformSnapshot.value().graph.findNode(foundation::NodeId{"node_agent_effect_1"});
+  GRAPPLE_REQUIRE(cameraTransformEffectNode != nullptr);
+  GRAPPLE_REQUIRE(cameraTransformEffectNode->kind == graph::NodeKind::Effect);
+  const auto* cameraTransformPayload = std::get_if<timeline::EffectPayload>(&cameraTransformEffectNode->payload);
+  GRAPPLE_REQUIRE(cameraTransformPayload != nullptr);
+  GRAPPLE_REQUIRE(cameraTransformPayload->displayName == effects::builtin_effect::CameraTransformDisplayName);
+  GRAPPLE_REQUIRE(cameraTransformPayload->implementation.kind == timeline::EffectImplementationKind::Builtin);
+  GRAPPLE_REQUIRE(cameraTransformPayload->implementation.entrypoint == effects::builtin_effect::CameraTransformEntrypoint);
+  GRAPPLE_REQUIRE(cameraTransformPayload->implementation.source.language == "builtin");
+  GRAPPLE_REQUIRE(cameraTransformPayload->implementation.source.inlineSource == effects::builtin_effect::CameraTransformSource);
+  GRAPPLE_REQUIRE(cameraTransformPayload->ports.inputs.size() == 1);
+  GRAPPLE_REQUIRE(cameraTransformPayload->ports.inputs[0].name == "frame");
+  GRAPPLE_REQUIRE(cameraTransformPayload->ports.outputs.size() == 1);
+  GRAPPLE_REQUIRE(cameraTransformPayload->ports.outputs[0].name == effects::output_name::CameraTransform);
+  GRAPPLE_REQUIRE(cameraTransformPayload->activeRange.start == foundation::TimeSeconds{0.0});
+  GRAPPLE_REQUIRE(cameraTransformPayload->activeRange.end == foundation::TimeSeconds{6.0});
+  GRAPPLE_REQUIRE(cameraTransformPayload->params.values.size() == 3);
+  GRAPPLE_REQUIRE(cameraTransformPayload->params.values[0].name == effects::builtin_effect::PositionXParam);
+  GRAPPLE_REQUIRE(std::get<double>(cameraTransformPayload->params.values[0].value) == 0.25);
+  GRAPPLE_REQUIRE(cameraTransformPayload->params.values[0].control.label == effects::builtin_effect::PositionXLabel);
+  GRAPPLE_REQUIRE(cameraTransformPayload->params.values[0].control.numeric.has_value());
+  GRAPPLE_REQUIRE(cameraTransformPayload->params.values[0].control.numeric->min == -1.0);
+  GRAPPLE_REQUIRE(cameraTransformPayload->params.values[0].control.numeric->max == 1.0);
+  GRAPPLE_REQUIRE(cameraTransformPayload->params.values[0].control.numeric->step == 0.01);
+  GRAPPLE_REQUIRE(cameraTransformPayload->params.values[1].name == effects::builtin_effect::PositionYParam);
+  GRAPPLE_REQUIRE(std::get<double>(cameraTransformPayload->params.values[1].value) == -0.1);
+  GRAPPLE_REQUIRE(cameraTransformPayload->params.values[2].name == effects::builtin_effect::ZoomParam);
+  GRAPPLE_REQUIRE(std::get<double>(cameraTransformPayload->params.values[2].value) == 1.5);
+  GRAPPLE_REQUIRE(cameraTransformPayload->params.values[2].control.numeric.has_value());
+  GRAPPLE_REQUIRE(cameraTransformPayload->params.values[2].control.numeric->min == 0.25);
+  GRAPPLE_REQUIRE(cameraTransformPayload->params.values[2].control.numeric->max == 4.0);
+  GRAPPLE_REQUIRE(cameraTransformPayload->params.values[2].control.numeric->step == 0.01);
+  const graph::GraphEdge* cameraTransformEdge = nullptr;
+  for (const graph::GraphEdge& edge : afterCameraTransformSnapshot.value().graph.edges()) {
+    if (edge.id == foundation::EdgeId{"edge_agent_effect_targets_1"}) {
+      cameraTransformEdge = &edge;
+      break;
+    }
+  }
+  GRAPPLE_REQUIRE(cameraTransformEdge != nullptr);
+  GRAPPLE_REQUIRE(cameraTransformEdge->sourceNodeId == foundation::NodeId{"node_agent_effect_1"});
+  GRAPPLE_REQUIRE(cameraTransformEdge->targetNodeId == foundation::NodeId{"node_camera_controls_camera"});
+  GRAPPLE_REQUIRE(cameraTransformEdge->sourcePort == graph::PortName{effects::output_name::CameraTransform});
+  GRAPPLE_REQUIRE(cameraTransformEdge->targetPort == graph::PortName{"input"});
+
+  const auto duplicateCameraTransformResult = addCameraTransformControls->handler(
+    agent::ToolCall{
+      foundation::ToolId{"tool_camera_add_transform_controls_duplicate"},
+      foundation::RunId{"run_camera_controls"},
+      foundation::ProjectId{"proj_agent_camera_controls"},
+      cameraTransformResult.value().observedRevision,
+      R"({
+        "cameraNodeId": "node_camera_controls_camera",
+        "activeRange": {"start": 0, "end": 6},
+        "positionX": 0,
+        "positionY": 0,
+        "zoom": 1
+      })"
+    },
+    cameraTransformContext
+  );
+  GRAPPLE_REQUIRE(!duplicateCameraTransformResult);
+  GRAPPLE_REQUIRE(duplicateCameraTransformResult.error().code == "agent.camera_transform_exists");
+  GRAPPLE_REQUIRE(cameraTransformCommands.applyCount() == 1);
+  GRAPPLE_REQUIRE(cameraTransformQueries.snapshotQueryCount() == 2);
 
   project::ProjectController timelineDeleteProject{
     project::createEmptyProject(foundation::ProjectId{"proj_agent_timeline_delete"}, "Agent Timeline Delete Project")
