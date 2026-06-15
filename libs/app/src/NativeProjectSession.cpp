@@ -244,7 +244,7 @@ struct AppCommandProvenance {
   std::vector<AppStewardEditRow> stewardEdits;
 };
 
-struct StewardKeyframeEditRowIndex {
+struct StewardEditRowIndex {
   foundation::RunId runId;
   foundation::NodeId targetNodeId;
   std::string editName;
@@ -265,7 +265,8 @@ foundation::Result<AppCommandProvenance> appCommandProvenance(
 
   bool reachedContentRevision = false;
   std::vector<foundation::RunId> stewardEffectCreationRunIds;
-  std::vector<StewardKeyframeEditRowIndex> stewardKeyframeEditRows;
+  std::vector<StewardEditRowIndex> stewardParamEditRows;
+  std::vector<StewardEditRowIndex> stewardKeyframeEditRows;
   for (const history::CommandRecord& command : commands) {
     auto parsedCommand = project::deserializeCanonicalCommandPayload(
       command.serializedName,
@@ -321,14 +322,42 @@ foundation::Result<AppCommandProvenance> appCommandProvenance(
         if (!targetDisplay) {
           return targetDisplay.error();
         }
-        provenance.stewardEdits.push_back(AppStewardEditRow{
-          command.id,
-          command.afterRevision,
-          targetDisplay.value().targetNodeId,
-          targetDisplay.value().targetName,
-          targetDisplay.value().effectName + " Parameter",
-          intent
-        });
+        const std::string editName = targetDisplay.value().effectName + " Parameter";
+        auto existingParamEdit = command.sourceRunId.has_value()
+          ? std::find_if(
+              stewardParamEditRows.begin(),
+              stewardParamEditRows.end(),
+              [&](const StewardEditRowIndex& row) {
+                return row.runId == command.sourceRunId.value() &&
+                       row.targetNodeId == targetDisplay.value().targetNodeId &&
+                       row.editName == editName &&
+                       row.intent == intent;
+              }
+            )
+          : stewardParamEditRows.end();
+        if (existingParamEdit != stewardParamEditRows.end()) {
+          AppStewardEditRow& row = provenance.stewardEdits[existingParamEdit->rowIndex];
+          row.commandId = command.id;
+          row.revision = command.afterRevision;
+        } else {
+          provenance.stewardEdits.push_back(AppStewardEditRow{
+            command.id,
+            command.afterRevision,
+            targetDisplay.value().targetNodeId,
+            targetDisplay.value().targetName,
+            editName,
+            intent
+          });
+          if (command.sourceRunId.has_value()) {
+            stewardParamEditRows.push_back(StewardEditRowIndex{
+              command.sourceRunId.value(),
+              targetDisplay.value().targetNodeId,
+              editName,
+              intent,
+              provenance.stewardEdits.size() - 1
+            });
+          }
+        }
       }
     } else if (const auto* upsertKeyframe = std::get_if<project::UpsertEffectParamKeyframeCommand>(&parsedCommand.value())) {
       provenance.effects.keyframeEdits.push_back(EffectKeyframeEditProvenance{
@@ -358,7 +387,7 @@ foundation::Result<AppCommandProvenance> appCommandProvenance(
           ? std::find_if(
               stewardKeyframeEditRows.begin(),
               stewardKeyframeEditRows.end(),
-              [&](const StewardKeyframeEditRowIndex& row) {
+              [&](const StewardEditRowIndex& row) {
                 return row.runId == command.sourceRunId.value() &&
                        row.targetNodeId == targetDisplay.value().targetNodeId &&
                        row.editName == editName &&
@@ -380,7 +409,7 @@ foundation::Result<AppCommandProvenance> appCommandProvenance(
             intent
           });
           if (command.sourceRunId.has_value()) {
-            stewardKeyframeEditRows.push_back(StewardKeyframeEditRowIndex{
+            stewardKeyframeEditRows.push_back(StewardEditRowIndex{
               command.sourceRunId.value(),
               targetDisplay.value().targetNodeId,
               editName,
