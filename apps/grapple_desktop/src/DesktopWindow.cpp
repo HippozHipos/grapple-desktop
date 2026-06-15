@@ -575,24 +575,24 @@ public:
     auto* sideLayout = new QVBoxLayout{sidePanel};
     sideLayout->setContentsMargins(0, 0, 0, 0);
     sideLayout->setSpacing(12);
-    auto* detailsTabs = new QTabWidget;
-    detailsTabs->setObjectName("detailsTabs");
-    detailsTabs->addTab(inspector_, "Inspector");
-    detailsTabs->addTab(summary_, "Project");
-    detailsTabs->addTab(log_, "Log");
+    detailTabs_ = new QTabWidget;
+    detailTabs_->setObjectName("detailsTabs");
+    detailTabs_->addTab(effectParams_, "Effects");
+    detailTabs_->addTab(cameraProperties_, "Camera");
+    detailTabs_->addTab(clipTransform_, "Clip");
+    detailTabs_->addTab(exportSettings_, "Export");
+    detailTabs_->addTab(inspector_, "Inspector");
+    detailTabs_->addTab(summary_, "Project");
+    detailTabs_->addTab(log_, "Log");
     sideLayout->addWidget(steward_, 3);
-    sideLayout->addWidget(cameraProperties_, 2);
-    sideLayout->addWidget(clipTransform_, 2);
-    sideLayout->addWidget(effectParams_, 2);
-    sideLayout->addWidget(exportSettings_, 2);
-    sideLayout->addWidget(detailsTabs, 2);
+    sideLayout->addWidget(detailTabs_, 7);
 
     layout->addWidget(actions, 0, 0, 1, 2);
     layout->addWidget(studioPanel, 1, 0, 1, 1);
     layout->addWidget(sidePanel, 1, 1, 1, 1);
     layout->addWidget(assetStrip, 2, 0, 1, 2);
     layout->addWidget(timeline_, 3, 0, 1, 2);
-    layout->setColumnStretch(0, 5);
+    layout->setColumnStretch(0, 4);
     layout->setColumnStretch(1, 2);
     layout->setRowStretch(0, 0);
     layout->setRowStretch(1, 5);
@@ -2459,6 +2459,48 @@ private:
     cameraProperties_->setSelection(viewModel, selectedNodeId_);
     clipTransform_->setSelection(viewModel, selectedNodeId_);
     effectParams_->setSelection(viewModel, selectedNodeId_, workspace_.preview().state().playhead);
+    selectRelevantDetailTab(viewModel);
+  }
+
+  void selectRelevantDetailTab(const grapple::app::AppViewModel& viewModel) {
+    if (detailTabs_ == nullptr) {
+      return;
+    }
+
+    if (!selectedNodeId_.has_value()) {
+      detailTabs_->setCurrentWidget(inspector_);
+      return;
+    }
+
+    const grapple::foundation::NodeId selectedNodeId = selectedNodeId_.value();
+    const bool selectedCamera = std::any_of(
+      viewModel.timeline.cameras.begin(),
+      viewModel.timeline.cameras.end(),
+      [&](const grapple::app::AppCameraRow& camera) {
+        return camera.sourceNodeId == selectedNodeId;
+      }
+    );
+    if (selectedCamera) {
+      if (app::cameraHasTransformEffect(viewModel, selectedNodeId)) {
+        detailTabs_->setCurrentWidget(effectParams_);
+      } else {
+        detailTabs_->setCurrentWidget(cameraProperties_);
+      }
+      return;
+    }
+
+    const bool selectedClip = std::any_of(
+      viewModel.timeline.clips.begin(),
+      viewModel.timeline.clips.end(),
+      [&](const grapple::app::AppClipRow& clip) {
+        return clip.sourceNodeId == selectedNodeId;
+      }
+    );
+    if (selectedClip) {
+      detailTabs_->setCurrentWidget(clipTransform_);
+    } else {
+      detailTabs_->setCurrentWidget(inspector_);
+    }
   }
 
   void updateSelectionPanels(const grapple::app::AppViewModel& viewModel) {
@@ -2562,6 +2604,7 @@ private:
   grapple::ui::EffectParamPanel* effectParams_ = nullptr;
   grapple::ui::ExportSettingsPanel* exportSettings_ = nullptr;
   grapple::ui::StewardPanel* steward_ = nullptr;
+  QTabWidget* detailTabs_ = nullptr;
   QTextEdit* log_ = nullptr;
   QFrame* previewFrame_ = nullptr;
   QFrame* viewportFrame_ = nullptr;
