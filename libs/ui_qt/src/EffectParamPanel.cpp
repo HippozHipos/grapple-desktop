@@ -1,5 +1,4 @@
 #include <grapple/ui_qt/EffectParamPanel.hpp>
-#include <grapple/timeline/ParamSampling.hpp>
 
 #include <QAbstractSpinBox>
 #include <QCheckBox>
@@ -93,26 +92,6 @@ void appendLastEditedRow(QVBoxLayout* layout, const app::AppEffectParamRow& para
   };
   lastEdited->setObjectName("effectParamHelp");
   layout->addWidget(lastEdited);
-}
-
-timeline::Param timelineParamForSampling(const app::AppEffectParamRow& param) {
-  timeline::Param timelineParam{param.name, param.value};
-  timelineParam.keyframes.reserve(param.keyframes.size());
-  for (const app::AppEffectParamRow::Keyframe& keyframe : param.keyframes) {
-    timelineParam.keyframes.push_back(timeline::Param::Keyframe{
-      keyframe.keyframeId,
-      keyframe.time,
-      keyframe.value
-    });
-  }
-  return timelineParam;
-}
-
-timeline::ParamValue sampledParamValueAtPlayhead(
-  const app::AppEffectParamRow& param,
-  foundation::TimeSeconds playhead
-) {
-  return timeline::sampleParamValue(timelineParamForSampling(param), playhead);
 }
 
 } // namespace
@@ -210,7 +189,7 @@ void EffectParamPanel::setSelection(
         const std::string paramName = param.name;
         const std::optional<foundation::KeyframeId> currentKeyframeId = keyframeIdAtPlayhead(param, playhead);
         const bool animatedParam = !param.keyframes.empty();
-        const timeline::ParamValue displayedValue = sampledParamValueAtPlayhead(param, playhead);
+        const timeline::ParamValue displayedValue = app::sampledEffectParamValue(param, playhead);
         const QString displayName = param.label.empty()
           ? qString(param.name)
           : qString(param.label);

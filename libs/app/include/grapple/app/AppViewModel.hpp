@@ -160,6 +160,10 @@ struct AppViewModel {
 };
 
 std::string paramValueDisplayText(const timeline::ParamValue& value);
+timeline::ParamValue sampledEffectParamValue(
+  const AppEffectParamRow& param,
+  foundation::TimeSeconds playhead
+);
 std::optional<foundation::NodeId> stewardCameraTargetId(
   const AppViewModel& viewModel,
   const std::optional<foundation::NodeId>& selectedNodeId

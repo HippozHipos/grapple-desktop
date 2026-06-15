@@ -111,7 +111,8 @@ QString summaryText(const grapple::app::AppViewModel& viewModel) {
 QString inspectorText(
   const grapple::app::AppViewModel& viewModel,
   const std::optional<grapple::foundation::NodeId>& selectedNodeId,
-  const std::optional<grapple::foundation::AssetId>& selectedAssetId
+  const std::optional<grapple::foundation::AssetId>& selectedAssetId,
+  grapple::foundation::TimeSeconds playhead
 ) {
   if (selectedAssetId.has_value()) {
     for (const grapple::app::AppAssetRow& asset : viewModel.assets.rows) {
@@ -166,7 +167,9 @@ QString inspectorText(
             const QString displayName = param.label.empty()
               ? qString(param.name)
               : QString{"%1 (%2)"}.arg(qString(param.label)).arg(qString(param.name));
-            QString paramText = QString{"%1=%2"}.arg(displayName).arg(qString(grapple::app::paramValueDisplayText(param.value)));
+            QString paramText = QString{"%1=%2"}
+              .arg(displayName)
+              .arg(qString(grapple::app::paramValueDisplayText(grapple::app::sampledEffectParamValue(param, playhead))));
             if (param.numericMin.has_value() && param.numericMax.has_value()) {
               paramText += QString{" [%1..%2"}.arg(*param.numericMin).arg(*param.numericMax);
               if (param.numericStep.has_value()) {
@@ -2387,7 +2390,7 @@ private:
   }
 
   void updateInspector(const grapple::app::AppViewModel& viewModel) {
-    inspector_->setPlainText(inspectorText(viewModel, selectedNodeId_, selectedAssetId_));
+    inspector_->setPlainText(inspectorText(viewModel, selectedNodeId_, selectedAssetId_, workspace_.preview().state().playhead));
     cameraProperties_->setSelection(viewModel, selectedNodeId_);
     clipTransform_->setSelection(viewModel, selectedNodeId_);
     effectParams_->setSelection(viewModel, selectedNodeId_, workspace_.preview().state().playhead);
@@ -2446,7 +2449,9 @@ private:
       appendError(viewModel.error());
       return;
     }
-    effectParams_->setSelection(viewModel.value(), selectedNodeId_, workspace_.preview().state().playhead);
+    const grapple::foundation::TimeSeconds playhead = workspace_.preview().state().playhead;
+    inspector_->setPlainText(inspectorText(viewModel.value(), selectedNodeId_, selectedAssetId_, playhead));
+    effectParams_->setSelection(viewModel.value(), selectedNodeId_, playhead);
   }
 
   void rebuildMediaBin(const grapple::app::AppViewModel& viewModel) {

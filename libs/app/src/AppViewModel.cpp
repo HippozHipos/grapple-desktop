@@ -1,4 +1,5 @@
 #include <grapple/app/AppViewModel.hpp>
+#include <grapple/timeline/ParamSampling.hpp>
 
 #include <sstream>
 #include <type_traits>
@@ -28,6 +29,22 @@ std::string paramValueDisplayText(const timeline::ParamValue& value) {
     },
     value
   );
+}
+
+timeline::ParamValue sampledEffectParamValue(
+  const AppEffectParamRow& param,
+  foundation::TimeSeconds playhead
+) {
+  timeline::Param timelineParam{param.name, param.value};
+  timelineParam.keyframes.reserve(param.keyframes.size());
+  for (const AppEffectParamRow::Keyframe& keyframe : param.keyframes) {
+    timelineParam.keyframes.push_back(timeline::Param::Keyframe{
+      keyframe.keyframeId,
+      keyframe.time,
+      keyframe.value
+    });
+  }
+  return timeline::sampleParamValue(timelineParam, playhead);
 }
 
 std::optional<foundation::NodeId> stewardCameraTargetId(

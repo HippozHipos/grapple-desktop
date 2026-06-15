@@ -1295,6 +1295,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
 
     const auto conversation = workspace.value().steward().conversationState();
     const std::string effectPanel = window.effectParamPanelText();
+    const std::string inspector = window.inspectorContents();
     if (frame.value().frame.cameras.empty()) {
       std::cerr << "Steward motion smoke requires an evaluated camera.\n";
       return 1;
@@ -1308,6 +1309,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     }
     std::cout << "positionXKeyframes=" << param->keyframes.size() << '\n';
     std::cout << "cameraXAtMidpoint=" << cameraX << '\n';
+    std::cout << "inspector=" << inspector << '\n';
     std::cout << "effectPanel=" << effectPanel << '\n';
 
     const bool stewardCreatedMotion =
@@ -1327,6 +1329,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       frame.value().frame.sourceRevision == viewModel.value().project.revision &&
       frame.value().frame.cameras.size() == 1 &&
       approx(cameraX, 0.125) &&
+      inspector.find("Position X (position_x)=0.125") != std::string::npos &&
       effectPanel.find("0s = 0 last changed by steward at ") != std::string::npos &&
       effectPanel.find("10s = 0.25 last changed by steward at ") != std::string::npos;
 
