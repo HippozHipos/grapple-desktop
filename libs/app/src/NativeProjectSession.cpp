@@ -141,9 +141,19 @@ struct EffectParamEditProvenance {
   std::string sourceActorName;
 };
 
+struct EffectKeyframeEditProvenance {
+  foundation::NodeId effectNodeId;
+  std::string paramName;
+  foundation::KeyframeId keyframeId;
+  foundation::RevisionId revision;
+  std::string sourceKind;
+  std::string sourceActorName;
+};
+
 struct EffectCommandProvenance {
   std::vector<EffectCreationProvenance> creations;
   std::vector<EffectParamEditProvenance> paramEdits;
+  std::vector<EffectKeyframeEditProvenance> keyframeEdits;
 };
 
 foundation::Result<EffectCommandProvenance> effectCommandProvenance(
@@ -179,6 +189,15 @@ foundation::Result<EffectCommandProvenance> effectCommandProvenance(
         command.sourceKind,
         command.sourceActorName
       });
+    } else if (const auto* upsertKeyframe = std::get_if<project::UpsertEffectParamKeyframeCommand>(&parsedCommand.value())) {
+      provenance.keyframeEdits.push_back(EffectKeyframeEditProvenance{
+        upsertKeyframe->effectNodeId,
+        upsertKeyframe->paramName,
+        upsertKeyframe->keyframe.id,
+        command.afterRevision,
+        command.sourceKind,
+        command.sourceActorName
+      });
     }
   }
   return provenance;
@@ -204,6 +223,21 @@ const EffectParamEditProvenance* latestParamEditForParam(
 ) {
   const auto match = std::find_if(provenance.rbegin(), provenance.rend(), [&](const EffectParamEditProvenance& edit) {
     return edit.effectNodeId == effectNodeId && edit.paramName == paramName;
+  });
+  if (match == provenance.rend()) {
+    return nullptr;
+  }
+  return &*match;
+}
+
+const EffectKeyframeEditProvenance* latestKeyframeEditForKeyframe(
+  const std::vector<EffectKeyframeEditProvenance>& provenance,
+  const foundation::NodeId& effectNodeId,
+  const std::string& paramName,
+  const foundation::KeyframeId& keyframeId
+) {
+  const auto match = std::find_if(provenance.rbegin(), provenance.rend(), [&](const EffectKeyframeEditProvenance& edit) {
+    return edit.effectNodeId == effectNodeId && edit.paramName == paramName && edit.keyframeId == keyframeId;
   });
   if (match == provenance.rend()) {
     return nullptr;
@@ -553,10 +587,19 @@ foundation::Result<NativeProjectViewModelResult> NativeProjectSession::buildView
         std::vector<AppEffectParamRow::Keyframe> keyframes;
         keyframes.reserve(param.keyframes.size());
         for (const timeline::Param::Keyframe& keyframe : param.keyframes) {
+          const EffectKeyframeEditProvenance* keyframeEdit = latestKeyframeEditForKeyframe(
+            effectProvenance.value().keyframeEdits,
+            effect.sourceNodeId,
+            param.name,
+            keyframe.id
+          );
           keyframes.push_back(AppEffectParamRow::Keyframe{
             keyframe.id,
             keyframe.time,
-            keyframe.value
+            keyframe.value,
+            keyframeEdit == nullptr ? std::nullopt : std::optional<foundation::RevisionId>{keyframeEdit->revision},
+            keyframeEdit == nullptr ? std::string{} : keyframeEdit->sourceKind,
+            keyframeEdit == nullptr ? std::string{} : keyframeEdit->sourceActorName
           });
         }
         params.push_back(AppEffectParamRow{

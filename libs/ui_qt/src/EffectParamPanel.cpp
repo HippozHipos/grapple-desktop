@@ -159,11 +159,15 @@ void EffectParamPanel::setSelection(
             keyframeLayout->setContentsMargins(92, 0, 0, 0);
             keyframeLayout->setSpacing(8);
 
-            auto* keyframeLabel = new QLabel{
-              QString{"%1 = %2"}
-                .arg(timeText(keyframe.time))
-                .arg(qString(app::paramValueDisplayText(keyframe.value)))
-            };
+            QString keyframeText = QString{"%1 = %2"}
+              .arg(timeText(keyframe.time))
+              .arg(qString(app::paramValueDisplayText(keyframe.value)));
+            if (keyframe.lastEditedRevision.has_value()) {
+              keyframeText += QString{" last changed by %1 at %2"}
+                .arg(qString(keyframe.lastEditedActorName.empty() ? keyframe.lastEditedSourceKind : keyframe.lastEditedActorName))
+                .arg(qString(keyframe.lastEditedRevision->value()));
+            }
+            auto* keyframeLabel = new QLabel{keyframeText};
             keyframeLabel->setObjectName("effectParamHelp");
             auto* deleteKeyframe = new QPushButton{"Delete Keyframe"};
             deleteKeyframe->setObjectName(QString{"effectParamDeleteKeyframe_%1_%2"}

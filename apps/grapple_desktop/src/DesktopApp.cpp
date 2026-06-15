@@ -1001,6 +1001,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     const std::string buttonAwayFromKeyframe = window.effectParamKeyframeButtonText(grapple::runtime::builtin_effect::PositionXParam);
     window.seekTo(grapple::foundation::TimeSeconds{2.0});
     const std::string buttonBackAtKeyframe = window.effectParamKeyframeButtonText(grapple::runtime::builtin_effect::PositionXParam);
+    const std::string effectParamPanelAfterUpdate = window.effectParamPanelText();
     window.deleteEffectParamKeyframeControl(grapple::runtime::builtin_effect::PositionXParam, 0);
     const auto afterKeyframeDelete = workspace.value().project().buildViewModel();
     if (!afterKeyframeDelete) {
@@ -1018,17 +1019,23 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "buttonAtKeyframe=" << buttonAtKeyframe << '\n';
     std::cout << "buttonAwayFromKeyframe=" << buttonAwayFromKeyframe << '\n';
     std::cout << "buttonBackAtKeyframe=" << buttonBackAtKeyframe << '\n';
+    std::cout << "effectParamPanelAfterUpdate=" << effectParamPanelAfterUpdate << '\n';
     std::cout << "afterDeleteRevision=" << afterKeyframeDelete.value().project.revision.value() << '\n';
     std::cout << "afterDeleteKeyframes=" << keyframesAfterDelete.size() << '\n';
     return keyframesAfterSet.size() == 1 &&
            keyframesAfterSet[0].time == grapple::foundation::TimeSeconds{2.0} &&
            std::get<double>(keyframesAfterSet[0].value) == 0.25 &&
+           keyframesAfterSet[0].lastEditedRevision == afterKeyframe.value().project.revision &&
+           keyframesAfterSet[0].lastEditedActorName == "desktop" &&
            keyframesAfterUpdate.size() == 1 &&
            keyframesAfterUpdate[0].keyframeId == keyframesAfterSet[0].keyframeId &&
            std::get<double>(keyframesAfterUpdate[0].value) == 0.5 &&
+           keyframesAfterUpdate[0].lastEditedRevision == afterKeyframeUpdate.value().project.revision &&
+           keyframesAfterUpdate[0].lastEditedActorName == "desktop" &&
            buttonAtKeyframe == "Update Keyframe" &&
            buttonAwayFromKeyframe == "Set Keyframe" &&
            buttonBackAtKeyframe == "Update Keyframe" &&
+           effectParamPanelAfterUpdate.find("2s = 0.5 last changed by desktop at ") != std::string::npos &&
            keyframesAfterDelete.empty()
       ? 0
       : 1;

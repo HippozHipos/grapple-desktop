@@ -97,6 +97,9 @@ struct AppEffectParamRow {
     foundation::KeyframeId keyframeId;
     foundation::TimeSeconds time;
     timeline::ParamValue value;
+    std::optional<foundation::RevisionId> lastEditedRevision;
+    std::string lastEditedSourceKind;
+    std::string lastEditedActorName;
   };
 
   std::string name;

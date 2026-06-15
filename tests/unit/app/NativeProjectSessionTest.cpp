@@ -889,6 +889,9 @@ int main() {
   GRAPPLE_REQUIRE(keyframedEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].keyframes[0].keyframeId == foundation::KeyframeId{"key_target_x_2"});
   GRAPPLE_REQUIRE(keyframedEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].keyframes[0].time == foundation::TimeSeconds{1.25});
   GRAPPLE_REQUIRE(std::get<double>(keyframedEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].keyframes[0].value) == 0.8);
+  GRAPPLE_REQUIRE(keyframedEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].keyframes[0].lastEditedRevision == appKeyframeUpsert.value().snapshot.revision);
+  GRAPPLE_REQUIRE(keyframedEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].keyframes[0].lastEditedSourceKind == "user");
+  GRAPPLE_REQUIRE(keyframedEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].keyframes[0].lastEditedActorName == "test");
   app::NativeProjectCommandWriter sparseKeyframeWriter{effectSession};
   GRAPPLE_REQUIRE(sparseKeyframeWriter.nextKeyframeId("target x") == foundation::KeyframeId{"key_target_x_3"});
   const auto appParamValueUpdate = effectEdits.setParamValue(
