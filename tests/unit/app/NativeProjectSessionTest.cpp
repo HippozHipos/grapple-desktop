@@ -208,6 +208,9 @@ int main() {
   const std::filesystem::path packageRoot =
     std::filesystem::temp_directory_path() /
     ("grapple_native_app_" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+  const std::filesystem::path saveAsPackageRoot =
+    std::filesystem::temp_directory_path() /
+    ("grapple_native_app_save_as_" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
   const std::filesystem::path stewardPackageRoot =
     std::filesystem::temp_directory_path() /
     ("grapple_native_app_steward_" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
@@ -2331,7 +2334,35 @@ int main() {
   GRAPPLE_REQUIRE(reopenedWorkspaceUndo.value().snapshot.revision == foundation::RevisionId{"rev_3"});
   GRAPPLE_REQUIRE(reopenedWorkspaceUndo.value().snapshot.graph.nodes().size() == 1);
   GRAPPLE_REQUIRE(reopenedWorkspaceUndo.value().snapshot.graph.edges().empty());
+
+  const history::SnapshotRecord* saveAsHeadSnapshot =
+    openedWorkspace.value().project().packageState().snapshots.findByRevision(foundation::RevisionId{"rev_2"});
+  GRAPPLE_REQUIRE(saveAsHeadSnapshot != nullptr);
+  const std::string packageRootBeforeFailedSaveAs =
+    openedWorkspace.value().project().packageState().package.rootPath.value;
+  const auto failedSaveAs = openedWorkspace.value().savePackageAs(foundation::FilePath{});
+  GRAPPLE_REQUIRE(!failedSaveAs);
+  GRAPPLE_REQUIRE(openedWorkspace.value().project().packageState().package.rootPath.value == packageRootBeforeFailedSaveAs);
+  const auto saveAsWrite = openedWorkspace.value().savePackageAs(foundation::FilePath{saveAsPackageRoot.string()});
+  GRAPPLE_REQUIRE(saveAsWrite);
+  GRAPPLE_REQUIRE(saveAsWrite.value().project.snapshotPath.value == (saveAsPackageRoot / saveAsHeadSnapshot->documentPath.value).lexically_normal().string());
+  GRAPPLE_REQUIRE(saveAsWrite.value().project.manifestPath.value == (saveAsPackageRoot / "manifest.json").lexically_normal().string());
+  GRAPPLE_REQUIRE(saveAsWrite.value().project.commandLogPath.value == (saveAsPackageRoot / "history/commands.json").lexically_normal().string());
+  GRAPPLE_REQUIRE(saveAsWrite.value().project.eventLogPath.value == (saveAsPackageRoot / "history/events.json").lexically_normal().string());
+  GRAPPLE_REQUIRE(saveAsWrite.value().agentRunsPath.value == (saveAsPackageRoot / "agent/runs.json").lexically_normal().string());
+  GRAPPLE_REQUIRE(saveAsWrite.value().agentEventsPath.value == (saveAsPackageRoot / "agent/events.json").lexically_normal().string());
+  GRAPPLE_REQUIRE(openedWorkspace.value().project().packageState().package.rootPath.value == saveAsPackageRoot.string());
+  auto reopenedSaveAsWorkspace = app::NativeWorkspaceSession::openPackageRoot(foundation::FilePath{saveAsPackageRoot.string()});
+  GRAPPLE_REQUIRE(reopenedSaveAsWorkspace);
+  const auto reopenedSaveAsViewModel = reopenedSaveAsWorkspace.value().project().buildViewModel();
+  GRAPPLE_REQUIRE(reopenedSaveAsViewModel);
+  GRAPPLE_REQUIRE(reopenedSaveAsViewModel.value().project.projectId == foundation::ProjectId{"proj_app_saved"});
+  GRAPPLE_REQUIRE(reopenedSaveAsViewModel.value().project.revision == foundation::RevisionId{"rev_2"});
+  GRAPPLE_REQUIRE(reopenedSaveAsViewModel.value().timeline.layers.size() == 1);
+  GRAPPLE_REQUIRE(reopenedSaveAsWorkspace.value().steward().conversationState().diagnostics.empty());
+
   std::filesystem::remove_all(packageRoot);
+  std::filesystem::remove_all(saveAsPackageRoot);
 
   app::NativeProjectSession projectOnlySession{
     foundation::ProjectId{"proj_app_project_only"},

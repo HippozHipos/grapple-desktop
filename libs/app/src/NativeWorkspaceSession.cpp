@@ -219,6 +219,35 @@ foundation::Result<void> restoreAgentConversationSidecar(
   return workspace.steward().restoreConversation(std::move(runs.value()), std::move(events.value()));
 }
 
+foundation::Result<NativeWorkspaceWriteResult> writeWorkspacePackageSidecars(
+  const storage::ProjectPackage& package,
+  const NativePackageWriteResult& projectWrite,
+  const NativeStewardSession& steward
+) {
+  auto runsPath = writePackageTextFile(
+    package,
+    agentRunsRelativePath(),
+    agent::serializeCanonicalAgentRuns(steward.runs())
+  );
+  if (!runsPath) {
+    return runsPath.error();
+  }
+  auto eventsPath = writePackageTextFile(
+    package,
+    agentEventsRelativePath(),
+    agent::serializeCanonicalAgentRunEvents(steward.events())
+  );
+  if (!eventsPath) {
+    return eventsPath.error();
+  }
+
+  return NativeWorkspaceWriteResult{
+    projectWrite,
+    runsPath.value(),
+    eventsPath.value()
+  };
+}
+
 } // namespace
 
 struct NativeWorkspaceSession::State {
@@ -417,28 +446,32 @@ foundation::Result<NativeWorkspaceWriteResult> NativeWorkspaceSession::writePack
   }
 
   const storage::ProjectPackage& package = state_->project.packageState().package;
-  auto runsPath = writePackageTextFile(
-    package,
-    agentRunsRelativePath(),
-    agent::serializeCanonicalAgentRuns(state_->steward.runs())
-  );
-  if (!runsPath) {
-    return runsPath.error();
-  }
-  auto eventsPath = writePackageTextFile(
-    package,
-    agentEventsRelativePath(),
-    agent::serializeCanonicalAgentRunEvents(state_->steward.events())
-  );
-  if (!eventsPath) {
-    return eventsPath.error();
+  return writeWorkspacePackageSidecars(package, projectWrite.value(), state_->steward);
+}
+
+foundation::Result<NativeWorkspaceWriteResult> NativeWorkspaceSession::savePackageAs(foundation::FilePath rootPath) {
+  const storage::ProjectPackage& currentPackage = state_->project.packageState().package;
+  storage::ProjectPackage package{
+    currentPackage.projectId,
+    std::move(rootPath),
+    currentPackage.schemaVersion
+  };
+
+  auto projectWrite = state_->project.writePackageTo(package);
+  if (!projectWrite) {
+    return projectWrite.error();
   }
 
-  return NativeWorkspaceWriteResult{
-    projectWrite.value(),
-    runsPath.value(),
-    eventsPath.value()
-  };
+  auto sidecarsWrite = writeWorkspacePackageSidecars(package, projectWrite.value(), state_->steward);
+  if (!sidecarsWrite) {
+    return sidecarsWrite.error();
+  }
+
+  auto retargeted = state_->project.retargetPackage(std::move(package));
+  if (!retargeted) {
+    return retargeted.error();
+  }
+  return sidecarsWrite.value();
 }
 
 foundation::Result<project::ProjectQueryResult> NativeWorkspaceSession::query(

@@ -534,6 +534,7 @@ public:
     auto* moreButton = new QPushButton{"More"};
     auto* moreMenu = new QMenu{moreButton};
     auto* openPackageAction = moreMenu->addAction("Open Package");
+    auto* saveAsPackageAction = moreMenu->addAction("Save As Package");
     auto* addTrackAction = moreMenu->addAction("Add Track");
     auto* addCameraAction = moreMenu->addAction("Add Camera");
     auto* renameCameraAction = moreMenu->addAction("Rename Camera");
@@ -631,6 +632,7 @@ public:
     connect(redoButton, &QPushButton::clicked, this, [this] { redoLastEdit(); });
     connect(importMediaButton, &QPushButton::clicked, this, [this] { chooseAndImportMedia(); });
     connect(openPackageAction, &QAction::triggered, this, [this] { chooseAndOpenPackage(); });
+    connect(saveAsPackageAction, &QAction::triggered, this, [this] { chooseAndSavePackageAs(); });
     connect(addTrackAction, &QAction::triggered, this, [this] { addTrack(); });
     connect(addCameraAction, &QAction::triggered, this, [this] { addCamera(); });
     connect(renameCameraAction, &QAction::triggered, this, [this] { renameSelectedCamera(); });
@@ -2488,14 +2490,16 @@ public:
       appendError(write.error());
       return;
     }
-    log_->append(QString{"Package saved\n%1\n%2\n%3\n%4\n%5\n%6\n%7"}
-      .arg(qString(write.value().project.snapshotPath.value))
-      .arg(qString(write.value().project.manifestPath.value))
-      .arg(qString(write.value().project.commandLogPath.value))
-      .arg(qString(write.value().project.eventLogPath.value))
-      .arg(qString(write.value().project.schemaMigrationLogPath.value))
-      .arg(qString(write.value().agentRunsPath.value))
-      .arg(qString(write.value().agentEventsPath.value)));
+    appendPackageSaved(write.value());
+  }
+
+  void savePackageAs(const grapple::foundation::FilePath& rootPath) {
+    const auto write = workspace_.savePackageAs(rootPath);
+    if (!write) {
+      appendError(write.error());
+      return;
+    }
+    appendPackageSaved(write.value());
   }
 
   void openPackageRoot(const grapple::foundation::FilePath& rootPath) {
@@ -2513,6 +2517,17 @@ public:
   }
 
 private:
+  void appendPackageSaved(const grapple::app::NativeWorkspaceWriteResult& write) {
+    log_->append(QString{"Package saved\n%1\n%2\n%3\n%4\n%5\n%6\n%7"}
+      .arg(qString(write.project.snapshotPath.value))
+      .arg(qString(write.project.manifestPath.value))
+      .arg(qString(write.project.commandLogPath.value))
+      .arg(qString(write.project.eventLogPath.value))
+      .arg(qString(write.project.schemaMigrationLogPath.value))
+      .arg(qString(write.agentRunsPath.value))
+      .arg(qString(write.agentEventsPath.value)));
+  }
+
   void appendError(const grapple::foundation::Error& error) {
     log_->append(QString{"%1: %2"}.arg(qString(error.code)).arg(qString(error.message)));
   }
@@ -2743,6 +2758,14 @@ private:
       return;
     }
     openPackageRoot(grapple::foundation::FilePath{path.toStdString()});
+  }
+
+  void chooseAndSavePackageAs() {
+    const QString path = QFileDialog::getExistingDirectory(this, "Save Package As");
+    if (path.isEmpty()) {
+      return;
+    }
+    savePackageAs(grapple::foundation::FilePath{path.toStdString()});
   }
 
   grapple::app::NativeWorkspaceSession& workspace_;
@@ -3015,6 +3038,10 @@ void DesktopWindow::undoLastEdit() {
 
 void DesktopWindow::redoLastEdit() {
   impl_->redoLastEdit();
+}
+
+void DesktopWindow::savePackageAs(const foundation::FilePath& rootPath) {
+  impl_->savePackageAs(rootPath);
 }
 
 void DesktopWindow::exportVideoFile(const foundation::FilePath& path) {

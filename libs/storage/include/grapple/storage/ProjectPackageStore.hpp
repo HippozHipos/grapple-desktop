@@ -38,6 +38,7 @@ public:
   explicit ProjectPackageStore(ProjectPackageState state);
 
   foundation::Result<void> commit(const AtomicProjectCommit& commit);
+  foundation::Result<void> retargetPackage(ProjectPackage package);
   [[nodiscard]] const ProjectPackageState& state() const noexcept;
 
 private:

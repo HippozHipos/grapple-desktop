@@ -26,6 +26,7 @@ public:
     const project::ProjectCommandEnvelope& command,
     ProjectCommitRecordOptions options
   );
+  foundation::Result<void> retargetPackage(ProjectPackage package);
 
   [[nodiscard]] foundation::Result<project::ProjectSnapshot> snapshot() const;
   [[nodiscard]] const project::ProjectSnapshot* findCommittedSnapshot(

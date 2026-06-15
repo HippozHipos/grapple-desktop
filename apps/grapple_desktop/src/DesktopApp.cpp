@@ -2349,6 +2349,28 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       reopenedExport.value().framesEvaluated == 1 &&
       reopenedExportExists &&
       reopenedExportSize > 0U;
+    const std::filesystem::path saveAsRoot = smokeRoot / "desktop-save-as-package";
+    std::filesystem::remove_all(saveAsRoot);
+    window.savePackageAs(grapple::foundation::FilePath{saveAsRoot.string()});
+    auto reopenedSaveAs = grapple::app::NativeWorkspaceSession::openPackageRoot(grapple::foundation::FilePath{saveAsRoot.string()});
+    if (!reopenedSaveAs) {
+      printError(reopenedSaveAs.error());
+      return 1;
+    }
+    const auto saveAsViewModel = reopenedSaveAs.value().project().buildViewModel();
+    if (!saveAsViewModel) {
+      printError(saveAsViewModel.error());
+      return 1;
+    }
+    const auto saveAsConversation = reopenedSaveAs.value().steward().conversationState();
+    const bool saveAsRestored =
+      saveAsViewModel.value().project.revision == grapple::foundation::RevisionId{"rev_9"} &&
+      saveAsViewModel.value().timeline.effectCount == 1 &&
+      saveAsConversation.diagnostics.empty() &&
+      saveAsConversation.runs.size() == 2 &&
+      std::filesystem::exists(saveAsRoot / "manifest.json") &&
+      std::filesystem::exists(saveAsRoot / "agent/runs.json") &&
+      std::filesystem::exists(saveAsRoot / "agent/events.json");
     std::cout << "revision=" << viewModel.value().project.revision.value() << '\n';
     std::cout << "assets=" << viewModel.value().assets.count << '\n';
     std::cout << "clips=" << viewModel.value().timeline.clips.size() << '\n';
@@ -2359,6 +2381,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "stewardContextRestored=" << (stewardContextRestored ? "true" : "false") << '\n';
     std::cout << "reopenedExportMatchesPlan=" << (reopenedExportMatchesPlan ? "true" : "false") << '\n';
     std::cout << "reopenedExportSize=" << reopenedExportSize << '\n';
+    std::cout << "saveAsRestored=" << (saveAsRestored ? "true" : "false") << '\n';
     return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_9"} &&
            viewModel.value().assets.count == 2 &&
            viewModel.value().timeline.clips.size() == 2 &&
@@ -2367,7 +2390,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            reopenedTunedEffect &&
            reopenedPreviewTuned &&
            stewardContextRestored &&
-           reopenedExportMatchesPlan
+           reopenedExportMatchesPlan &&
+           saveAsRestored
       ? 0
       : 1;
   }

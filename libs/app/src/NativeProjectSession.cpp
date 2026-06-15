@@ -905,7 +905,12 @@ foundation::Result<projection::BuildRenderPlanResult> NativeProjectSession::buil
 }
 
 foundation::Result<NativePackageWriteResult> NativeProjectSession::writePackage() const {
-  const storage::ProjectPackageState& state = session_.packageState();
+  return writePackageTo(session_.packageState().package);
+}
+
+foundation::Result<NativePackageWriteResult> NativeProjectSession::writePackageTo(storage::ProjectPackage package) const {
+  storage::ProjectPackageState state = session_.packageState();
+  state.package = std::move(package);
   auto snapshotResult = session_.snapshot();
   if (!snapshotResult) {
     return snapshotResult.error();
@@ -986,6 +991,10 @@ foundation::Result<NativePackageWriteResult> NativeProjectSession::writePackage(
     eventLogPath.value(),
     schemaMigrationLogPath.value()
   };
+}
+
+foundation::Result<void> NativeProjectSession::retargetPackage(storage::ProjectPackage package) {
+  return session_.retargetPackage(std::move(package));
 }
 
 const project::ProjectSnapshot* NativeProjectSession::findCommittedSnapshot(

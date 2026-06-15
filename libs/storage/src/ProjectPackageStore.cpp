@@ -83,6 +83,21 @@ foundation::Result<void> ProjectPackageStore::commit(const AtomicProjectCommit& 
   return {};
 }
 
+foundation::Result<void> ProjectPackageStore::retargetPackage(ProjectPackage package) {
+  if (package.projectId != state_.package.projectId) {
+    return foundation::Error{"storage.package_retarget_project_id_mismatch", "Retargeted package must keep the same project id."};
+  }
+  if (package.schemaVersion != state_.package.schemaVersion) {
+    return foundation::Error{"storage.package_retarget_schema_mismatch", "Retargeted package must keep the same schema version."};
+  }
+  if (package.rootPath.value.empty()) {
+    return foundation::Error{"storage.package_retarget_root_empty", "Retargeted package root path must not be empty."};
+  }
+
+  state_.package = std::move(package);
+  return {};
+}
+
 const ProjectPackageState& ProjectPackageStore::state() const noexcept {
   return state_;
 }

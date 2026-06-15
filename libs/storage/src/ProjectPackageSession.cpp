@@ -117,6 +117,10 @@ foundation::Result<ProjectPackageSessionResult> ProjectPackageSession::applyAndC
   };
 }
 
+foundation::Result<void> ProjectPackageSession::retargetPackage(ProjectPackage package) {
+  return store_.retargetPackage(std::move(package));
+}
+
 foundation::Result<project::ProjectSnapshot> ProjectPackageSession::snapshot() const {
   return controller_.snapshot();
 }

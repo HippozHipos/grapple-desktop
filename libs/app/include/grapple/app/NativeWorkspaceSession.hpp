@@ -43,6 +43,7 @@ public:
   foundation::Result<void> openPackageInPlace(storage::ProjectPackage package);
   foundation::Result<void> openPackageRootInPlace(foundation::FilePath rootPath);
   [[nodiscard]] foundation::Result<NativeWorkspaceWriteResult> writePackage() const;
+  [[nodiscard]] foundation::Result<NativeWorkspaceWriteResult> savePackageAs(foundation::FilePath rootPath);
 
   [[nodiscard]] NativeProjectSession& project() noexcept;
   [[nodiscard]] const NativeProjectSession& project() const noexcept;
