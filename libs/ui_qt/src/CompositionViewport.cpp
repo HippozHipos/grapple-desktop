@@ -70,9 +70,9 @@ void CompositionViewport::paintEvent(QPaintEvent* event) {
   painter.drawRoundedRect(world, 12.0, 12.0);
   drawGrid(painter, world);
 
-  for (const app::AppClipRow& clip : viewModel_->timeline.clips) {
-    if (activeAtPlayhead(clip)) {
-      drawClip(painter, clip, world);
+  if (frame_.has_value() && frame_->time == playhead_) {
+    for (const render::RenderedMediaFrame& mediaFrame : frame_->mediaFrames) {
+      drawMediaFrame(painter, mediaFrame, world);
     }
   }
 
@@ -104,19 +104,23 @@ void CompositionViewport::drawGrid(QPainter& painter, const QRectF& world) const
   painter.drawLine(QPointF{world.left(), world.center().y()}, QPointF{world.right(), world.center().y()});
 }
 
-void CompositionViewport::drawClip(QPainter& painter, const app::AppClipRow& clip, const QRectF& world) const {
+void CompositionViewport::drawMediaFrame(
+  QPainter& painter,
+  const render::RenderedMediaFrame& mediaFrame,
+  const QRectF& world
+) const {
   double aspect = 16.0 / 9.0;
-  if (const auto dimensions = dimensionsFor(clip.assetId); dimensions.has_value() && dimensions->height > 0) {
+  if (const auto dimensions = dimensionsFor(mediaFrame.assetId); dimensions.has_value() && dimensions->height > 0) {
     aspect = static_cast<double>(dimensions->width) / static_cast<double>(dimensions->height);
   }
 
   const double baseHeight = 1.45;
-  QRectF clipRect = worldRect(baseHeight * aspect, baseHeight, clip.transform, world);
-  const bool isSelected = selected(clip.sourceNodeId);
+  QRectF clipRect = worldRect(baseHeight * aspect, baseHeight, mediaFrame.transform, world);
+  const bool isSelected = selected(mediaFrame.clipNodeId);
 
   painter.save();
   painter.translate(clipRect.center());
-  painter.rotate(clip.transform.rotationDegrees);
+  painter.rotate(mediaFrame.transform.rotationDegrees);
   clipRect.moveCenter(QPointF{0.0, 0.0});
 
   painter.setPen(isSelected ? QPen{QColor{"#f4fbff"}, 4} : QPen{QColor{"#6ea5ff"}, 2});
@@ -126,7 +130,7 @@ void CompositionViewport::drawClip(QPainter& painter, const app::AppClipRow& cli
   painter.setPen(QColor{"#eaf3ff"});
   painter.setFont(QFont{"DejaVu Sans", 9, QFont::Bold});
   const QString label = QFontMetrics{painter.font()}.elidedText(
-    qString(clip.assetName),
+    qString(mediaFrameLabel(mediaFrame)),
     Qt::ElideRight,
     static_cast<int>(std::max(20.0, clipRect.width() - 16.0))
   );
@@ -216,12 +220,19 @@ std::optional<foundation::Resolution> CompositionViewport::dimensionsFor(const f
   return std::nullopt;
 }
 
-bool CompositionViewport::selected(const foundation::NodeId& nodeId) const {
-  return selectedNodeId_.has_value() && selectedNodeId_.value() == nodeId;
+std::string CompositionViewport::mediaFrameLabel(const render::RenderedMediaFrame& mediaFrame) const {
+  if (viewModel_.has_value()) {
+    for (const app::AppClipRow& clip : viewModel_->timeline.clips) {
+      if (clip.sourceNodeId == mediaFrame.clipNodeId) {
+        return clip.assetName;
+      }
+    }
+  }
+  return mediaFrame.assetId.value();
 }
 
-bool CompositionViewport::activeAtPlayhead(const app::AppClipRow& clip) const {
-  return clip.timelineRange.contains(playhead_);
+bool CompositionViewport::selected(const foundation::NodeId& nodeId) const {
+  return selectedNodeId_.has_value() && selectedNodeId_.value() == nodeId;
 }
 
 } // namespace grapple::ui
