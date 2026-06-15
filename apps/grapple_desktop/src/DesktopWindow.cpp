@@ -70,6 +70,22 @@ QString shortHashText(const grapple::foundation::Hash256& hash) {
   return qString(hash.toHex().substr(0, 8));
 }
 
+QString renderProvenanceText(
+  const grapple::render::RenderFrame& frame,
+  const std::optional<grapple::foundation::RevisionId>& currentProjectRevision
+) {
+  if (currentProjectRevision.has_value() && frame.sourceRevision != currentProjectRevision.value()) {
+    return QString{"stale frame %1, project %2 | plan %3"}
+      .arg(qString(frame.sourceRevision.value()))
+      .arg(qString(currentProjectRevision->value()))
+      .arg(shortHashText(frame.renderPlanHash));
+  }
+
+  return QString{"current %1 | plan %2"}
+    .arg(qString(frame.sourceRevision.value()))
+    .arg(shortHashText(frame.renderPlanHash));
+}
+
 QString summaryText(const grapple::app::AppViewModel& viewModel) {
   QStringList lines{
     "Project",
@@ -690,6 +706,7 @@ public:
   }
 
   void applyViewModel(const grapple::app::AppViewModel& viewModel) {
+    currentProjectRevision_ = viewModel.project.revision;
     summary_->setText(summaryText(viewModel));
     rebuildMediaBin(viewModel);
     previewSurface_->setAssetLabels(viewModel.assets);
@@ -753,9 +770,7 @@ public:
     }
     previewSurface_->setFrame(frame.value().frame);
     compositionViewport_->setFrame(frame.value().frame);
-    const QString provenance = QString{"%1 | plan %2"}
-      .arg(qString(frame.value().frame.sourceRevision.value()))
-      .arg(shortHashText(frame.value().frame.renderPlanHash));
+    const QString provenance = renderProvenanceText(frame.value().frame, currentProjectRevision_);
     previewTitle_->setText(QString{"Player  %1"}.arg(provenance));
     viewportTitle_->setText(QString{"Composition  %1"}.arg(provenance));
     playheadLabel_->setText(QString{"Playhead: %1"}.arg(timeText(previewState.playhead)));
@@ -2526,6 +2541,7 @@ private:
   int lastLoggedExportProgressPercent_ = -25;
   grapple::foundation::TimeSeconds timelineDuration_;
   grapple::ui::ExportSettingsDraft exportSettingsDraft_;
+  std::optional<grapple::foundation::RevisionId> currentProjectRevision_;
   std::optional<grapple::foundation::NodeId> selectedNodeId_;
   std::optional<grapple::foundation::AssetId> selectedAssetId_;
 };
