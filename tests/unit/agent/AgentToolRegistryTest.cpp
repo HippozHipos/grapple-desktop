@@ -496,6 +496,13 @@ int main() {
   TestAgentQueryService queries{project};
   TestProjectIdAllocator ids;
   agent::AgentToolContext context{commands, queries, ids};
+  auto& [contextCommands, contextQueries, contextIds] = context;
+  static_assert(std::is_same_v<decltype(contextCommands), project::IProjectCommandService&>);
+  static_assert(std::is_same_v<decltype(contextQueries), project::IProjectQueryService&>);
+  static_assert(std::is_same_v<decltype(contextIds), project::IProjectIdAllocator&>);
+  GRAPPLE_REQUIRE(&contextCommands == &commands);
+  GRAPPLE_REQUIRE(&contextQueries == &queries);
+  GRAPPLE_REQUIRE(&contextIds == &ids);
 
   const agent::AgentTool* inspect = registry.findBySerializedId("project.inspect");
   GRAPPLE_REQUIRE(inspect != nullptr);
