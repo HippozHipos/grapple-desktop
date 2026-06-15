@@ -1066,6 +1066,14 @@ public:
     return viewportRect.contains(topLeft) && viewportRect.contains(bottomRight);
   }
 
+  std::optional<double> effectParamControlValue(const std::string& paramName) const {
+    auto* editor = findChild<QDoubleSpinBox*>(QString{"effectParamEditor_%1"}.arg(qString(paramName)));
+    if (editor == nullptr) {
+      return std::nullopt;
+    }
+    return editor->value();
+  }
+
   std::string currentDetailTabText() const {
     if (detailTabs_ == nullptr || detailTabs_->currentIndex() < 0) {
       return {};
@@ -2573,6 +2581,10 @@ private:
     return current == effectParamsScroll_ || current == inspector_;
   }
 
+  bool effectParamsVisible() const {
+    return detailTabs_ != nullptr && detailTabs_->currentWidget() == effectParamsScroll_;
+  }
+
   bool selectedTargetHasAnimatedEffectParams(const grapple::app::AppViewModel& viewModel) const {
     if (!selectedNodeId_.has_value()) {
       return false;
@@ -2601,7 +2613,11 @@ private:
       return;
     }
 
-    refreshPlayheadEditControls(currentViewModel_.value());
+    const grapple::foundation::TimeSeconds playhead = workspace_.preview().state().playhead;
+    inspector_->setPlainText(inspectorText(currentViewModel_.value(), selectedNodeId_, selectedAssetId_, playhead));
+    if (effectParamsVisible()) {
+      effectParams_->refreshPlayheadValues(currentViewModel_.value(), selectedNodeId_, playhead);
+    }
   }
 
   void rebuildMediaBin(const grapple::app::AppViewModel& viewModel) {
@@ -2818,6 +2834,10 @@ std::string DesktopWindow::effectParamPanelText() const {
 
 bool DesktopWindow::effectParamControlVisible(const std::string& paramName) const {
   return impl_->effectParamControlVisible(paramName);
+}
+
+std::optional<double> DesktopWindow::effectParamControlValue(const std::string& paramName) const {
+  return impl_->effectParamControlValue(paramName);
 }
 
 std::string DesktopWindow::currentDetailTabText() const {

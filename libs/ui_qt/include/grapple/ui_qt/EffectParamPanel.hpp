@@ -10,6 +10,7 @@
 #include <string>
 
 class QVBoxLayout;
+class QPushButton;
 
 namespace grapple::ui {
 
@@ -31,8 +32,21 @@ public:
     const std::optional<foundation::NodeId>& selectedNodeId,
     foundation::TimeSeconds playhead
   );
+  void refreshPlayheadValues(
+    const app::AppViewModel& viewModel,
+    const std::optional<foundation::NodeId>& selectedNodeId,
+    foundation::TimeSeconds playhead
+  );
 
 private:
+  void commitEditedValue(
+    const QWidget* editor,
+    const QPushButton* keyframeButton,
+    foundation::NodeId effectNodeId,
+    std::string paramName,
+    bool animatedParam,
+    timeline::ParamValue value
+  );
   void clearControls();
   void addMessage(const QString& message);
 

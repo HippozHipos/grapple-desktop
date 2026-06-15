@@ -1437,10 +1437,17 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
 	      window.advancePlaybackFrame();
 	    }
 	    const std::string playbackInspector = window.inspectorContents();
+	    const std::optional<double> playbackEffectControlValue =
+	      window.effectParamControlValue(grapple::effects::builtin_effect::PositionXParam);
 	    const bool editControlsUpdatedDuringPlayback =
-	      playbackInspector.find("Position X (position_x)=0.125") != std::string::npos;
+	      playbackInspector.find("Position X (position_x)=0.125") != std::string::npos &&
+	      playbackEffectControlValue.has_value() &&
+	      approx(playbackEffectControlValue.value(), 0.125);
 	    window.pausePlayback();
 	    std::cout << "playbackInspector=" << playbackInspector << '\n';
+	    if (playbackEffectControlValue.has_value()) {
+	      std::cout << "playbackEffectControlValue=" << playbackEffectControlValue.value() << '\n';
+	    }
 
 	    window.seekTo(grapple::foundation::TimeSeconds{10.0});
     window.setEffectParamControlValue(grapple::effects::builtin_effect::PositionXParam, 0.5);
