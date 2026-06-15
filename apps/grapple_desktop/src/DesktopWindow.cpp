@@ -2030,7 +2030,11 @@ public:
     grapple::foundation::NodeId cameraNodeId,
     std::string intent
   ) {
-    const auto adjusted = workspace_.steward().adjustCameraTransformControls(cameraNodeId, std::move(intent));
+    const auto adjusted = workspace_.steward().adjustCameraTransformControls(
+      cameraNodeId,
+      std::move(intent),
+      grapple::foundation::TimeRange{grapple::foundation::TimeSeconds{0.0}, timelineDuration_}
+    );
     if (!adjusted) {
       appendError(adjusted.error());
       refreshViewModel();

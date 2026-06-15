@@ -256,6 +256,7 @@ foundation::Result<AppCommandProvenance> appCommandProvenance(
   }
 
   bool reachedContentRevision = false;
+  std::vector<foundation::RunId> stewardEffectCreationRunIds;
   for (const history::CommandRecord& command : commands) {
     auto parsedCommand = project::deserializeCanonicalCommandPayload(
       command.serializedName,
@@ -282,6 +283,9 @@ foundation::Result<AppCommandProvenance> appCommandProvenance(
         snapshotLabelForRevision(snapshots, command.afterRevision).value_or(std::string{})
       });
       if (stewardCommand && !intent.empty()) {
+        if (command.sourceRunId.has_value()) {
+          stewardEffectCreationRunIds.push_back(command.sourceRunId.value());
+        }
         auto targetName = nodeDisplayName(snapshot, createEffect->targetNodeId);
         if (!targetName) {
           return targetName.error();
@@ -326,6 +330,29 @@ foundation::Result<AppCommandProvenance> appCommandProvenance(
         command.sourceKind,
         command.sourceActorName
       });
+      const bool keyframeRunCreatedEffect =
+        command.sourceRunId.has_value() &&
+        std::any_of(
+          stewardEffectCreationRunIds.begin(),
+          stewardEffectCreationRunIds.end(),
+          [&](const foundation::RunId& runId) {
+            return runId == command.sourceRunId.value();
+          }
+        );
+      if (stewardCommand && !intent.empty() && !keyframeRunCreatedEffect) {
+        auto targetDisplay = effectTargetDisplay(snapshot, upsertKeyframe->effectNodeId);
+        if (!targetDisplay) {
+          return targetDisplay.error();
+        }
+        provenance.stewardEdits.push_back(AppStewardEditRow{
+          command.id,
+          command.afterRevision,
+          targetDisplay.value().targetNodeId,
+          targetDisplay.value().targetName,
+          targetDisplay.value().effectName + " Keyframe",
+          intent
+        });
+      }
     } else if (stewardCommand && !intent.empty()) {
       if (const auto* updateClip = std::get_if<project::UpdateClipCommand>(&parsedCommand.value())) {
         auto targetName = nodeDisplayName(snapshot, updateClip->nodeId);

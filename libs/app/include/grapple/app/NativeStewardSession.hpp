@@ -39,7 +39,8 @@ public:
   );
   foundation::Result<storage::ProjectPackageSessionResult> adjustCameraTransformControls(
     foundation::NodeId cameraNodeId,
-    std::string intent
+    std::string intent,
+    foundation::TimeRange activeRange
   );
 
   [[nodiscard]] agent::AgentConversationState conversationState() const;

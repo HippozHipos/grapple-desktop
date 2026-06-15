@@ -188,6 +188,15 @@ std::optional<CameraTransformMotionKeyframes> cameraMotionKeyframesForIntent(
   return std::nullopt;
 }
 
+bool cameraIntentRequestsExplicitMotion(const std::string& intent) {
+  const std::string normalized = lowercaseAscii(intent);
+  return containsAsciiWord(normalized, "pan") ||
+         containsText(normalized, "animate") ||
+         containsText(normalized, "over time") ||
+         containsText(normalized, "gradual") ||
+         containsText(normalized, "slowly");
+}
+
 foundation::Result<timeline::Transform2D> clipTransformForIntent(
   const timeline::Transform2D& current,
   const std::string& intent
@@ -811,7 +820,8 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::t
 
 foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::adjustCameraTransformControls(
   foundation::NodeId cameraNodeId,
-  std::string intent
+  std::string intent,
+  foundation::TimeRange activeRange
 ) {
   auto snapshot = project_.snapshot();
   if (!snapshot) {
@@ -823,19 +833,69 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::a
     return runId.error();
   }
 
-  auto adjustment = cameraTransformParamAdjustmentForIntent(snapshot.value(), cameraNodeId, intent);
-  if (!adjustment) {
-    auto finished = finishRunWithError(runId.value(), adjustment.error());
-    if (!finished) {
-      return finished.error();
+  const bool motionRequested = cameraIntentRequestsExplicitMotion(intent);
+  std::optional<CameraTransformMotionKeyframes> motion;
+  std::optional<CameraTransformParamAdjustment> adjustment;
+  if (motionRequested) {
+    const graph::GraphNode* cameraNode = snapshot.value().graph.findNode(cameraNodeId);
+    if (cameraNode == nullptr || cameraNode->kind != graph::NodeKind::Camera) {
+      const foundation::Error error{
+        "steward.camera_missing",
+        "Steward camera control adjustment requires an existing camera node."
+      };
+      auto finished = finishRunWithError(runId.value(), error);
+      if (!finished) {
+        return finished.error();
+      }
+      return error;
     }
-    return adjustment.error();
+
+    foundation::NodeId effectNodeId;
+    if (cameraTransformEffectPayload(snapshot.value(), cameraNodeId, effectNodeId) == nullptr) {
+      const foundation::Error error{
+        "steward.camera_transform_missing",
+        "Steward camera control adjustment requires existing Camera Transform controls."
+      };
+      auto finished = finishRunWithError(runId.value(), error);
+      if (!finished) {
+        return finished.error();
+      }
+      return error;
+    }
+
+    motion = cameraMotionKeyframesForIntent(intent, activeRange);
+    if (!motion.has_value()) {
+      const foundation::Error error{
+        "steward.camera_transform_motion_intent_unknown",
+        "Camera Transform motion adjustments must explicitly mention a direction or zoom direction."
+      };
+      auto finished = finishRunWithError(runId.value(), error);
+      if (!finished) {
+        return finished.error();
+      }
+      return error;
+    }
+  } else {
+    auto paramAdjustment = cameraTransformParamAdjustmentForIntent(snapshot.value(), cameraNodeId, intent);
+    if (!paramAdjustment) {
+      auto finished = finishRunWithError(runId.value(), paramAdjustment.error());
+      if (!finished) {
+        return finished.error();
+      }
+      return paramAdjustment.error();
+    }
+    adjustment = paramAdjustment.value();
   }
 
   auto message = appendEvent(
     runId.value(),
     agent::AgentRunEventKind::ModelMessage,
-    modelMessagePayload("assistant", "Updating the existing Camera Transform controls as an editable parameter change.")
+    modelMessagePayload(
+      "assistant",
+      motion.has_value()
+        ? "Updating the existing Camera Transform controls as editable motion keyframes."
+        : "Updating the existing Camera Transform controls as an editable parameter change."
+    )
   );
   if (!message) {
     return message.error();
@@ -855,29 +915,75 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::a
 
   agent::AgentToolContext toolContext{stewardCommands, project_, commandWriter_};
   agent::AgentBridge bridge{registry, toolContext, events_, nextSequence_};
-  auto dispatched = bridge.dispatchToolCall(agent::AgentToolDispatchRequest{
-    runId.value(),
-    snapshot.value().info.id,
-    snapshot.value().revision,
-    stewardCameraTransformParamToolCallIdForRun(runId.value()),
-    CanonicalUpdateEffectParamToolId,
-    effectParamValueArgumentsPayload(
-      adjustment.value().effectNodeId,
-      adjustment.value().paramName,
-      adjustment.value().value
-    )
-  });
-  if (!dispatched) {
-    auto finished = finishRunWithError(runId.value(), dispatched.error());
-    if (!finished) {
-      return finished.error();
+  foundation::RevisionId latestRevision = snapshot.value().revision;
+  if (motion.has_value()) {
+    auto startKeyframe = bridge.dispatchToolCall(agent::AgentToolDispatchRequest{
+      runId.value(),
+      snapshot.value().info.id,
+      latestRevision,
+      stewardKeyframeToolCallIdForRun(runId.value(), 1),
+      CanonicalCameraTransformKeyframeToolId,
+      cameraTransformKeyframeArgumentsPayload(
+        cameraNodeId,
+        motion->paramName,
+        activeRange.start,
+        motion->startValue
+      )
+    });
+    if (!startKeyframe) {
+      auto finished = finishRunWithError(runId.value(), startKeyframe.error());
+      if (!finished) {
+        return finished.error();
+      }
+      return startKeyframe.error();
     }
-    return dispatched.error();
+    latestRevision = startKeyframe.value().observedRevision;
+
+    auto endKeyframe = bridge.dispatchToolCall(agent::AgentToolDispatchRequest{
+      runId.value(),
+      snapshot.value().info.id,
+      latestRevision,
+      stewardKeyframeToolCallIdForRun(runId.value(), 2),
+      CanonicalCameraTransformKeyframeToolId,
+      cameraTransformKeyframeArgumentsPayload(
+        cameraNodeId,
+        motion->paramName,
+        motion->endTime,
+        motion->endValue
+      )
+    });
+    if (!endKeyframe) {
+      auto finished = finishRunWithError(runId.value(), endKeyframe.error());
+      if (!finished) {
+        return finished.error();
+      }
+      return endKeyframe.error();
+    }
+  } else {
+    auto dispatched = bridge.dispatchToolCall(agent::AgentToolDispatchRequest{
+      runId.value(),
+      snapshot.value().info.id,
+      latestRevision,
+      stewardCameraTransformParamToolCallIdForRun(runId.value()),
+      CanonicalUpdateEffectParamToolId,
+      effectParamValueArgumentsPayload(
+        adjustment->effectNodeId,
+        adjustment->paramName,
+        adjustment->value
+      )
+    });
+    if (!dispatched) {
+      auto finished = finishRunWithError(runId.value(), dispatched.error());
+      if (!finished) {
+        return finished.error();
+      }
+      return dispatched.error();
+    }
   }
   if (!packageResult.has_value()) {
     const foundation::Error error{
-      "steward.camera_transform_param_result_missing",
-      "Steward camera control update tool succeeded without a committed package result."
+      "steward.camera_transform_update_result_missing",
+      "Steward camera control update succeeded without a committed package result."
     };
     auto finished = finishRunWithError(runId.value(), error);
     if (!finished) {
@@ -889,7 +995,12 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::a
   auto runFinished = appendEvent(
     runId.value(),
     agent::AgentRunEventKind::RunFinished,
-    runFinishedPayload("succeeded", "Updated existing Camera Transform controls.")
+    runFinishedPayload(
+      "succeeded",
+      motion.has_value()
+        ? "Updated existing Camera Transform motion keyframes."
+        : "Updated existing Camera Transform controls."
+    )
   );
   if (!runFinished) {
     return runFinished.error();

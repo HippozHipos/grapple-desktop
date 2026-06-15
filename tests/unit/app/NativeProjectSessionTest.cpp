@@ -1451,7 +1451,8 @@ int main() {
   GRAPPLE_REQUIRE(stewardAdjustEffect);
   const auto stewardAdjustedControls = stewardAdjustWorkspace.value().steward().adjustCameraTransformControls(
     stewardAdjustCameraNodeId,
-    "Move the camera framing right."
+    "Move the camera framing right.",
+    foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{3.0}}
   );
   GRAPPLE_REQUIRE(stewardAdjustedControls);
   GRAPPLE_REQUIRE(stewardAdjustedControls.value().snapshot.revision == foundation::RevisionId{"rev_4"});
@@ -1480,6 +1481,48 @@ int main() {
   GRAPPLE_REQUIRE(stewardAdjustViewModel.value().steward.edits[1].targetName == "Camera");
   GRAPPLE_REQUIRE(stewardAdjustViewModel.value().steward.edits[1].editName == "Camera Transform Parameter");
   GRAPPLE_REQUIRE(stewardAdjustViewModel.value().steward.edits[1].intent == "Move the camera framing right.");
+  const auto stewardPannedControls = stewardAdjustWorkspace.value().steward().adjustCameraTransformControls(
+    stewardAdjustCameraNodeId,
+    "Pan right with existing editable camera controls.",
+    foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{3.0}}
+  );
+  GRAPPLE_REQUIRE(stewardPannedControls);
+  GRAPPLE_REQUIRE(stewardPannedControls.value().snapshot.revision == foundation::RevisionId{"rev_6"});
+  const agent::AgentConversationState stewardPanConversation =
+    stewardAdjustWorkspace.value().steward().conversationState();
+  GRAPPLE_REQUIRE(stewardPanConversation.runs.size() == 3);
+  GRAPPLE_REQUIRE(stewardPanConversation.runs[2].status == agent::AgentRunStatus::Succeeded);
+  GRAPPLE_REQUIRE(stewardPanConversation.runs[2].toolCalls.size() == 2);
+  GRAPPLE_REQUIRE(stewardPanConversation.runs[2].toolCalls[0].toolSerializedId == "camera.set_transform_keyframe");
+  GRAPPLE_REQUIRE(stewardPanConversation.runs[2].toolCalls[0].toolCallId == foundation::ToolId{"tool_steward_camera_transform_keyframe_3_1"});
+  GRAPPLE_REQUIRE(stewardPanConversation.runs[2].toolCalls[0].observedRevision == foundation::RevisionId{"rev_5"});
+  GRAPPLE_REQUIRE(stewardPanConversation.runs[2].toolCalls[1].toolSerializedId == "camera.set_transform_keyframe");
+  GRAPPLE_REQUIRE(stewardPanConversation.runs[2].toolCalls[1].toolCallId == foundation::ToolId{"tool_steward_camera_transform_keyframe_3_2"});
+  GRAPPLE_REQUIRE(stewardPanConversation.runs[2].toolCalls[1].observedRevision == foundation::RevisionId{"rev_6"});
+  const auto stewardPanViewModel = stewardAdjustWorkspace.value().project().buildViewModel();
+  GRAPPLE_REQUIRE(stewardPanViewModel);
+  GRAPPLE_REQUIRE(stewardPanViewModel.value().timeline.effectGraphs.size() == 1);
+  GRAPPLE_REQUIRE(stewardPanViewModel.value().timeline.effectGraphs[0].effects.size() == 1);
+  GRAPPLE_REQUIRE(stewardPanViewModel.value().timeline.effectGraphs[0].effects[0].params[0].keyframes.size() == 2);
+  GRAPPLE_REQUIRE(stewardPanViewModel.value().timeline.effectGraphs[0].effects[0].params[0].keyframes[0].time == foundation::TimeSeconds{0.0});
+  GRAPPLE_REQUIRE(std::get<double>(stewardPanViewModel.value().timeline.effectGraphs[0].effects[0].params[0].keyframes[0].value) == 0.0);
+  GRAPPLE_REQUIRE(stewardPanViewModel.value().timeline.effectGraphs[0].effects[0].params[0].keyframes[1].time == foundation::TimeSeconds{3.0});
+  GRAPPLE_REQUIRE(std::get<double>(stewardPanViewModel.value().timeline.effectGraphs[0].effects[0].params[0].keyframes[1].value) == 0.25);
+  GRAPPLE_REQUIRE(stewardPanViewModel.value().steward.edits.size() == 4);
+  GRAPPLE_REQUIRE(stewardPanViewModel.value().steward.edits[2].editName == "Camera Transform Keyframe");
+  GRAPPLE_REQUIRE(stewardPanViewModel.value().steward.edits[2].intent == "Pan right with existing editable camera controls.");
+  GRAPPLE_REQUIRE(stewardPanViewModel.value().steward.edits[3].editName == "Camera Transform Keyframe");
+  GRAPPLE_REQUIRE(stewardPanViewModel.value().steward.edits[3].intent == "Pan right with existing editable camera controls.");
+  const auto stewardPanRefresh = stewardAdjustWorkspace.value().preview().refreshFromProject();
+  GRAPPLE_REQUIRE(stewardPanRefresh);
+  const auto stewardPanMidFrame = stewardAdjustWorkspace.value().preview().renderFrame(render::RenderFrameRequest{
+    foundation::TimeSeconds{1.5},
+    render::RenderQuality::Draft
+  });
+  GRAPPLE_REQUIRE(stewardPanMidFrame);
+  GRAPPLE_REQUIRE(stewardPanMidFrame.value().runtimeDiagnostics.empty());
+  GRAPPLE_REQUIRE(stewardPanMidFrame.value().frame.cameras.size() == 1);
+  GRAPPLE_REQUIRE(stewardPanMidFrame.value().frame.cameras[0].state.transform.position.x == 0.125);
 
   app::NativeProjectSession stewardMotionProject{
     foundation::ProjectId{"proj_app_steward_motion"},
