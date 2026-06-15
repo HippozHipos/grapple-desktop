@@ -1038,6 +1038,7 @@ int main() {
   const auto runtimeEffectViewModel = runtimeWorkspace.value().project().buildViewModel();
   GRAPPLE_REQUIRE(runtimeEffectViewModel);
   GRAPPLE_REQUIRE(runtimeEffectViewModel.value().timeline.effectGraphs.size() == 1);
+  GRAPPLE_REQUIRE(runtimeEffectViewModel.value().timeline.effectGraphs[0].targetName == "Camera");
   GRAPPLE_REQUIRE(runtimeEffectViewModel.value().timeline.effectGraphs[0].effects.size() == 1);
   GRAPPLE_REQUIRE(runtimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].displayName == "Camera Transform");
   GRAPPLE_REQUIRE(runtimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].implementationKind == "builtin");
@@ -1544,6 +1545,7 @@ int main() {
   GRAPPLE_REQUIRE(reopenedStewardViewModel);
   GRAPPLE_REQUIRE(reopenedStewardViewModel.value().project.revision == foundation::RevisionId{"rev_3"});
   GRAPPLE_REQUIRE(reopenedStewardViewModel.value().timeline.effectGraphs.size() == 1);
+  GRAPPLE_REQUIRE(reopenedStewardViewModel.value().timeline.effectGraphs[0].targetName == "Camera");
   GRAPPLE_REQUIRE(reopenedStewardViewModel.value().timeline.effectGraphs[0].effects.size() == 1);
   GRAPPLE_REQUIRE(reopenedStewardViewModel.value().timeline.effectGraphs[0].effects[0].displayName == "Camera Transform");
   GRAPPLE_REQUIRE(reopenedStewardViewModel.value().steward.edits.size() == 1);

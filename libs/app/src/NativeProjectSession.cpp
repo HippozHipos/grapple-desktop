@@ -461,9 +461,15 @@ foundation::Result<NativeProjectViewModelResult> NativeProjectSession::buildView
   }
 
   for (const projection::RenderEffectGraph& effectGraph : plan.effectGraphs) {
+    auto effectGraphTargetName = nodeDisplayName(snapshot, effectGraph.targetNodeId);
+    if (!effectGraphTargetName) {
+      return effectGraphTargetName.error();
+    }
+
     AppEffectGraphRow effectGraphRow{
       effectGraph.id,
       effectGraph.targetNodeId,
+      effectGraphTargetName.value(),
       effectGraph.nodes.size(),
       effectGraph.edges.size(),
       {}

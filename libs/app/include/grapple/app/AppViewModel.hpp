@@ -122,6 +122,7 @@ struct AppEffectRow {
 struct AppEffectGraphRow {
   foundation::GraphId graphId;
   foundation::NodeId targetNodeId;
+  std::string targetName;
   std::size_t nodeCount = 0;
   std::size_t edgeCount = 0;
   std::vector<AppEffectRow> effects;

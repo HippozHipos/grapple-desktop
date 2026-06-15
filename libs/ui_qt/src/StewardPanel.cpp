@@ -14,25 +14,6 @@ QString qString(const std::string& value) {
   return QString::fromStdString(value);
 }
 
-QString targetNameFor(const app::AppViewModel& viewModel, const foundation::NodeId& nodeId) {
-  for (const app::AppCameraRow& camera : viewModel.timeline.cameras) {
-    if (camera.sourceNodeId == nodeId) {
-      return qString(camera.name);
-    }
-  }
-  for (const app::AppClipRow& clip : viewModel.timeline.clips) {
-    if (clip.sourceNodeId == nodeId) {
-      return qString(clip.assetName);
-    }
-  }
-  for (const app::AppLayerRow& layer : viewModel.timeline.layers) {
-    if (layer.sourceNodeId == nodeId) {
-      return qString(layer.name);
-    }
-  }
-  return qString(nodeId.value());
-}
-
 QString controlTextFor(const app::AppEffectParamRow& param) {
   const QString displayName = param.label.empty() ? qString(param.name) : qString(param.label);
   QString text = QString{"%1=%2"}.arg(displayName).arg(qString(app::paramValueDisplayText(param.value)));
@@ -233,7 +214,7 @@ void StewardPanel::setViewModel(
       hasEditableEffect = true;
       lines << QString{"- %1 on %2"}
         .arg(qString(effect.displayName))
-        .arg(targetNameFor(viewModel, graph.targetNodeId));
+        .arg(qString(graph.targetName));
       for (const QString& control : controls) {
         lines << QString{"  - %1"}.arg(control);
       }

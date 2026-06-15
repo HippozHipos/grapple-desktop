@@ -93,7 +93,9 @@ void EffectParamPanel::setSelection(
       effectHeaderLayout->setContentsMargins(0, 0, 0, 0);
       effectHeaderLayout->setSpacing(8);
 
-      auto* effectTitle = new QLabel{QString{"%1 Parameters"}.arg(qString(effect.displayName))};
+      auto* effectTitle = new QLabel{
+        QString{"%1 on %2"}.arg(qString(effect.displayName)).arg(qString(graph.targetName))
+      };
       effectTitle->setObjectName("effectParamTitle");
       auto* deleteEffect = new QPushButton{"Delete Effect"};
       deleteEffect->setObjectName("effectParamDelete");
