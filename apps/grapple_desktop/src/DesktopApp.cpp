@@ -2394,6 +2394,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     window.setStewardIntent("Persist editable camera controls.");
     window.clickStewardPrimaryAction();
     window.setSelectedTargetNumericEffectParam(grapple::effects::builtin_effect::PositionXParam, 0.25);
+    const std::string dirtyHeader = window.projectHeaderText();
     const auto write = workspace.value().writePackage();
     if (!write) {
       printError(write.error());
@@ -2523,9 +2524,12 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       saveAsViewModel.value().timeline.effectCount == 1 &&
       saveAsConversation.diagnostics.empty() &&
       saveAsConversation.runs.size() == 1 &&
+      dirtyHeader.find("Unsaved") != std::string::npos &&
       saveAsHeader.find("Desktop Demo") != std::string::npos &&
       saveAsHeader.find("desktop-save-as-package") != std::string::npos &&
       saveAsHeader.find(saveAsRoot.string()) != std::string::npos &&
+      saveAsHeader.find("Saved") != std::string::npos &&
+      saveAsHeader.find("Unsaved") == std::string::npos &&
       std::filesystem::exists(saveAsRoot / "manifest.json") &&
       std::filesystem::exists(saveAsRoot / "agent/runs.json") &&
       std::filesystem::exists(saveAsRoot / "agent/events.json") &&
@@ -2543,6 +2547,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "reopenedExportSize=" << reopenedExportSize << '\n';
     std::cout << "saveAsPackageLocalMediaCopied=" << (saveAsPackageLocalMediaCopied ? "true" : "false") << '\n';
     std::cout << "saveAsPackageLocalMediaMissing=" << (saveAsPackageLocalMediaMissing ? "true" : "false") << '\n';
+    std::cout << "dirtyHeader=" << dirtyHeader << '\n';
     std::cout << "saveAsHeader=" << saveAsHeader << '\n';
     std::cout << "saveAsRestored=" << (saveAsRestored ? "true" : "false") << '\n';
     return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_9"} &&

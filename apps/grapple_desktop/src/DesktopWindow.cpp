@@ -751,6 +751,7 @@ public:
 
     selectInitialCamera();
     refreshViewModelAndPreview();
+    markCurrentRevisionSaved();
   }
 
   ~DesktopWindowImpl() override {
@@ -2607,9 +2608,6 @@ public:
       appendError(write.error());
       return;
     }
-    if (currentViewModel_.has_value()) {
-      updateProjectHeader(currentViewModel_.value());
-    }
     appendPackageSaved(write.value());
   }
 
@@ -2624,6 +2622,7 @@ public:
     selectedNodeId_ = std::nullopt;
     selectedAssetId_ = std::nullopt;
     refreshViewModelAndPreview();
+    markCurrentRevisionSaved();
     log_->append(QString{"Opened package %1"}.arg(qString(rootPath.value)));
   }
 
@@ -2635,12 +2634,17 @@ private:
   void updateProjectHeader(const grapple::app::AppViewModel& viewModel) {
     const grapple::storage::ProjectPackage& package = workspace_.project().packageState().package;
     const QString projectName = qString(viewModel.project.name);
-    productTitle_->setText(QString{"%1  [%2]"}.arg(projectName, qString(viewModel.project.revision.value())));
+    const bool saved =
+      lastSavedRevision_.has_value() &&
+      lastSavedRevision_.value() == viewModel.project.revision;
+    productTitle_->setText(QString{"%1  [%2]  %3"}
+      .arg(projectName, qString(viewModel.project.revision.value()), saved ? "Saved" : "Unsaved"));
     productSubtitle_->setText(QString{"%1  |  %2"}.arg(packageRootName(package.rootPath), qString(package.rootPath.value)));
     setWindowTitle(QString{"%1 - Grapple"}.arg(projectName));
   }
 
   void appendPackageSaved(const grapple::app::NativeWorkspaceWriteResult& write) {
+    markCurrentRevisionSaved();
     log_->append(QString{"Package saved\n%1\n%2\n%3\n%4\n%5\n%6\n%7"}
       .arg(qString(write.project.snapshotPath.value))
       .arg(qString(write.project.manifestPath.value))
@@ -2649,6 +2653,16 @@ private:
       .arg(qString(write.project.schemaMigrationLogPath.value))
       .arg(qString(write.agentRunsPath.value))
       .arg(qString(write.agentEventsPath.value)));
+  }
+
+  void markCurrentRevisionSaved() {
+    if (!currentProjectRevision_.has_value()) {
+      return;
+    }
+    lastSavedRevision_ = currentProjectRevision_;
+    if (currentViewModel_.has_value()) {
+      updateProjectHeader(currentViewModel_.value());
+    }
   }
 
   void appendError(const grapple::foundation::Error& error) {
@@ -2935,6 +2949,7 @@ private:
   grapple::foundation::TimeSeconds timelineDuration_;
   grapple::ui::ExportSettingsDraft exportSettingsDraft_;
   std::optional<grapple::foundation::RevisionId> currentProjectRevision_;
+  std::optional<grapple::foundation::RevisionId> lastSavedRevision_;
   std::optional<grapple::app::AppViewModel> currentViewModel_;
   std::optional<grapple::foundation::NodeId> selectedNodeId_;
   std::optional<grapple::foundation::AssetId> selectedAssetId_;
