@@ -2388,6 +2388,10 @@ public:
       appendError(result.error());
       return;
     }
+    if (lastLoggedExportProgressPercent_ < 100) {
+      lastLoggedExportProgressPercent_ = 100;
+      log_->append("Export progress 100%");
+    }
     appendDiagnostics(result.value());
     log_->append(QString{"Export evaluated %1 frames from %2 plan %3 -> %4"}
       .arg(result.value().framesEvaluated)
