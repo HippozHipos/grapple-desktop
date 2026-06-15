@@ -72,7 +72,7 @@ std::optional<foundation::KeyframeId> keyframeIdAtPlayhead(
 }
 
 QString keyframeActionText(bool hasCurrentKeyframe) {
-  return hasCurrentKeyframe ? "Update" : "Set";
+  return hasCurrentKeyframe ? "Update Key" : "Add Key";
 }
 
 QString keyframeActionTooltip(bool hasCurrentKeyframe) {
@@ -300,7 +300,7 @@ void EffectParamPanel::setSelection(
           });
           auto* setKeyframe = new QPushButton{keyframeActionText(currentKeyframeId.has_value())};
           setKeyframe->setToolTip(keyframeActionTooltip(currentKeyframeId.has_value()));
-          setKeyframe->setFixedWidth(50);
+          setKeyframe->setFixedWidth(82);
           setKeyframe->setObjectName(QString{"effectParamKeyframe_%1"}.arg(qString(param.name)));
           connect(setKeyframe, &QPushButton::clicked, this, [this, editor, parameterEffectNodeId, paramName, currentKeyframeId] {
             if (setKeyframeHandler_) {
@@ -332,7 +332,7 @@ void EffectParamPanel::setSelection(
           }, Qt::QueuedConnection);
           auto* setKeyframe = new QPushButton{keyframeActionText(currentKeyframeId.has_value())};
           setKeyframe->setToolTip(keyframeActionTooltip(currentKeyframeId.has_value()));
-          setKeyframe->setFixedWidth(50);
+          setKeyframe->setFixedWidth(82);
           setKeyframe->setObjectName(QString{"effectParamKeyframe_%1"}.arg(qString(param.name)));
           connect(setKeyframe, &QPushButton::clicked, this, [this, editor, parameterEffectNodeId, paramName, currentKeyframeId] {
             if (setKeyframeHandler_) {
@@ -362,7 +362,7 @@ void EffectParamPanel::setSelection(
           });
           auto* setKeyframe = new QPushButton{keyframeActionText(currentKeyframeId.has_value())};
           setKeyframe->setToolTip(keyframeActionTooltip(currentKeyframeId.has_value()));
-          setKeyframe->setFixedWidth(50);
+          setKeyframe->setFixedWidth(82);
           setKeyframe->setObjectName(QString{"effectParamKeyframe_%1"}.arg(qString(param.name)));
           connect(setKeyframe, &QPushButton::clicked, this, [this, editor, parameterEffectNodeId, paramName, currentKeyframeId] {
             if (setKeyframeHandler_) {
@@ -388,7 +388,7 @@ void EffectParamPanel::setSelection(
           value->setObjectName("effectParamHelp");
           auto* setKeyframe = new QPushButton{keyframeActionText(currentKeyframeId.has_value())};
           setKeyframe->setToolTip(keyframeActionTooltip(currentKeyframeId.has_value()));
-          setKeyframe->setFixedWidth(50);
+          setKeyframe->setFixedWidth(82);
           setKeyframe->setObjectName(QString{"effectParamKeyframe_%1"}.arg(qString(param.name)));
           const timeline::ParamValue paramValue = displayedValue;
           connect(setKeyframe, &QPushButton::clicked, this, [this, parameterEffectNodeId, paramName, paramValue, currentKeyframeId] {

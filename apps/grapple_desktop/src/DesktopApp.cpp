@@ -1337,9 +1337,9 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            keyframesAfterUpdate[0].lastEditedRevision == afterKeyframeUpdate.value().project.revision &&
            keyframesAfterUpdate[0].lastEditedActorName == "desktop" &&
            afterNoopKeyframeUpdate.value().project.revision == afterKeyframeUpdate.value().project.revision &&
-           buttonAtKeyframe == "Update" &&
-           buttonAwayFromKeyframe == "Set" &&
-           buttonBackAtKeyframe == "Update" &&
+           buttonAtKeyframe == "Update Key" &&
+           buttonAwayFromKeyframe == "Add Key" &&
+           buttonBackAtKeyframe == "Update Key" &&
            effectParamPanelAfterUpdate.find("2s = 0.5 last changed by desktop at ") != std::string::npos &&
            keyframesAfterDelete.empty()
       ? 0
