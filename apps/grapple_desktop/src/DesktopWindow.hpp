@@ -44,6 +44,8 @@ public:
   [[nodiscard]] std::string inspectorContents() const;
   [[nodiscard]] std::string logContents() const;
   [[nodiscard]] std::string stewardContents() const;
+  [[nodiscard]] std::string stewardPrimaryActionText() const;
+  [[nodiscard]] bool stewardPrimaryActionEnabled() const;
   void setStewardIntent(std::string intent);
   void clickStewardCreateCameraEffect();
   void startPlayback();

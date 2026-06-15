@@ -963,6 +963,14 @@ public:
     return steward_->contents();
   }
 
+  std::string stewardPrimaryActionText() const {
+    return steward_->primaryActionText();
+  }
+
+  bool stewardPrimaryActionEnabled() const {
+    return steward_->primaryActionEnabled();
+  }
+
   void setStewardIntent(std::string intent) {
     steward_->setIntent(std::move(intent));
   }
@@ -2580,6 +2588,14 @@ std::string DesktopWindow::logContents() const {
 
 std::string DesktopWindow::stewardContents() const {
   return impl_->stewardContents();
+}
+
+std::string DesktopWindow::stewardPrimaryActionText() const {
+  return impl_->stewardPrimaryActionText();
+}
+
+bool DesktopWindow::stewardPrimaryActionEnabled() const {
+  return impl_->stewardPrimaryActionEnabled();
 }
 
 void DesktopWindow::setStewardIntent(std::string intent) {

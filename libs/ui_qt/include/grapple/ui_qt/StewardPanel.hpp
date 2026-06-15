@@ -35,11 +35,14 @@ public:
   void triggerCreateCameraEffect();
   [[nodiscard]] std::string contents() const;
   [[nodiscard]] std::string intent() const;
+  [[nodiscard]] std::string primaryActionText() const;
+  [[nodiscard]] bool primaryActionEnabled() const;
 
 private:
   enum class PrimaryAction {
     Disabled,
     AddCamera,
+    ControlsShown,
     ShowCameraControls,
     CreateCameraEffect
   };

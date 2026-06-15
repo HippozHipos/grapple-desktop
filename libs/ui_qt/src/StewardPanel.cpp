@@ -134,6 +134,7 @@ StewardPanel::StewardPanel(QWidget* parent)
           createCameraEffectHandler_(intent());
         }
         return;
+      case PrimaryAction::ControlsShown:
       case PrimaryAction::Disabled:
         return;
     }
@@ -178,9 +179,15 @@ void StewardPanel::setViewModel(
       createCameraEffectButton_->setEnabled(false);
     }
   } else if (app::cameraHasTransformEffect(viewModel, cameraTargetId.value())) {
-    primaryAction_ = PrimaryAction::ShowCameraControls;
-    createCameraEffectButton_->setText("Show Editable Controls");
-    createCameraEffectButton_->setEnabled(static_cast<bool>(showCameraControlsHandler_));
+    if (selectedNodeId.has_value() && selectedNodeId.value() == cameraTargetId.value()) {
+      primaryAction_ = PrimaryAction::ControlsShown;
+      createCameraEffectButton_->setText("Editable Controls Shown");
+      createCameraEffectButton_->setEnabled(false);
+    } else {
+      primaryAction_ = PrimaryAction::ShowCameraControls;
+      createCameraEffectButton_->setText("Show Editable Controls");
+      createCameraEffectButton_->setEnabled(static_cast<bool>(showCameraControlsHandler_));
+    }
   } else {
     primaryAction_ = PrimaryAction::CreateCameraEffect;
     createCameraEffectButton_->setText("Create Editable Camera Controls");
@@ -280,6 +287,14 @@ std::string StewardPanel::contents() const {
 
 std::string StewardPanel::intent() const {
   return intent_->toPlainText().toStdString();
+}
+
+std::string StewardPanel::primaryActionText() const {
+  return createCameraEffectButton_->text().toStdString();
+}
+
+bool StewardPanel::primaryActionEnabled() const {
+  return createCameraEffectButton_->isEnabled();
 }
 
 } // namespace grapple::ui

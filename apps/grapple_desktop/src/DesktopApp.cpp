@@ -983,6 +983,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     const std::string inspector = window.inspectorContents();
     const std::string logText = window.logContents();
     const std::string steward = window.stewardContents();
+    const std::string stewardActionText = window.stewardPrimaryActionText();
+    const bool stewardActionEnabled = window.stewardPrimaryActionEnabled();
     const auto viewModel = workspace.value().project().buildViewModel();
     if (!viewModel) {
       printError(viewModel.error());
@@ -993,6 +995,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "inspector=" << inspector << '\n';
     std::cout << "log=" << logText << '\n';
     std::cout << "steward=" << steward << '\n';
+    std::cout << "stewardAction=" << stewardActionText << '\n';
+    std::cout << "stewardActionEnabled=" << (stewardActionEnabled ? "true" : "false") << '\n';
     const auto& snapshots = workspace.value().project().packageState().snapshots.records();
     const bool intentRecorded = !snapshots.empty() &&
                                 snapshots.back().label.has_value() &&
@@ -1025,6 +1029,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            steward.find("- Center the walking subject with exposed controls.") != std::string::npos &&
            selectedAfterShowControls.has_value() &&
            selectedAfterShowControls.value() == grapple::foundation::NodeId{"node_camera_4"} &&
+           stewardActionText == "Editable Controls Shown" &&
+           !stewardActionEnabled &&
            logText.find("Preview refreshed") == std::string::npos &&
            logText.find("steward.camera_transform_exists") == std::string::npos &&
            logText.find("runtime.effect_runtime_missing") == std::string::npos
@@ -1137,6 +1143,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       return 1;
     }
     const std::string steward = window.stewardContents();
+    const std::string stewardActionText = window.stewardPrimaryActionText();
+    const bool stewardActionEnabled = window.stewardPrimaryActionEnabled();
     const std::string log = window.logContents();
     const bool exists = std::filesystem::exists(outputPath);
     const auto size = exists ? std::filesystem::file_size(outputPath) : 0U;
@@ -1174,6 +1182,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "exists=" << (exists ? "true" : "false") << '\n';
     std::cout << "size=" << size << '\n';
     std::cout << "steward=" << steward << '\n';
+    std::cout << "stewardAction=" << stewardActionText << '\n';
+    std::cout << "stewardActionEnabled=" << (stewardActionEnabled ? "true" : "false") << '\n';
     std::cout << "log=" << log << '\n';
     return viewModel.value().assets.count == 1 &&
            viewModel.value().timeline.clips.size() == 1 &&
@@ -1182,6 +1192,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            hasTunedEditableEffect &&
            steward.find("1 clips | 1 cameras | 1 editable effects") != std::string::npos &&
            steward.find("Position X=0.25 [-1..1 step 0.01]") != std::string::npos &&
+           stewardActionText == "Editable Controls Shown" &&
+           !stewardActionEnabled &&
            log.find("Imported starter-gradient") != std::string::npos &&
            log.find("Added starter-gradient to timeline") != std::string::npos &&
            log.find("Steward applied camera edit") != std::string::npos &&
