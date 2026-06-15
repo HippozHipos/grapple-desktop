@@ -1023,7 +1023,16 @@ int main() {
   GRAPPLE_REQUIRE(finalRangeImageSink.frameImages.size() == 2);
   GRAPPLE_REQUIRE(finalRangeImageSink.frameImages[0].has_value());
   GRAPPLE_REQUIRE((finalRangeImageSink.frameImages[0]->resolution == foundation::Resolution{4, 2}));
-  GRAPPLE_REQUIRE(finalRangeImageSink.frameImages[0]->rgbaPixels.size() == 32);
+  GRAPPLE_REQUIRE((finalRangeImageSink.frameImages[0]->rgbaPixels == std::vector<std::uint8_t>{
+    40, 50, 60, 255,
+    40, 50, 60, 255,
+    0, 0, 0, 0,
+    0, 0, 0, 0,
+    40, 50, 60, 255,
+    40, 50, 60, 255,
+    0, 0, 0, 0,
+    0, 0, 0, 0
+  }));
   GRAPPLE_REQUIRE(finalRangeFrameSource.requests == 2);
   GRAPPLE_REQUIRE(finalRangeFrameSource.lastRequest.has_value());
   GRAPPLE_REQUIRE(finalRangeFrameSource.lastRequest->assetId == foundation::AssetId{"asset_video"});

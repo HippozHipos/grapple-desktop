@@ -261,6 +261,11 @@ RenderedImage transformedMediaImage(
   foundation::Resolution canvasResolution
 ) {
   const foundation::Transform2D& transform = mediaFrame.transform;
+  timeline::Transform2D canvasTransform = transform;
+  canvasTransform.scale.x *= static_cast<double>(canvasResolution.width) /
+                             static_cast<double>(image.resolution.width);
+  canvasTransform.scale.y *= static_cast<double>(canvasResolution.height) /
+                             static_cast<double>(image.resolution.height);
   const foundation::Vec2 destinationOffsetPixels{
     transform.position.x * static_cast<double>(canvasResolution.width),
     -transform.position.y * static_cast<double>(canvasResolution.height)
@@ -268,7 +273,7 @@ RenderedImage transformedMediaImage(
   return sampleTransformedImage(
     image,
     canvasResolution,
-    transform,
+    canvasTransform,
     foundation::Vec2{},
     destinationOffsetPixels
   );
