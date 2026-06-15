@@ -15,6 +15,7 @@
 #include <string>
 #include <utility>
 #include <variant>
+#include <vector>
 
 namespace {
 
@@ -44,6 +45,26 @@ public:
 private:
   grapple::project::ProjectSnapshot snapshot_;
 };
+
+void requireNoSerializedRuntimeOutputs(const std::string& serializedPlan) {
+  const std::vector<std::string> forbiddenRuntimeFields{
+    "\"runtimeDiagnostics\"",
+    "\"renderDiagnostics\"",
+    "\"preparedPlanHash\"",
+    "\"compiledModule\"",
+    "\"compiledShader\"",
+    "\"decodedFrame\"",
+    "\"modelResponse\"",
+    "\"cacheHandle\"",
+    "\"mask\"",
+    "\"depthTexture\"",
+    "\"motionVector\""
+  };
+
+  for (const std::string& field : forbiddenRuntimeFields) {
+    GRAPPLE_REQUIRE(serializedPlan.find(field) == std::string::npos);
+  }
+}
 
 } // namespace
 
@@ -262,6 +283,19 @@ int main() {
   GRAPPLE_REQUIRE(planResult.value().plan.effectGraphs[0].edges[0].order == 7);
   GRAPPLE_REQUIRE(planResult.value().diagnostics.empty());
 
+  const auto repeatedTimelineResult = projector.buildTimelineIR(projection::BuildTimelineIRRequest{
+    snapshot.value()
+  });
+  GRAPPLE_REQUIRE(repeatedTimelineResult);
+  const auto repeatedPlanResult = builder.buildRenderPlan(projection::BuildRenderPlanRequest{
+    repeatedTimelineResult.value().timeline
+  });
+  GRAPPLE_REQUIRE(repeatedPlanResult);
+  GRAPPLE_REQUIRE(
+    projection::serializeCanonicalRenderPlan(repeatedPlanResult.value().plan) ==
+    projection::serializeCanonicalRenderPlan(planResult.value().plan)
+  );
+
   CountingProjectQueryService projectQueries{snapshot.value()};
   const projection::ProjectionQueryService projectionQueries{projectQueries};
   const auto queriedPlan = projectionQueries.buildCurrentRenderPlan();
@@ -299,6 +333,7 @@ int main() {
   GRAPPLE_REQUIRE(serializedPlan.find("\"sourcePort\":\"camera_transform\"") != std::string::npos);
   GRAPPLE_REQUIRE(serializedPlan.find("\"targetPort\":\"input\"") != std::string::npos);
   GRAPPLE_REQUIRE(serializedPlan.find("\"inputs\":[{\"name\":\"input_frame\"}]") != std::string::npos);
+  requireNoSerializedRuntimeOutputs(serializedPlan);
 
   project::ProjectController assetProjectionController{
     project::createEmptyProject(foundation::ProjectId{"proj_projection_assets"}, "Projection Asset Test")
