@@ -1443,6 +1443,10 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   if (editSaveSmoke) {
     window.importMediaFile(grapple::foundation::FilePath{"/tmp/grapple-native-demo/starter-gradient.avi"});
     window.addSelectedMediaToTimeline();
+    window.clickFirstTimelineCamera();
+    window.setStewardIntent("Persist editable camera controls.");
+    window.clickStewardCreateCameraEffect();
+    window.setSelectedTargetNumericEffectParam(grapple::runtime::builtin_effect::PositionXParam, 0.25);
     const auto write = workspace.value().writePackage();
     if (!write) {
       printError(write.error());
@@ -1458,14 +1462,74 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       printError(viewModel.error());
       return 1;
     }
+    const auto previewRefresh = reopened.value().preview().refreshFromProject();
+    if (!previewRefresh) {
+      printError(previewRefresh.error());
+      return 1;
+    }
+    const auto previewFrame = reopened.value().preview().renderFrame(grapple::render::RenderFrameRequest{
+      reopened.value().preview().state().playhead,
+      grapple::render::RenderQuality::Draft
+    });
+    if (!previewFrame) {
+      printError(previewFrame.error());
+      return 1;
+    }
+    const auto conversation = reopened.value().steward().conversationState();
+    const bool reopenedTunedEffect = std::any_of(
+      viewModel.value().timeline.effectGraphs.begin(),
+      viewModel.value().timeline.effectGraphs.end(),
+      [](const grapple::app::AppEffectGraphRow& graph) {
+        return std::any_of(
+          graph.effects.begin(),
+          graph.effects.end(),
+          [](const grapple::app::AppEffectRow& effect) {
+            const auto param = std::find_if(
+              effect.params.begin(),
+              effect.params.end(),
+              [](const grapple::app::AppEffectParamRow& row) {
+                return row.name == grapple::runtime::builtin_effect::PositionXParam;
+              }
+            );
+            return effect.cameraTransformEffect &&
+                   effect.createdActorName == "steward" &&
+                   effect.createdIntent == "Persist editable camera controls." &&
+                   param != effect.params.end() &&
+                   std::holds_alternative<double>(param->value) &&
+                   std::get<double>(param->value) == 0.25 &&
+                   param->lastEditedRevision.has_value() &&
+                   param->lastEditedActorName == "desktop";
+          }
+        );
+      }
+    );
+    const bool reopenedPreviewTuned =
+      previewFrame.value().frame.sourceRevision == viewModel.value().project.revision &&
+      previewFrame.value().frame.cameras.size() == 1 &&
+      previewFrame.value().frame.cameras.front().state.transform.position.x == 0.25;
+    const bool stewardContextRestored =
+      conversation.diagnostics.empty() &&
+      conversation.runs.size() == 1 &&
+      conversation.runs[0].status == grapple::agent::AgentRunStatus::Succeeded &&
+      conversation.runs[0].toolCalls.size() == 1 &&
+      conversation.runs[0].toolCalls[0].toolSerializedId == "effect.create_node" &&
+      conversation.runs[0].toolCalls[0].observedRevision == grapple::foundation::RevisionId{"rev_8"};
     std::cout << "revision=" << viewModel.value().project.revision.value() << '\n';
     std::cout << "assets=" << viewModel.value().assets.count << '\n';
     std::cout << "clips=" << viewModel.value().timeline.clips.size() << '\n';
+    std::cout << "effects=" << viewModel.value().timeline.effectCount << '\n';
     std::cout << "commands=" << reopened.value().project().packageState().commandLog.records().size() << '\n';
-    return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_7"} &&
+    std::cout << "reopenedTunedEffect=" << (reopenedTunedEffect ? "true" : "false") << '\n';
+    std::cout << "reopenedPreviewTuned=" << (reopenedPreviewTuned ? "true" : "false") << '\n';
+    std::cout << "stewardContextRestored=" << (stewardContextRestored ? "true" : "false") << '\n';
+    return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_9"} &&
            viewModel.value().assets.count == 2 &&
            viewModel.value().timeline.clips.size() == 2 &&
-           reopened.value().project().packageState().commandLog.records().size() == 7
+           viewModel.value().timeline.effectCount == 1 &&
+           reopened.value().project().packageState().commandLog.records().size() == 9 &&
+           reopenedTunedEffect &&
+           reopenedPreviewTuned &&
+           stewardContextRestored
       ? 0
       : 1;
   }
