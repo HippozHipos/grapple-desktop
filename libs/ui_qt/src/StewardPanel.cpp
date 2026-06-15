@@ -218,7 +218,8 @@ void StewardPanel::setViewModel(
   QStringList lines{
     "Steward",
     "Project state",
-    QString{"%1 clips | %2 cameras | %3 editable effects"}
+    QString{"%1 assets | %2 clips | %3 cameras | %4 editable effects"}
+      .arg(viewModel.assets.count)
       .arg(viewModel.timeline.clips.size())
       .arg(viewModel.timeline.cameras.size())
       .arg(viewModel.timeline.effectCount),

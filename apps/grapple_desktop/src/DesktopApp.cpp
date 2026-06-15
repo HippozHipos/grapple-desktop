@@ -318,7 +318,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            viewModel.value().timeline.cameras.empty() &&
            stewardActionText == "Import Media First" &&
            !stewardActionEnabled &&
-           steward.find("0 clips | 0 cameras | 0 editable effects") != std::string::npos
+           steward.find("0 assets | 0 clips | 0 cameras | 0 editable effects") != std::string::npos
       ? 0
       : 1;
   }
@@ -749,8 +749,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            viewModel.value().timeline.cameras.size() == 1 &&
            stewardActionBefore == "Import Media First" &&
            !stewardActionEnabledBefore &&
-           stewardBefore.find("0 clips | 0 cameras | 0 editable effects") != std::string::npos &&
-           stewardAfter.find("0 clips | 1 cameras | 0 editable effects") != std::string::npos &&
+           stewardBefore.find("0 assets | 0 clips | 0 cameras | 0 editable effects") != std::string::npos &&
+           stewardAfter.find("0 assets | 0 clips | 1 cameras | 0 editable effects") != std::string::npos &&
            window.selectedNodeId().has_value() &&
            window.selectedNodeId().value() == viewModel.value().timeline.cameras.front().sourceNodeId
       ? 0
@@ -1484,7 +1484,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            hasEvaluatedTunedPreview &&
            stewardActionAfterImport == "Add Selected Media To Timeline" &&
            stewardActionEnabledAfterImport &&
-           steward.find("1 clips | 1 cameras | 1 editable effects") != std::string::npos &&
+           steward.find("1 assets | 1 clips | 1 cameras | 1 editable effects") != std::string::npos &&
            steward.find("Position X=0.25 [-1..1 step 0.01]") != std::string::npos &&
            steward.find("Position X=0.25 [-1..1 step 0.01] last changed by desktop at ") != std::string::npos &&
            steward.find("Applied edits") != std::string::npos &&
