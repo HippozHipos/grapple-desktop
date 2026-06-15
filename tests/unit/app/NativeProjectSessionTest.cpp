@@ -1010,6 +1010,63 @@ int main() {
   GRAPPLE_REQUIRE(twoEffectViewModel.value().timeline.effectGraphs[0].effects.size() == 2);
   GRAPPLE_REQUIRE(twoEffectViewModel.value().timeline.effectCount == 2);
 
+  app::NativeProjectSession stewardMediaProject{
+    foundation::ProjectId{"proj_app_steward_media"},
+    "Steward Media Project",
+    storage::ProjectPackage{
+      foundation::ProjectId{"proj_app_steward_media"},
+      foundation::FilePath{"steward-media-app.grapple"},
+      storage::CurrentProjectPackageSchemaVersion
+    }
+  };
+  auto stewardMediaWorkspace = app::NativeWorkspaceSession::fromProject(std::move(stewardMediaProject));
+  GRAPPLE_REQUIRE(stewardMediaWorkspace);
+  const auto stewardMediaAsset = stewardMediaWorkspace.value().commandWriter().apply(
+    project::RegisterAssetCommand{
+      asset::Asset{
+        foundation::AssetId{"asset_steward_media_video"},
+        "Steward Video",
+        asset::AssetMetadata{
+          asset::AssetMediaType::Video,
+          foundation::FilePath{"/tmp/steward-video.avi"},
+          std::nullopt,
+          foundation::TimeSeconds{6.0},
+          foundation::Resolution{640, 360},
+          foundation::FrameRate{30, 1}
+        }
+      }
+    },
+    userSource()
+  );
+  GRAPPLE_REQUIRE(stewardMediaAsset);
+  const auto stewardMediaPlacement = stewardMediaWorkspace.value().steward().placeAssetOnTimeline(
+    foundation::AssetId{"asset_steward_media_video"}
+  );
+  GRAPPLE_REQUIRE(stewardMediaPlacement);
+  GRAPPLE_REQUIRE(stewardMediaPlacement.value().clipNodeId == foundation::NodeId{"node_clip_4"});
+  const agent::AgentConversationState stewardMediaConversation =
+    stewardMediaWorkspace.value().steward().conversationState();
+  GRAPPLE_REQUIRE(stewardMediaConversation.diagnostics.empty());
+  GRAPPLE_REQUIRE(stewardMediaConversation.runs.size() == 1);
+  GRAPPLE_REQUIRE(stewardMediaConversation.runs[0].status == agent::AgentRunStatus::Succeeded);
+  GRAPPLE_REQUIRE(stewardMediaConversation.runs[0].toolCalls.size() == 1);
+  GRAPPLE_REQUIRE(stewardMediaConversation.runs[0].toolCalls[0].toolSerializedId == "timeline.place_asset");
+  GRAPPLE_REQUIRE(stewardMediaConversation.runs[0].toolCalls[0].status == agent::AgentConversationToolCallStatus::Succeeded);
+  GRAPPLE_REQUIRE(stewardMediaConversation.runs[0].toolCalls[0].observedRevision == foundation::RevisionId{"rev_2"});
+  GRAPPLE_REQUIRE(stewardMediaWorkspace.value().project().packageState().commandLog.records().back().sourceRunId.has_value());
+  GRAPPLE_REQUIRE(
+    stewardMediaWorkspace.value().project().packageState().commandLog.records().back().sourceRunId.value() ==
+    stewardMediaConversation.runs[0].runId
+  );
+  const auto stewardMediaViewModel = stewardMediaWorkspace.value().project().buildViewModel();
+  GRAPPLE_REQUIRE(stewardMediaViewModel);
+  GRAPPLE_REQUIRE(stewardMediaViewModel.value().timeline.compositions.size() == 1);
+  GRAPPLE_REQUIRE(stewardMediaViewModel.value().timeline.layers.size() == 1);
+  GRAPPLE_REQUIRE(stewardMediaViewModel.value().timeline.cameras.size() == 1);
+  GRAPPLE_REQUIRE(stewardMediaViewModel.value().timeline.clips.size() == 1);
+  GRAPPLE_REQUIRE(stewardMediaViewModel.value().timeline.clips[0].sourceNodeId == stewardMediaPlacement.value().clipNodeId);
+  GRAPPLE_REQUIRE(stewardMediaViewModel.value().timeline.duration == foundation::TimeSeconds{6.0});
+
   app::NativeProjectSession runtimeProject{
     foundation::ProjectId{"proj_app_runtime"},
     "Runtime App Project",

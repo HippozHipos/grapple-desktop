@@ -1544,7 +1544,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            effectParamPanel.find("Position X") != std::string::npos &&
            effectParamPanel.find("Last changed by desktop at ") != std::string::npos &&
            log.find("Imported starter-gradient") != std::string::npos &&
-           log.find("Added starter-gradient to timeline") != std::string::npos &&
+           log.find("Steward added selected media to timeline") != std::string::npos &&
            log.find("Steward applied camera edit") != std::string::npos &&
            log.find(expectedExportProvenance) != std::string::npos &&
            exists &&
@@ -1622,11 +1622,15 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       previewFrame.value().frame.cameras.front().state.transform.position.x == 0.25;
     const bool stewardContextRestored =
       conversation.diagnostics.empty() &&
-      conversation.runs.size() == 1 &&
+      conversation.runs.size() == 2 &&
       conversation.runs[0].status == grapple::agent::AgentRunStatus::Succeeded &&
       conversation.runs[0].toolCalls.size() == 1 &&
-      conversation.runs[0].toolCalls[0].toolSerializedId == "effect.create_node" &&
-      conversation.runs[0].toolCalls[0].observedRevision == grapple::foundation::RevisionId{"rev_8"};
+      conversation.runs[0].toolCalls[0].toolSerializedId == "timeline.place_asset" &&
+      conversation.runs[0].toolCalls[0].observedRevision == grapple::foundation::RevisionId{"rev_7"} &&
+      conversation.runs[1].status == grapple::agent::AgentRunStatus::Succeeded &&
+      conversation.runs[1].toolCalls.size() == 1 &&
+      conversation.runs[1].toolCalls[0].toolSerializedId == "effect.create_node" &&
+      conversation.runs[1].toolCalls[0].observedRevision == grapple::foundation::RevisionId{"rev_8"};
     const std::filesystem::path reopenedExportPath{"/tmp/grapple-desktop-reopened-export.avi"};
     std::filesystem::remove(reopenedExportPath);
     const auto reopenedPlan = reopened.value().project().buildRenderPlan();

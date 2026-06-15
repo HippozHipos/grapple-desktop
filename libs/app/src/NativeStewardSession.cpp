@@ -25,9 +25,11 @@ namespace grapple::app {
 namespace {
 
 constexpr const char CanonicalCreateEffectToolId[] = "effect.create_node";
+constexpr const char CanonicalPlaceAssetToolId[] = "timeline.place_asset";
 constexpr double CenteredCameraTransformPositionX = 0.0;
 constexpr double CenteredCameraTransformPositionY = 0.0;
 constexpr double NormalCameraTransformZoom = 1.0;
+constexpr double DefaultImagePlacementDurationSeconds = 5.0;
 
 struct CameraTransformIntentDefaults {
   double positionX = CenteredCameraTransformPositionX;
@@ -255,22 +257,48 @@ foundation::ToolId stewardToolCallIdForRun(const foundation::RunId& runId) {
   return foundation::ToolId{"tool_steward_camera_transform_" + std::to_string(stewardRunNumber(runId))};
 }
 
+foundation::ToolId stewardPlaceAssetToolCallIdForRun(const foundation::RunId& runId) {
+  return foundation::ToolId{"tool_steward_place_asset_" + std::to_string(stewardRunNumber(runId))};
+}
+
+std::string placeAssetArgumentsPayload(
+  const foundation::AssetId& assetId,
+  const std::optional<foundation::TimeSeconds>& duration
+) {
+  std::ostringstream arguments;
+  arguments << '{';
+  foundation::writeJsonStringProperty(arguments, "assetId", assetId.value());
+  if (duration.has_value()) {
+    arguments << ",\"duration\":" << duration->value;
+  }
+  arguments << '}';
+  return arguments.str();
+}
+
 class CommittingAgentCommandService final : public project::IProjectCommandService {
 public:
   CommittingAgentCommandService(
     NativeProjectSession& project,
     NativeProjectCommandWriter& commandWriter,
     std::string snapshotLabel,
-    std::optional<storage::ProjectPackageSessionResult>& packageResult
+    std::optional<storage::ProjectPackageSessionResult>& packageResult,
+    std::optional<foundation::NodeId>* placedClipNodeId = nullptr
   )
     : project_{project},
       commandWriter_{commandWriter},
       snapshotLabel_{std::move(snapshotLabel)},
-      packageResult_{packageResult} {}
+      packageResult_{packageResult},
+      placedClipNodeId_{placedClipNodeId} {}
 
   foundation::Result<project::ProjectCommandResult> apply(
     const project::ProjectCommandEnvelope& command
   ) override {
+    if (placedClipNodeId_ != nullptr) {
+      if (const auto* placement = std::get_if<project::AddMediaToTimelineCommand>(&command.payload)) {
+        *placedClipNodeId_ = placement->clip.nodeId;
+      }
+    }
+
     const foundation::SnapshotId snapshotId = commandWriter_.nextSnapshotId("steward edit");
     project::ProjectCommandEnvelope stewardCommand = command;
     stewardCommand.source = project::CommandSource{
@@ -303,6 +331,7 @@ private:
   NativeProjectCommandWriter& commandWriter_;
   std::string snapshotLabel_;
   std::optional<storage::ProjectPackageSessionResult>& packageResult_;
+  std::optional<foundation::NodeId>* placedClipNodeId_;
 };
 
 } // namespace
@@ -329,6 +358,94 @@ foundation::Result<void> NativeStewardSession::finishRunWithError(
     return runFinished.error();
   }
   return {};
+}
+
+foundation::Result<NativeStewardMediaPlacementResult> NativeStewardSession::placeAssetOnTimeline(
+  foundation::AssetId assetId,
+  std::optional<foundation::TimeSeconds> duration
+) {
+  auto snapshot = project_.snapshot();
+  if (!snapshot) {
+    return snapshot.error();
+  }
+
+  std::string title = "Add selected media to the timeline.";
+  const asset::Asset* selectedAsset = snapshot.value().assets.find(assetId);
+  if (selectedAsset != nullptr) {
+    title = "Add " + selectedAsset->name + " to the timeline.";
+    if (!duration.has_value() && selectedAsset->metadata.mediaType == asset::AssetMediaType::Image) {
+      duration = foundation::TimeSeconds{DefaultImagePlacementDurationSeconds};
+    }
+  }
+
+  auto runId = startRun(snapshot.value(), title);
+  if (!runId) {
+    return runId.error();
+  }
+
+  auto message = appendEvent(
+    runId.value(),
+    agent::AgentRunEventKind::ModelMessage,
+    modelMessagePayload("assistant", "Placing the selected media on the timeline as an editable graph change.")
+  );
+  if (!message) {
+    return message.error();
+  }
+
+  std::optional<storage::ProjectPackageSessionResult> packageResult;
+  std::optional<foundation::NodeId> placedClipNodeId;
+  CommittingAgentCommandService stewardCommands{
+    project_,
+    commandWriter_,
+    title,
+    packageResult,
+    &placedClipNodeId
+  };
+  agent::AgentToolRegistry registry;
+  auto registered = agent::registerProjectTools(registry);
+  if (!registered) {
+    auto finished = finishRunWithError(runId.value(), registered.error());
+    if (!finished) {
+      return finished.error();
+    }
+    return registered.error();
+  }
+
+  agent::AgentToolContext toolContext{stewardCommands, project_, commandWriter_};
+  agent::AgentBridge bridge{registry, toolContext, events_, nextSequence_};
+  auto dispatched = bridge.dispatchToolCall(agent::AgentToolDispatchRequest{
+    runId.value(),
+    snapshot.value().info.id,
+    snapshot.value().revision,
+    stewardPlaceAssetToolCallIdForRun(runId.value()),
+    CanonicalPlaceAssetToolId,
+    placeAssetArgumentsPayload(assetId, duration)
+  });
+  if (!dispatched) {
+    auto finished = finishRunWithError(runId.value(), dispatched.error());
+    if (!finished) {
+      return finished.error();
+    }
+    return dispatched.error();
+  }
+  if (!packageResult.has_value() || !placedClipNodeId.has_value()) {
+    return foundation::Error{
+      "steward.media_placement_result_missing",
+      "Steward media placement tool succeeded without a committed placement result."
+    };
+  }
+
+  auto runFinished = appendEvent(
+    runId.value(),
+    agent::AgentRunEventKind::RunFinished,
+    runFinishedPayload("succeeded", "Added selected media to the timeline.")
+  );
+  if (!runFinished) {
+    return runFinished.error();
+  }
+
+  markRunStatus(runId.value(), agent::AgentRunStatus::Succeeded);
+  return NativeStewardMediaPlacementResult{packageResult.value(), placedClipNodeId.value()};
 }
 
 foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::createCameraTransformEffect(

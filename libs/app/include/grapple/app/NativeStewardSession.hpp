@@ -9,10 +9,16 @@
 #include <grapple/storage/ProjectPackageSession.hpp>
 
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <vector>
 
 namespace grapple::app {
+
+struct NativeStewardMediaPlacementResult {
+  storage::ProjectPackageSessionResult packageResult;
+  foundation::NodeId clipNodeId;
+};
 
 class NativeStewardSession final {
 public:
@@ -22,6 +28,10 @@ public:
     foundation::NodeId cameraNodeId,
     std::string intent,
     foundation::TimeRange activeRange
+  );
+  foundation::Result<NativeStewardMediaPlacementResult> placeAssetOnTimeline(
+    foundation::AssetId assetId,
+    std::optional<foundation::TimeSeconds> duration = std::nullopt
   );
 
   [[nodiscard]] agent::AgentConversationState conversationState() const;

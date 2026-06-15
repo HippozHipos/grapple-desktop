@@ -6,7 +6,6 @@
 #include <grapple/foundation/Hash.hpp>
 #include <grapple/graph/GraphEdge.hpp>
 #include <grapple/jobs/MainThreadDispatcher.hpp>
-#include <grapple/project/ProjectMediaPlacement.hpp>
 #include <grapple/render/RenderDiagnostic.hpp>
 #include <grapple/runtime/RuntimeDiagnostic.hpp>
 #include <grapple/timeline/Payloads.hpp>
@@ -56,8 +55,6 @@
 #include <vector>
 
 namespace {
-
-constexpr double DefaultImageClipDurationSeconds = 5.0;
 
 QString qString(const std::string& value) {
   return QString::fromStdString(value);
@@ -1499,60 +1496,16 @@ public:
       return;
     }
 
-    auto snapshot = workspace_.project().snapshot();
-    if (!snapshot) {
-      appendError(snapshot.error());
-      return;
-    }
-
-    const grapple::asset::Asset* selectedAsset = snapshot.value().assets.find(selectedAssetId_.value());
-    if (selectedAsset == nullptr) {
-      appendError(grapple::foundation::Error{"desktop.asset_selection_stale", "Selected media asset is not in the current project."});
-      return;
-    }
-
-    auto compositionQuery = workspace_.project().query(grapple::project::InspectCompositionsQuery{});
-    if (!compositionQuery) {
-      appendError(compositionQuery.error());
-      return;
-    }
-    const auto* compositionResult = std::get_if<grapple::project::CompositionInspectResult>(&compositionQuery.value());
-    if (compositionResult == nullptr) {
-      appendError(grapple::foundation::Error{"desktop.composition_result_missing", "Composition inspection returned the wrong result type."});
-      return;
-    }
-
-    std::optional<grapple::foundation::TimeSeconds> duration;
-    if (selectedAsset->metadata.mediaType == grapple::asset::AssetMediaType::Image) {
-      duration = grapple::foundation::TimeSeconds{DefaultImageClipDurationSeconds};
-    }
-    auto placement = grapple::project::buildMediaPlacementDraft(
-      workspace_.commandWriter(),
-      *selectedAsset,
-      std::nullopt,
-      duration,
-      compositionResult->compositions
-    );
-    if (!placement) {
-      appendError(placement.error());
-      return;
-    }
-
-    const std::string assetName = selectedAsset->name;
-    const grapple::foundation::NodeId clipNodeId = placement.value().clipNodeId;
-    const auto mediaPlacement = workspace_.commandWriter().apply(
-      std::move(placement.value().command),
-      userSource()
-    );
+    const auto mediaPlacement = workspace_.steward().placeAssetOnTimeline(selectedAssetId_.value());
     if (!mediaPlacement) {
       appendError(mediaPlacement.error());
       return;
     }
 
-    selectedNodeId_ = clipNodeId;
+    selectedNodeId_ = mediaPlacement.value().clipNodeId;
     selectedAssetId_ = std::nullopt;
     refreshViewModelAndPreview();
-    log_->append(QString{"Added %1 to timeline"}.arg(qString(assetName)));
+    log_->append("Steward added selected media to timeline");
   }
 
   void deleteSelectedClip() {
