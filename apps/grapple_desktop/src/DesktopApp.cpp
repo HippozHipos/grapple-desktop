@@ -1229,6 +1229,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       return 1;
     }
     const std::string steward = window.stewardContents();
+    const std::string inspector = window.inspectorContents();
     const std::string stewardActionText = window.stewardPrimaryActionText();
     const bool stewardActionEnabled = window.stewardPrimaryActionEnabled();
     const std::string effectParamTitle = window.effectParamTitleText();
@@ -1270,6 +1271,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "evaluatedTunedPreview=" << (hasEvaluatedTunedPreview ? "true" : "false") << '\n';
     std::cout << "exists=" << (exists ? "true" : "false") << '\n';
     std::cout << "size=" << size << '\n';
+    std::cout << "inspector=" << inspector << '\n';
     std::cout << "steward=" << steward << '\n';
     std::cout << "stewardAction=" << stewardActionText << '\n';
     std::cout << "stewardActionEnabled=" << (stewardActionEnabled ? "true" : "false") << '\n';
@@ -1289,6 +1291,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            stewardActionText == "Editable Controls Shown" &&
            !stewardActionEnabled &&
            effectParamTitle == "Camera Transform on Camera" &&
+           inspector.find("Position X (position_x)=0.25") != std::string::npos &&
+           inspector.find("last changed by desktop at ") != std::string::npos &&
            effectParamPanel.find("Last changed by desktop at ") != std::string::npos &&
            log.find("Imported starter-gradient") != std::string::npos &&
            log.find("Added starter-gradient to timeline") != std::string::npos &&

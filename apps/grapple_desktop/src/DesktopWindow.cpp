@@ -174,6 +174,11 @@ QString inspectorText(
               }
               paramText += ']';
             }
+            if (param.lastEditedRevision.has_value()) {
+              paramText += QString{" last changed by %1 at %2"}
+                .arg(qString(param.lastEditedActorName.empty() ? param.lastEditedSourceKind : param.lastEditedActorName))
+                .arg(qString(param.lastEditedRevision->value()));
+            }
             params << paramText;
           }
           lines << QString{"Params: %1"}.arg(params.join(", "));
