@@ -24,6 +24,11 @@ QString controlTextFor(const app::AppEffectParamRow& param) {
     }
     text += "]";
   }
+  if (param.lastEditedRevision.has_value()) {
+    text += QString{" last changed by %1 at %2"}
+      .arg(qString(param.lastEditedActorName.empty() ? param.lastEditedSourceKind : param.lastEditedActorName))
+      .arg(qString(param.lastEditedRevision->value()));
+  }
   return text;
 }
 

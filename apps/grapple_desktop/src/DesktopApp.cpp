@@ -1286,6 +1286,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            hasEvaluatedTunedPreview &&
            steward.find("1 clips | 1 cameras | 1 editable effects") != std::string::npos &&
            steward.find("Position X=0.25 [-1..1 step 0.01]") != std::string::npos &&
+           steward.find("Position X=0.25 [-1..1 step 0.01] last changed by desktop at ") != std::string::npos &&
            steward.find("Applied edits") != std::string::npos &&
            steward.find("Camera Transform on Camera: Center the subject with editable camera controls.") != std::string::npos &&
            stewardActionText == "Editable Controls Shown" &&
