@@ -6,6 +6,7 @@
 #include <grapple/app/NativeProjectSession.hpp>
 #include <grapple/app/NativeWorkspaceSession.hpp>
 #include <grapple/foundation/Hash.hpp>
+#include <grapple/render/RenderQuality.hpp>
 #include <grapple/runtime/BuiltinEffects.hpp>
 #include <grapple/storage/ProjectCommitBuilder.hpp>
 
@@ -1194,6 +1195,23 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     window.setStewardIntent("Center the subject with editable camera controls.");
     window.clickStewardCreateCameraEffect();
     window.setSelectedTargetNumericEffectParam(grapple::runtime::builtin_effect::PositionXParam, 0.25);
+    const auto tunedViewModel = workspace.value().project().buildViewModel();
+    if (!tunedViewModel) {
+      printError(tunedViewModel.error());
+      return 1;
+    }
+    const auto tunedPreviewFrame = workspace.value().preview().renderFrame(grapple::render::RenderFrameRequest{
+      workspace.value().preview().state().playhead,
+      grapple::render::RenderQuality::Draft
+    });
+    if (!tunedPreviewFrame) {
+      printError(tunedPreviewFrame.error());
+      return 1;
+    }
+    const bool hasEvaluatedTunedPreview =
+      tunedPreviewFrame.value().frame.sourceRevision == tunedViewModel.value().project.revision &&
+      tunedPreviewFrame.value().frame.cameras.size() == 1 &&
+      tunedPreviewFrame.value().frame.cameras.front().state.transform.position.x == 0.25;
     window.setExportResolutionControlValue(320, 180);
     window.setExportFrameRateControlValue(10.0);
     window.setExportCodecControlValue("mjpeg");
@@ -1241,6 +1259,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "clips=" << viewModel.value().timeline.clips.size() << '\n';
     std::cout << "cameras=" << viewModel.value().timeline.cameras.size() << '\n';
     std::cout << "effects=" << viewModel.value().timeline.effectCount << '\n';
+    std::cout << "evaluatedTunedPreview=" << (hasEvaluatedTunedPreview ? "true" : "false") << '\n';
     std::cout << "exists=" << (exists ? "true" : "false") << '\n';
     std::cout << "size=" << size << '\n';
     std::cout << "steward=" << steward << '\n';
@@ -1252,6 +1271,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            viewModel.value().timeline.cameras.size() == 1 &&
            viewModel.value().timeline.effectCount == 1 &&
            hasTunedEditableEffect &&
+           hasEvaluatedTunedPreview &&
            steward.find("1 clips | 1 cameras | 1 editable effects") != std::string::npos &&
            steward.find("Position X=0.25 [-1..1 step 0.01]") != std::string::npos &&
            stewardActionText == "Editable Controls Shown" &&
