@@ -1193,9 +1193,12 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     window.show();
     app.processEvents();
     window.clickFirstTimelineClip();
+    const auto selectedClipBeforeCreate = window.selectedNodeId();
     window.setStewardIntent("Center the walking subject with exposed controls.");
     window.clickStewardCreateCameraEffect();
+    const auto selectedAfterCreate = window.selectedNodeId();
     window.clickFirstTimelineClip();
+    const auto selectedClipBeforeShowControls = window.selectedNodeId();
     window.clickStewardCreateCameraEffect();
     const auto selectedAfterShowControls = window.selectedNodeId();
     const std::string inspector = window.inspectorContents();
@@ -1225,22 +1228,34 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       std::cerr << "No camera in add-effect smoke.\n";
       return 1;
     }
+    if (viewModel.value().timeline.clips.empty()) {
+      std::cerr << "No clip in add-effect smoke.\n";
+      return 1;
+    }
     const grapple::foundation::NodeId expectedCameraNodeId = viewModel.value().timeline.cameras.front().sourceNodeId;
+    const grapple::foundation::NodeId expectedClipNodeId = viewModel.value().timeline.clips.front().sourceNodeId;
+    std::optional<grapple::foundation::RevisionId> createdRevision;
     const bool cameraHasEffect = std::any_of(
       viewModel.value().timeline.effectGraphs.begin(),
       viewModel.value().timeline.effectGraphs.end(),
       [&](const grapple::app::AppEffectGraphRow& graph) {
-        return graph.targetNodeId == expectedCameraNodeId &&
-               graph.effects.size() == 1 &&
-               graph.effects.front().displayName == "Camera Transform" &&
-               graph.effects.front().implementationKind == "builtin" &&
-               graph.effects.front().cameraTransformEffect;
+        if (graph.targetNodeId != expectedCameraNodeId ||
+            graph.effects.size() != 1 ||
+            graph.effects.front().displayName != "Camera Transform" ||
+            graph.effects.front().implementationKind != "builtin" ||
+            !graph.effects.front().cameraTransformEffect ||
+            !graph.effects.front().createdRevision.has_value()) {
+          return false;
+        }
+        createdRevision = graph.effects.front().createdRevision;
+        return true;
       }
     );
-    return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_6"} &&
-           cameraHasEffect &&
+    const std::string createdRevisionText = createdRevision.has_value() ? createdRevision->value() : std::string{};
+    return cameraHasEffect &&
+           viewModel.value().timeline.effectCount == 1 &&
            inspector.find("Camera Transform") != std::string::npos &&
-           inspector.find("Created by steward at rev_6: Center the walking subject with exposed controls.") != std::string::npos &&
+           inspector.find("Created by steward at " + createdRevisionText + ": Center the walking subject with exposed controls.") != std::string::npos &&
            inspector.find("[builtin]") == std::string::npos &&
            inspector.find("Entrypoint:") == std::string::npos &&
            inspector.find("Position X (position_x)=0") != std::string::npos &&
@@ -1249,12 +1264,18 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            steward.find("Position Y=0 [-1..1 step 0.01]") != std::string::npos &&
            steward.find("Zoom=1.1 [0.25..4 step 0.01]") != std::string::npos &&
            steward.find("Applied edits") != std::string::npos &&
-           steward.find("- rev_6 Camera Transform on Camera: Center the walking subject with exposed controls.") != std::string::npos &&
+           steward.find("- " + createdRevisionText + " Camera Transform on Camera: Center the walking subject with exposed controls.") != std::string::npos &&
            steward.find("Recent Steward runs") != std::string::npos &&
            steward.find("- Center the walking subject with exposed controls. [succeeded]") != std::string::npos &&
-           steward.find("effect.create_node -> succeeded at rev_6") != std::string::npos &&
+           steward.find("effect.create_node -> succeeded at " + createdRevisionText) != std::string::npos &&
            steward.find("effect.create_node -> failed") == std::string::npos &&
            steward.find("- Center the walking subject with exposed controls.") != std::string::npos &&
+           selectedClipBeforeCreate.has_value() &&
+           selectedClipBeforeCreate.value() == expectedClipNodeId &&
+           selectedAfterCreate.has_value() &&
+           selectedAfterCreate.value() == expectedCameraNodeId &&
+           selectedClipBeforeShowControls.has_value() &&
+           selectedClipBeforeShowControls.value() == expectedClipNodeId &&
            selectedAfterShowControls.has_value() &&
            selectedAfterShowControls.value() == expectedCameraNodeId &&
            stewardActionText == "Editable Controls Shown" &&
