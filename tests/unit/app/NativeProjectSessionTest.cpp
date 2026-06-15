@@ -901,6 +901,7 @@ int main() {
     userSource()
   );
   GRAPPLE_REQUIRE(appParamValueUpdate);
+  GRAPPLE_REQUIRE(appParamValueUpdate.value().changed);
   const auto valueUpdatedEffectViewModel = effectSession.buildViewModel();
   GRAPPLE_REQUIRE(valueUpdatedEffectViewModel);
   GRAPPLE_REQUIRE(std::get<double>(valueUpdatedEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].value) == 0.6);
@@ -909,6 +910,18 @@ int main() {
   GRAPPLE_REQUIRE(valueUpdatedEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].lastEditedActorName == "test");
   GRAPPLE_REQUIRE(valueUpdatedEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].keyframes.size() == 1);
   GRAPPLE_REQUIRE(valueUpdatedEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].keyframes[0].keyframeId == foundation::KeyframeId{"key_target_x_2"});
+  const std::size_t commandCountBeforeNoopParamUpdate = effectSession.packageState().commandLog.records().size();
+  const auto noopParamValueUpdate = effectEdits.setParamValue(
+    effectNodeId,
+    "target_x",
+    0.6,
+    userSource()
+  );
+  GRAPPLE_REQUIRE(noopParamValueUpdate);
+  GRAPPLE_REQUIRE(!noopParamValueUpdate.value().changed);
+  GRAPPLE_REQUIRE(!noopParamValueUpdate.value().committed.has_value());
+  GRAPPLE_REQUIRE(noopParamValueUpdate.value().snapshot.revision == appParamValueUpdate.value().snapshot.revision);
+  GRAPPLE_REQUIRE(effectSession.packageState().commandLog.records().size() == commandCountBeforeNoopParamUpdate);
   const auto boolParamUpdate = effectEdits.setParamValue(
     effectNodeId,
     "lock_subject",
@@ -916,6 +929,7 @@ int main() {
     userSource()
   );
   GRAPPLE_REQUIRE(boolParamUpdate);
+  GRAPPLE_REQUIRE(boolParamUpdate.value().changed);
   const auto boolUpdatedEffectViewModel = effectSession.buildViewModel();
   GRAPPLE_REQUIRE(boolUpdatedEffectViewModel);
   GRAPPLE_REQUIRE(!std::get<bool>(boolUpdatedEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[1].value));
@@ -1096,6 +1110,7 @@ int main() {
     userSource()
   );
   GRAPPLE_REQUIRE(updatedRuntimeEffect);
+  GRAPPLE_REQUIRE(updatedRuntimeEffect.value().changed);
   const auto updatedRuntimeZoom = runtimeWorkspace.value().effects().setParamValue(
     runtimeEffectNodeId,
     runtime::builtin_effect::ZoomParam,
@@ -1103,6 +1118,7 @@ int main() {
     userSource()
   );
   GRAPPLE_REQUIRE(updatedRuntimeZoom);
+  GRAPPLE_REQUIRE(updatedRuntimeZoom.value().changed);
   const auto updatedRuntimeEffectViewModel = runtimeWorkspace.value().project().buildViewModel();
   GRAPPLE_REQUIRE(updatedRuntimeEffectViewModel);
   GRAPPLE_REQUIRE(std::get<double>(updatedRuntimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].value) == 0.25);

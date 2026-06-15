@@ -3,18 +3,26 @@
 #include <grapple/app/NativeProjectCommandWriter.hpp>
 #include <grapple/foundation/Result.hpp>
 #include <grapple/foundation/StrongId.hpp>
+#include <grapple/project/ProjectSnapshot.hpp>
 #include <grapple/storage/ProjectPackageSession.hpp>
 #include <grapple/timeline/EffectPayload.hpp>
 
+#include <optional>
 #include <string>
 
 namespace grapple::app {
+
+struct NativeEffectParamValueResult {
+  bool changed = false;
+  project::ProjectSnapshot snapshot;
+  std::optional<storage::ProjectPackageSessionResult> committed;
+};
 
 class NativeEffectSession final {
 public:
   NativeEffectSession(NativeProjectSession& project, NativeProjectCommandWriter& commandWriter);
 
-  foundation::Result<storage::ProjectPackageSessionResult> setParamValue(
+  foundation::Result<NativeEffectParamValueResult> setParamValue(
     foundation::NodeId effectNodeId,
     std::string paramName,
     timeline::ParamValue value,
