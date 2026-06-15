@@ -475,6 +475,11 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     window.show();
     app.processEvents();
     window.clickFirstTimelineCamera();
+    const auto viewModel = workspace.value().project().buildViewModel();
+    if (!viewModel) {
+      printError(viewModel.error());
+      return 1;
+    }
     const auto selectedNodeId = window.selectedNodeId();
     if (!selectedNodeId.has_value()) {
       std::cerr << "No selected camera node.\n";
@@ -484,7 +489,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     const std::string log = window.logContents();
     std::cout << "selected=" << selectedNodeId->value() << '\n';
     std::cout << "inspector=" << inspector << '\n';
-    return selectedNodeId.value() == grapple::foundation::NodeId{"node_camera_4"} &&
+    return !viewModel.value().timeline.cameras.empty() &&
+           selectedNodeId.value() == viewModel.value().timeline.cameras.front().sourceNodeId &&
            inspector.find("Camera\nName: Camera") != std::string::npos &&
            inspector.find("No effects attached.") != std::string::npos
       ? 0
@@ -524,6 +530,11 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
 
   if (stewardSmoke) {
     const std::string steward = window.stewardContents();
+    const auto viewModel = workspace.value().project().buildViewModel();
+    if (!viewModel) {
+      printError(viewModel.error());
+      return 1;
+    }
     const auto selectedNodeId = window.selectedNodeId();
     std::cout << "steward=" << steward << '\n';
     if (selectedNodeId.has_value()) {
@@ -538,8 +549,9 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            steward.find("- no editable controls yet") != std::string::npos &&
            steward.find("Recent Steward runs") != std::string::npos &&
            steward.find("- no runs yet") != std::string::npos &&
+           !viewModel.value().timeline.cameras.empty() &&
            selectedNodeId.has_value() &&
-           selectedNodeId.value() == grapple::foundation::NodeId{"node_camera_4"}
+           selectedNodeId.value() == viewModel.value().timeline.cameras.front().sourceNodeId
       ? 0
       : 1;
   }
@@ -1208,11 +1220,16 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     const bool intentRecorded = !snapshots.empty() &&
                                 snapshots.back().label.has_value() &&
                                 snapshots.back().label.value() == "Center the walking subject with exposed controls.";
+    if (viewModel.value().timeline.cameras.empty()) {
+      std::cerr << "No camera in add-effect smoke.\n";
+      return 1;
+    }
+    const grapple::foundation::NodeId expectedCameraNodeId = viewModel.value().timeline.cameras.front().sourceNodeId;
     const bool cameraHasEffect = std::any_of(
       viewModel.value().timeline.effectGraphs.begin(),
       viewModel.value().timeline.effectGraphs.end(),
-      [](const grapple::app::AppEffectGraphRow& graph) {
-        return graph.targetNodeId == grapple::foundation::NodeId{"node_camera_4"} &&
+      [&](const grapple::app::AppEffectGraphRow& graph) {
+        return graph.targetNodeId == expectedCameraNodeId &&
                graph.effects.size() == 1 &&
                graph.effects.front().displayName == "Camera Transform" &&
                graph.effects.front().implementationKind == "builtin" &&
@@ -1238,7 +1255,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            steward.find("effect.create_node -> failed") == std::string::npos &&
            steward.find("- Center the walking subject with exposed controls.") != std::string::npos &&
            selectedAfterShowControls.has_value() &&
-           selectedAfterShowControls.value() == grapple::foundation::NodeId{"node_camera_4"} &&
+           selectedAfterShowControls.value() == expectedCameraNodeId &&
            stewardActionText == "Editable Controls Shown" &&
            !stewardActionEnabled &&
            effectParamTitle == "Camera Transform on Camera" &&
