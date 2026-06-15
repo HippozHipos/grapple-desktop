@@ -753,7 +753,7 @@ public:
     }
     previewSurface_->setFrame(frame.value().frame);
     compositionViewport_->setFrame(frame.value().frame);
-    const QString provenance = QString{"rev %1 | plan %2"}
+    const QString provenance = QString{"%1 | plan %2"}
       .arg(qString(frame.value().frame.sourceRevision.value()))
       .arg(shortHashText(frame.value().frame.renderPlanHash));
     previewTitle_->setText(QString{"Player  %1"}.arg(provenance));
