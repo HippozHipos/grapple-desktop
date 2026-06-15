@@ -599,6 +599,12 @@ public:
       showEffectControls();
     });
     steward_->setCreateCameraEffectHandler([this](std::string intent) { addEffectToSelectedTarget(std::move(intent)); });
+    steward_->setAdjustCameraControlsHandler([this](
+      grapple::foundation::NodeId cameraNodeId,
+      std::string intent
+    ) {
+      adjustCameraControlsWithSteward(std::move(cameraNodeId), std::move(intent));
+    });
     steward_->setTransformSelectedClipHandler([this](
       grapple::foundation::NodeId clipNodeId,
       std::string intent
@@ -2018,6 +2024,24 @@ public:
     selectedAssetId_ = std::nullopt;
     refreshViewModelAndPreview();
     log_->append("Steward transformed selected clip");
+  }
+
+  void adjustCameraControlsWithSteward(
+    grapple::foundation::NodeId cameraNodeId,
+    std::string intent
+  ) {
+    const auto adjusted = workspace_.steward().adjustCameraTransformControls(cameraNodeId, std::move(intent));
+    if (!adjusted) {
+      appendError(adjusted.error());
+      refreshViewModel();
+      return;
+    }
+
+    selectedNodeId_ = cameraNodeId;
+    selectedAssetId_ = std::nullopt;
+    showEffectControls();
+    refreshViewModelAndPreview();
+    log_->append("Steward adjusted camera controls");
   }
 
   void setSelectedTargetNumericEffectParam(const std::string& paramName, double value) {

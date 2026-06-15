@@ -22,6 +22,7 @@ public:
   using AddSelectedMediaHandler = std::function<void()>;
   using ShowCameraControlsHandler = std::function<void(foundation::NodeId)>;
   using CreateCameraEffectHandler = std::function<void(std::string)>;
+  using AdjustCameraControlsHandler = std::function<void(foundation::NodeId, std::string)>;
   using TransformSelectedClipHandler = std::function<void(foundation::NodeId, std::string)>;
 
   explicit StewardPanel(QWidget* parent = nullptr);
@@ -31,6 +32,7 @@ public:
   void setAddSelectedMediaHandler(AddSelectedMediaHandler handler);
   void setShowCameraControlsHandler(ShowCameraControlsHandler handler);
   void setCreateCameraEffectHandler(CreateCameraEffectHandler handler);
+  void setAdjustCameraControlsHandler(AdjustCameraControlsHandler handler);
   void setTransformSelectedClipHandler(TransformSelectedClipHandler handler);
   void setViewModel(
     const app::AppViewModel& viewModel,
@@ -54,7 +56,7 @@ private:
     ImportMedia,
     AddSelectedMedia,
     AddCamera,
-    ControlsShown,
+    AdjustCameraControls,
     ShowCameraControls,
     CreateCameraEffect
   };
@@ -64,6 +66,7 @@ private:
   AddSelectedMediaHandler addSelectedMediaHandler_;
   ShowCameraControlsHandler showCameraControlsHandler_;
   CreateCameraEffectHandler createCameraEffectHandler_;
+  AdjustCameraControlsHandler adjustCameraControlsHandler_;
   TransformSelectedClipHandler transformSelectedClipHandler_;
   PrimaryAction primaryAction_ = PrimaryAction::Disabled;
   std::optional<foundation::NodeId> primaryTargetCameraNodeId_;

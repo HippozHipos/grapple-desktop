@@ -126,7 +126,11 @@ StewardPanel::StewardPanel(QWidget* parent)
           createCameraEffectHandler_(intent());
         }
         return;
-      case PrimaryAction::ControlsShown:
+      case PrimaryAction::AdjustCameraControls:
+        if (adjustCameraControlsHandler_ && primaryTargetCameraNodeId_.has_value()) {
+          adjustCameraControlsHandler_(primaryTargetCameraNodeId_.value(), intent());
+        }
+        return;
       case PrimaryAction::Disabled:
         return;
     }
@@ -167,6 +171,10 @@ void StewardPanel::setShowCameraControlsHandler(ShowCameraControlsHandler handle
 
 void StewardPanel::setCreateCameraEffectHandler(CreateCameraEffectHandler handler) {
   createCameraEffectHandler_ = std::move(handler);
+}
+
+void StewardPanel::setAdjustCameraControlsHandler(AdjustCameraControlsHandler handler) {
+  adjustCameraControlsHandler_ = std::move(handler);
 }
 
 void StewardPanel::setTransformSelectedClipHandler(TransformSelectedClipHandler handler) {
@@ -214,9 +222,9 @@ void StewardPanel::setViewModel(
     }
   } else if (app::cameraHasTransformEffect(viewModel, cameraTargetId.value())) {
     if (selectedNodeId.has_value() && selectedNodeId.value() == cameraTargetId.value()) {
-      primaryAction_ = PrimaryAction::ControlsShown;
-      primaryActionButton_->setText("Editable Controls Shown");
-      primaryActionButton_->setEnabled(false);
+      primaryAction_ = PrimaryAction::AdjustCameraControls;
+      primaryActionButton_->setText("Apply Request To Camera Controls");
+      primaryActionButton_->setEnabled(static_cast<bool>(adjustCameraControlsHandler_));
     } else {
       primaryAction_ = PrimaryAction::ShowCameraControls;
       primaryActionButton_->setText("Show Editable Controls");
@@ -245,8 +253,8 @@ void StewardPanel::setViewModel(
     case PrimaryAction::CreateCameraEffect:
       nextStep = "Next: create editable camera controls from the request.";
       break;
-    case PrimaryAction::ControlsShown:
-      nextStep = "Next: tune the exposed effect parameters and preview the result.";
+    case PrimaryAction::AdjustCameraControls:
+      nextStep = "Next: apply the request to the exposed camera controls.";
       break;
     case PrimaryAction::Disabled:
       nextStep = "Next: select the project item needed for the edit.";
