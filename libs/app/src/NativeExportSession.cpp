@@ -47,6 +47,12 @@ public:
         "Rendered image buffer size does not match its resolution."
       };
     }
+    if (image.resolution != settings_.resolution) {
+      return foundation::Error{
+        "app.export_frame_resolution_mismatch",
+        "Video export received a rendered frame that does not match the requested export resolution."
+      };
+    }
 
     auto opened = ensureOpen();
     if (!opened) {
@@ -61,13 +67,7 @@ public:
     };
     cv::Mat bgr;
     cv::cvtColor(rgba, bgr, cv::COLOR_RGBA2BGR);
-    if (image.resolution != settings_.resolution) {
-      cv::Mat resized;
-      cv::resize(bgr, resized, cv::Size{settings_.resolution.width, settings_.resolution.height});
-      writer_.write(resized);
-    } else {
-      writer_.write(bgr);
-    }
+    writer_.write(bgr);
     ++framesWritten_;
     reportProgress();
     return {};
