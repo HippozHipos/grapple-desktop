@@ -47,92 +47,92 @@ fi
 
 check_no_matches \
   "project must not depend on downstream or infrastructure modules." \
-  '#include <grapple/(projection|runtime|render|model|agent|storage|media|jobs)/' \
+  '#include <grapple/(projection|runtime|render|model|agent|storage|media|jobs|ui_qt)/' \
   "$root/libs/project"
 
 check_no_matches \
   "project CMake target must not link downstream or infrastructure modules." \
-  'Grapple::(Projection|Runtime|Render|Model|Agent|Storage|Media|Jobs)([^A-Za-z0-9_]|$)' \
+  'Grapple::(Projection|Runtime|Render|Model|Agent|Storage|Media|Jobs|UiQt)([^A-Za-z0-9_]|$)' \
   "$root/libs/project/CMakeLists.txt"
 
 check_no_matches \
-  "projection must remain pure and must not depend on runtime/render/model/agent/media/storage/jobs." \
-  '#include <grapple/(runtime|render|model|agent|media|storage|jobs)/' \
+  "projection must remain pure and must not depend on runtime/render/model/agent/media/storage/jobs/ui." \
+  '#include <grapple/(runtime|render|model|agent|media|storage|jobs|ui_qt)/' \
   "$root/libs/projection"
 
 check_no_matches \
-  "projection CMake target must not link runtime/render/model/agent/media/storage/jobs." \
-  'Grapple::(Runtime|Render|Model|Agent|Media|Storage|Jobs)([^A-Za-z0-9_]|$)' \
+  "projection CMake target must not link runtime/render/model/agent/media/storage/jobs/ui." \
+  'Grapple::(Runtime|Render|Model|Agent|Media|Storage|Jobs|UiQt)([^A-Za-z0-9_]|$)' \
   "$root/libs/projection/CMakeLists.txt"
 
 check_no_matches \
   "history must record facts only and must not depend on product execution modules." \
-  '#include <grapple/(project|graph|timeline|asset|projection|runtime|render|model|agent|storage|media|jobs)/' \
+  '#include <grapple/(project|graph|timeline|asset|projection|runtime|render|model|agent|storage|media|jobs|ui_qt)/' \
   "$root/libs/history"
 
 check_no_matches \
   "history CMake target must not link product execution modules." \
-  'Grapple::(Project|Graph|Timeline|Asset|Projection|Runtime|Render|Model|Agent|Storage|Media|Jobs)([^A-Za-z0-9_]|$)' \
+  'Grapple::(Project|Graph|Timeline|Asset|Projection|Runtime|Render|Model|Agent|Storage|Media|Jobs|UiQt)([^A-Za-z0-9_]|$)' \
   "$root/libs/history/CMakeLists.txt"
 
 check_no_matches \
   "storage must own IO only and must not call product execution modules." \
-  '#include <grapple/(projection|runtime|render|model|agent|media|jobs)/' \
+  '#include <grapple/(projection|runtime|render|model|agent|media|jobs|ui_qt)/' \
   "$root/libs/storage"
 
 check_no_matches \
   "storage CMake target must not link projection/runtime/render/model/agent/media/jobs." \
-  'Grapple::(Projection|Runtime|Render|Model|Agent|Media|Jobs)([^A-Za-z0-9_]|$)' \
+  'Grapple::(Projection|Runtime|Render|Model|Agent|Media|Jobs|UiQt)([^A-Za-z0-9_]|$)' \
   "$root/libs/storage/CMakeLists.txt"
 
 check_no_matches \
   "media must not depend on project graph, runtime, render, model, agent, storage, or jobs." \
-  '#include <grapple/(project|graph|timeline|projection|runtime|render|model|agent|storage|jobs)/' \
+  '#include <grapple/(project|graph|timeline|projection|runtime|render|model|agent|storage|jobs|ui_qt)/' \
   "$root/libs/media"
 
 check_no_matches \
   "media CMake target must not link project graph, runtime, render, model, agent, storage, or jobs." \
-  'Grapple::(Project|Graph|Timeline|Projection|Runtime|Render|Model|Agent|Storage|Jobs)([^A-Za-z0-9_]|$)' \
+  'Grapple::(Project|Graph|Timeline|Projection|Runtime|Render|Model|Agent|Storage|Jobs|UiQt)([^A-Za-z0-9_]|$)' \
   "$root/libs/media/CMakeLists.txt"
 
 check_no_matches \
   "jobs must schedule work without owning graph/runtime/render/model/agent/storage semantics." \
-  '#include <grapple/(graph|timeline|asset|projection|runtime|render|model|agent|storage|media)/' \
+  '#include <grapple/(graph|timeline|asset|projection|runtime|render|model|agent|storage|media|ui_qt)/' \
   "$root/libs/jobs"
 
 check_no_matches \
   "jobs CMake target must not link graph/runtime/render/model/agent/storage semantics." \
-  'Grapple::(Graph|Timeline|Asset|Projection|Runtime|Render|Model|Agent|Storage|Media)([^A-Za-z0-9_]|$)' \
+  'Grapple::(Graph|Timeline|Asset|Projection|Runtime|Render|Model|Agent|Storage|Media|UiQt)([^A-Za-z0-9_]|$)' \
   "$root/libs/jobs/CMakeLists.txt"
 
 check_no_matches \
   "runtime must not depend on project, graph, render, agent, storage, jobs, asset, or timeline." \
-  '#include <grapple/(project|graph|render|agent|storage|jobs|asset|timeline)/' \
+  '#include <grapple/(project|graph|render|agent|storage|jobs|asset|timeline|ui_qt)/' \
   "$root/libs/runtime"
 
 check_no_matches \
   "runtime CMake target must not link project, graph, render, agent, storage, jobs, asset, or timeline." \
-  'Grapple::(Project|Graph|Render|Agent|Storage|Jobs|Asset|Timeline)([^A-Za-z0-9_]|$)' \
+  'Grapple::(Project|Graph|Render|Agent|Storage|Jobs|Asset|Timeline|UiQt)([^A-Za-z0-9_]|$)' \
   "$root/libs/runtime/CMakeLists.txt"
 
 check_no_matches \
   "render must consume RenderPlan/runtime output and must not depend on project, graph, agent, storage, jobs, asset, or timeline." \
-  '#include <grapple/(project|graph|agent|storage|jobs|asset|timeline)/' \
+  '#include <grapple/(project|graph|agent|storage|jobs|asset|timeline|ui_qt)/' \
   "$root/libs/render"
 
 check_no_matches \
   "render CMake target must not link project, graph, agent, storage, jobs, asset, or timeline." \
-  'Grapple::(Project|Graph|Agent|Storage|Jobs|Asset|Timeline)([^A-Za-z0-9_]|$)' \
+  'Grapple::(Project|Graph|Agent|Storage|Jobs|Asset|Timeline|UiQt)([^A-Za-z0-9_]|$)' \
   "$root/libs/render/CMakeLists.txt"
 
 check_no_matches \
   "agent tools must not hold projection builders, runtime, render, storage, media, jobs, graph, asset, or timeline dependencies." \
-  '#include <grapple/(projection|runtime|render|storage|media|jobs|graph|asset|timeline)/' \
+  '#include <grapple/(projection|runtime|render|storage|media|jobs|graph|asset|timeline|ui_qt)/' \
   "$root/libs/agent"
 
 check_no_matches \
   "agent CMake target must not link projection/runtime/render/storage/media/jobs/graph/asset/timeline." \
-  'Grapple::(Projection|Runtime|Render|Storage|Media|Jobs|Graph|Asset|Timeline)([^A-Za-z0-9_]|$)' \
+  'Grapple::(Projection|Runtime|Render|Storage|Media|Jobs|Graph|Asset|Timeline|UiQt)([^A-Za-z0-9_]|$)' \
   "$root/libs/agent/CMakeLists.txt"
 
 check_no_matches \
@@ -142,7 +142,7 @@ check_no_matches \
 
 check_no_matches \
   "lower-level modules must not depend on the app orchestration layer." \
-  '#include <grapple/app/' \
+  '#include <grapple/(app|ui_qt)/' \
   "$root/libs/foundation" \
   "$root/libs/asset" \
   "$root/libs/timeline" \
@@ -157,5 +157,24 @@ check_no_matches \
   "$root/libs/model" \
   "$root/libs/render" \
   "$root/libs/agent"
+
+check_no_matches \
+  "non-UI libraries must not link the Qt UI shell." \
+  'Grapple::UiQt([^A-Za-z0-9_]|$)' \
+  "$root/libs/foundation/CMakeLists.txt" \
+  "$root/libs/asset/CMakeLists.txt" \
+  "$root/libs/timeline/CMakeLists.txt" \
+  "$root/libs/graph/CMakeLists.txt" \
+  "$root/libs/project/CMakeLists.txt" \
+  "$root/libs/projection/CMakeLists.txt" \
+  "$root/libs/history/CMakeLists.txt" \
+  "$root/libs/storage/CMakeLists.txt" \
+  "$root/libs/jobs/CMakeLists.txt" \
+  "$root/libs/media/CMakeLists.txt" \
+  "$root/libs/runtime/CMakeLists.txt" \
+  "$root/libs/model/CMakeLists.txt" \
+  "$root/libs/render/CMakeLists.txt" \
+  "$root/libs/agent/CMakeLists.txt" \
+  "$root/libs/app/CMakeLists.txt"
 
 echo "Architecture guards passed."
