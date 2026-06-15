@@ -38,6 +38,24 @@ project::CommandSource importerSource() {
   };
 }
 
+foundation::Result<foundation::FilePath> packageMediaSourcePath(
+  const storage::ProjectPackage& package,
+  const foundation::FilePath& sourcePath
+) {
+  if (sourcePath.value.empty()) {
+    return foundation::Error{"app.media_source_path_empty", "Media source path must not be empty."};
+  }
+
+  const std::filesystem::path path{sourcePath.value};
+  if (path.is_absolute()) {
+    return sourcePath;
+  }
+  if (package.rootPath.value.empty()) {
+    return foundation::Error{"app.package_root_empty", "Workspace package root path must not be empty."};
+  }
+  return foundation::FilePath{(std::filesystem::path{package.rootPath.value} / path).lexically_normal().string()};
+}
+
 foundation::Result<media::MediaSourceCatalog> buildMediaSources(const NativeProjectSession& session) {
   auto snapshot = session.snapshot();
   if (!snapshot) {
@@ -45,11 +63,16 @@ foundation::Result<media::MediaSourceCatalog> buildMediaSources(const NativeProj
   }
 
   media::MediaSourceCatalog sources;
+  const storage::ProjectPackage& package = session.packageState().package;
   for (const asset::Asset& asset : snapshot.value().assets.assets()) {
+    auto mediaSourcePath = packageMediaSourcePath(package, asset.metadata.sourcePath);
+    if (!mediaSourcePath) {
+      return mediaSourcePath.error();
+    }
     auto registered = sources.registerSource(media::MediaSource{
       asset.id,
       mediaSourceKindForAssetMediaType(asset.metadata.mediaType),
-      asset.metadata.sourcePath
+      mediaSourcePath.value()
     });
     if (!registered) {
       return registered.error();
@@ -150,6 +173,41 @@ foundation::Result<storage::ProjectPackage> createWorkspacePackage(
     std::move(rootPath),
     storage::CurrentProjectPackageSchemaVersion
   };
+}
+
+foundation::Result<foundation::FilePath> copyImportedMediaIntoPackage(
+  const storage::ProjectPackage& package,
+  const foundation::AssetId& assetId,
+  const foundation::FilePath& sourcePath
+) {
+  if (package.rootPath.value.empty()) {
+    return foundation::Error{"app.package_root_empty", "Workspace package root path must not be empty."};
+  }
+
+  const std::filesystem::path source{sourcePath.value};
+  std::error_code sourceStatusError;
+  if (!std::filesystem::is_regular_file(source, sourceStatusError)) {
+    if (sourceStatusError) {
+      return foundation::Error{"app.import_source_stat_failed", sourceStatusError.message()};
+    }
+    return foundation::Error{"app.import_source_missing", "Imported media source must be a regular file."};
+  }
+
+  const std::filesystem::path relativePath =
+    std::filesystem::path{"assets"} / "originals" / (assetId.value() + source.extension().string());
+  const std::filesystem::path destination = std::filesystem::path{package.rootPath.value} / relativePath;
+  std::error_code directoryError;
+  std::filesystem::create_directories(destination.parent_path(), directoryError);
+  if (directoryError) {
+    return foundation::Error{"app.import_media_directory_create_failed", directoryError.message()};
+  }
+
+  std::error_code copyError;
+  std::filesystem::copy_file(source, destination, std::filesystem::copy_options::overwrite_existing, copyError);
+  if (copyError) {
+    return foundation::Error{"app.import_media_copy_failed", copyError.message()};
+  }
+  return foundation::FilePath{relativePath.generic_string()};
 }
 
 foundation::Result<NativeProjectSession> createInitializedPackageProject(
@@ -537,6 +595,23 @@ foundation::Result<foundation::AssetId> NativeWorkspaceSession::importMediaFile(
 
   const foundation::AssetId assetId = inspectedAsset.value().id;
   const asset::AssetMediaType mediaType = inspectedAsset.value().metadata.mediaType;
+  auto packageRelativePath = copyImportedMediaIntoPackage(
+    state_->project.packageState().package,
+    assetId,
+    path
+  );
+  if (!packageRelativePath) {
+    return packageRelativePath.error();
+  }
+  inspectedAsset.value().metadata.sourcePath = packageRelativePath.value();
+  auto mediaSourcePath = packageMediaSourcePath(
+    state_->project.packageState().package,
+    inspectedAsset.value().metadata.sourcePath
+  );
+  if (!mediaSourcePath) {
+    return mediaSourcePath.error();
+  }
+
   auto registeredAsset = state_->commandWriter.apply(
     project::RegisterAssetCommand{std::move(inspectedAsset.value())},
     importerSource()
@@ -548,7 +623,7 @@ foundation::Result<foundation::AssetId> NativeWorkspaceSession::importMediaFile(
   auto registeredSource = state_->mediaSources.registerSource(media::MediaSource{
     assetId,
     mediaSourceKindForAssetMediaType(mediaType),
-    std::move(path)
+    mediaSourcePath.value()
   });
   if (!registeredSource) {
     return registeredSource.error();

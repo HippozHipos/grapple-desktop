@@ -2600,8 +2600,23 @@ int main() {
     "Workspace Package"
   );
   GRAPPLE_REQUIRE(workspacePackage);
+  const std::filesystem::path workspaceImportSource = writeTinyPpm("grapple_workspace_package_import");
+  const auto workspaceImportedAssetId = workspacePackage.value().importMediaFile(
+    foundation::FilePath{workspaceImportSource.string()}
+  );
+  GRAPPLE_REQUIRE(workspaceImportedAssetId);
+  const auto workspacePackageAfterImport = workspacePackage.value().project().buildViewModel();
+  GRAPPLE_REQUIRE(workspacePackageAfterImport);
+  GRAPPLE_REQUIRE(workspacePackageAfterImport.value().assets.count == 1);
+  const foundation::FilePath workspaceImportedSourcePath =
+    workspacePackageAfterImport.value().assets.rows[0].sourcePath;
+  GRAPPLE_REQUIRE(workspaceImportedSourcePath == foundation::FilePath{"assets/originals/" + workspaceImportedAssetId.value().value() + ".ppm"});
+  GRAPPLE_REQUIRE(std::filesystem::exists(workspacePackageRoot / workspaceImportedSourcePath.value));
+  GRAPPLE_REQUIRE(workspacePackage.value().mediaSources().sources().size() == 1);
+  GRAPPLE_REQUIRE(workspacePackage.value().mediaSources().sources()[0].path == foundation::FilePath{(workspacePackageRoot / workspaceImportedSourcePath.value).lexically_normal().string()});
   const auto workspaceWrite = workspacePackage.value().writePackage();
   GRAPPLE_REQUIRE(workspaceWrite);
+  std::filesystem::remove(workspaceImportSource);
   auto reopenedWorkspacePackage = app::NativeWorkspaceSession::openPackageRoot(
     foundation::FilePath{workspacePackageRoot.string()}
   );
@@ -2610,11 +2625,14 @@ int main() {
   GRAPPLE_REQUIRE(workspacePackageViewModel);
   GRAPPLE_REQUIRE(workspacePackageViewModel.value().project.projectId == foundation::ProjectId{"proj_" + workspacePackageStem});
   GRAPPLE_REQUIRE(workspacePackageViewModel.value().project.name == "Workspace Package");
-  GRAPPLE_REQUIRE(workspacePackageViewModel.value().project.revision == foundation::RevisionId{"rev_0"});
-  GRAPPLE_REQUIRE(workspacePackageViewModel.value().assets.count == 0);
+  GRAPPLE_REQUIRE(workspacePackageViewModel.value().project.revision == foundation::RevisionId{"rev_1"});
+  GRAPPLE_REQUIRE(workspacePackageViewModel.value().assets.count == 1);
+  GRAPPLE_REQUIRE(workspacePackageViewModel.value().assets.rows[0].sourcePath == workspaceImportedSourcePath);
   GRAPPLE_REQUIRE(workspacePackageViewModel.value().timeline.clips.empty());
-  GRAPPLE_REQUIRE(reopenedWorkspacePackage.value().project().packageState().commandLog.records().empty());
-  GRAPPLE_REQUIRE(reopenedWorkspacePackage.value().project().packageState().snapshots.records().size() == 1);
+  GRAPPLE_REQUIRE(reopenedWorkspacePackage.value().project().packageState().commandLog.records().size() == 1);
+  GRAPPLE_REQUIRE(reopenedWorkspacePackage.value().project().packageState().snapshots.records().size() == 2);
+  GRAPPLE_REQUIRE(reopenedWorkspacePackage.value().mediaSources().sources().size() == 1);
+  GRAPPLE_REQUIRE(reopenedWorkspacePackage.value().mediaSources().sources()[0].path == foundation::FilePath{(workspacePackageRoot / workspaceImportedSourcePath.value).lexically_normal().string()});
   auto duplicateWorkspacePackage = app::NativeWorkspaceSession::createPackageRoot(
     foundation::FilePath{workspacePackageRoot.string()},
     "Duplicate Workspace Package"
