@@ -205,11 +205,6 @@ void StewardPanel::setViewModel(
   }
 
   lines << "";
-  lines << "Loop";
-  lines << "1. Create an editable result";
-  lines << "2. Preview the evaluated result";
-  lines << "3. Tune exposed parameters without rerunning Steward";
-  lines << "";
   lines << "Recent Steward runs";
   if (conversationState.runs.empty()) {
     lines << "- no runs yet";
