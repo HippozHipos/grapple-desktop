@@ -3,6 +3,7 @@
 #include <grapple/agent/AgentBridge.hpp>
 #include <grapple/agent/AgentToolRegistry.hpp>
 #include <grapple/agent/ProjectTools.hpp>
+#include <grapple/effects/BuiltinEffects.hpp>
 #include <grapple/foundation/FilePath.hpp>
 #include <grapple/foundation/Json.hpp>
 
@@ -20,6 +21,7 @@ namespace grapple::app {
 namespace {
 
 constexpr const char CanonicalCameraTransformToolId[] = "camera.add_transform_controls";
+constexpr const char CanonicalCameraTransformKeyframeToolId[] = "camera.set_transform_keyframe";
 constexpr const char CanonicalPlaceAssetToolId[] = "timeline.place_asset";
 constexpr double CenteredCameraTransformPositionX = 0.0;
 constexpr double CenteredCameraTransformPositionY = 0.0;
@@ -30,6 +32,13 @@ struct CameraTransformIntentDefaults {
   double positionX = CenteredCameraTransformPositionX;
   double positionY = CenteredCameraTransformPositionY;
   double zoom = NormalCameraTransformZoom;
+};
+
+struct CameraTransformMotionKeyframes {
+  std::string paramName;
+  double startValue = 0.0;
+  double endValue = 0.0;
+  foundation::TimeSeconds endTime;
 };
 
 std::string lowercaseAscii(std::string value) {
@@ -74,6 +83,55 @@ CameraTransformIntentDefaults cameraTransformDefaultsForIntent(const std::string
   return defaults;
 }
 
+std::optional<CameraTransformMotionKeyframes> cameraMotionKeyframesForIntent(
+  const std::string& intent,
+  foundation::TimeRange activeRange
+) {
+  if (activeRange.end.value <= activeRange.start.value) {
+    return std::nullopt;
+  }
+
+  const std::string normalized = lowercaseAscii(intent);
+  if (!containsText(normalized, "pan") && !containsText(normalized, "move")) {
+    return std::nullopt;
+  }
+
+  if (containsText(normalized, "left")) {
+    return CameraTransformMotionKeyframes{
+      effects::builtin_effect::PositionXParam,
+      CenteredCameraTransformPositionX,
+      -0.25,
+      activeRange.end
+    };
+  }
+  if (containsText(normalized, "right")) {
+    return CameraTransformMotionKeyframes{
+      effects::builtin_effect::PositionXParam,
+      CenteredCameraTransformPositionX,
+      0.25,
+      activeRange.end
+    };
+  }
+  if (containsText(normalized, "up")) {
+    return CameraTransformMotionKeyframes{
+      effects::builtin_effect::PositionYParam,
+      CenteredCameraTransformPositionY,
+      -0.2,
+      activeRange.end
+    };
+  }
+  if (containsText(normalized, "down")) {
+    return CameraTransformMotionKeyframes{
+      effects::builtin_effect::PositionYParam,
+      CenteredCameraTransformPositionY,
+      0.2,
+      activeRange.end
+    };
+  }
+
+  return std::nullopt;
+}
+
 std::string runStartedPayload(const std::string& title) {
   std::ostringstream payload;
   payload << '{';
@@ -107,6 +165,23 @@ std::string cameraTransformArgumentsPayload(
   arguments << ",\"positionX\":" << defaults.positionX;
   arguments << ",\"positionY\":" << defaults.positionY;
   arguments << ",\"zoom\":" << defaults.zoom;
+  arguments << '}';
+  return arguments.str();
+}
+
+std::string cameraTransformKeyframeArgumentsPayload(
+  const foundation::NodeId& cameraNodeId,
+  const std::string& paramName,
+  foundation::TimeSeconds time,
+  double value
+) {
+  std::ostringstream arguments;
+  arguments << '{';
+  foundation::writeJsonStringProperty(arguments, "cameraNodeId", cameraNodeId.value());
+  arguments << ',';
+  foundation::writeJsonStringProperty(arguments, "paramName", paramName);
+  arguments << ",\"time\":" << time.value;
+  arguments << ",\"value\":" << value;
   arguments << '}';
   return arguments.str();
 }
@@ -149,6 +224,12 @@ std::int64_t stewardRunNumber(const foundation::RunId& runId) {
 
 foundation::ToolId stewardToolCallIdForRun(const foundation::RunId& runId) {
   return foundation::ToolId{"tool_steward_camera_transform_" + std::to_string(stewardRunNumber(runId))};
+}
+
+foundation::ToolId stewardKeyframeToolCallIdForRun(const foundation::RunId& runId, std::int64_t index) {
+  return foundation::ToolId{
+    "tool_steward_camera_transform_keyframe_" + std::to_string(stewardRunNumber(runId)) + "_" + std::to_string(index)
+  };
 }
 
 foundation::ToolId stewardPlaceAssetToolCallIdForRun(const foundation::RunId& runId) {
@@ -387,6 +468,7 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::c
   agent::AgentToolContext toolContext{stewardCommands, project_, commandWriter_};
   agent::AgentBridge bridge{registry, toolContext, events_, nextSequence_};
   const CameraTransformIntentDefaults defaults = cameraTransformDefaultsForIntent(intent);
+  const std::optional<CameraTransformMotionKeyframes> motion = cameraMotionKeyframesForIntent(intent, activeRange);
   auto dispatched = bridge.dispatchToolCall(agent::AgentToolDispatchRequest{
     runId.value(),
     snapshot.value().info.id,
@@ -402,6 +484,53 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::c
     }
     return dispatched.error();
   }
+  foundation::RevisionId latestRevision = dispatched.value().observedRevision;
+
+  if (motion.has_value()) {
+    auto startKeyframe = bridge.dispatchToolCall(agent::AgentToolDispatchRequest{
+      runId.value(),
+      snapshot.value().info.id,
+      latestRevision,
+      stewardKeyframeToolCallIdForRun(runId.value(), 1),
+      CanonicalCameraTransformKeyframeToolId,
+      cameraTransformKeyframeArgumentsPayload(
+        cameraNodeId,
+        motion->paramName,
+        activeRange.start,
+        motion->startValue
+      )
+    });
+    if (!startKeyframe) {
+      auto finished = finishRunWithError(runId.value(), startKeyframe.error());
+      if (!finished) {
+        return finished.error();
+      }
+      return startKeyframe.error();
+    }
+    latestRevision = startKeyframe.value().observedRevision;
+
+    auto endKeyframe = bridge.dispatchToolCall(agent::AgentToolDispatchRequest{
+      runId.value(),
+      snapshot.value().info.id,
+      latestRevision,
+      stewardKeyframeToolCallIdForRun(runId.value(), 2),
+      CanonicalCameraTransformKeyframeToolId,
+      cameraTransformKeyframeArgumentsPayload(
+        cameraNodeId,
+        motion->paramName,
+        motion->endTime,
+        motion->endValue
+      )
+    });
+    if (!endKeyframe) {
+      auto finished = finishRunWithError(runId.value(), endKeyframe.error());
+      if (!finished) {
+        return finished.error();
+      }
+      return endKeyframe.error();
+    }
+  }
+
   if (!packageResult.has_value()) {
     const foundation::Error error{
       "steward.package_result_missing",
@@ -417,7 +546,12 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::c
   auto runFinished = appendEvent(
     runId.value(),
     agent::AgentRunEventKind::RunFinished,
-    runFinishedPayload("succeeded", "Created editable Camera Transform parameters.")
+    runFinishedPayload(
+      "succeeded",
+      motion.has_value()
+        ? "Created editable Camera Transform parameters and motion keyframes."
+        : "Created editable Camera Transform parameters."
+    )
   );
   if (!runFinished) {
     return runFinished.error();

@@ -1333,6 +1333,99 @@ int main() {
   GRAPPLE_REQUIRE(runtimeExport.value().runtimeDiagnostics.empty());
   GRAPPLE_REQUIRE(runtimeExport.value().framesEvaluated == 2);
 
+  app::NativeProjectSession stewardMotionProject{
+    foundation::ProjectId{"proj_app_steward_motion"},
+    "Steward Motion Project",
+    storage::ProjectPackage{
+      foundation::ProjectId{"proj_app_steward_motion"},
+      foundation::FilePath{"steward-motion-app.grapple"},
+      storage::CurrentProjectPackageSchemaVersion
+    }
+  };
+  auto stewardMotionWorkspace = app::NativeWorkspaceSession::fromProject(std::move(stewardMotionProject));
+  GRAPPLE_REQUIRE(stewardMotionWorkspace);
+  const foundation::NodeId stewardMotionCompositionNodeId =
+    stewardMotionWorkspace.value().commandWriter().nextNodeId("composition");
+  const auto stewardMotionComposition = stewardMotionWorkspace.value().commandWriter().apply(
+    project::CreateCompositionCommand{stewardMotionCompositionNodeId, "Steward Motion Main"},
+    userSource()
+  );
+  GRAPPLE_REQUIRE(stewardMotionComposition);
+  const foundation::NodeId stewardMotionCameraNodeId =
+    stewardMotionWorkspace.value().commandWriter().nextNodeId("camera");
+  const auto stewardMotionCamera = stewardMotionWorkspace.value().commandWriter().apply(
+    project::CreateCameraCommand{
+      stewardMotionCameraNodeId,
+      stewardMotionCompositionNodeId,
+      stewardMotionWorkspace.value().commandWriter().nextEdgeId("contains camera"),
+      timeline::CameraPayload{
+        "Camera",
+        timeline::CameraState{
+          timeline::Transform2D{},
+          timeline::CameraLens{35.0}
+        }
+      }
+    },
+    userSource()
+  );
+  GRAPPLE_REQUIRE(stewardMotionCamera);
+  const auto stewardMotionEffect = stewardMotionWorkspace.value().steward().createCameraTransformEffect(
+    stewardMotionCameraNodeId,
+    "Pan right with editable camera controls.",
+    foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{4.0}}
+  );
+  GRAPPLE_REQUIRE(stewardMotionEffect);
+  GRAPPLE_REQUIRE(stewardMotionEffect.value().snapshot.revision == foundation::RevisionId{"rev_5"});
+  const agent::AgentConversationState stewardMotionConversation =
+    stewardMotionWorkspace.value().steward().conversationState();
+  GRAPPLE_REQUIRE(stewardMotionConversation.diagnostics.empty());
+  GRAPPLE_REQUIRE(stewardMotionConversation.runs.size() == 1);
+  GRAPPLE_REQUIRE(stewardMotionConversation.runs[0].status == agent::AgentRunStatus::Succeeded);
+  GRAPPLE_REQUIRE(stewardMotionConversation.runs[0].toolCalls.size() == 3);
+  GRAPPLE_REQUIRE(stewardMotionConversation.runs[0].toolCalls[0].toolSerializedId == "camera.add_transform_controls");
+  GRAPPLE_REQUIRE(stewardMotionConversation.runs[0].toolCalls[0].toolDisplayName == "Add Camera Transform Controls");
+  GRAPPLE_REQUIRE(stewardMotionConversation.runs[0].toolCalls[0].observedRevision == foundation::RevisionId{"rev_3"});
+  GRAPPLE_REQUIRE(stewardMotionConversation.runs[0].toolCalls[1].toolSerializedId == "camera.set_transform_keyframe");
+  GRAPPLE_REQUIRE(stewardMotionConversation.runs[0].toolCalls[1].toolDisplayName == "Set Camera Transform Keyframe");
+  GRAPPLE_REQUIRE(stewardMotionConversation.runs[0].toolCalls[1].toolCallId == foundation::ToolId{"tool_steward_camera_transform_keyframe_1_1"});
+  GRAPPLE_REQUIRE(stewardMotionConversation.runs[0].toolCalls[1].observedRevision == foundation::RevisionId{"rev_4"});
+  GRAPPLE_REQUIRE(stewardMotionConversation.runs[0].toolCalls[2].toolSerializedId == "camera.set_transform_keyframe");
+  GRAPPLE_REQUIRE(stewardMotionConversation.runs[0].toolCalls[2].toolDisplayName == "Set Camera Transform Keyframe");
+  GRAPPLE_REQUIRE(stewardMotionConversation.runs[0].toolCalls[2].toolCallId == foundation::ToolId{"tool_steward_camera_transform_keyframe_1_2"});
+  GRAPPLE_REQUIRE(stewardMotionConversation.runs[0].toolCalls[2].observedRevision == foundation::RevisionId{"rev_5"});
+  GRAPPLE_REQUIRE(
+    stewardMotionWorkspace.value().project().packageState().commandLog.records().back().sourceRunId.value() ==
+    stewardMotionConversation.runs[0].runId
+  );
+
+  const auto stewardMotionViewModel = stewardMotionWorkspace.value().project().buildViewModel();
+  GRAPPLE_REQUIRE(stewardMotionViewModel);
+  GRAPPLE_REQUIRE(stewardMotionViewModel.value().timeline.effectGraphs.size() == 1);
+  GRAPPLE_REQUIRE(stewardMotionViewModel.value().timeline.effectGraphs[0].effects.size() == 1);
+  GRAPPLE_REQUIRE(stewardMotionViewModel.value().timeline.effectGraphs[0].effects[0].createdRevision == foundation::RevisionId{"rev_3"});
+  GRAPPLE_REQUIRE(stewardMotionViewModel.value().timeline.effectGraphs[0].effects[0].params[0].name == effects::builtin_effect::PositionXParam);
+  GRAPPLE_REQUIRE(stewardMotionViewModel.value().timeline.effectGraphs[0].effects[0].params[0].keyframes.size() == 2);
+  GRAPPLE_REQUIRE(stewardMotionViewModel.value().timeline.effectGraphs[0].effects[0].params[0].keyframes[0].time == foundation::TimeSeconds{0.0});
+  GRAPPLE_REQUIRE(std::get<double>(stewardMotionViewModel.value().timeline.effectGraphs[0].effects[0].params[0].keyframes[0].value) == 0.0);
+  GRAPPLE_REQUIRE(stewardMotionViewModel.value().timeline.effectGraphs[0].effects[0].params[0].keyframes[0].lastEditedSourceKind == "agent");
+  GRAPPLE_REQUIRE(stewardMotionViewModel.value().timeline.effectGraphs[0].effects[0].params[0].keyframes[0].lastEditedActorName == "steward");
+  GRAPPLE_REQUIRE(stewardMotionViewModel.value().timeline.effectGraphs[0].effects[0].params[0].keyframes[1].time == foundation::TimeSeconds{4.0});
+  GRAPPLE_REQUIRE(std::get<double>(stewardMotionViewModel.value().timeline.effectGraphs[0].effects[0].params[0].keyframes[1].value) == 0.25);
+  GRAPPLE_REQUIRE(stewardMotionViewModel.value().timeline.effectGraphs[0].effects[0].params[0].keyframes[1].lastEditedSourceKind == "agent");
+  GRAPPLE_REQUIRE(stewardMotionViewModel.value().timeline.effectGraphs[0].effects[0].params[0].keyframes[1].lastEditedActorName == "steward");
+
+  const auto stewardMotionRefresh = stewardMotionWorkspace.value().preview().refreshFromProject();
+  GRAPPLE_REQUIRE(stewardMotionRefresh);
+  const auto stewardMotionMidFrame = stewardMotionWorkspace.value().preview().renderFrame(render::RenderFrameRequest{
+    foundation::TimeSeconds{2.0},
+    render::RenderQuality::Draft
+  });
+  GRAPPLE_REQUIRE(stewardMotionMidFrame);
+  GRAPPLE_REQUIRE(stewardMotionMidFrame.value().runtimeDiagnostics.empty());
+  GRAPPLE_REQUIRE(stewardMotionMidFrame.value().frame.cameras.size() == 1);
+  GRAPPLE_REQUIRE(stewardMotionMidFrame.value().frame.cameras[0].cameraNodeId == stewardMotionCameraNodeId);
+  GRAPPLE_REQUIRE(stewardMotionMidFrame.value().frame.cameras[0].state.transform.position.x == 0.125);
+
   runtime::RuntimeEvaluator appRuntime;
   render::LocalRenderCore appRenderCore{appRuntime};
   render::LocalRenderSystem appRenderSystem{appRenderCore};
