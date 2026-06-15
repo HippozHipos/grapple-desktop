@@ -73,7 +73,7 @@ if grep -RInE '\b(fallback|alias|compat|legacy)\b' "$root/libs" "$root/tests" 2>
   exit 1
 fi
 
-if grep -RInE 'browser|downloaded|renderer-specific' "$root/libs" "$root/tests" 2>/dev/null; then
+if grep -RInE 'browser|downloaded|renderer-specific|fragment_shader' "$root/libs" "$root/tests" 2>/dev/null; then
   echo "Architecture guard failed: consumer-specific render wording in source." >&2
   exit 1
 fi
