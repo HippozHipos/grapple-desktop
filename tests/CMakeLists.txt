@@ -109,6 +109,11 @@ add_test(
   COMMAND bash -c "rm -rf /tmp/grapple-desktop-startup-new-package && \"$1\" --new-package /tmp/grapple-desktop-startup-new-package --empty-launch-smoke" bash $<TARGET_FILE:grapple_desktop>
 )
 set_tests_properties(grapple_desktop_startup_new_package_smoke PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+add_test(
+  NAME grapple_desktop_startup_open_package_smoke
+  COMMAND bash -c "rm -rf /tmp/grapple-desktop-startup-open-package && \"$1\" --new-package /tmp/grapple-desktop-startup-open-package --empty-launch-smoke && \"$1\" --open-package /tmp/grapple-desktop-startup-open-package --empty-launch-smoke" bash $<TARGET_FILE:grapple_desktop>
+)
+set_tests_properties(grapple_desktop_startup_open_package_smoke PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 add_test(NAME grapple_desktop_export_settings_smoke COMMAND grapple_desktop --export-settings-smoke)
 set_tests_properties(grapple_desktop_export_settings_smoke PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 add_test(NAME grapple_desktop_product_loop_smoke COMMAND grapple_desktop --product-loop-smoke)
