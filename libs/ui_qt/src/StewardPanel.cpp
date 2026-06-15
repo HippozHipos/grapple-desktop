@@ -196,11 +196,6 @@ void StewardPanel::setViewModel(
 
   QStringList lines{
     "Steward",
-    "Loop",
-    "1. Create an editable result",
-    "2. Preview the evaluated result",
-    "3. Tune exposed parameters without rerunning Steward",
-    "",
     "Project state",
     QString{"%1 clips | %2 cameras | %3 editable effects"}
       .arg(viewModel.timeline.clips.size())
@@ -222,7 +217,9 @@ void StewardPanel::setViewModel(
       lines << QString{"- %1 on %2"}
         .arg(qString(effect.displayName))
         .arg(targetNameFor(viewModel, graph.targetNodeId));
-      lines << QString{"  %1"}.arg(controls.join(", "));
+      for (const QString& control : controls) {
+        lines << QString{"  - %1"}.arg(control);
+      }
     }
   }
 
@@ -230,6 +227,11 @@ void StewardPanel::setViewModel(
     lines << "- no editable controls yet";
   }
 
+  lines << "";
+  lines << "Loop";
+  lines << "1. Create an editable result";
+  lines << "2. Preview the evaluated result";
+  lines << "3. Tune exposed parameters without rerunning Steward";
   lines << "";
   lines << "Recent Steward runs";
   if (conversationState.runs.empty()) {
