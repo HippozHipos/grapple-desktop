@@ -41,25 +41,48 @@ int main(int argc, char* argv[]) {
   bool runExportSmoke = false;
   bool savePackage = false;
   bool openPackageSmoke = false;
-  if (argc == 2) {
+  std::optional<foundation::FilePath> packagePath;
+  if (argc == 2 || argc == 3) {
     const std::string argument{argv[1]};
     if (argument == "--render-plan-json") {
+      if (argc != 2) {
+        std::cerr << "--render-plan-json does not take a package directory.\n";
+        return 1;
+      }
       printRenderPlanJson = true;
     } else if (argument == "--preview-frame") {
+      if (argc != 2) {
+        std::cerr << "--preview-frame does not take a package directory.\n";
+        return 1;
+      }
       printPreviewFrame = true;
     } else if (argument == "--export-smoke") {
+      if (argc != 2) {
+        std::cerr << "--export-smoke does not take a package directory.\n";
+        return 1;
+      }
       runExportSmoke = true;
     } else if (argument == "--save-package") {
       savePackage = true;
+      if (argc != 3) {
+        std::cerr << "--save-package requires a package directory.\n";
+        return 1;
+      }
+      packagePath = foundation::FilePath{argv[2]};
     } else if (argument == "--open-package-smoke") {
       savePackage = true;
       openPackageSmoke = true;
+      if (argc != 3) {
+        std::cerr << "--open-package-smoke requires a package directory.\n";
+        return 1;
+      }
+      packagePath = foundation::FilePath{argv[2]};
     } else {
       std::cerr << "Unknown argument: " << argument << '\n';
       return 1;
     }
   } else if (argc > 2) {
-    std::cerr << "Expected zero arguments, --render-plan-json, --preview-frame, --export-smoke, --save-package, or --open-package-smoke.\n";
+    std::cerr << "Expected zero arguments, --render-plan-json, --preview-frame, --export-smoke, --save-package <dir>, or --open-package-smoke <dir>.\n";
     return 1;
   }
 
@@ -68,7 +91,7 @@ int main(int argc, char* argv[]) {
     "CLI Smoke Project",
     storage::ProjectPackage{
       foundation::ProjectId{"proj_cli"},
-      foundation::FilePath{savePackage ? "/tmp/grapple-cli-package" : "cli.grapple"},
+      packagePath.value_or(foundation::FilePath{"cli.grapple"}),
       storage::CurrentProjectPackageSchemaVersion
     }
   };
@@ -209,7 +232,7 @@ int main(int argc, char* argv[]) {
     if (openPackageSmoke) {
       auto opened = app::NativeProjectSession::openPackage(storage::ProjectPackage{
         foundation::ProjectId{"proj_cli"},
-        foundation::FilePath{"/tmp/grapple-cli-package"},
+        packagePath.value(),
         storage::CurrentProjectPackageSchemaVersion
       });
       if (!opened) {
