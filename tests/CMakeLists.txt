@@ -76,6 +76,8 @@ add_test(NAME grapple_desktop_undo_redo_smoke COMMAND grapple_desktop --undo-red
 set_tests_properties(grapple_desktop_undo_redo_smoke PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 add_test(NAME grapple_desktop_add_effect_smoke COMMAND grapple_desktop --add-effect-smoke)
 set_tests_properties(grapple_desktop_add_effect_smoke PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+add_test(NAME grapple_desktop_clip_effect_controls_smoke COMMAND grapple_desktop --clip-effect-controls-smoke)
+set_tests_properties(grapple_desktop_clip_effect_controls_smoke PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 add_test(NAME grapple_desktop_set_effect_param_smoke COMMAND grapple_desktop --set-effect-param-smoke)
 set_tests_properties(grapple_desktop_set_effect_param_smoke PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 add_test(NAME grapple_desktop_effect_keyframe_smoke COMMAND grapple_desktop --effect-keyframe-smoke)

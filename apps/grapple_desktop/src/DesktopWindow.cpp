@@ -331,6 +331,23 @@ const grapple::app::AppClipRow* findClipRow(
   return nullptr;
 }
 
+bool targetHasEditableEffects(
+  const grapple::app::AppViewModel& viewModel,
+  const grapple::foundation::NodeId& targetNodeId
+) {
+  for (const grapple::app::AppEffectGraphRow& graph : viewModel.timeline.effectGraphs) {
+    if (graph.targetNodeId != targetNodeId) {
+      continue;
+    }
+    for (const grapple::app::AppEffectRow& effect : graph.effects) {
+      if (!effect.params.empty()) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 } // namespace
 
 namespace grapple::desktop {
@@ -1048,6 +1065,13 @@ public:
     const QPoint bottomRight = editor->mapTo(effectParamsScroll_->viewport(), editorRect.bottomRight());
     const QRect viewportRect = effectParamsScroll_->viewport()->rect();
     return viewportRect.contains(topLeft) && viewportRect.contains(bottomRight);
+  }
+
+  std::string currentDetailTabText() const {
+    if (detailTabs_ == nullptr || detailTabs_->currentIndex() < 0) {
+      return {};
+    }
+    return detailTabs_->tabText(detailTabs_->currentIndex()).toStdString();
   }
 
   std::string stewardIntent() const {
@@ -2462,6 +2486,11 @@ private:
     }
 
     const grapple::foundation::NodeId selectedNodeId = selectedNodeId_.value();
+    if (targetHasEditableEffects(viewModel, selectedNodeId)) {
+      detailTabs_->setCurrentWidget(effectParamsScroll_);
+      return;
+    }
+
     const bool selectedCamera = std::any_of(
       viewModel.timeline.cameras.begin(),
       viewModel.timeline.cameras.end(),
@@ -2470,11 +2499,7 @@ private:
       }
     );
     if (selectedCamera) {
-      if (app::cameraHasTransformEffect(viewModel, selectedNodeId)) {
-        detailTabs_->setCurrentWidget(effectParamsScroll_);
-      } else {
-        detailTabs_->setCurrentWidget(cameraProperties_);
-      }
+      detailTabs_->setCurrentWidget(cameraProperties_);
       return;
     }
 
@@ -2721,6 +2746,10 @@ std::string DesktopWindow::effectParamPanelText() const {
 
 bool DesktopWindow::effectParamControlVisible(const std::string& paramName) const {
   return impl_->effectParamControlVisible(paramName);
+}
+
+std::string DesktopWindow::currentDetailTabText() const {
+  return impl_->currentDetailTabText();
 }
 
 std::string DesktopWindow::stewardIntent() const {

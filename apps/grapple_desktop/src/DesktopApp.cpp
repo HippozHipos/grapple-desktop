@@ -5,10 +5,13 @@
 
 #include <grapple/app/NativeProjectSession.hpp>
 #include <grapple/app/NativeWorkspaceSession.hpp>
+#include <grapple/graph/GraphEdge.hpp>
 #include <grapple/foundation/Hash.hpp>
+#include <grapple/project/ProjectCommand.hpp>
 #include <grapple/render/RenderQuality.hpp>
 #include <grapple/effects/BuiltinEffects.hpp>
 #include <grapple/storage/ProjectCommitBuilder.hpp>
+#include <grapple/timeline/EffectPayload.hpp>
 
 #include <QApplication>
 #include <QPixmap>
@@ -130,6 +133,14 @@ grapple::foundation::Result<void> populateDemo(grapple::app::NativeProjectSessio
   );
 }
 
+grapple::project::CommandSource desktopUserSource() {
+  return grapple::project::CommandSource{
+    grapple::project::CommandSourceKind::User,
+    std::nullopt,
+    "desktop"
+  };
+}
+
 std::filesystem::path uniqueDesktopSmokeRoot() {
   return std::filesystem::temp_directory_path() /
          ("grapple-desktop-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
@@ -164,6 +175,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   bool nudgeClipSmoke = false;
   bool undoRedoSmoke = false;
   bool addEffectSmoke = false;
+  bool clipEffectControlsSmoke = false;
   bool setEffectParamSmoke = false;
   bool effectKeyframeSmoke = false;
   bool stewardMotionSmoke = false;
@@ -232,6 +244,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       undoRedoSmoke = true;
     } else if (argument == "--add-effect-smoke") {
       addEffectSmoke = true;
+    } else if (argument == "--clip-effect-controls-smoke") {
+      clipEffectControlsSmoke = true;
     } else if (argument == "--set-effect-param-smoke") {
       setEffectParamSmoke = true;
     } else if (argument == "--effect-keyframe-smoke") {
@@ -265,7 +279,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     } else if (argument == "--effect-screenshot" && index + 1 < argc) {
       effectScreenshotPath = argv[++index];
     } else {
-      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --select-audio-clip-smoke, --select-audio-track-smoke, --select-camera-smoke, --select-second-camera-smoke, --steward-smoke, --import-smoke, --import-media-types-smoke, --add-video-smoke, --empty-add-video-smoke, --empty-add-video-undo-smoke, --empty-add-track-smoke, --empty-add-camera-smoke, --update-camera-smoke, --add-note-smoke, --update-note-smoke, --move-clip-smoke, --trim-clip-smoke, --nudge-clip-smoke, --undo-redo-smoke, --add-effect-smoke, --set-effect-param-smoke, --effect-keyframe-smoke, --steward-motion-smoke, --steward-zoom-motion-smoke, --steward-clip-transform-smoke, --delete-effect-smoke, --delete-smoke, --delete-track-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, --export-settings-smoke, --product-loop-smoke, --empty-launch-smoke, --screenshot <path>, or --effect-screenshot <path>.\n";
+      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --select-audio-clip-smoke, --select-audio-track-smoke, --select-camera-smoke, --select-second-camera-smoke, --steward-smoke, --import-smoke, --import-media-types-smoke, --add-video-smoke, --empty-add-video-smoke, --empty-add-video-undo-smoke, --empty-add-track-smoke, --empty-add-camera-smoke, --update-camera-smoke, --add-note-smoke, --update-note-smoke, --move-clip-smoke, --trim-clip-smoke, --nudge-clip-smoke, --undo-redo-smoke, --add-effect-smoke, --clip-effect-controls-smoke, --set-effect-param-smoke, --effect-keyframe-smoke, --steward-motion-smoke, --steward-zoom-motion-smoke, --steward-clip-transform-smoke, --delete-effect-smoke, --delete-smoke, --delete-track-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, --export-settings-smoke, --product-loop-smoke, --empty-launch-smoke, --screenshot <path>, or --effect-screenshot <path>.\n";
       return 1;
     }
   }
@@ -312,6 +326,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     nudgeClipSmoke ||
     undoRedoSmoke ||
     addEffectSmoke ||
+    clipEffectControlsSmoke ||
     setEffectParamSmoke ||
     effectKeyframeSmoke ||
     stewardMotionSmoke ||
@@ -1714,6 +1729,95 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            logText.find("Preview refreshed") == std::string::npos &&
            logText.find("agent.camera_transform_exists") == std::string::npos &&
            logText.find("runtime.effect_runtime_missing") == std::string::npos
+      ? 0
+      : 1;
+  }
+
+  if (clipEffectControlsSmoke) {
+    const auto beforeEffect = workspace.value().project().buildViewModel();
+    if (!beforeEffect) {
+      printError(beforeEffect.error());
+      return 1;
+    }
+    if (beforeEffect.value().timeline.clips.empty()) {
+      std::cerr << "Clip effect controls smoke requires a visual clip.\n";
+      return 1;
+    }
+
+    const grapple::foundation::NodeId clipNodeId = beforeEffect.value().timeline.clips.front().sourceNodeId;
+    const std::string effectSource = "def prepare(ctx):\n  return {}\n";
+    const auto effect = workspace.value().commandWriter().apply(
+      grapple::project::CreateEffectCommand{
+        workspace.value().commandWriter().nextNodeId("effect"),
+        clipNodeId,
+        workspace.value().commandWriter().nextEdgeId("effect targets clip"),
+        grapple::timeline::EffectPayload{
+          "Clip Follow",
+          grapple::timeline::EffectImplementation{
+            grapple::timeline::EffectImplementationKind::Python,
+            "prepare",
+            grapple::timeline::EffectSource{
+              grapple::timeline::EffectSourceKind::InlineSource,
+              "python",
+              effectSource,
+              std::nullopt,
+              grapple::foundation::stableHash(effectSource)
+            }
+          },
+          grapple::timeline::EffectPortSet{
+            {grapple::timeline::EffectPort{"frame"}},
+            {grapple::timeline::EffectPort{"clip_transform"}}
+          },
+          grapple::timeline::ParamSet{
+            {grapple::timeline::Param{
+              "target_x",
+              0.5,
+              grapple::timeline::Param::Control{
+                "Target X",
+                grapple::timeline::Param::NumericControl{0.0, 1.0, 0.01}
+              }
+            }}
+          },
+          grapple::foundation::TimeRange{
+            grapple::foundation::TimeSeconds{0.0},
+            beforeEffect.value().timeline.duration
+          }
+        },
+        grapple::graph::PortName{"clip_transform"},
+        grapple::graph::PortName{"input"},
+        0
+      },
+      desktopUserSource()
+    );
+    if (!effect) {
+      printError(effect.error());
+      return 1;
+    }
+
+    window.show();
+    app.processEvents();
+    window.clickFirstTimelineClip();
+    app.processEvents();
+
+    const auto afterSelect = workspace.value().project().buildViewModel();
+    if (!afterSelect) {
+      printError(afterSelect.error());
+      return 1;
+    }
+    const std::string selectedTab = window.currentDetailTabText();
+    const std::string effectParamTitle = window.effectParamTitleText();
+    const bool targetXVisible = window.effectParamControlVisible("target_x");
+    std::cout << "revision=" << afterSelect.value().project.revision.value() << '\n';
+    std::cout << "effectGraphs=" << afterSelect.value().timeline.effectGraphs.size() << '\n';
+    std::cout << "selectedTab=" << selectedTab << '\n';
+    std::cout << "effectParamTitle=" << effectParamTitle << '\n';
+    std::cout << "targetXVisible=" << (targetXVisible ? "true" : "false") << '\n';
+    return afterSelect.value().timeline.effectCount == 1 &&
+           window.selectedNodeId().has_value() &&
+           window.selectedNodeId().value() == clipNodeId &&
+           selectedTab == "Effects" &&
+           effectParamTitle.find("Clip Follow on ") == 0 &&
+           targetXVisible
       ? 0
       : 1;
   }
