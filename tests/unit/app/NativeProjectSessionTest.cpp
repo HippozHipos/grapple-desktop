@@ -192,6 +192,9 @@ int main() {
   const std::filesystem::path stewardPackageRoot =
     std::filesystem::temp_directory_path() /
     ("grapple_native_app_steward_" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+  const std::filesystem::path stewardMediaPackageRoot =
+    std::filesystem::temp_directory_path() /
+    ("grapple_native_app_steward_media_" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
   const std::filesystem::path projectOnlyPackageRoot =
     std::filesystem::temp_directory_path() /
     ("grapple_native_app_project_only_" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
@@ -1015,7 +1018,7 @@ int main() {
     "Steward Media Project",
     storage::ProjectPackage{
       foundation::ProjectId{"proj_app_steward_media"},
-      foundation::FilePath{"steward-media-app.grapple"},
+      foundation::FilePath{stewardMediaPackageRoot.string()},
       storage::CurrentProjectPackageSchemaVersion
     }
   };
@@ -1111,6 +1114,33 @@ int main() {
   GRAPPLE_REQUIRE(stewardClipTransformViewModel.value().steward.edits[1].targetName == "Steward Video");
   GRAPPLE_REQUIRE(stewardClipTransformViewModel.value().steward.edits[1].effectName == "Clip Transform");
   GRAPPLE_REQUIRE(stewardClipTransformViewModel.value().steward.edits[1].intent == "Move clip right and make it smaller.");
+  const auto stewardMediaWrite = stewardMediaWorkspace.value().writePackage();
+  GRAPPLE_REQUIRE(stewardMediaWrite);
+  auto reopenedStewardMediaWorkspace =
+    app::NativeWorkspaceSession::openPackageRoot(foundation::FilePath{stewardMediaPackageRoot.string()});
+  GRAPPLE_REQUIRE(reopenedStewardMediaWorkspace);
+  const agent::AgentConversationState reopenedStewardMediaConversation =
+    reopenedStewardMediaWorkspace.value().steward().conversationState();
+  GRAPPLE_REQUIRE(reopenedStewardMediaConversation.diagnostics.empty());
+  GRAPPLE_REQUIRE(reopenedStewardMediaConversation.runs.size() == 2);
+  GRAPPLE_REQUIRE(reopenedStewardMediaConversation.runs[0].title == "Add Steward Video to the timeline.");
+  GRAPPLE_REQUIRE(reopenedStewardMediaConversation.runs[0].toolCalls.size() == 1);
+  GRAPPLE_REQUIRE(reopenedStewardMediaConversation.runs[0].toolCalls[0].toolSerializedId == "timeline.place_asset");
+  GRAPPLE_REQUIRE(reopenedStewardMediaConversation.runs[1].title == "Move clip right and make it smaller.");
+  GRAPPLE_REQUIRE(reopenedStewardMediaConversation.runs[1].toolCalls.size() == 1);
+  GRAPPLE_REQUIRE(reopenedStewardMediaConversation.runs[1].toolCalls[0].toolSerializedId == "timeline.update_clip_transform");
+  GRAPPLE_REQUIRE(reopenedStewardMediaConversation.runs[1].toolCalls[0].observedRevision == foundation::RevisionId{"rev_3"});
+  const auto reopenedStewardMediaViewModel = reopenedStewardMediaWorkspace.value().project().buildViewModel();
+  GRAPPLE_REQUIRE(reopenedStewardMediaViewModel);
+  GRAPPLE_REQUIRE(reopenedStewardMediaViewModel.value().project.revision == foundation::RevisionId{"rev_3"});
+  GRAPPLE_REQUIRE(reopenedStewardMediaViewModel.value().timeline.clips.size() == 1);
+  GRAPPLE_REQUIRE(reopenedStewardMediaViewModel.value().timeline.clips[0].transform.position.x == 0.25);
+  GRAPPLE_REQUIRE(reopenedStewardMediaViewModel.value().timeline.clips[0].transform.scale.x == 0.75);
+  GRAPPLE_REQUIRE(reopenedStewardMediaViewModel.value().steward.edits.size() == 2);
+  GRAPPLE_REQUIRE(reopenedStewardMediaViewModel.value().steward.edits[0].effectName == "Timeline Placement");
+  GRAPPLE_REQUIRE(reopenedStewardMediaViewModel.value().steward.edits[1].effectName == "Clip Transform");
+  GRAPPLE_REQUIRE(reopenedStewardMediaViewModel.value().steward.edits[1].intent == "Move clip right and make it smaller.");
+  std::filesystem::remove_all(stewardMediaPackageRoot);
 
   app::NativeProjectSession runtimeProject{
     foundation::ProjectId{"proj_app_runtime"},
