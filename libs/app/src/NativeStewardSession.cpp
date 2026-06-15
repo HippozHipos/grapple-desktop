@@ -105,6 +105,14 @@ bool cameraIntentRequestsZoomIn(const std::string& normalized) {
          containsAsciiWord(normalized, "bigger");
 }
 
+bool cameraIntentRequestsTemporalMotion(const std::string& normalized) {
+  return containsAsciiWord(normalized, "pan") ||
+         containsText(normalized, "animate") ||
+         containsText(normalized, "over time") ||
+         containsText(normalized, "gradual") ||
+         containsText(normalized, "slowly");
+}
+
 CameraTransformIntentDefaults cameraTransformDefaultsForIntent(const std::string& intent) {
   const std::string normalized = lowercaseAscii(intent);
   CameraTransformIntentDefaults defaults;
@@ -141,13 +149,7 @@ std::optional<CameraTransformMotionKeyframes> cameraMotionKeyframesForIntent(
   }
 
   const std::string normalized = lowercaseAscii(intent);
-  const bool temporalMotion =
-    containsAsciiWord(normalized, "pan") ||
-    containsText(normalized, "animate") ||
-    containsText(normalized, "over time") ||
-    containsText(normalized, "gradual") ||
-    containsText(normalized, "slowly");
-  if (!temporalMotion) {
+  if (!cameraIntentRequestsTemporalMotion(normalized)) {
     return std::nullopt;
   }
 
@@ -205,12 +207,7 @@ std::optional<CameraTransformMotionKeyframes> cameraMotionKeyframesForIntent(
 }
 
 bool cameraIntentRequestsExplicitMotion(const std::string& intent) {
-  const std::string normalized = lowercaseAscii(intent);
-  return containsAsciiWord(normalized, "pan") ||
-         containsText(normalized, "animate") ||
-         containsText(normalized, "over time") ||
-         containsText(normalized, "gradual") ||
-         containsText(normalized, "slowly");
+  return cameraIntentRequestsTemporalMotion(lowercaseAscii(intent));
 }
 
 foundation::Result<timeline::Transform2D> clipTransformForIntent(
