@@ -187,13 +187,39 @@ void StewardPanel::setViewModel(
     primaryActionButton_->setEnabled(static_cast<bool>(createCameraEffectHandler_));
   }
 
+  QString nextStep;
+  switch (primaryAction_) {
+    case PrimaryAction::ImportMedia:
+      nextStep = "Next: import media to start the timeline.";
+      break;
+    case PrimaryAction::AddSelectedMedia:
+      nextStep = "Next: add the selected media to the timeline.";
+      break;
+    case PrimaryAction::AddCamera:
+      nextStep = "Next: add a camera for editable framing.";
+      break;
+    case PrimaryAction::ShowCameraControls:
+      nextStep = "Next: show the camera effect controls.";
+      break;
+    case PrimaryAction::CreateCameraEffect:
+      nextStep = "Next: create editable camera controls from the request.";
+      break;
+    case PrimaryAction::ControlsShown:
+      nextStep = "Next: tune the exposed effect parameters and preview the result.";
+      break;
+    case PrimaryAction::Disabled:
+      nextStep = "Next: select the project item needed for the edit.";
+      break;
+  }
+
   QStringList lines{
     "Steward",
     QString{"Project: %1 assets | %2 clips | %3 cameras | %4 editable effects"}
       .arg(viewModel.assets.count)
       .arg(viewModel.timeline.clips.size())
       .arg(viewModel.timeline.cameras.size())
-      .arg(viewModel.timeline.effectCount)
+      .arg(viewModel.timeline.effectCount),
+    nextStep
   };
 
   if (viewModel.steward.edits.empty()) {

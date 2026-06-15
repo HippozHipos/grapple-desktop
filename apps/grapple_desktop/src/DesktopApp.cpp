@@ -318,7 +318,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            viewModel.value().timeline.cameras.empty() &&
            stewardActionText == "Import Media" &&
            stewardActionEnabled &&
-           steward.find("0 assets | 0 clips | 0 cameras | 0 editable effects") != std::string::npos
+           steward.find("0 assets | 0 clips | 0 cameras | 0 editable effects") != std::string::npos &&
+           steward.find("Next: import media to start the timeline.") != std::string::npos
       ? 0
       : 1;
   }
@@ -1488,6 +1489,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            stewardActionAfterImport == "Add Selected Media To Timeline" &&
            stewardActionEnabledAfterImport &&
            steward.find("1 assets | 1 clips | 1 cameras | 1 editable effects") != std::string::npos &&
+           steward.find("Next: tune the exposed effect parameters and preview the result.") != std::string::npos &&
            steward.find("Applied edits") != std::string::npos &&
            steward.find("Camera Transform on Camera: Center the subject with editable camera controls.") != std::string::npos &&
            stewardActionText == "Editable Controls Shown" &&
