@@ -1303,24 +1303,74 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "cameraXAtMidpoint=" << cameraX << '\n';
     std::cout << "effectPanel=" << effectPanel << '\n';
 
-    return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_8"} &&
-           conversation.runs.size() == 1 &&
-           conversation.runs.front().toolCalls.size() == 3 &&
-           conversation.runs.front().toolCalls[0].toolSerializedId == "camera.add_transform_controls" &&
-           conversation.runs.front().toolCalls[1].toolSerializedId == "camera.set_transform_keyframe" &&
-           conversation.runs.front().toolCalls[2].toolSerializedId == "camera.set_transform_keyframe" &&
-           param->keyframes.size() == 2 &&
-           param->keyframes[0].time == grapple::foundation::TimeSeconds{0.0} &&
-           approx(std::get<double>(param->keyframes[0].value), 0.0) &&
-           param->keyframes[0].lastEditedActorName == "steward" &&
-           param->keyframes[1].time == grapple::foundation::TimeSeconds{10.0} &&
-           approx(std::get<double>(param->keyframes[1].value), 0.25) &&
-           param->keyframes[1].lastEditedActorName == "steward" &&
-           frame.value().frame.sourceRevision == viewModel.value().project.revision &&
-           frame.value().frame.cameras.size() == 1 &&
-           approx(cameraX, 0.125) &&
-           effectPanel.find("0s = 0 last changed by steward at ") != std::string::npos &&
-           effectPanel.find("10s = 0.25 last changed by steward at ") != std::string::npos
+    const bool stewardCreatedMotion =
+      viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_8"} &&
+      conversation.runs.size() == 1 &&
+      conversation.runs.front().toolCalls.size() == 3 &&
+      conversation.runs.front().toolCalls[0].toolSerializedId == "camera.add_transform_controls" &&
+      conversation.runs.front().toolCalls[1].toolSerializedId == "camera.set_transform_keyframe" &&
+      conversation.runs.front().toolCalls[2].toolSerializedId == "camera.set_transform_keyframe" &&
+      param->keyframes.size() == 2 &&
+      param->keyframes[0].time == grapple::foundation::TimeSeconds{0.0} &&
+      approx(std::get<double>(param->keyframes[0].value), 0.0) &&
+      param->keyframes[0].lastEditedActorName == "steward" &&
+      param->keyframes[1].time == grapple::foundation::TimeSeconds{10.0} &&
+      approx(std::get<double>(param->keyframes[1].value), 0.25) &&
+      param->keyframes[1].lastEditedActorName == "steward" &&
+      frame.value().frame.sourceRevision == viewModel.value().project.revision &&
+      frame.value().frame.cameras.size() == 1 &&
+      approx(cameraX, 0.125) &&
+      effectPanel.find("0s = 0 last changed by steward at ") != std::string::npos &&
+      effectPanel.find("10s = 0.25 last changed by steward at ") != std::string::npos;
+
+    window.seekTo(grapple::foundation::TimeSeconds{10.0});
+    window.setEffectParamControlValue(grapple::effects::builtin_effect::PositionXParam, 0.5);
+    window.setEffectParamKeyframeAtPlayhead(grapple::effects::builtin_effect::PositionXParam);
+    window.seekTo(grapple::foundation::TimeSeconds{5.0});
+
+    const auto adjustedViewModel = workspace.value().project().buildViewModel();
+    if (!adjustedViewModel) {
+      printError(adjustedViewModel.error());
+      return 1;
+    }
+    const auto& adjustedEffect = adjustedViewModel.value().timeline.effectGraphs.front().effects.front();
+    const auto adjustedParam = std::find_if(
+      adjustedEffect.params.begin(),
+      adjustedEffect.params.end(),
+      [](const grapple::app::AppEffectParamRow& row) {
+        return row.name == grapple::effects::builtin_effect::PositionXParam;
+      }
+    );
+    if (adjustedParam == adjustedEffect.params.end()) {
+      std::cerr << "Steward motion smoke requires adjusted position_x.\n";
+      return 1;
+    }
+    const auto adjustedFrame = workspace.value().preview().renderFrame(grapple::render::RenderFrameRequest{
+      workspace.value().preview().state().playhead,
+      grapple::render::RenderQuality::Draft
+    });
+    if (!adjustedFrame) {
+      printError(adjustedFrame.error());
+      return 1;
+    }
+    if (adjustedFrame.value().frame.cameras.empty()) {
+      std::cerr << "Steward motion smoke requires an adjusted evaluated camera.\n";
+      return 1;
+    }
+    const double adjustedCameraX = adjustedFrame.value().frame.cameras.front().state.transform.position.x;
+
+    std::cout << "adjustedRevision=" << adjustedViewModel.value().project.revision.value() << '\n';
+    std::cout << "adjustedCameraXAtMidpoint=" << adjustedCameraX << '\n';
+
+    return stewardCreatedMotion &&
+           adjustedViewModel.value().project.revision == grapple::foundation::RevisionId{"rev_10"} &&
+           adjustedParam->keyframes.size() == 2 &&
+           adjustedParam->keyframes[1].keyframeId == param->keyframes[1].keyframeId &&
+           adjustedParam->keyframes[1].time == grapple::foundation::TimeSeconds{10.0} &&
+           approx(std::get<double>(adjustedParam->keyframes[1].value), 0.5) &&
+           adjustedParam->keyframes[1].lastEditedActorName == "desktop" &&
+           adjustedFrame.value().frame.sourceRevision == adjustedViewModel.value().project.revision &&
+           approx(adjustedCameraX, 0.25)
       ? 0
       : 1;
   }
