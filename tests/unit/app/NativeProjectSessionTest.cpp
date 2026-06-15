@@ -1474,6 +1474,12 @@ int main() {
   GRAPPLE_REQUIRE(stewardAdjustViewModel.value().timeline.effectGraphs[0].effects[0].params[0].lastEditedRevision == foundation::RevisionId{"rev_4"});
   GRAPPLE_REQUIRE(stewardAdjustViewModel.value().timeline.effectGraphs[0].effects[0].params[0].lastEditedSourceKind == "agent");
   GRAPPLE_REQUIRE(stewardAdjustViewModel.value().timeline.effectGraphs[0].effects[0].params[0].lastEditedActorName == "steward");
+  GRAPPLE_REQUIRE(stewardAdjustViewModel.value().steward.edits.size() == 2);
+  GRAPPLE_REQUIRE(stewardAdjustViewModel.value().steward.edits[1].revision == foundation::RevisionId{"rev_4"});
+  GRAPPLE_REQUIRE(stewardAdjustViewModel.value().steward.edits[1].targetNodeId == stewardAdjustCameraNodeId);
+  GRAPPLE_REQUIRE(stewardAdjustViewModel.value().steward.edits[1].targetName == "Camera");
+  GRAPPLE_REQUIRE(stewardAdjustViewModel.value().steward.edits[1].editName == "Camera Transform Parameter");
+  GRAPPLE_REQUIRE(stewardAdjustViewModel.value().steward.edits[1].intent == "Move the camera framing right.");
 
   app::NativeProjectSession stewardMotionProject{
     foundation::ProjectId{"proj_app_steward_motion"},

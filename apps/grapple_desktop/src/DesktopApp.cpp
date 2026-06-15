@@ -1811,6 +1811,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            steward.find("Next: apply the request to the exposed camera controls.") != std::string::npos &&
            steward.find("Applied edits") != std::string::npos &&
            steward.find("Camera Transform on Camera: Center the subject with editable camera controls.") != std::string::npos &&
+           steward.find("Camera Transform Parameter on Camera: Move the camera framing right.") != std::string::npos &&
            steward.find("- Move the camera framing right. [succeeded]") != std::string::npos &&
            steward.find("Update Effect Param Value -> succeeded") != std::string::npos &&
            stewardActionText == "Apply Request To Camera Controls" &&

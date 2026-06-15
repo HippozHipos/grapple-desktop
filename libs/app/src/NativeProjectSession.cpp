@@ -151,6 +151,60 @@ foundation::Result<std::string> nodeDisplayName(
   return nodeId.value();
 }
 
+struct EffectTargetDisplay {
+  foundation::NodeId targetNodeId;
+  std::string targetName;
+  std::string effectName;
+};
+
+foundation::Result<EffectTargetDisplay> effectTargetDisplay(
+  const project::ProjectSnapshot& snapshot,
+  const foundation::NodeId& effectNodeId
+) {
+  const graph::GraphNode* effectNode = snapshot.graph.findNode(effectNodeId);
+  if (effectNode == nullptr || effectNode->kind != graph::NodeKind::Effect) {
+    return foundation::Error{
+      "app.effect_missing",
+      "Effect parameter provenance requires an existing effect node."
+    };
+  }
+
+  const auto* payload = std::get_if<timeline::EffectPayload>(&effectNode->payload);
+  if (payload == nullptr) {
+    return foundation::Error{
+      "app.effect_payload_missing",
+      "Effect parameter provenance requires an effect payload."
+    };
+  }
+
+  const auto targetEdge = std::find_if(
+    snapshot.graph.edges().begin(),
+    snapshot.graph.edges().end(),
+    [&](const graph::GraphEdge& edge) {
+      return edge.enabled &&
+             edge.kind == graph::EdgeKind::Targets &&
+             edge.sourceNodeId == effectNodeId;
+    }
+  );
+  if (targetEdge == snapshot.graph.edges().end()) {
+    return foundation::Error{
+      "app.effect_target_missing",
+      "Effect parameter provenance requires an effect target edge."
+    };
+  }
+
+  auto targetName = nodeDisplayName(snapshot, targetEdge->targetNodeId);
+  if (!targetName) {
+    return targetName.error();
+  }
+
+  return EffectTargetDisplay{
+    targetEdge->targetNodeId,
+    targetName.value(),
+    payload->displayName
+  };
+}
+
 struct EffectCreationProvenance {
   foundation::CommandId commandId;
   foundation::NodeId effectNodeId;
@@ -249,6 +303,20 @@ foundation::Result<AppCommandProvenance> appCommandProvenance(
         command.sourceKind,
         command.sourceActorName
       });
+      if (stewardCommand && !intent.empty()) {
+        auto targetDisplay = effectTargetDisplay(snapshot, updateParam->effectNodeId);
+        if (!targetDisplay) {
+          return targetDisplay.error();
+        }
+        provenance.stewardEdits.push_back(AppStewardEditRow{
+          command.id,
+          command.afterRevision,
+          targetDisplay.value().targetNodeId,
+          targetDisplay.value().targetName,
+          targetDisplay.value().effectName + " Parameter",
+          intent
+        });
+      }
     } else if (const auto* upsertKeyframe = std::get_if<project::UpsertEffectParamKeyframeCommand>(&parsedCommand.value())) {
       provenance.effects.keyframeEdits.push_back(EffectKeyframeEditProvenance{
         upsertKeyframe->effectNodeId,
