@@ -1605,7 +1605,7 @@ int main() {
   GRAPPLE_REQUIRE(stewardAdjustViewModel.value().steward.edits[1].revision == foundation::RevisionId{"rev_4"});
   GRAPPLE_REQUIRE(stewardAdjustViewModel.value().steward.edits[1].targetNodeId == stewardAdjustCameraNodeId);
   GRAPPLE_REQUIRE(stewardAdjustViewModel.value().steward.edits[1].targetName == "Camera");
-  GRAPPLE_REQUIRE(stewardAdjustViewModel.value().steward.edits[1].editName == "Camera Transform Parameter");
+  GRAPPLE_REQUIRE(stewardAdjustViewModel.value().steward.edits[1].editName == "Camera Transform Controls");
   GRAPPLE_REQUIRE(stewardAdjustViewModel.value().steward.edits[1].intent == "Move the camera framing right.");
   const auto stewardPannedControls = stewardAdjustWorkspace.value().steward().adjustCameraTransformControls(
     stewardAdjustCameraNodeId,
@@ -1761,7 +1761,7 @@ int main() {
   GRAPPLE_REQUIRE(stewardRecenterViewModel.value().steward.edits.size() == 2);
   GRAPPLE_REQUIRE(stewardRecenterViewModel.value().steward.edits[1].revision == foundation::RevisionId{"rev_5"});
   GRAPPLE_REQUIRE(stewardRecenterViewModel.value().steward.edits[1].targetNodeId == stewardRecenterCameraNodeId);
-  GRAPPLE_REQUIRE(stewardRecenterViewModel.value().steward.edits[1].editName == "Camera Transform Parameter");
+  GRAPPLE_REQUIRE(stewardRecenterViewModel.value().steward.edits[1].editName == "Camera Transform Controls");
   GRAPPLE_REQUIRE(stewardRecenterViewModel.value().steward.edits[1].intent == "Recenter the subject.");
 
   app::NativeProjectSession stewardResetProject{
@@ -1844,7 +1844,7 @@ int main() {
   GRAPPLE_REQUIRE(stewardResetViewModel.value().steward.edits.size() == 2);
   GRAPPLE_REQUIRE(stewardResetViewModel.value().steward.edits[1].revision == foundation::RevisionId{"rev_6"});
   GRAPPLE_REQUIRE(stewardResetViewModel.value().steward.edits[1].targetNodeId == stewardResetCameraNodeId);
-  GRAPPLE_REQUIRE(stewardResetViewModel.value().steward.edits[1].editName == "Camera Transform Parameter");
+  GRAPPLE_REQUIRE(stewardResetViewModel.value().steward.edits[1].editName == "Camera Transform Controls");
   GRAPPLE_REQUIRE(stewardResetViewModel.value().steward.edits[1].intent == "Reset the camera controls.");
 
   app::NativeProjectSession stewardMotionProject{

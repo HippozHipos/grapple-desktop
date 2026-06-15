@@ -50,6 +50,7 @@ public:
   [[nodiscard]] bool stewardSelectedClipActionEnabled() const;
   [[nodiscard]] int stewardRecentEditCount() const;
   [[nodiscard]] int stewardCurrentRecentEditRow() const;
+  [[nodiscard]] std::string stewardRecentEditText(int row) const;
   [[nodiscard]] std::string effectParamTitleText() const;
   [[nodiscard]] std::string effectParamPanelText() const;
   void setStewardIntent(std::string intent);

@@ -436,4 +436,12 @@ int StewardPanel::currentRecentEditRow() const {
   return recentEdits_->currentRow();
 }
 
+std::string StewardPanel::recentEditText(int row) const {
+  if (row < 0 || row >= recentEdits_->count()) {
+    return {};
+  }
+  const QListWidgetItem* item = recentEdits_->item(row);
+  return item == nullptr ? std::string{} : item->text().toStdString();
+}
+
 } // namespace grapple::ui

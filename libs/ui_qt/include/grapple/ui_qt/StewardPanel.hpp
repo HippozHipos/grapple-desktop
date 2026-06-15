@@ -55,6 +55,7 @@ public:
   void triggerRecentEdit(int row);
   [[nodiscard]] int recentEditCount() const;
   [[nodiscard]] int currentRecentEditRow() const;
+  [[nodiscard]] std::string recentEditText(int row) const;
 
 private:
   enum class PrimaryAction {

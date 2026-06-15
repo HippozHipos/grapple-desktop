@@ -322,7 +322,7 @@ foundation::Result<AppCommandProvenance> appCommandProvenance(
         if (!targetDisplay) {
           return targetDisplay.error();
         }
-        const std::string editName = targetDisplay.value().effectName + " Parameter";
+        const std::string editName = targetDisplay.value().effectName + " Controls";
         auto existingParamEdit = command.sourceRunId.has_value()
           ? std::find_if(
               stewardParamEditRows.begin(),

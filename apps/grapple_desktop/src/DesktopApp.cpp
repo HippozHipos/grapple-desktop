@@ -1761,6 +1761,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     const int stewardRecentEdits = window.stewardRecentEditCount();
     window.clickStewardRecentEdit(0);
     const int stewardSelectedRecentEdit = window.stewardCurrentRecentEditRow();
+    const std::string stewardSelectedRecentEditText = window.stewardRecentEditText(0);
     const auto tunedViewModel = workspace.value().project().buildViewModel();
     if (!tunedViewModel) {
       printError(tunedViewModel.error());
@@ -1850,6 +1851,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "evaluatedTunedPreview=" << (hasEvaluatedTunedPreview ? "true" : "false") << '\n';
     std::cout << "recentEdits=" << stewardRecentEdits << '\n';
     std::cout << "selectedRecentEdit=" << stewardSelectedRecentEdit << '\n';
+    std::cout << "selectedRecentEditText=" << stewardSelectedRecentEditText << '\n';
     if (selectedAfterRecentEdit.has_value()) {
       std::cout << "selectedAfterRecentEdit=" << selectedAfterRecentEdit->value() << '\n';
     }
@@ -1874,6 +1876,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            stewardActionEnabledAfterImport &&
            stewardRecentEdits == 5 &&
            stewardSelectedRecentEdit == 0 &&
+           stewardSelectedRecentEditText.find("Camera Transform Controls on Camera") != std::string::npos &&
            selectedAfterRecentEdit.has_value() &&
            selectedAfterRecentEdit.value() == viewModel.value().timeline.cameras.front().sourceNodeId &&
            steward.find("1 assets | 1 clips | 1 cameras | 1 editable effects") != std::string::npos &&
