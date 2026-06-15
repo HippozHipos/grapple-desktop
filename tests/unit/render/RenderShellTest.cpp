@@ -77,6 +77,49 @@ private:
   bool emitInvalidTransform_ = false;
 };
 
+class CountingEffectRuntime final : public grapple::runtime::IEffectRuntime {
+public:
+  bool supports(const grapple::projection::RenderEffectNode& node) const override {
+    return node.payload.implementation.kind == grapple::timeline::EffectImplementationKind::Python;
+  }
+
+  grapple::foundation::Result<grapple::runtime::EffectPrepareResult> prepare(
+    const grapple::runtime::EffectPrepareRequest& request
+  ) override {
+    ++prepareCount;
+    preparedNodeIds.push_back(request.node.sourceNodeId);
+    return grapple::runtime::EffectPrepareResult{
+      grapple::runtime::PreparedEffectNode{
+        request.graph.id,
+        request.graph.targetNodeId,
+        request.node.sourceNodeId,
+        request.node.payload.activeRange,
+        nullptr,
+        grapple::runtime::RuntimeParamSet{},
+        {}
+      },
+      {}
+    };
+  }
+
+  grapple::foundation::Result<grapple::runtime::EffectProcessResult> process(
+    const grapple::runtime::EffectProcessRequest& request
+  ) override {
+    return grapple::runtime::EffectProcessResult{
+      grapple::runtime::RuntimeEffectOutput{
+        request.prepared.effectGraphId,
+        request.prepared.targetNodeId,
+        request.prepared.sourceNodeId,
+        {}
+      },
+      {}
+    };
+  }
+
+  int prepareCount = 0;
+  std::vector<grapple::foundation::NodeId> preparedNodeIds;
+};
+
 class TestFrameSource final : public grapple::render::IRenderFrameSource {
 public:
   grapple::foundation::Result<grapple::render::SourceFrame> frameAt(
@@ -443,6 +486,92 @@ grapple::projection::RenderPlan makeClipTransformRenderPlan() {
     0.0,
     1.0
   });
+}
+
+grapple::timeline::EffectPayload makeCountingEffectPayload(std::string name, double amount) {
+  const std::string source = "def prepare(ctx): return {}\n";
+  return grapple::timeline::EffectPayload{
+    std::move(name),
+    grapple::timeline::EffectImplementation{
+      grapple::timeline::EffectImplementationKind::Python,
+      "prepare",
+      grapple::timeline::EffectSource{
+        grapple::timeline::EffectSourceKind::InlineSource,
+        "python",
+        source,
+        std::nullopt,
+        grapple::foundation::stableHash(source)
+      }
+    },
+    grapple::timeline::EffectPortSet{
+      {grapple::timeline::EffectPort{"frame"}},
+      {grapple::timeline::EffectPort{"output"}}
+    },
+    grapple::timeline::ParamSet{
+      {grapple::timeline::Param{"amount", amount}}
+    },
+    grapple::foundation::TimeRange{
+      grapple::foundation::TimeSeconds{0.0},
+      grapple::foundation::TimeSeconds{12.0}
+    }
+  };
+}
+
+grapple::projection::RenderPlan makeEffectChainRenderPlan(double firstAmount) {
+  grapple::projection::RenderPlan plan = makeRenderPlan();
+  plan.effectGraphs.push_back(grapple::projection::RenderEffectGraph{
+    grapple::foundation::GraphId{"effect_graph_node_clip"},
+    grapple::foundation::NodeId{"node_clip"},
+    {
+      grapple::projection::RenderEffectNode{
+        grapple::foundation::NodeId{"node_effect_a"},
+        makeCountingEffectPayload("Effect A", firstAmount)
+      },
+      grapple::projection::RenderEffectNode{
+        grapple::foundation::NodeId{"node_effect_b"},
+        makeCountingEffectPayload("Effect B", 0.2)
+      },
+      grapple::projection::RenderEffectNode{
+        grapple::foundation::NodeId{"node_effect_c"},
+        makeCountingEffectPayload("Effect C", 0.3)
+      }
+    },
+    {
+      grapple::projection::RenderEffectEdge{
+        grapple::foundation::EdgeId{"edge_effect_a_targets_clip"},
+        grapple::foundation::NodeId{"node_effect_a"},
+        grapple::graph::PortName{"output"},
+        grapple::foundation::NodeId{"node_clip"},
+        grapple::graph::PortName{"input"},
+        0
+      },
+      grapple::projection::RenderEffectEdge{
+        grapple::foundation::EdgeId{"edge_effect_b_targets_clip"},
+        grapple::foundation::NodeId{"node_effect_b"},
+        grapple::graph::PortName{"output"},
+        grapple::foundation::NodeId{"node_clip"},
+        grapple::graph::PortName{"input"},
+        1
+      },
+      grapple::projection::RenderEffectEdge{
+        grapple::foundation::EdgeId{"edge_effect_c_targets_clip"},
+        grapple::foundation::NodeId{"node_effect_c"},
+        grapple::graph::PortName{"output"},
+        grapple::foundation::NodeId{"node_clip"},
+        grapple::graph::PortName{"input"},
+        2
+      },
+      grapple::projection::RenderEffectEdge{
+        grapple::foundation::EdgeId{"edge_effect_a_to_b"},
+        grapple::foundation::NodeId{"node_effect_a"},
+        grapple::graph::PortName{"output"},
+        grapple::foundation::NodeId{"node_effect_b"},
+        grapple::graph::PortName{"input"},
+        3
+      }
+    }
+  });
+  return plan;
 }
 
 grapple::projection::RenderPlan makeLayeredRenderPlan() {
@@ -941,6 +1070,29 @@ int main() {
   GRAPPLE_REQUIRE(cameraFinalResult.value().framesEvaluated == 2);
   GRAPPLE_REQUIRE(cameraFinalResult.value().runtimeDiagnostics.empty());
   GRAPPLE_REQUIRE(cameraRuntime.processCount == 3);
+
+  CountingEffectRuntime countingRuntime;
+  runtime::RuntimeEvaluator countingEvaluator{{&countingRuntime}};
+  render::LocalRenderCore countingCore{countingEvaluator};
+  const auto initialEffectChainLoad = countingCore.loadPlan(makeEffectChainRenderPlan(0.1));
+  GRAPPLE_REQUIRE(initialEffectChainLoad);
+  GRAPPLE_REQUIRE(countingRuntime.prepareCount == 3);
+  GRAPPLE_REQUIRE((countingRuntime.preparedNodeIds == std::vector<foundation::NodeId>{
+    foundation::NodeId{"node_effect_a"},
+    foundation::NodeId{"node_effect_b"},
+    foundation::NodeId{"node_effect_c"}
+  }));
+
+  const auto changedEffectChainLoad = countingCore.loadPlan(makeEffectChainRenderPlan(0.9));
+  GRAPPLE_REQUIRE(changedEffectChainLoad);
+  GRAPPLE_REQUIRE(countingRuntime.prepareCount == 5);
+  GRAPPLE_REQUIRE((countingRuntime.preparedNodeIds == std::vector<foundation::NodeId>{
+    foundation::NodeId{"node_effect_a"},
+    foundation::NodeId{"node_effect_b"},
+    foundation::NodeId{"node_effect_c"},
+    foundation::NodeId{"node_effect_a"},
+    foundation::NodeId{"node_effect_b"}
+  }));
 
   CameraTransformRuntime invalidCameraRuntime{true};
   runtime::RuntimeEvaluator invalidCameraEvaluator{{&invalidCameraRuntime}};
