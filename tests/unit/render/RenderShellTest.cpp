@@ -232,6 +232,7 @@ public:
     frameDescriptions.push_back(frame.frame.description);
     frameImages.push_back(frame.frame.image);
     frameAudioClips.push_back(frame.frame.audioClips);
+    frameCameras.push_back(frame.frame.cameras);
     return {};
   }
 
@@ -240,6 +241,7 @@ public:
   std::vector<std::string> frameDescriptions;
   std::vector<std::optional<grapple::render::RenderedImage>> frameImages;
   std::vector<std::vector<grapple::render::RenderedAudioClip>> frameAudioClips;
+  std::vector<std::vector<grapple::render::RenderedCamera>> frameCameras;
 };
 
 class FailingRangeSink final : public grapple::render::IRenderRangeSink {
@@ -1071,14 +1073,27 @@ int main() {
   GRAPPLE_REQUIRE(cameraFrame.value().frame.cameras[0].state.transform.rotationDegrees == 25.0);
   GRAPPLE_REQUIRE(cameraFrame.value().runtimeDiagnostics.empty());
   GRAPPLE_REQUIRE(cameraRuntime.processCount == 1);
+  CapturingRangeSink cameraFinalSink;
   const auto cameraFinalResult = cameraFinal.render(render::FinalRenderRequest{
-    makeExportSettings(foundation::Resolution{1920, 1080})
+    makeExportSettings(foundation::Resolution{1920, 1080}),
+    &cameraFinalSink
   });
   GRAPPLE_REQUIRE(cameraFinalResult);
   GRAPPLE_REQUIRE(cameraFinalResult.value().sourceRevision == foundation::RevisionId{"rev_4"});
   GRAPPLE_REQUIRE(cameraFinalResult.value().renderPlanHash == cameraCore.state().preparedPlanHash.value());
   GRAPPLE_REQUIRE(cameraFinalResult.value().framesEvaluated == 2);
   GRAPPLE_REQUIRE(cameraFinalResult.value().runtimeDiagnostics.empty());
+  GRAPPLE_REQUIRE(cameraFinalSink.frameCameras.size() == 2);
+  GRAPPLE_REQUIRE(cameraFinalSink.frameCameras[0].size() == 1);
+  GRAPPLE_REQUIRE(cameraFinalSink.frameCameras[0][0].cameraNodeId == foundation::NodeId{"node_camera"});
+  GRAPPLE_REQUIRE(cameraFinalSink.frameCameras[0][0].state.transform.position.x == 0.0);
+  GRAPPLE_REQUIRE(cameraFinalSink.frameCameras[0][0].state.transform.position.y == 0.0);
+  GRAPPLE_REQUIRE(cameraFinalSink.frameCameras[0][0].state.transform.rotationDegrees == 0.0);
+  GRAPPLE_REQUIRE(cameraFinalSink.frameCameras[1].size() == 1);
+  GRAPPLE_REQUIRE(cameraFinalSink.frameCameras[1][0].cameraNodeId == foundation::NodeId{"node_camera"});
+  GRAPPLE_REQUIRE(cameraFinalSink.frameCameras[1][0].state.transform.position.x == 0.5);
+  GRAPPLE_REQUIRE(cameraFinalSink.frameCameras[1][0].state.transform.position.y == 1.0);
+  GRAPPLE_REQUIRE(cameraFinalSink.frameCameras[1][0].state.transform.rotationDegrees == 5.0);
   GRAPPLE_REQUIRE(cameraRuntime.processCount == 3);
 
   CountingEffectRuntime countingRuntime;
