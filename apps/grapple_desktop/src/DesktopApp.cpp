@@ -1724,6 +1724,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            stewardRecentEdits == 1 &&
            stewardSelectedRecentEdit == 0 &&
            steward.find("Applied edits: select one to inspect its target.") != std::string::npos &&
+           steward.find("Latest result: Camera Transform on Camera (" + createdRevisionText + ")") != std::string::npos &&
+           steward.find("Latest request: Center the walking subject with exposed controls.") != std::string::npos &&
            steward.find("Recent runs:") != std::string::npos &&
            steward.find("- Center the walking subject with exposed controls. [succeeded]") != std::string::npos &&
            steward.find("Create Effect Node -> succeeded at " + createdRevisionText) != std::string::npos &&
@@ -2155,6 +2157,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
 	           selectedAfterRecentEdit.value() == viewModel.value().timeline.cameras.front().sourceNodeId &&
 	           steward.find("1 assets | 1 clips | 1 cameras | 1 editable effects") != std::string::npos &&
 	           steward.find("Next: apply the request to the exposed camera controls.") != std::string::npos &&
+	           steward.find("Latest result: Camera Transform on Camera (" + viewModel.value().project.revision.value() + ")") != std::string::npos &&
+	           steward.find("Latest request: Recenter the subject.") != std::string::npos &&
 	           steward.find("Camera target: Camera") != std::string::npos &&
 	           steward.find("Applied edits: select one to inspect its target.") != std::string::npos &&
            steward.find("- Recenter the subject. [succeeded]") != std::string::npos &&
