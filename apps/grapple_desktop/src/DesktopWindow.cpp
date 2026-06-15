@@ -344,6 +344,46 @@ bool targetHasEditableEffects(
   return false;
 }
 
+template <typename Widget>
+Widget* uniqueEffectParamWidget(
+  const QObject* root,
+  const std::string& paramName,
+  const QString& objectNamePrefix
+) {
+  Widget* match = nullptr;
+  for (Widget* widget : root->findChildren<Widget*>()) {
+    if (!widget->objectName().startsWith(objectNamePrefix) ||
+        widget->property("effectParamName").toString() != qString(paramName)) {
+      continue;
+    }
+    if (match != nullptr) {
+      return nullptr;
+    }
+    match = widget;
+  }
+  return match;
+}
+
+QPushButton* uniqueEffectParamDeleteKeyframeButton(
+  const QObject* root,
+  const std::string& paramName,
+  int keyframeIndex
+) {
+  QPushButton* match = nullptr;
+  for (QPushButton* button : root->findChildren<QPushButton*>()) {
+    if (!button->objectName().startsWith("effectParamDeleteKeyframe_") ||
+        button->property("effectParamName").toString() != qString(paramName) ||
+        button->property("effectParamKeyframeIndex").toInt() != keyframeIndex) {
+      continue;
+    }
+    if (match != nullptr) {
+      return nullptr;
+    }
+    match = button;
+  }
+  return match;
+}
+
 } // namespace
 
 namespace grapple::desktop {
@@ -1054,7 +1094,7 @@ public:
   }
 
   bool effectParamControlVisible(const std::string& paramName) const {
-    auto* editor = findChild<QDoubleSpinBox*>(QString{"effectParamEditor_%1"}.arg(qString(paramName)));
+    auto* editor = uniqueEffectParamWidget<QDoubleSpinBox>(this, paramName, "effectParamEditor_");
     if (editor == nullptr || effectParamsScroll_ == nullptr || effectParamsScroll_->viewport() == nullptr) {
       return false;
     }
@@ -1067,7 +1107,7 @@ public:
   }
 
   std::optional<double> effectParamControlValue(const std::string& paramName) const {
-    auto* editor = findChild<QDoubleSpinBox*>(QString{"effectParamEditor_%1"}.arg(qString(paramName)));
+    auto* editor = uniqueEffectParamWidget<QDoubleSpinBox>(this, paramName, "effectParamEditor_");
     if (editor == nullptr) {
       return std::nullopt;
     }
@@ -1943,9 +1983,12 @@ public:
   }
 
   void setEffectParamControlValue(const std::string& paramName, double value) {
-    auto* editor = findChild<QDoubleSpinBox*>(QString{"effectParamEditor_%1"}.arg(qString(paramName)));
+    auto* editor = uniqueEffectParamWidget<QDoubleSpinBox>(this, paramName, "effectParamEditor_");
     if (editor == nullptr) {
-      appendError(grapple::foundation::Error{"desktop.effect_param_control_missing", "Effect parameter control not found."});
+      appendError(grapple::foundation::Error{
+        "desktop.effect_param_control_missing",
+        "Effect parameter control not found or ambiguous."
+      });
       return;
     }
 
@@ -1955,9 +1998,12 @@ public:
   }
 
   void setEffectParamControlDraftValue(const std::string& paramName, double value) {
-    auto* editor = findChild<QDoubleSpinBox*>(QString{"effectParamEditor_%1"}.arg(qString(paramName)));
+    auto* editor = uniqueEffectParamWidget<QDoubleSpinBox>(this, paramName, "effectParamEditor_");
     if (editor == nullptr) {
-      appendError(grapple::foundation::Error{"desktop.effect_param_control_missing", "Effect parameter control not found."});
+      appendError(grapple::foundation::Error{
+        "desktop.effect_param_control_missing",
+        "Effect parameter control not found or ambiguous."
+      });
       return;
     }
 
@@ -1966,9 +2012,12 @@ public:
   }
 
   void setEffectParamSliderRatio(const std::string& paramName, double ratio) {
-    auto* slider = findChild<QSlider*>(QString{"effectParamSlider_%1"}.arg(qString(paramName)));
+    auto* slider = uniqueEffectParamWidget<QSlider>(this, paramName, "effectParamSlider_");
     if (slider == nullptr) {
-      appendError(grapple::foundation::Error{"desktop.effect_param_slider_missing", "Effect parameter slider not found."});
+      appendError(grapple::foundation::Error{
+        "desktop.effect_param_slider_missing",
+        "Effect parameter slider not found or ambiguous."
+      });
       return;
     }
 
@@ -2061,9 +2110,12 @@ public:
   }
 
   void setEffectParamKeyframeAtPlayhead(const std::string& paramName) {
-    auto* button = findChild<QPushButton*>(QString{"effectParamKeyframe_%1"}.arg(qString(paramName)));
+    auto* button = uniqueEffectParamWidget<QPushButton>(this, paramName, "effectParamKeyframe_");
     if (button == nullptr) {
-      appendError(grapple::foundation::Error{"desktop.effect_keyframe_control_missing", "Effect keyframe control not found."});
+      appendError(grapple::foundation::Error{
+        "desktop.effect_keyframe_control_missing",
+        "Effect keyframe control not found or ambiguous."
+      });
       return;
     }
 
@@ -2072,7 +2124,7 @@ public:
   }
 
   std::string effectParamKeyframeButtonText(const std::string& paramName) const {
-    auto* button = findChild<QPushButton*>(QString{"effectParamKeyframe_%1"}.arg(qString(paramName)));
+    auto* button = uniqueEffectParamWidget<QPushButton>(this, paramName, "effectParamKeyframe_");
     if (button == nullptr) {
       return {};
     }
@@ -2080,11 +2132,12 @@ public:
   }
 
   void deleteEffectParamKeyframeControl(const std::string& paramName, int keyframeIndex) {
-    auto* button = findChild<QPushButton*>(QString{"effectParamDeleteKeyframe_%1_%2"}
-      .arg(qString(paramName))
-      .arg(keyframeIndex));
+    auto* button = uniqueEffectParamDeleteKeyframeButton(this, paramName, keyframeIndex);
     if (button == nullptr) {
-      appendError(grapple::foundation::Error{"desktop.effect_keyframe_delete_control_missing", "Effect keyframe delete control not found."});
+      appendError(grapple::foundation::Error{
+        "desktop.effect_keyframe_delete_control_missing",
+        "Effect keyframe delete control not found or ambiguous."
+      });
       return;
     }
 
