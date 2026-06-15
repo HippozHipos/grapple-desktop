@@ -6,6 +6,8 @@
 #include <grapple/effects/BuiltinEffects.hpp>
 #include <grapple/foundation/FilePath.hpp>
 #include <grapple/foundation/Json.hpp>
+#include <grapple/graph/GraphNode.hpp>
+#include <grapple/timeline/Payloads.hpp>
 
 #include <algorithm>
 #include <chrono>
@@ -15,6 +17,7 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <variant>
 
 namespace grapple::app {
 
@@ -23,6 +26,7 @@ namespace {
 constexpr const char CanonicalCameraTransformToolId[] = "camera.add_transform_controls";
 constexpr const char CanonicalCameraTransformKeyframeToolId[] = "camera.set_transform_keyframe";
 constexpr const char CanonicalPlaceAssetToolId[] = "timeline.place_asset";
+constexpr const char CanonicalUpdateClipTransformToolId[] = "timeline.update_clip_transform";
 constexpr double CenteredCameraTransformPositionX = 0.0;
 constexpr double CenteredCameraTransformPositionY = 0.0;
 constexpr double NormalCameraTransformZoom = 1.0;
@@ -177,6 +181,61 @@ std::optional<CameraTransformMotionKeyframes> cameraMotionKeyframesForIntent(
   return std::nullopt;
 }
 
+foundation::Result<timeline::Transform2D> clipTransformForIntent(
+  const timeline::Transform2D& current,
+  const std::string& intent
+) {
+  const std::string normalized = lowercaseAscii(intent);
+  timeline::Transform2D transform = current;
+  bool changed = false;
+
+  if (containsAsciiWord(normalized, "left")) {
+    transform.position.x -= 0.25;
+    changed = true;
+  } else if (containsAsciiWord(normalized, "right")) {
+    transform.position.x += 0.25;
+    changed = true;
+  }
+
+  if (containsAsciiWord(normalized, "up")) {
+    transform.position.y -= 0.2;
+    changed = true;
+  } else if (containsAsciiWord(normalized, "down")) {
+    transform.position.y += 0.2;
+    changed = true;
+  }
+
+  if (containsText(normalized, "scale down") ||
+      containsAsciiWord(normalized, "smaller") ||
+      containsAsciiWord(normalized, "shrink")) {
+    transform.scale.x *= 0.75;
+    transform.scale.y *= 0.75;
+    changed = true;
+  } else if (containsText(normalized, "scale up") ||
+             containsAsciiWord(normalized, "larger") ||
+             containsAsciiWord(normalized, "bigger")) {
+    transform.scale.x *= 1.25;
+    transform.scale.y *= 1.25;
+    changed = true;
+  }
+
+  if (containsAsciiWord(normalized, "fade") ||
+      containsAsciiWord(normalized, "transparent") ||
+      containsText(normalized, "half opacity")) {
+    transform.opacity = 0.5;
+    changed = true;
+  }
+
+  if (!changed) {
+    return foundation::Error{
+      "steward.clip_transform_intent_unknown",
+      "Clip transform requests must explicitly mention movement, scale, or opacity."
+    };
+  }
+
+  return transform;
+}
+
 std::string runStartedPayload(const std::string& title) {
   std::ostringstream payload;
   payload << '{';
@@ -281,6 +340,10 @@ foundation::ToolId stewardPlaceAssetToolCallIdForRun(const foundation::RunId& ru
   return foundation::ToolId{"tool_steward_place_asset_" + std::to_string(stewardRunNumber(runId))};
 }
 
+foundation::ToolId stewardClipTransformToolCallIdForRun(const foundation::RunId& runId) {
+  return foundation::ToolId{"tool_steward_clip_transform_" + std::to_string(stewardRunNumber(runId))};
+}
+
 std::string placeAssetArgumentsPayload(
   const foundation::AssetId& assetId,
   const std::optional<foundation::TimeSeconds>& duration
@@ -291,6 +354,27 @@ std::string placeAssetArgumentsPayload(
   if (duration.has_value()) {
     arguments << ",\"duration\":" << duration->value;
   }
+  arguments << '}';
+  return arguments.str();
+}
+
+std::string clipTransformArgumentsPayload(
+  const foundation::NodeId& clipNodeId,
+  const timeline::Transform2D& transform
+) {
+  std::ostringstream arguments;
+  arguments << '{';
+  foundation::writeJsonStringProperty(arguments, "clipNodeId", clipNodeId.value());
+  arguments << ",\"position\":{";
+  arguments << "\"x\":" << transform.position.x;
+  arguments << ",\"y\":" << transform.position.y;
+  arguments << "}";
+  arguments << ",\"scale\":{";
+  arguments << "\"x\":" << transform.scale.x;
+  arguments << ",\"y\":" << transform.scale.y;
+  arguments << "}";
+  arguments << ",\"rotationDegrees\":" << transform.rotationDegrees;
+  arguments << ",\"opacity\":" << transform.opacity;
   arguments << '}';
   return arguments.str();
 }
@@ -471,6 +555,110 @@ foundation::Result<NativeStewardMediaPlacementResult> NativeStewardSession::plac
 
   markRunStatus(runId.value(), agent::AgentRunStatus::Succeeded);
   return NativeStewardMediaPlacementResult{packageResult.value(), placedClipNodeId.value()};
+}
+
+foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::transformClip(
+  foundation::NodeId clipNodeId,
+  std::string intent
+) {
+  auto snapshot = project_.snapshot();
+  if (!snapshot) {
+    return snapshot.error();
+  }
+
+  auto runId = startRun(snapshot.value(), intent);
+  if (!runId) {
+    return runId.error();
+  }
+
+  const graph::GraphNode* clipNode = snapshot.value().graph.findNode(clipNodeId);
+  if (clipNode == nullptr || clipNode->kind != graph::NodeKind::Clip) {
+    const foundation::Error error{"steward.clip_missing", "Steward clip transform requires an existing clip node."};
+    auto finished = finishRunWithError(runId.value(), error);
+    if (!finished) {
+      return finished.error();
+    }
+    return error;
+  }
+  const auto* clipPayload = std::get_if<timeline::ClipPayload>(&clipNode->payload);
+  if (clipPayload == nullptr) {
+    const foundation::Error error{"steward.clip_payload_missing", "Steward clip transform requires a clip payload."};
+    auto finished = finishRunWithError(runId.value(), error);
+    if (!finished) {
+      return finished.error();
+    }
+    return error;
+  }
+  auto nextTransform = clipTransformForIntent(clipPayload->transform, intent);
+  if (!nextTransform) {
+    auto finished = finishRunWithError(runId.value(), nextTransform.error());
+    if (!finished) {
+      return finished.error();
+    }
+    return nextTransform.error();
+  }
+
+  auto message = appendEvent(
+    runId.value(),
+    agent::AgentRunEventKind::ModelMessage,
+    modelMessagePayload("assistant", "Updating the selected clip transform as an editable graph change.")
+  );
+  if (!message) {
+    return message.error();
+  }
+
+  std::optional<storage::ProjectPackageSessionResult> packageResult;
+  CommittingAgentCommandService stewardCommands{project_, commandWriter_, intent, packageResult};
+  agent::AgentToolRegistry registry;
+  auto registered = agent::registerProjectTools(registry);
+  if (!registered) {
+    auto finished = finishRunWithError(runId.value(), registered.error());
+    if (!finished) {
+      return finished.error();
+    }
+    return registered.error();
+  }
+
+  agent::AgentToolContext toolContext{stewardCommands, project_, commandWriter_};
+  agent::AgentBridge bridge{registry, toolContext, events_, nextSequence_};
+  auto dispatched = bridge.dispatchToolCall(agent::AgentToolDispatchRequest{
+    runId.value(),
+    snapshot.value().info.id,
+    snapshot.value().revision,
+    stewardClipTransformToolCallIdForRun(runId.value()),
+    CanonicalUpdateClipTransformToolId,
+    clipTransformArgumentsPayload(clipNodeId, nextTransform.value())
+  });
+  if (!dispatched) {
+    auto finished = finishRunWithError(runId.value(), dispatched.error());
+    if (!finished) {
+      return finished.error();
+    }
+    return dispatched.error();
+  }
+  if (!packageResult.has_value()) {
+    const foundation::Error error{
+      "steward.clip_transform_result_missing",
+      "Steward clip transform tool succeeded without a committed package result."
+    };
+    auto finished = finishRunWithError(runId.value(), error);
+    if (!finished) {
+      return finished.error();
+    }
+    return error;
+  }
+
+  auto runFinished = appendEvent(
+    runId.value(),
+    agent::AgentRunEventKind::RunFinished,
+    runFinishedPayload("succeeded", "Updated selected clip transform.")
+  );
+  if (!runFinished) {
+    return runFinished.error();
+  }
+
+  markRunStatus(runId.value(), agent::AgentRunStatus::Succeeded);
+  return packageResult.value();
 }
 
 foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::createCameraTransformEffect(

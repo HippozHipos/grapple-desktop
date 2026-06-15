@@ -33,6 +33,10 @@ public:
     foundation::AssetId assetId,
     std::optional<foundation::TimeSeconds> duration = std::nullopt
   );
+  foundation::Result<storage::ProjectPackageSessionResult> transformClip(
+    foundation::NodeId clipNodeId,
+    std::string intent
+  );
 
   [[nodiscard]] agent::AgentConversationState conversationState() const;
   [[nodiscard]] const std::vector<agent::AgentRun>& runs() const noexcept;

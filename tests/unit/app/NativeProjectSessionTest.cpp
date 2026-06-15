@@ -1067,6 +1067,38 @@ int main() {
   GRAPPLE_REQUIRE(stewardMediaViewModel.value().timeline.clips.size() == 1);
   GRAPPLE_REQUIRE(stewardMediaViewModel.value().timeline.clips[0].sourceNodeId == stewardMediaPlacement.value().clipNodeId);
   GRAPPLE_REQUIRE(stewardMediaViewModel.value().timeline.duration == foundation::TimeSeconds{6.0});
+  const auto stewardClipTransform = stewardMediaWorkspace.value().steward().transformClip(
+    stewardMediaPlacement.value().clipNodeId,
+    "Move clip right and make it smaller."
+  );
+  GRAPPLE_REQUIRE(stewardClipTransform);
+  const agent::AgentConversationState stewardClipTransformConversation =
+    stewardMediaWorkspace.value().steward().conversationState();
+  GRAPPLE_REQUIRE(stewardClipTransformConversation.diagnostics.empty());
+  GRAPPLE_REQUIRE(stewardClipTransformConversation.runs.size() == 2);
+  GRAPPLE_REQUIRE(stewardClipTransformConversation.runs[1].status == agent::AgentRunStatus::Succeeded);
+  GRAPPLE_REQUIRE(stewardClipTransformConversation.runs[1].toolCalls.size() == 1);
+  GRAPPLE_REQUIRE(stewardClipTransformConversation.runs[1].toolCalls[0].toolSerializedId == "timeline.update_clip_transform");
+  GRAPPLE_REQUIRE(stewardClipTransformConversation.runs[1].toolCalls[0].toolDisplayName == "Update Clip Transform");
+  GRAPPLE_REQUIRE(stewardClipTransformConversation.runs[1].toolCalls[0].toolCallId == foundation::ToolId{"tool_steward_clip_transform_2"});
+  GRAPPLE_REQUIRE(stewardClipTransformConversation.runs[1].toolCalls[0].observedRevision == foundation::RevisionId{"rev_3"});
+  GRAPPLE_REQUIRE(stewardClipTransform.value().snapshot.revision == foundation::RevisionId{"rev_3"});
+  GRAPPLE_REQUIRE(stewardMediaWorkspace.value().project().packageState().commandLog.records().back().sourceRunId.has_value());
+  GRAPPLE_REQUIRE(
+    stewardMediaWorkspace.value().project().packageState().commandLog.records().back().sourceRunId.value() ==
+    stewardClipTransformConversation.runs[1].runId
+  );
+  const auto stewardClipTransformViewModel = stewardMediaWorkspace.value().project().buildViewModel();
+  GRAPPLE_REQUIRE(stewardClipTransformViewModel);
+  GRAPPLE_REQUIRE(stewardClipTransformViewModel.value().timeline.clips.size() == 1);
+  GRAPPLE_REQUIRE(stewardClipTransformViewModel.value().timeline.clips[0].transform.position.x == 0.25);
+  GRAPPLE_REQUIRE(stewardClipTransformViewModel.value().timeline.clips[0].transform.position.y == 0.0);
+  GRAPPLE_REQUIRE(stewardClipTransformViewModel.value().timeline.clips[0].transform.scale.x == 0.75);
+  GRAPPLE_REQUIRE(stewardClipTransformViewModel.value().timeline.clips[0].transform.scale.y == 0.75);
+  GRAPPLE_REQUIRE(stewardClipTransformViewModel.value().timeline.clips[0].transform.rotationDegrees == 0.0);
+  GRAPPLE_REQUIRE(stewardClipTransformViewModel.value().timeline.clips[0].transform.opacity == 1.0);
+  GRAPPLE_REQUIRE((stewardClipTransformViewModel.value().timeline.clips[0].timelineRange == foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{6.0}}));
+  GRAPPLE_REQUIRE(stewardClipTransformViewModel.value().timeline.clips[0].assetId == foundation::AssetId{"asset_steward_media_video"});
 
   app::NativeProjectSession runtimeProject{
     foundation::ProjectId{"proj_app_runtime"},
