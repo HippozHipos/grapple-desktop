@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <initializer_list>
 #include <string_view>
 #include <variant>
 
@@ -19,6 +20,7 @@ constexpr double CameraTransformPositionXStep = 0.25;
 constexpr double CameraTransformPositionYStep = 0.2;
 constexpr double CameraTransformZoomInStep = 0.25;
 constexpr double CameraTransformZoomOutStep = 0.2;
+constexpr double ClipRotationStepDegrees = 15.0;
 
 std::string lowercaseAscii(std::string value) {
   for (char& character : value) {
@@ -47,6 +49,71 @@ bool containsAsciiWord(const std::string& value, std::string_view word) {
     position = value.find(word, position + 1);
   }
   return false;
+}
+
+bool startsWithText(std::string_view value, std::string_view text) {
+  return value.substr(0, text.size()) == text;
+}
+
+std::string_view trimLeft(std::string_view value) {
+  while (!value.empty() && std::isspace(static_cast<unsigned char>(value.front())) != 0) {
+    value.remove_prefix(1);
+  }
+  return value;
+}
+
+bool startsNewTransformOperation(std::string_view value) {
+  const std::string_view trimmed = trimLeft(value);
+  for (std::string_view action : {
+         std::string_view{"rotate"},
+         std::string_view{"rotation"},
+         std::string_view{"tilt"},
+         std::string_view{"tilted"},
+         std::string_view{"straighten"},
+         std::string_view{"scale"},
+         std::string_view{"shrink"},
+         std::string_view{"make"},
+         std::string_view{"hide"},
+         std::string_view{"fade"}
+       }) {
+    if (startsWithText(trimmed, action)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+std::string actionClause(
+  const std::string& normalized,
+  std::initializer_list<std::string_view> actionWords
+) {
+  std::size_t actionPosition = std::string::npos;
+  for (std::string_view actionWord : actionWords) {
+    const std::size_t position = normalized.find(actionWord);
+    if (position != std::string::npos && (actionPosition == std::string::npos || position < actionPosition)) {
+      actionPosition = position;
+    }
+  }
+  if (actionPosition == std::string::npos) {
+    return normalized;
+  }
+
+  std::size_t endPosition = normalized.size();
+  for (std::string_view separator : {std::string_view{","}, std::string_view{"."}}) {
+    const std::size_t separatorPosition = normalized.find(separator, actionPosition + 1);
+    if (separatorPosition != std::string::npos && separatorPosition < endPosition) {
+      endPosition = separatorPosition;
+    }
+  }
+  std::size_t andPosition = normalized.find(" and ", actionPosition + 1);
+  while (andPosition != std::string::npos) {
+    if (andPosition < endPosition && startsNewTransformOperation(std::string_view{normalized}.substr(andPosition + 5))) {
+      endPosition = andPosition;
+      break;
+    }
+    andPosition = normalized.find(" and ", andPosition + 5);
+  }
+  return normalized.substr(actionPosition, endPosition - actionPosition);
 }
 
 bool cameraIntentRequestsZoomOut(const std::string& normalized) {
@@ -84,6 +151,71 @@ bool cameraIntentRequestsReset(const std::string& normalized) {
   return containsAsciiWord(normalized, "reset");
 }
 
+bool clipIntentRequestsRotation(const std::string& normalized) {
+  return containsAsciiWord(normalized, "rotate") ||
+         containsAsciiWord(normalized, "rotation") ||
+         containsAsciiWord(normalized, "tilt") ||
+         containsAsciiWord(normalized, "tilted") ||
+         containsAsciiWord(normalized, "straighten");
+}
+
+bool clipIntentRequestsMovement(const std::string& normalized) {
+  if (containsAsciiWord(normalized, "move") ||
+      containsAsciiWord(normalized, "shift") ||
+      containsAsciiWord(normalized, "nudge") ||
+      containsAsciiWord(normalized, "slide") ||
+      containsAsciiWord(normalized, "position")) {
+    return true;
+  }
+  return !clipIntentRequestsRotation(normalized);
+}
+
+std::string clipMovementClause(const std::string& normalized) {
+  if (!clipIntentRequestsMovement(normalized)) {
+    return {};
+  }
+  return actionClause(normalized, {"move", "shift", "nudge", "slide", "position"});
+}
+
+bool clipIntentHasMovementDirection(const std::string& normalized) {
+  const std::string movementClause = clipMovementClause(normalized);
+  return clipIntentRequestsMovement(normalized) &&
+         (containsAsciiWord(movementClause, "left") ||
+          containsAsciiWord(movementClause, "right") ||
+          containsAsciiWord(movementClause, "up") ||
+          containsAsciiWord(movementClause, "down"));
+}
+
+bool clipIntentRequestsScale(const std::string& normalized) {
+  return containsText(normalized, "scale down") ||
+         containsText(normalized, "scale up") ||
+         containsAsciiWord(normalized, "smaller") ||
+         containsAsciiWord(normalized, "shrink") ||
+         containsAsciiWord(normalized, "larger") ||
+         containsAsciiWord(normalized, "bigger");
+}
+
+bool clipIntentRequestsHidden(const std::string& normalized) {
+  return containsAsciiWord(normalized, "invisible") ||
+         containsAsciiWord(normalized, "hide") ||
+         containsAsciiWord(normalized, "hidden");
+}
+
+bool clipIntentRequestsOpaque(const std::string& normalized) {
+  return containsAsciiWord(normalized, "opaque") ||
+         containsText(normalized, "full opacity") ||
+         containsText(normalized, "fully visible") ||
+         containsAsciiWord(normalized, "visible");
+}
+
+bool clipIntentRequestsOpacity(const std::string& normalized) {
+  return clipIntentRequestsHidden(normalized) ||
+         clipIntentRequestsOpaque(normalized) ||
+         containsAsciiWord(normalized, "fade") ||
+         containsAsciiWord(normalized, "transparent") ||
+         containsText(normalized, "half opacity");
+}
+
 double intentStrengthMultiplier(const std::string& normalized) {
   if (containsText(normalized, "a little") ||
       containsAsciiWord(normalized, "slight") ||
@@ -97,6 +229,95 @@ double intentStrengthMultiplier(const std::string& normalized) {
       containsAsciiWord(normalized, "far") ||
       containsAsciiWord(normalized, "dramatic") ||
       containsAsciiWord(normalized, "dramatically")) {
+    return 2.0;
+  }
+  return 1.0;
+}
+
+int clipTransformOperationCount(const std::string& normalized) {
+  int count = 0;
+  if (clipIntentHasMovementDirection(normalized)) {
+    ++count;
+  }
+  if (clipIntentRequestsScale(normalized)) {
+    ++count;
+  }
+  if (clipIntentRequestsRotation(normalized)) {
+    ++count;
+  }
+  if (clipIntentRequestsOpacity(normalized)) {
+    ++count;
+  }
+  return count;
+}
+
+double clipMovementStrengthMultiplier(
+  const std::string& normalized,
+  const std::string& movementClause,
+  bool mixedTransformRequest
+) {
+  if (!mixedTransformRequest) {
+    return intentStrengthMultiplier(normalized);
+  }
+  if (containsText(movementClause, "slightly move") ||
+      containsText(movementClause, "move slightly") ||
+      containsText(movementClause, "a little move") ||
+      containsAsciiWord(movementClause, "nudge")) {
+    return 0.5;
+  }
+  if (containsText(movementClause, "move far") ||
+      containsText(movementClause, "far left") ||
+      containsText(movementClause, "far right") ||
+      containsText(movementClause, "far up") ||
+      containsText(movementClause, "far down") ||
+      containsText(movementClause, "move a lot") ||
+      containsText(movementClause, "move much")) {
+    return 2.0;
+  }
+  return 1.0;
+}
+
+double clipScaleStrengthMultiplier(const std::string& normalized, bool mixedTransformRequest) {
+  if (!mixedTransformRequest) {
+    return intentStrengthMultiplier(normalized);
+  }
+  if (containsText(normalized, "slightly smaller") ||
+      containsText(normalized, "slightly bigger") ||
+      containsText(normalized, "slightly larger") ||
+      containsText(normalized, "a little smaller") ||
+      containsText(normalized, "a little bigger") ||
+      containsText(normalized, "a little larger")) {
+    return 0.5;
+  }
+  if (containsText(normalized, "much smaller") ||
+      containsText(normalized, "much bigger") ||
+      containsText(normalized, "much larger") ||
+      containsText(normalized, "a lot smaller") ||
+      containsText(normalized, "a lot bigger") ||
+      containsText(normalized, "a lot larger")) {
+    return 2.0;
+  }
+  return 1.0;
+}
+
+double clipRotationStrengthMultiplier(const std::string& normalized, bool mixedTransformRequest) {
+  if (!mixedTransformRequest) {
+    return intentStrengthMultiplier(normalized);
+  }
+  if (containsText(normalized, "rotate slightly") ||
+      containsText(normalized, "slightly rotate") ||
+      containsText(normalized, "tilt slightly") ||
+      containsText(normalized, "slightly tilt") ||
+      containsText(normalized, "slightly left") ||
+      containsText(normalized, "slightly right")) {
+    return 0.5;
+  }
+  if (containsText(normalized, "rotate far") ||
+      containsText(normalized, "rotate a lot") ||
+      containsText(normalized, "rotate much") ||
+      containsText(normalized, "tilt far") ||
+      containsText(normalized, "tilt a lot") ||
+      containsText(normalized, "tilt much")) {
     return 2.0;
   }
   return 1.0;
@@ -276,41 +497,72 @@ foundation::Result<timeline::Transform2D> NativeStewardPlanner::clipTransformFor
   const std::string& intent
 ) const {
   const std::string normalized = lowercaseAscii(intent);
-  const double strength = intentStrengthMultiplier(normalized);
+  const bool mixedTransformRequest = clipTransformOperationCount(normalized) > 1;
+  const std::string movementClause = clipMovementClause(normalized);
+  const double movementStrength = clipMovementStrengthMultiplier(normalized, movementClause, mixedTransformRequest);
+  const double scaleStrength = clipScaleStrengthMultiplier(normalized, mixedTransformRequest);
+  const double rotationStrength = clipRotationStrengthMultiplier(normalized, mixedTransformRequest);
   timeline::Transform2D transform = current;
   bool changed = false;
 
-  if (containsAsciiWord(normalized, "left")) {
-    transform.position.x -= CameraTransformPositionXStep * strength;
-    changed = true;
-  } else if (containsAsciiWord(normalized, "right")) {
-    transform.position.x += CameraTransformPositionXStep * strength;
-    changed = true;
-  }
+  if (clipIntentRequestsMovement(normalized)) {
+    if (containsAsciiWord(movementClause, "left")) {
+      transform.position.x -= CameraTransformPositionXStep * movementStrength;
+      changed = true;
+    } else if (containsAsciiWord(movementClause, "right")) {
+      transform.position.x += CameraTransformPositionXStep * movementStrength;
+      changed = true;
+    }
 
-  if (containsAsciiWord(normalized, "up")) {
-    transform.position.y -= CameraTransformPositionYStep * strength;
-    changed = true;
-  } else if (containsAsciiWord(normalized, "down")) {
-    transform.position.y += CameraTransformPositionYStep * strength;
-    changed = true;
+    if (containsAsciiWord(movementClause, "up")) {
+      transform.position.y -= CameraTransformPositionYStep * movementStrength;
+      changed = true;
+    } else if (containsAsciiWord(movementClause, "down")) {
+      transform.position.y += CameraTransformPositionYStep * movementStrength;
+      changed = true;
+    }
   }
 
   if (containsText(normalized, "scale down") ||
       containsAsciiWord(normalized, "smaller") ||
       containsAsciiWord(normalized, "shrink")) {
-    transform.scale.x *= 1.0 - CameraTransformZoomInStep * strength;
-    transform.scale.y *= 1.0 - CameraTransformZoomInStep * strength;
+    transform.scale.x *= 1.0 - CameraTransformZoomInStep * scaleStrength;
+    transform.scale.y *= 1.0 - CameraTransformZoomInStep * scaleStrength;
     changed = true;
   } else if (containsText(normalized, "scale up") ||
              containsAsciiWord(normalized, "larger") ||
              containsAsciiWord(normalized, "bigger")) {
-    transform.scale.x *= 1.0 + CameraTransformZoomInStep * strength;
-    transform.scale.y *= 1.0 + CameraTransformZoomInStep * strength;
+    transform.scale.x *= 1.0 + CameraTransformZoomInStep * scaleStrength;
+    transform.scale.y *= 1.0 + CameraTransformZoomInStep * scaleStrength;
     changed = true;
   }
 
-  if (containsAsciiWord(normalized, "fade") ||
+  if (clipIntentRequestsRotation(normalized)) {
+    if (containsAsciiWord(normalized, "straighten")) {
+      transform.rotationDegrees = 0.0;
+      changed = true;
+    } else if (containsAsciiWord(normalized, "left") ||
+               containsAsciiWord(normalized, "counterclockwise") ||
+               containsText(normalized, "counter clockwise")) {
+      transform.rotationDegrees -= ClipRotationStepDegrees * rotationStrength;
+      changed = true;
+    } else if (containsAsciiWord(normalized, "right") ||
+               containsAsciiWord(normalized, "clockwise")) {
+      transform.rotationDegrees += ClipRotationStepDegrees * rotationStrength;
+      changed = true;
+    } else {
+      transform.rotationDegrees += ClipRotationStepDegrees * rotationStrength;
+      changed = true;
+    }
+  }
+
+  if (clipIntentRequestsHidden(normalized)) {
+    transform.opacity = 0.0;
+    changed = true;
+  } else if (clipIntentRequestsOpaque(normalized)) {
+    transform.opacity = 1.0;
+    changed = true;
+  } else if (containsAsciiWord(normalized, "fade") ||
       containsAsciiWord(normalized, "transparent") ||
       containsText(normalized, "half opacity")) {
     transform.opacity = 0.5;
@@ -320,7 +572,7 @@ foundation::Result<timeline::Transform2D> NativeStewardPlanner::clipTransformFor
   if (!changed) {
     return foundation::Error{
       "steward.clip_transform_intent_unknown",
-      "Clip transform requests must explicitly mention movement, scale, or opacity."
+      "Clip transform requests must explicitly mention movement, scale, rotation, or opacity."
     };
   }
 

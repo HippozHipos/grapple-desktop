@@ -2469,9 +2469,19 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     app.processEvents();
     window.importMediaFile(grapple::foundation::FilePath{starterVideoPath.string()});
     window.clickStewardPrimaryAction();
+    const auto beforeTransformViewModel = workspace.value().project().buildViewModel();
+    if (!beforeTransformViewModel) {
+      printError(beforeTransformViewModel.error());
+      return 1;
+    }
+    if (beforeTransformViewModel.value().timeline.clips.empty()) {
+      std::cerr << "Steward clip transform smoke requires a clip before transform.\n";
+      return 1;
+    }
+    const auto clipBeforeTransform = beforeTransformViewModel.value().timeline.clips.front().transform;
     const std::string selectedClipActionText = window.stewardSelectedClipActionText();
     const bool selectedClipActionEnabledBeforeIntent = window.stewardSelectedClipActionEnabled();
-    window.setStewardIntent("Move selected clip right and make it smaller.");
+    window.setStewardIntent("Move selected clip right, rotate slightly left, make it smaller, and make it invisible.");
     const bool selectedClipActionEnabledAfterIntent = window.stewardSelectedClipActionEnabled();
     window.clickStewardSelectedClipAction();
     const auto viewModel = workspace.value().project().buildViewModel();
@@ -2488,10 +2498,16 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     const std::string stewardIntent = window.stewardIntent();
     const std::string log = window.logContents();
     std::cout << "revision=" << viewModel.value().project.revision.value() << '\n';
+    std::cout << "initialClipPositionX=" << clipBeforeTransform.position.x << '\n';
+    std::cout << "initialClipScaleX=" << clipBeforeTransform.scale.x << '\n';
+    std::cout << "initialClipRotation=" << clipBeforeTransform.rotationDegrees << '\n';
+    std::cout << "initialClipOpacity=" << clipBeforeTransform.opacity << '\n';
     std::cout << "clipPositionX=" << clip.transform.position.x << '\n';
     std::cout << "clipPositionY=" << clip.transform.position.y << '\n';
     std::cout << "clipScaleX=" << clip.transform.scale.x << '\n';
     std::cout << "clipScaleY=" << clip.transform.scale.y << '\n';
+    std::cout << "clipRotation=" << clip.transform.rotationDegrees << '\n';
+    std::cout << "clipOpacity=" << clip.transform.opacity << '\n';
     std::cout << "selectedClipActionText=" << selectedClipActionText << '\n';
     std::cout << "selectedClipActionEnabledBeforeIntent=" << (selectedClipActionEnabledBeforeIntent ? "true" : "false") << '\n';
     std::cout << "selectedClipActionEnabledAfterIntent=" << (selectedClipActionEnabledAfterIntent ? "true" : "false") << '\n';
@@ -2500,11 +2516,12 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "stewardIntent=" << stewardIntent << '\n';
     std::cout << "log=" << log << '\n';
     return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_3"} &&
-           clip.transform.position.x == 0.25 &&
-           clip.transform.position.y == 0.0 &&
-           clip.transform.scale.x == 0.75 &&
-           clip.transform.scale.y == 0.75 &&
-           clip.transform.opacity == 1.0 &&
+           clip.transform.position.x == clipBeforeTransform.position.x + 0.25 &&
+           clip.transform.position.y == clipBeforeTransform.position.y &&
+           clip.transform.scale.x == clipBeforeTransform.scale.x * 0.75 &&
+           clip.transform.scale.y == clipBeforeTransform.scale.y * 0.75 &&
+           clip.transform.rotationDegrees == clipBeforeTransform.rotationDegrees - 7.5 &&
+           clip.transform.opacity == 0.0 &&
            selectedClipActionText == "Type Request To Transform Clip" &&
            !selectedClipActionEnabledBeforeIntent &&
            selectedClipActionEnabledAfterIntent &&
@@ -2513,6 +2530,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
 	           steward.find("Next: choose camera controls or selected clip transform for this request.") != std::string::npos &&
 	           steward.find("Clip target: starter-gradient") != std::string::npos &&
 	           steward.find("Selected clip action: apply the request to clip transform parameters.") != std::string::npos &&
+           steward.find("Rotation=-7.5") != std::string::npos &&
            steward.find("Update Clip Transform -> succeeded") != std::string::npos &&
            log.find("Steward transformed selected clip") != std::string::npos
       ? 0

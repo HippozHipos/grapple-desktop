@@ -520,6 +520,7 @@ foundation::Result<AppCommandProvenance> appCommandProvenance(
           intent,
           "Position=" + paramValueDisplayText(updateClip->payload.transform.position) +
             ", Scale=" + paramValueDisplayText(updateClip->payload.transform.scale) +
+            ", Rotation=" + paramValueDisplayText(updateClip->payload.transform.rotationDegrees) +
             ", Opacity=" + paramValueDisplayText(updateClip->payload.transform.opacity)
         });
       } else if (const auto* addMedia = std::get_if<project::AddMediaToTimelineCommand>(&parsedCommand.value())) {

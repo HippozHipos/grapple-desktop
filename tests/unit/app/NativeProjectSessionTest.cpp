@@ -231,12 +231,55 @@ int main() {
   GRAPPLE_REQUIRE(plannedClipTransform.value().position.y == 0.0);
   GRAPPLE_REQUIRE(plannedClipTransform.value().scale.x == 0.75);
   GRAPPLE_REQUIRE(plannedClipTransform.value().scale.y == 0.75);
+  const auto twoAxisClipTransform =
+    stewardPlanner.clipTransformForIntent(plannedClipInputTransform, "move right and up");
+  GRAPPLE_REQUIRE(twoAxisClipTransform);
+  GRAPPLE_REQUIRE(twoAxisClipTransform.value().position.x == 0.25);
+  GRAPPLE_REQUIRE(twoAxisClipTransform.value().position.y == -0.2);
   const auto strongClipTransform =
     stewardPlanner.clipTransformForIntent(plannedClipInputTransform, "move far right and make much bigger");
   GRAPPLE_REQUIRE(strongClipTransform);
   GRAPPLE_REQUIRE(strongClipTransform.value().position.x == 0.5);
   GRAPPLE_REQUIRE(strongClipTransform.value().scale.x == 1.5);
   GRAPPLE_REQUIRE(strongClipTransform.value().scale.y == 1.5);
+  const auto rotateClipTransform =
+    stewardPlanner.clipTransformForIntent(plannedClipInputTransform, "rotate slightly left and make invisible");
+  GRAPPLE_REQUIRE(rotateClipTransform);
+  GRAPPLE_REQUIRE(rotateClipTransform.value().position.x == 0.0);
+  GRAPPLE_REQUIRE(rotateClipTransform.value().position.y == 0.0);
+  GRAPPLE_REQUIRE(rotateClipTransform.value().scale.x == 1.0);
+  GRAPPLE_REQUIRE(rotateClipTransform.value().scale.y == 1.0);
+  GRAPPLE_REQUIRE(rotateClipTransform.value().rotationDegrees == -7.5);
+  GRAPPLE_REQUIRE(rotateClipTransform.value().opacity == 0.0);
+  const auto rotateRightClipTransform =
+    stewardPlanner.clipTransformForIntent(plannedClipInputTransform, "rotate right");
+  GRAPPLE_REQUIRE(rotateRightClipTransform);
+  GRAPPLE_REQUIRE(rotateRightClipTransform.value().position.x == 0.0);
+  GRAPPLE_REQUIRE(rotateRightClipTransform.value().rotationDegrees == 15.0);
+  const auto rotateWithoutCommaClipTransform =
+    stewardPlanner.clipTransformForIntent(plannedClipInputTransform, "move right and rotate left");
+  GRAPPLE_REQUIRE(rotateWithoutCommaClipTransform);
+  GRAPPLE_REQUIRE(rotateWithoutCommaClipTransform.value().position.x == 0.25);
+  GRAPPLE_REQUIRE(rotateWithoutCommaClipTransform.value().rotationDegrees == -15.0);
+  const auto mixedClipTransform =
+    stewardPlanner.clipTransformForIntent(
+      plannedClipInputTransform,
+      "Move selected clip right, rotate slightly left, make it smaller, and make it invisible."
+    );
+  GRAPPLE_REQUIRE(mixedClipTransform);
+  GRAPPLE_REQUIRE(mixedClipTransform.value().position.x == 0.25);
+  GRAPPLE_REQUIRE(mixedClipTransform.value().scale.x == 0.75);
+  GRAPPLE_REQUIRE(mixedClipTransform.value().scale.y == 0.75);
+  GRAPPLE_REQUIRE(mixedClipTransform.value().rotationDegrees == -7.5);
+  GRAPPLE_REQUIRE(mixedClipTransform.value().opacity == 0.0);
+  timeline::Transform2D rotatedClipInputTransform;
+  rotatedClipInputTransform.rotationDegrees = 22.0;
+  rotatedClipInputTransform.opacity = 0.5;
+  const auto straightenedClipTransform =
+    stewardPlanner.clipTransformForIntent(rotatedClipInputTransform, "straighten and make opaque");
+  GRAPPLE_REQUIRE(straightenedClipTransform);
+  GRAPPLE_REQUIRE(straightenedClipTransform.value().rotationDegrees == 0.0);
+  GRAPPLE_REQUIRE(straightenedClipTransform.value().opacity == 1.0);
   const auto unknownClipTransform =
     stewardPlanner.clipTransformForIntent(plannedClipInputTransform, "make it cinematic");
   GRAPPLE_REQUIRE(!unknownClipTransform);
@@ -1196,6 +1239,7 @@ int main() {
   GRAPPLE_REQUIRE(stewardClipTransformViewModel.value().steward.edits[1].targetName == "Steward Video");
   GRAPPLE_REQUIRE(stewardClipTransformViewModel.value().steward.edits[1].editName == "Clip Transform");
   GRAPPLE_REQUIRE(stewardClipTransformViewModel.value().steward.edits[1].intent == "Move clip right and make it smaller.");
+  GRAPPLE_REQUIRE(stewardClipTransformViewModel.value().steward.edits[1].controlSummary == "Position=0.25, 0, Scale=0.75, 0.75, Rotation=0, Opacity=1");
   const auto stewardMediaWrite = stewardMediaWorkspace.value().writePackage();
   GRAPPLE_REQUIRE(stewardMediaWrite);
   auto reopenedStewardMediaWorkspace =
