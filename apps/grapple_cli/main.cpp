@@ -159,20 +159,23 @@ int main(int argc, char* argv[]) {
       printError(workspace.error());
       return 1;
     }
-    const auto prepare = workspace.value().exportSession().prepareFromProject();
-    if (!prepare) {
-      printError(prepare.error());
+    const auto renderPlan = workspace.value().project().buildRenderPlan();
+    if (!renderPlan) {
+      printError(renderPlan.error());
       return 1;
     }
 
-    const auto result = workspace.value().exportSession().renderToVideo(render::ExportSettings{
-      foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}},
-      foundation::FrameRate{2, 1},
-      foundation::Resolution{1920, 1080},
-      render::Codec{"mjpeg"},
-      render::RenderQuality::Final,
-      foundation::FilePath{"/tmp/grapple-cli-export.avi"}
-    });
+    const auto result = workspace.value().exportSession().renderPlanToVideo(
+      renderPlan.value().plan,
+      render::ExportSettings{
+        foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}},
+        foundation::FrameRate{2, 1},
+        foundation::Resolution{1920, 1080},
+        render::Codec{"mjpeg"},
+        render::RenderQuality::Final,
+        foundation::FilePath{"/tmp/grapple-cli-export.avi"}
+      }
+    );
     if (!result) {
       printError(result.error());
       return 1;
@@ -183,7 +186,7 @@ int main(int argc, char* argv[]) {
       return 1;
     }
 
-    std::cout << "revision=" << prepare.value().revision.value() << '\n';
+    std::cout << "revision=" << renderPlan.value().plan.revision.value() << '\n';
     std::cout << "output=" << result.value().outputPath.value << '\n';
     std::cout << "frames=" << result.value().framesEvaluated << '\n';
     return 0;
