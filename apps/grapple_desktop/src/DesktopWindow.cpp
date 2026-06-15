@@ -39,7 +39,9 @@
 #include <QMouseEvent>
 #include <QPushButton>
 #include <QScrollArea>
+#include <QKeySequence>
 #include <QStringList>
+#include <QShortcut>
 #include <QSlider>
 #include <QSpinBox>
 #include <QTabWidget>
@@ -544,6 +546,7 @@ public:
     jobDispatchTimer_->start();
 
     auto* refreshButton = new QPushButton{"Refresh"};
+    refreshButton->setToolTip("Refresh preview (Ctrl+R)");
     playheadLabel_ = new QLabel;
     playheadLabel_->setObjectName("playheadLabel");
     playButton_ = new QPushButton{"Play"};
@@ -552,12 +555,15 @@ public:
     stepBackButton_ = new QPushButton{"-1s"};
     stepForwardButton_ = new QPushButton{"+1s"};
     auto* importMediaButton = new QPushButton{"Import"};
+    importMediaButton->setToolTip("Import media (Ctrl+Shift+I)");
     addSelectedMediaButton_ = new QPushButton{"Add To Timeline"};
     addSelectedMediaButton_->setEnabled(false);
     undoButton_ = new QPushButton{"Undo"};
     redoButton_ = new QPushButton{"Redo"};
     exportButton_ = new QPushButton{"Export"};
+    exportButton_->setToolTip("Export video (Ctrl+Shift+E)");
     saveButton_ = new QPushButton{"Save"};
+    saveButton_->setToolTip("Save package (Ctrl+S)");
     auto* moreButton = new QPushButton{"More"};
     auto* moreMenu = new QMenu{moreButton};
     auto* newPackageAction = moreMenu->addAction("New Package");
@@ -680,6 +686,26 @@ public:
     connect(deleteTrackAction_, &QAction::triggered, this, [this] { deleteSelectedTrack(); });
     connect(exportButton_, &QPushButton::clicked, this, [this] { chooseAndExportVideo(); });
     connect(saveButton_, &QPushButton::clicked, this, [this] { savePackage(); });
+    auto* saveShortcut = new QShortcut{QKeySequence::Save, this};
+    saveShortcut->setContext(Qt::WindowShortcut);
+    connect(saveShortcut, &QShortcut::activated, this, [this] {
+      if (saveButton_ != nullptr && saveButton_->isEnabled()) {
+        savePackage();
+      }
+    });
+    auto* refreshShortcut = new QShortcut{QKeySequence{QStringLiteral("Ctrl+R")}, this};
+    refreshShortcut->setContext(Qt::WindowShortcut);
+    connect(refreshShortcut, &QShortcut::activated, this, [this] { refreshPreview(true); });
+    auto* importShortcut = new QShortcut{QKeySequence{QStringLiteral("Ctrl+Shift+I")}, this};
+    importShortcut->setContext(Qt::WindowShortcut);
+    connect(importShortcut, &QShortcut::activated, this, [this] { chooseAndImportMedia(); });
+    auto* exportShortcut = new QShortcut{QKeySequence{QStringLiteral("Ctrl+Shift+E")}, this};
+    exportShortcut->setContext(Qt::WindowShortcut);
+    connect(exportShortcut, &QShortcut::activated, this, [this] {
+      if (exportButton_ != nullptr && exportButton_->isEnabled()) {
+        chooseAndExportVideo();
+      }
+    });
     steward_->setImportMediaHandler([this] { chooseAndImportMedia(); });
     steward_->setAddCameraHandler([this] { addCamera(); });
     steward_->setAddSelectedMediaHandler([this] { placeSelectedMediaWithSteward(); });
