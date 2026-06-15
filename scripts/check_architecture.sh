@@ -47,6 +47,10 @@ failed = False
 for label, (path, pattern) in groups.items():
     text = path.read_text()
     ids = re.findall(pattern, text, flags=re.S)
+    if not ids:
+        failed = True
+        print(f"{path}:{label}: no serialized ids matched by architecture guard")
+        continue
     counts = {}
     for value in ids:
         counts[value] = counts.get(value, 0) + 1
