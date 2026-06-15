@@ -8,6 +8,7 @@
 
 #include <cstdint>
 #include <optional>
+#include <string>
 #include <vector>
 
 namespace {
@@ -93,6 +94,34 @@ public:
 
   int requests = 0;
   std::optional<grapple::render::SourceFrameRequest> lastRequest;
+};
+
+class LayeredFrameSource final : public grapple::render::IRenderFrameSource {
+public:
+  grapple::foundation::Result<grapple::render::SourceFrame> frameAt(
+    const grapple::render::SourceFrameRequest& request
+  ) override {
+    ++requests;
+    requestedAssets.push_back(request.assetId.value());
+    if (request.assetId == grapple::foundation::AssetId{"asset_overlay"}) {
+      return grapple::render::SourceFrame{
+        request.assetId,
+        request.sourceTime,
+        grapple::foundation::Resolution{2, 1},
+        {200, 10, 10, 255, 0, 0, 0, 0}
+      };
+    }
+
+    return grapple::render::SourceFrame{
+      request.assetId,
+      request.sourceTime,
+      grapple::foundation::Resolution{2, 1},
+      {10, 20, 30, 255, 40, 50, 60, 255}
+    };
+  }
+
+  int requests = 0;
+  std::vector<std::string> requestedAssets;
 };
 
 class ThreePixelFrameSource final : public grapple::render::IRenderFrameSource {
@@ -416,6 +445,29 @@ grapple::projection::RenderPlan makeClipTransformRenderPlan() {
   });
 }
 
+grapple::projection::RenderPlan makeLayeredRenderPlan() {
+  grapple::projection::RenderPlan plan = makeRenderPlan();
+  plan.clips.push_back(grapple::projection::RenderClip{
+    grapple::foundation::NodeId{"node_overlay_clip"},
+    grapple::foundation::NodeId{"node_track"},
+    grapple::timeline::ClipPayload{
+      grapple::timeline::ClipKind::Video,
+      grapple::foundation::TimeRange{
+        grapple::foundation::TimeSeconds{0.0},
+        grapple::foundation::TimeSeconds{6.0}
+      },
+      grapple::foundation::TimeRange{
+        grapple::foundation::TimeSeconds{2.0},
+        grapple::foundation::TimeSeconds{8.0}
+      },
+      1.0,
+      grapple::foundation::AssetId{"asset_overlay"},
+      grapple::timeline::Transform2D{}
+    }
+  });
+  return plan;
+}
+
 grapple::render::ExportSettings makeExportSettings(grapple::foundation::Resolution resolution) {
   return grapple::render::ExportSettings{
     grapple::foundation::TimeRange{
@@ -654,6 +706,50 @@ int main() {
   GRAPPLE_REQUIRE(frameSource.lastRequest->assetId == foundation::AssetId{"asset_video"});
   GRAPPLE_REQUIRE(frameSource.lastRequest->sourceTime == foundation::TimeSeconds{4.0});
   GRAPPLE_REQUIRE(frameSource.lastRequest->quality == render::RenderQuality::Draft);
+
+  LayeredFrameSource layeredFrameSource;
+  render::LocalRenderCore layeredImageCore{runtime, layeredFrameSource};
+  render::PreviewRenderShell layeredImagePreview{layeredImageCore};
+  const auto layeredImageLoad = layeredImageCore.loadPlan(makeLayeredRenderPlan());
+  GRAPPLE_REQUIRE(layeredImageLoad);
+  const auto layeredImageFrame = layeredImagePreview.renderFrame(render::RenderFrameRequest{
+    foundation::TimeSeconds{4.0},
+    render::RenderQuality::Draft
+  });
+  GRAPPLE_REQUIRE(layeredImageFrame);
+  GRAPPLE_REQUIRE(layeredImageFrame.value().frame.image.has_value());
+  GRAPPLE_REQUIRE(layeredImageFrame.value().frame.mediaFrames.size() == 2);
+  GRAPPLE_REQUIRE((layeredImageFrame.value().frame.image->resolution == foundation::Resolution{2, 1}));
+  GRAPPLE_REQUIRE((layeredImageFrame.value().frame.image->rgbaPixels == std::vector<std::uint8_t>{
+    200, 10, 10, 255,
+    40, 50, 60, 255
+  }));
+  GRAPPLE_REQUIRE(layeredFrameSource.requests == 2);
+  GRAPPLE_REQUIRE((layeredFrameSource.requestedAssets == std::vector<std::string>{"asset_video", "asset_overlay"}));
+
+  LayeredFrameSource layeredFinalFrameSource;
+  render::LocalRenderCore layeredFinalImageCore{runtime, layeredFinalFrameSource};
+  render::FinalRenderShell layeredFinalRender{layeredFinalImageCore};
+  const auto layeredFinalImageLoad = layeredFinalImageCore.loadPlan(makeLayeredRenderPlan());
+  GRAPPLE_REQUIRE(layeredFinalImageLoad);
+  CapturingRangeSink layeredFinalSink;
+  const auto layeredFinalResult = layeredFinalRender.render(render::FinalRenderRequest{
+    makeExportSettings(foundation::Resolution{1920, 1080}),
+    &layeredFinalSink
+  });
+  GRAPPLE_REQUIRE(layeredFinalResult);
+  GRAPPLE_REQUIRE(layeredFinalResult.value().framesEvaluated == 2);
+  GRAPPLE_REQUIRE(layeredFinalResult.value().runtimeDiagnostics.empty());
+  GRAPPLE_REQUIRE(layeredFinalSink.frameImages.size() == 2);
+  GRAPPLE_REQUIRE(layeredFinalSink.frameImages[0].has_value());
+  GRAPPLE_REQUIRE((layeredFinalSink.frameImages[0]->rgbaPixels == layeredImageFrame.value().frame.image->rgbaPixels));
+  GRAPPLE_REQUIRE(layeredFinalFrameSource.requests == 4);
+  GRAPPLE_REQUIRE((layeredFinalFrameSource.requestedAssets == std::vector<std::string>{
+    "asset_video",
+    "asset_overlay",
+    "asset_video",
+    "asset_overlay"
+  }));
 
   TestFrameSource shiftedClipFrameSource;
   render::LocalRenderCore shiftedClipImageCore{runtime, shiftedClipFrameSource};
