@@ -508,6 +508,9 @@ int main() {
   const runtime::RuntimeDependencyGraph first = planner.build(makePlan("Video"));
   const runtime::RuntimeDependencyGraph second = planner.build(makePlan("Video"));
   const runtime::RuntimeDependencyGraph changed = planner.build(makePlan("Changed"));
+  projection::RenderPlan changedDurationPlan = makePlan("Video");
+  changedDurationPlan.duration = foundation::TimeSeconds{11.0};
+  const runtime::RuntimeDependencyGraph changedDuration = planner.build(changedDurationPlan);
   const runtime::RuntimeDependencyGraph firstClip = planner.build(makeClipPlan(1.0));
   const runtime::RuntimeDependencyGraph changedClip = planner.build(makeClipPlan(2.0));
   const runtime::RuntimeDependencyGraph renamedLayerClip = planner.build(makeClipPlanWithLayerName("Renamed"));
@@ -519,7 +522,8 @@ int main() {
 
   GRAPPLE_REQUIRE(first.planHash == second.planHash);
   GRAPPLE_REQUIRE(first.projectId == foundation::ProjectId{"proj_runtime"});
-  GRAPPLE_REQUIRE(!(first.planHash == changed.planHash));
+  GRAPPLE_REQUIRE(first.planHash == changed.planHash);
+  GRAPPLE_REQUIRE(!(first.planHash == changedDuration.planHash));
   GRAPPLE_REQUIRE(firstClip.nodes.size() == 1);
   GRAPPLE_REQUIRE(firstClip.nodes[0].id == runtime::RuntimeDependencyId{"dep_node_clip"});
   GRAPPLE_REQUIRE(firstClip.nodes[0].renderNodeId == foundation::NodeId{"node_clip"});
@@ -570,7 +574,7 @@ int main() {
   GRAPPLE_REQUIRE(clipCacheKey.assetDependencies.size() == 1);
   GRAPPLE_REQUIRE(clipCacheKey.assetDependencies[0].assetId == foundation::AssetId{"asset_video"});
   GRAPPLE_REQUIRE(clipCacheKey.modelDependencies.empty());
-  GRAPPLE_REQUIRE(!(firstClip.planHash == renamedLayerClip.planHash));
+  GRAPPLE_REQUIRE(firstClip.planHash == renamedLayerClip.planHash);
   GRAPPLE_REQUIRE(runtime::runtimeCacheKeyForDependency(firstClip, firstClip.nodes[0], "runtime_v1") ==
                   runtime::runtimeCacheKeyForDependency(renamedLayerClip, renamedLayerClip.nodes[0], "runtime_v1"));
   const runtime::RuntimeDependencyGraph changedEffectChain = planner.build(makeEffectChainPlan(0.9));

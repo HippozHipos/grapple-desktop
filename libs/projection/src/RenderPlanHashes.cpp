@@ -3,6 +3,7 @@
 #include <grapple/projection/RenderPlanSerializer.hpp>
 #include <grapple/timeline/TimelineSerializer.hpp>
 
+#include <iomanip>
 #include <sstream>
 
 namespace grapple::projection {
@@ -40,10 +41,8 @@ foundation::Hash256 hashRenderCameraImplementation() {
 foundation::Hash256 hashRenderCameraParams(const RenderCamera& camera) {
   std::ostringstream stream;
   stream << "camera|" << camera.sourceNodeId.value() << '|'
-         << timeline::serializeCanonicalCameraPayload(timeline::CameraPayload{
-              camera.name,
-              camera.state
-            });
+         << timeline::serializeCanonicalTransform(camera.state.transform)
+         << "|focalLength=" << std::setprecision(17) << camera.state.lens.focalLength;
   return foundation::stableHash(stream.str());
 }
 
@@ -53,7 +52,7 @@ foundation::Hash256 hashRenderEffectImplementation(const RenderEffectNode& effec
 
 foundation::Hash256 hashRenderEffectParams(const RenderEffectNode& effectNode) {
   std::ostringstream stream;
-  stream << timeline::serializeCanonicalEffectParams(effectNode.payload);
+  stream << timeline::serializeCanonicalRuntimeEffectParams(effectNode.payload);
   return foundation::stableHash(stream.str());
 }
 

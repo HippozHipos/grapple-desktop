@@ -90,7 +90,30 @@ const char* effectSourceKindName(EffectSourceKind kind) {
   std::abort();
 }
 
-void writeEffectParamsBody(std::ostringstream& stream, const EffectPayload& payload) {
+void writeEffectModelDependencies(std::ostringstream& stream, const EffectPayload& payload) {
+  std::vector<EffectModelDependency> modelDependencies = payload.modelDependencies;
+  std::sort(
+    modelDependencies.begin(),
+    modelDependencies.end(),
+    [](const EffectModelDependency& left, const EffectModelDependency& right) {
+      return left.modelId < right.modelId;
+    }
+  );
+  stream << "\"modelDependencies\":[";
+  for (std::size_t index = 0; index < modelDependencies.size(); ++index) {
+    if (index != 0) {
+      stream << ',';
+    }
+    stream << '{';
+    foundation::writeJsonStringProperty(stream, "modelId", modelDependencies[index].modelId.value());
+    stream << ',';
+    foundation::writeJsonStringProperty(stream, "versionHash", modelDependencies[index].versionHash.toHex());
+    stream << '}';
+  }
+  stream << ']';
+}
+
+void writeEffectPorts(std::ostringstream& stream, const EffectPayload& payload) {
   stream << "\"ports\":{\"inputs\":[";
   for (std::size_t index = 0; index < payload.ports.inputs.size(); ++index) {
     if (index != 0) {
@@ -109,28 +132,15 @@ void writeEffectParamsBody(std::ostringstream& stream, const EffectPayload& payl
     foundation::writeJsonStringProperty(stream, "name", payload.ports.outputs[index].name);
     stream << '}';
   }
-  stream << "]},\"params\":" << serializeCanonicalParamSet(payload.params);
+  stream << "]}";
+}
+
+void writeEffectParamsBody(std::ostringstream& stream, const EffectPayload& payload) {
+  writeEffectPorts(stream, payload);
+  stream << ",\"params\":" << serializeCanonicalParamSet(payload.params);
   stream << ",\"activeRange\":" << serializeCanonicalTimeRange(payload.activeRange);
-  std::vector<EffectModelDependency> modelDependencies = payload.modelDependencies;
-  std::sort(
-    modelDependencies.begin(),
-    modelDependencies.end(),
-    [](const EffectModelDependency& left, const EffectModelDependency& right) {
-      return left.modelId < right.modelId;
-    }
-  );
-  stream << ",\"modelDependencies\":[";
-  for (std::size_t index = 0; index < modelDependencies.size(); ++index) {
-    if (index != 0) {
-      stream << ',';
-    }
-    stream << '{';
-    foundation::writeJsonStringProperty(stream, "modelId", modelDependencies[index].modelId.value());
-    stream << ',';
-    foundation::writeJsonStringProperty(stream, "versionHash", modelDependencies[index].versionHash.toHex());
-    stream << '}';
-  }
-  stream << ']';
+  stream << ',';
+  writeEffectModelDependencies(stream, payload);
 }
 
 } // namespace
@@ -259,6 +269,41 @@ std::string serializeCanonicalParamSet(const ParamSet& params) {
   return stream.str();
 }
 
+std::string serializeCanonicalRuntimeParamSet(const ParamSet& params) {
+  std::vector<Param> sortedParams = params.values;
+  std::sort(sortedParams.begin(), sortedParams.end(), [](const Param& left, const Param& right) {
+    return left.name < right.name;
+  });
+
+  std::ostringstream stream;
+  stream << '[';
+  for (std::size_t index = 0; index < sortedParams.size(); ++index) {
+    if (index != 0) {
+      stream << ',';
+    }
+    stream << '{';
+    foundation::writeJsonStringProperty(stream, "name", sortedParams[index].name);
+    stream << ",\"value\":" << serializeCanonicalParamValue(sortedParams[index].value);
+    std::vector<Param::Keyframe> sortedKeyframes = sortedParams[index].keyframes;
+    std::sort(sortedKeyframes.begin(), sortedKeyframes.end(), [](const Param::Keyframe& left, const Param::Keyframe& right) {
+      if (left.time != right.time) {
+        return left.time < right.time;
+      }
+      return left.id < right.id;
+    });
+    stream << ",\"keyframes\":[";
+    for (std::size_t keyframeIndex = 0; keyframeIndex < sortedKeyframes.size(); ++keyframeIndex) {
+      if (keyframeIndex != 0) {
+        stream << ',';
+      }
+      stream << serializeCanonicalParamKeyframe(sortedKeyframes[keyframeIndex]);
+    }
+    stream << "]}";
+  }
+  stream << ']';
+  return stream.str();
+}
+
 std::string serializeCanonicalCameraPayload(const CameraPayload& payload) {
   std::ostringstream stream;
   stream << '{';
@@ -315,6 +360,26 @@ std::string serializeCanonicalEffectParams(const EffectPayload& payload) {
   foundation::writeJsonStringProperty(stream, "displayName", payload.displayName);
   stream << ',';
   writeEffectParamsBody(stream, payload);
+  stream << '}';
+  return stream.str();
+}
+
+std::string serializeCanonicalRuntimeEffectParams(const EffectPayload& payload) {
+  std::ostringstream stream;
+  stream << '{';
+  writeEffectPorts(stream, payload);
+  stream << ",\"params\":" << serializeCanonicalRuntimeParamSet(payload.params);
+  stream << ",\"activeRange\":" << serializeCanonicalTimeRange(payload.activeRange);
+  stream << ',';
+  writeEffectModelDependencies(stream, payload);
+  stream << '}';
+  return stream.str();
+}
+
+std::string serializeCanonicalRuntimeEffectPayload(const EffectPayload& payload) {
+  std::ostringstream stream;
+  stream << "{\"implementation\":" << serializeCanonicalEffectImplementation(payload.implementation);
+  stream << ",\"runtimeParams\":" << serializeCanonicalRuntimeEffectParams(payload);
   stream << '}';
   return stream.str();
 }

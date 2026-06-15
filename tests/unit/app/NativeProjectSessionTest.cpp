@@ -1143,6 +1143,26 @@ int main() {
   GRAPPLE_REQUIRE(noteOnlyRefresh.value().preparedPlanHash == countedPrepare.value().preparedPlanHash);
   GRAPPLE_REQUIRE(countedRenderSystem.state().core.revision == noteOnlyEdit.value().snapshot.revision);
   GRAPPLE_REQUIRE(countedRuntime.prepareCount == 1);
+  const auto renamedCamera = runtimeWorkspace.value().commandWriter().apply(
+    project::UpdateCameraCommand{
+      runtimeCameraNodeId,
+      timeline::CameraPayload{
+        "Renamed Camera",
+        timeline::CameraState{
+          timeline::Transform2D{},
+          timeline::CameraLens{35.0}
+        }
+      }
+    },
+    userSource()
+  );
+  GRAPPLE_REQUIRE(renamedCamera);
+  const auto renamedCameraRefresh = countedPreview.refreshFromProject();
+  GRAPPLE_REQUIRE(renamedCameraRefresh);
+  GRAPPLE_REQUIRE(renamedCameraRefresh.value().revision == renamedCamera.value().snapshot.revision);
+  GRAPPLE_REQUIRE(renamedCameraRefresh.value().preparedPlanHash == countedPrepare.value().preparedPlanHash);
+  GRAPPLE_REQUIRE(countedRenderSystem.state().core.revision == renamedCamera.value().snapshot.revision);
+  GRAPPLE_REQUIRE(countedRuntime.prepareCount == 1);
   const auto runtimeRefresh = runtimeWorkspace.value().preview().refreshFromProject();
   GRAPPLE_REQUIRE(runtimeRefresh);
   const auto runtimeFrame = runtimeWorkspace.value().preview().renderFrame(render::RenderFrameRequest{

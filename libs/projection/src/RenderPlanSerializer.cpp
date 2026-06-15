@@ -47,7 +47,7 @@ std::string optionalNodeIdValue(const std::optional<foundation::NodeId>& nodeId)
 
 std::string serializeCanonicalRenderPlanWithMode(
   const RenderPlan& plan,
-  bool includeRevisionAndDiagnostics
+  bool includeDocumentMetadata
 ) {
   std::vector<RenderLayer> layers = plan.layers;
   std::sort(layers.begin(), layers.end(), [](const RenderLayer& left, const RenderLayer& right) {
@@ -114,12 +114,14 @@ std::string serializeCanonicalRenderPlanWithMode(
   std::ostringstream stream;
   stream << '{';
   foundation::writeJsonStringProperty(stream, "projectId", plan.projectId.value());
-  if (includeRevisionAndDiagnostics) {
+  if (includeDocumentMetadata) {
     stream << ',';
     foundation::writeJsonStringProperty(stream, "revision", plan.revision.value());
   }
   stream << ",\"stage\":{";
-  foundation::writeJsonStringProperty(stream, "name", plan.stage.name);
+  if (includeDocumentMetadata) {
+    foundation::writeJsonStringProperty(stream, "name", plan.stage.name);
+  }
   stream << "},\"duration\":";
   writeNumber(stream, plan.duration.value);
   stream << ",\"assets\":[";
@@ -142,8 +144,10 @@ std::string serializeCanonicalRenderPlanWithMode(
     const RenderLayer& layer = layers[index];
     stream << '{';
     foundation::writeJsonStringProperty(stream, "sourceNodeId", layer.sourceNodeId.value());
-    stream << ',';
-    foundation::writeJsonStringProperty(stream, "name", layer.name);
+    if (includeDocumentMetadata) {
+      stream << ',';
+      foundation::writeJsonStringProperty(stream, "name", layer.name);
+    }
     stream << '}';
   }
   stream << "],\"audioTracks\":[";
@@ -154,8 +158,10 @@ std::string serializeCanonicalRenderPlanWithMode(
     const RenderAudioTrack& track = audioTracks[index];
     stream << '{';
     foundation::writeJsonStringProperty(stream, "sourceNodeId", track.sourceNodeId.value());
-    stream << ',';
-    foundation::writeJsonStringProperty(stream, "name", track.name);
+    if (includeDocumentMetadata) {
+      stream << ',';
+      foundation::writeJsonStringProperty(stream, "name", track.name);
+    }
     stream << '}';
   }
   stream << "],\"clips\":[";
@@ -194,8 +200,6 @@ std::string serializeCanonicalRenderPlanWithMode(
     const RenderCamera& camera = cameras[index];
     stream << '{';
     foundation::writeJsonStringProperty(stream, "sourceNodeId", camera.sourceNodeId.value());
-    stream << ',';
-    foundation::writeJsonStringProperty(stream, "name", camera.name);
     stream << ",\"state\":{\"transform\":";
     stream << timeline::serializeCanonicalTransform(camera.state.transform);
     stream << ",\"lens\":{\"focalLength\":";
@@ -221,7 +225,9 @@ std::string serializeCanonicalRenderPlanWithMode(
       stream << '{';
       foundation::writeJsonStringProperty(stream, "sourceNodeId", node.sourceNodeId.value());
       stream << ",\"payload\":";
-      stream << timeline::serializeCanonicalEffectPayload(node.payload);
+      stream << (includeDocumentMetadata
+        ? timeline::serializeCanonicalEffectPayload(node.payload)
+        : timeline::serializeCanonicalRuntimeEffectPayload(node.payload));
       stream << '}';
     }
     stream << "],\"edges\":[";
@@ -246,7 +252,7 @@ std::string serializeCanonicalRenderPlanWithMode(
     stream << "]}";
   }
   stream << ']';
-  if (includeRevisionAndDiagnostics) {
+  if (includeDocumentMetadata) {
     stream << ",\"diagnostics\":[";
     for (std::size_t index = 0; index < diagnostics.size(); ++index) {
       if (index != 0) {

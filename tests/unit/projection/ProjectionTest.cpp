@@ -280,6 +280,17 @@ int main() {
   GRAPPLE_REQUIRE(projection::serializeCanonicalRenderPlan(revisionOnlyPlan) != serializedPlan);
   GRAPPLE_REQUIRE(projection::serializeCanonicalRenderPlanContent(revisionOnlyPlan) == serializedPlanContent);
   GRAPPLE_REQUIRE(projection::hashRenderPlan(revisionOnlyPlan) == projection::hashRenderPlan(planResult.value().plan));
+  projection::RenderPlan displayOnlyPlan = planResult.value().plan;
+  displayOnlyPlan.stage.name = "Renamed Stage";
+  displayOnlyPlan.layers[0].name = "Renamed Layer";
+  displayOnlyPlan.cameras[0].name = "Renamed Camera";
+  displayOnlyPlan.effectGraphs[0].nodes[0].payload.displayName = "Renamed Effect";
+  displayOnlyPlan.effectGraphs[0].nodes[0].payload.params.values[0].control.label = "Renamed Target X";
+  displayOnlyPlan.effectGraphs[0].nodes[0].payload.params.values[0].control.numeric =
+    timeline::Param::NumericControl{-10.0, 10.0, 0.5};
+  GRAPPLE_REQUIRE(projection::serializeCanonicalRenderPlan(displayOnlyPlan) != serializedPlan);
+  GRAPPLE_REQUIRE(projection::serializeCanonicalRenderPlanContent(displayOnlyPlan) == serializedPlanContent);
+  GRAPPLE_REQUIRE(projection::hashRenderPlan(displayOnlyPlan) == projection::hashRenderPlan(planResult.value().plan));
   GRAPPLE_REQUIRE(serializedPlan.find("\"projectId\":\"proj_projection\"") != std::string::npos);
   GRAPPLE_REQUIRE(serializedPlan.find("\"duration\":10") != std::string::npos);
   GRAPPLE_REQUIRE(serializedPlan.find("\"inlineSource\":\"def prepare(ctx):\\n  return {'x': 1}\\n\"") != std::string::npos);
