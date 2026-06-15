@@ -6,6 +6,7 @@
 #include <grapple/foundation/Hash.hpp>
 #include <grapple/graph/GraphEdge.hpp>
 #include <grapple/jobs/MainThreadDispatcher.hpp>
+#include <grapple/project/ProjectMediaPlacement.hpp>
 #include <grapple/render/RenderDiagnostic.hpp>
 #include <grapple/runtime/RuntimeDiagnostic.hpp>
 #include <grapple/timeline/Payloads.hpp>
@@ -57,6 +58,8 @@
 #include <vector>
 
 namespace {
+
+constexpr double DefaultImagePlacementDurationSeconds = 5.0;
 
 QString qString(const std::string& value) {
   return QString::fromStdString(value);
@@ -665,7 +668,7 @@ public:
     connect(saveButton, &QPushButton::clicked, this, [this] { savePackage(); });
     steward_->setImportMediaHandler([this] { chooseAndImportMedia(); });
     steward_->setAddCameraHandler([this] { addCamera(); });
-    steward_->setAddSelectedMediaHandler([this] { addSelectedMediaToTimeline(); });
+    steward_->setAddSelectedMediaHandler([this] { placeSelectedMediaWithSteward(); });
     steward_->setShowCameraControlsHandler([this](grapple::foundation::NodeId cameraNodeId) {
       selectNode(std::move(cameraNodeId));
       showEffectControls();
@@ -1677,6 +1680,59 @@ public:
   }
 
   void addSelectedMediaToTimeline() {
+    if (!selectedAssetId_.has_value()) {
+      appendError(grapple::foundation::Error{"desktop.asset_selection_missing", "Adding media to the timeline requires a selected media asset."});
+      return;
+    }
+
+    auto snapshot = workspace_.project().snapshot();
+    if (!snapshot) {
+      appendError(snapshot.error());
+      return;
+    }
+
+    const grapple::asset::Asset* selectedAsset = snapshot.value().assets.find(selectedAssetId_.value());
+    if (selectedAsset == nullptr) {
+      appendError(grapple::foundation::Error{"desktop.asset_missing", "Selected media asset does not exist in the project."});
+      return;
+    }
+    const std::optional<grapple::foundation::TimeSeconds> duration =
+      selectedAsset->metadata.mediaType == grapple::asset::AssetMediaType::Image
+        ? std::optional<grapple::foundation::TimeSeconds>{grapple::foundation::TimeSeconds{DefaultImagePlacementDurationSeconds}}
+        : std::nullopt;
+    auto compositions = grapple::project::inspectCompositions(snapshot.value());
+    if (!compositions) {
+      appendError(compositions.error());
+      return;
+    }
+    auto placement = grapple::project::buildMediaPlacementDraft(
+      workspace_.commandWriter(),
+      *selectedAsset,
+      std::nullopt,
+      duration,
+      compositions.value().compositions
+    );
+    if (!placement) {
+      appendError(placement.error());
+      return;
+    }
+
+    const auto result = workspace_.commandWriter().apply(
+      std::move(placement.value().command),
+      userSource()
+    );
+    if (!result) {
+      appendError(result.error());
+      return;
+    }
+
+    selectedNodeId_ = placement.value().clipNodeId;
+    selectedAssetId_ = std::nullopt;
+    refreshViewModelAndPreview();
+    log_->append("Added selected media to timeline");
+  }
+
+  void placeSelectedMediaWithSteward() {
     if (!selectedAssetId_.has_value()) {
       appendError(grapple::foundation::Error{"desktop.asset_selection_missing", "Adding media to the timeline requires a selected media asset."});
       return;
