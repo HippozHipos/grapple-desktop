@@ -1902,6 +1902,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            stewardActionEnabledAfterImport &&
            stewardRecentEdits == 5 &&
            stewardSelectedRecentEdit == 0 &&
+           stewardSelectedRecentEditText.find("Recenter the subject.") != std::string::npos &&
            stewardSelectedRecentEditText.find("Camera Transform Controls on Camera") != std::string::npos &&
            selectedAfterRecentEdit.has_value() &&
            selectedAfterRecentEdit.value() == viewModel.value().timeline.cameras.front().sourceNodeId &&

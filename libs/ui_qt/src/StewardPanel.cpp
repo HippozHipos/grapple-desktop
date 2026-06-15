@@ -309,14 +309,20 @@ void StewardPanel::setViewModel(
     const QString editText = edit->editName.empty()
       ? QString{"Edit"}
       : qString(edit->editName);
+    const QString requestText = edit->intent.empty()
+      ? editText
+      : qString(edit->intent);
     const QString targetText = edit->targetName.empty()
       ? QString{}
       : QString{" on %1"}.arg(qString(edit->targetName));
+    const QString resultText = edit->targetName.empty() && edit->editName.empty()
+      ? QString{}
+      : QString{" -> %1%2"}.arg(editText).arg(targetText);
     auto* item = new QListWidgetItem{
-      QString{"%1 %2%3"}.arg(qString(edit->revision.value())).arg(editText).arg(targetText)
+      QString{"%1 %2%3"}.arg(qString(edit->revision.value())).arg(requestText).arg(resultText)
     };
     item->setData(Qt::UserRole, qString(edit->targetNodeId->value()));
-    item->setToolTip(qString(edit->intent));
+    item->setToolTip(item->text());
     recentEdits_->addItem(item);
     if (selectedEditRow == -1 && selectedNodeId.has_value() && selectedNodeId.value() == edit->targetNodeId.value()) {
       selectedEditRow = recentEdits_->count() - 1;
