@@ -2114,7 +2114,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     window.importMediaFile(grapple::foundation::FilePath{starterVideoPath.string()});
     const std::string stewardActionAfterImport = window.stewardPrimaryActionText();
     const bool stewardActionEnabledAfterImport = window.stewardPrimaryActionEnabled();
-    window.clickStewardPrimaryAction();
+    const bool addMediaActionEnabledAfterImport = window.addSelectedMediaActionEnabled();
+    window.addSelectedMediaToTimeline();
     const auto basePreviewFrame = workspace.value().preview().renderFrame(grapple::render::RenderFrameRequest{
       workspace.value().preview().state().playhead,
       grapple::render::RenderQuality::Draft
@@ -2248,6 +2249,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "stewardIntent=" << stewardIntent << '\n';
     std::cout << "stewardActionAfterImport=" << stewardActionAfterImport << '\n';
     std::cout << "stewardActionEnabledAfterImport=" << (stewardActionEnabledAfterImport ? "true" : "false") << '\n';
+    std::cout << "addMediaActionEnabledAfterImport=" << (addMediaActionEnabledAfterImport ? "true" : "false") << '\n';
     std::cout << "stewardAction=" << stewardActionText << '\n';
     std::cout << "stewardActionEnabled=" << (stewardActionEnabled ? "true" : "false") << '\n';
     std::cout << "effectParamTitle=" << effectParamTitle << '\n';
@@ -2262,7 +2264,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            previewPixelsChanged &&
            stewardActionAfterImport == "Add Selected Media To Timeline" &&
            stewardActionEnabledAfterImport &&
-           stewardRecentEdits == 5 &&
+           addMediaActionEnabledAfterImport &&
+           stewardRecentEdits == 4 &&
            stewardSelectedRecentEdit == 0 &&
            stewardSelectedRecentEditText.find("Recenter the subject.") != std::string::npos &&
            stewardSelectedRecentEditText.find("Camera Transform on Camera") != std::string::npos &&
@@ -2272,8 +2275,9 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
 	           steward.find("Next: apply the request to the exposed camera controls.") != std::string::npos &&
 	           steward.find("Latest result: Camera Transform on Camera (" + viewModel.value().project.revision.value() + ")") != std::string::npos &&
 	           steward.find("Latest request: Recenter the subject.") != std::string::npos &&
-	           steward.find("Camera target: Camera") != std::string::npos &&
+           steward.find("Camera target: Camera") != std::string::npos &&
 	           steward.find("Applied edits: select one to inspect its target.") != std::string::npos &&
+           steward.find("Place Asset On Timeline") == std::string::npos &&
            steward.find("- Recenter the subject. [succeeded]") != std::string::npos &&
            steward.find("- Make the subject bigger. [succeeded]") != std::string::npos &&
            steward.find("Update Effect Parameter -> succeeded") != std::string::npos &&
@@ -2288,7 +2292,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            effectParamPanel.find("Zoom") != std::string::npos &&
            effectParamPanel.find("Last changed by steward at ") != std::string::npos &&
            log.find("Imported starter-gradient") != std::string::npos &&
-           log.find("Steward added selected media to timeline") != std::string::npos &&
+           log.find("Added selected media to timeline") != std::string::npos &&
+           log.find("Steward added selected media to timeline") == std::string::npos &&
            log.find("Steward applied camera edit") != std::string::npos &&
            log.find("Steward adjusted camera controls") != std::string::npos &&
            log.find(expectedExportProvenance) != std::string::npos &&
