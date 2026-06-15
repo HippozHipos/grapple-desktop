@@ -2025,8 +2025,10 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     window.clickFirstTimelineCamera();
     window.setStewardIntent("Center the subject with editable camera controls.");
     window.clickStewardPrimaryAction();
-    window.setSelectedTargetNumericEffectParam(grapple::effects::builtin_effect::PositionXParam, 0.25);
-    window.setSelectedTargetNumericEffectParam(grapple::effects::builtin_effect::ZoomParam, 1.5);
+    window.setStewardIntent("Move the camera framing right.");
+    window.clickStewardPrimaryAction();
+    window.setStewardIntent("Zoom in.");
+    window.clickStewardPrimaryAction();
     app.processEvents();
     const QPixmap pixmap = window.grab();
     if (!pixmap.save(QString::fromStdString(*effectScreenshotPath))) {
