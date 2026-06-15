@@ -541,7 +541,7 @@ public:
     auto* undoButton = new QPushButton{"Undo"};
     auto* redoButton = new QPushButton{"Redo"};
     exportButton_ = new QPushButton{"Export"};
-    auto* saveButton = new QPushButton{"Save"};
+    saveButton_ = new QPushButton{"Save"};
     auto* moreButton = new QPushButton{"More"};
     auto* moreMenu = new QMenu{moreButton};
     auto* newPackageAction = moreMenu->addAction("New Package");
@@ -589,7 +589,7 @@ public:
     actionRow->addWidget(refreshButton);
     actionRow->addWidget(undoButton);
     actionRow->addWidget(redoButton);
-    actionRow->addWidget(saveButton);
+    actionRow->addWidget(saveButton_);
     actionRow->addWidget(exportButton_);
     actionRow->addWidget(moreButton);
 
@@ -663,7 +663,7 @@ public:
     connect(deleteClipAction, &QAction::triggered, this, [this] { deleteSelectedClip(); });
     connect(deleteTrackAction, &QAction::triggered, this, [this] { deleteSelectedTrack(); });
     connect(exportButton_, &QPushButton::clicked, this, [this] { chooseAndExportVideo(); });
-    connect(saveButton, &QPushButton::clicked, this, [this] { savePackage(); });
+    connect(saveButton_, &QPushButton::clicked, this, [this] { savePackage(); });
     steward_->setImportMediaHandler([this] { chooseAndImportMedia(); });
     steward_->setAddCameraHandler([this] { addCamera(); });
     steward_->setAddSelectedMediaHandler([this] { placeSelectedMediaWithSteward(); });
@@ -1149,6 +1149,10 @@ public:
 
   bool exportActionEnabled() const {
     return exportButton_ != nullptr && exportButton_->isEnabled();
+  }
+
+  bool saveActionEnabled() const {
+    return saveButton_ != nullptr && saveButton_->isEnabled();
   }
 
   std::string currentDetailTabText() const {
@@ -2636,6 +2640,12 @@ public:
 private:
   void updateActionAvailability() {
     addSelectedMediaButton_->setEnabled(selectedAssetId_.has_value());
+    const bool unsaved =
+      currentProjectRevision_.has_value() &&
+      (!lastSavedRevision_.has_value() || lastSavedRevision_.value() != currentProjectRevision_.value());
+    if (saveButton_ != nullptr) {
+      saveButton_->setEnabled(unsaved);
+    }
     const bool hasRenderableTimeline =
       currentViewModel_.has_value() &&
       currentViewModel_->timeline.duration.value > 0.0 &&
@@ -2677,6 +2687,7 @@ private:
     if (currentViewModel_.has_value()) {
       updateProjectHeader(currentViewModel_.value());
     }
+    updateActionAvailability();
   }
 
   void appendError(const grapple::foundation::Error& error) {
@@ -2953,6 +2964,7 @@ private:
   QFrame* previewFrame_ = nullptr;
   QFrame* viewportFrame_ = nullptr;
   QPushButton* addSelectedMediaButton_ = nullptr;
+  QPushButton* saveButton_ = nullptr;
   QPushButton* exportButton_ = nullptr;
   QTimer* playbackTimer_ = nullptr;
   QTimer* jobDispatchTimer_ = nullptr;
@@ -3245,6 +3257,10 @@ std::string DesktopWindow::exportStatusText() const {
 
 bool DesktopWindow::exportActionEnabled() const {
   return impl_->exportActionEnabled();
+}
+
+bool DesktopWindow::saveActionEnabled() const {
+  return impl_->saveActionEnabled();
 }
 
 void DesktopWindow::setEffectParamControlDraftValue(const std::string& paramName, double value) {

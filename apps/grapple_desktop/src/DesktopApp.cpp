@@ -429,6 +429,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     const std::string stewardActionText = window.stewardPrimaryActionText();
     const bool stewardActionEnabled = window.stewardPrimaryActionEnabled();
     const bool exportActionEnabled = window.exportActionEnabled();
+    const bool saveActionEnabled = window.saveActionEnabled();
     std::cout << "revision=" << viewModel.value().project.revision.value() << '\n';
     std::cout << "assets=" << viewModel.value().assets.count << '\n';
     std::cout << "clips=" << viewModel.value().timeline.clips.size() << '\n';
@@ -437,6 +438,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "stewardAction=" << stewardActionText << '\n';
     std::cout << "stewardActionEnabled=" << (stewardActionEnabled ? "true" : "false") << '\n';
     std::cout << "exportActionEnabled=" << (exportActionEnabled ? "true" : "false") << '\n';
+    std::cout << "saveActionEnabled=" << (saveActionEnabled ? "true" : "false") << '\n';
     std::cout << "steward=" << steward << '\n';
     return viewModel.value().assets.count == 0 &&
            viewModel.value().timeline.clips.empty() &&
@@ -444,6 +446,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            stewardActionText == "Import Media" &&
            stewardActionEnabled &&
            !exportActionEnabled &&
+           !saveActionEnabled &&
            stewardIntent.empty() &&
            steward.find("0 assets | 0 clips | 0 cameras | 0 editable effects") != std::string::npos &&
            steward.find("Next: import media to start the timeline.") != std::string::npos
@@ -2403,6 +2406,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     window.clickStewardPrimaryAction();
     window.setSelectedTargetNumericEffectParam(grapple::effects::builtin_effect::PositionXParam, 0.25);
     const std::string dirtyHeader = window.projectHeaderText();
+    const bool dirtySaveActionEnabled = window.saveActionEnabled();
     const auto write = workspace.value().writePackage();
     if (!write) {
       printError(write.error());
@@ -2504,6 +2508,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::filesystem::remove_all(saveAsRoot);
     window.savePackageAs(grapple::foundation::FilePath{saveAsRoot.string()});
     const std::string saveAsHeader = window.projectHeaderText();
+    const bool savedSaveActionEnabled = window.saveActionEnabled();
     auto reopenedSaveAs = grapple::app::NativeWorkspaceSession::openPackageRoot(grapple::foundation::FilePath{saveAsRoot.string()});
     if (!reopenedSaveAs) {
       printError(reopenedSaveAs.error());
@@ -2533,11 +2538,13 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       saveAsConversation.diagnostics.empty() &&
       saveAsConversation.runs.size() == 1 &&
       dirtyHeader.find("Unsaved") != std::string::npos &&
+      dirtySaveActionEnabled &&
       saveAsHeader.find("Desktop Demo") != std::string::npos &&
       saveAsHeader.find("desktop-save-as-package") != std::string::npos &&
       saveAsHeader.find(saveAsRoot.string()) != std::string::npos &&
       saveAsHeader.find("Saved") != std::string::npos &&
       saveAsHeader.find("Unsaved") == std::string::npos &&
+      !savedSaveActionEnabled &&
       std::filesystem::exists(saveAsRoot / "manifest.json") &&
       std::filesystem::exists(saveAsRoot / "agent/runs.json") &&
       std::filesystem::exists(saveAsRoot / "agent/events.json") &&
@@ -2556,7 +2563,9 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "saveAsPackageLocalMediaCopied=" << (saveAsPackageLocalMediaCopied ? "true" : "false") << '\n';
     std::cout << "saveAsPackageLocalMediaMissing=" << (saveAsPackageLocalMediaMissing ? "true" : "false") << '\n';
     std::cout << "dirtyHeader=" << dirtyHeader << '\n';
+    std::cout << "dirtySaveActionEnabled=" << (dirtySaveActionEnabled ? "true" : "false") << '\n';
     std::cout << "saveAsHeader=" << saveAsHeader << '\n';
+    std::cout << "savedSaveActionEnabled=" << (savedSaveActionEnabled ? "true" : "false") << '\n';
     std::cout << "saveAsRestored=" << (saveAsRestored ? "true" : "false") << '\n';
     return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_9"} &&
            viewModel.value().assets.count == 2 &&
