@@ -14,6 +14,8 @@
 #include <QPixmap>
 #include <QString>
 
+#include <opencv2/videoio.hpp>
+
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -31,6 +33,29 @@ namespace {
 
 void printError(const grapple::foundation::Error& error) {
   std::cerr << error.code << ": " << error.message << '\n';
+}
+
+grapple::foundation::Result<grapple::foundation::Resolution> encodedVideoResolution(
+  const std::filesystem::path& path
+) {
+  cv::VideoCapture capture{path.string()};
+  if (!capture.isOpened()) {
+    return grapple::foundation::Error{
+      "desktop.export_video_open_failed",
+      "Could not open exported video for inspection."
+    };
+  }
+
+  const int width = static_cast<int>(capture.get(cv::CAP_PROP_FRAME_WIDTH));
+  const int height = static_cast<int>(capture.get(cv::CAP_PROP_FRAME_HEIGHT));
+  if (width <= 0 || height <= 0) {
+    return grapple::foundation::Error{
+      "desktop.export_video_resolution_invalid",
+      "Exported video reported an invalid encoded resolution."
+    };
+  }
+
+  return grapple::foundation::Resolution{width, height};
 }
 
 grapple::foundation::Result<void> writeTinyPpm(const std::filesystem::path& path) {
@@ -1753,11 +1778,18 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     const std::string log = window.logContents();
     const bool exists = std::filesystem::exists(outputPath);
     const auto size = exists ? std::filesystem::file_size(outputPath) : 0U;
+    const auto encodedResolution = encodedVideoResolution(outputPath);
+    if (!encodedResolution) {
+      printError(encodedResolution.error());
+      return 1;
+    }
     std::cout << "exists=" << (exists ? "true" : "false") << '\n';
     std::cout << "size=" << size << '\n';
+    std::cout << "encodedResolution=" << encodedResolution.value().width << "x" << encodedResolution.value().height << '\n';
     std::cout << "log=" << log << '\n';
     return exists &&
            size > 0U &&
+           encodedResolution.value() == grapple::foundation::Resolution{320, 180} &&
            log.find("Export progress 100%") != std::string::npos &&
            log.find("Export evaluated 100 frames") != std::string::npos
       ? 0
@@ -1825,6 +1857,11 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     const std::string log = window.logContents();
     const bool exists = std::filesystem::exists(outputPath);
     const auto size = exists ? std::filesystem::file_size(outputPath) : 0U;
+    const auto encodedResolution = encodedVideoResolution(outputPath);
+    if (!encodedResolution) {
+      printError(encodedResolution.error());
+      return 1;
+    }
     const std::string expectedExportProvenance =
       "Export evaluated 100 frames from " +
       viewModel.value().project.revision.value() +
@@ -1882,6 +1919,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     }
     std::cout << "exists=" << (exists ? "true" : "false") << '\n';
     std::cout << "size=" << size << '\n';
+    std::cout << "encodedResolution=" << encodedResolution.value().width << "x" << encodedResolution.value().height << '\n';
     std::cout << "inspector=" << inspector << '\n';
     std::cout << "steward=" << steward << '\n';
     std::cout << "stewardIntent=" << stewardIntent << '\n';
@@ -1928,7 +1966,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            log.find("Steward adjusted camera controls") != std::string::npos &&
            log.find(expectedExportProvenance) != std::string::npos &&
            exists &&
-           size > 0U
+           size > 0U &&
+           encodedResolution.value() == grapple::foundation::Resolution{320, 180}
       ? 0
       : 1;
   }
