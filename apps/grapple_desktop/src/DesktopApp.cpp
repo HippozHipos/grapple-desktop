@@ -1979,6 +1979,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            selectedClipActionEnabledAfterIntent &&
            !window.stewardSelectedClipActionEnabled() &&
            stewardIntent.empty() &&
+           steward.find("Next: choose camera controls or selected clip transform for this request.") != std::string::npos &&
            steward.find("Selected clip action: apply the request to clip transform parameters.") != std::string::npos &&
            steward.find("Update Clip Transform -> succeeded") != std::string::npos &&
            log.find("Steward transformed selected clip") != std::string::npos

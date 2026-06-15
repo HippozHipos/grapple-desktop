@@ -262,6 +262,8 @@ void StewardPanel::setViewModel(
   }
 
   QString nextStep;
+  const bool selectedClipActionAvailable = selectedClipTargetNodeId_.has_value();
+  const QString targetChoiceStep = "Next: choose camera controls or selected clip transform for this request.";
   switch (primaryAction_) {
     case PrimaryAction::ImportMedia:
       nextStep = "Next: import media to start the timeline.";
@@ -273,13 +275,19 @@ void StewardPanel::setViewModel(
       nextStep = "Next: add a camera for editable framing.";
       break;
     case PrimaryAction::ShowCameraControls:
-      nextStep = "Next: show the camera effect controls.";
+      nextStep = selectedClipActionAvailable
+        ? targetChoiceStep
+        : "Next: show the camera effect controls.";
       break;
     case PrimaryAction::CreateCameraEffect:
-      nextStep = "Next: create editable camera controls from the request.";
+      nextStep = selectedClipActionAvailable
+        ? targetChoiceStep
+        : "Next: create editable camera controls from the request.";
       break;
     case PrimaryAction::AdjustCameraControls:
-      nextStep = "Next: apply the request to the exposed camera controls.";
+      nextStep = selectedClipActionAvailable
+        ? targetChoiceStep
+        : "Next: apply the request to the exposed camera controls.";
       break;
     case PrimaryAction::Disabled:
       nextStep = "Next: select the project item needed for the edit.";
