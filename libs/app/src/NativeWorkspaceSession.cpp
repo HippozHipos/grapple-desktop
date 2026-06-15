@@ -236,7 +236,7 @@ struct NativeWorkspaceSession::State {
       renderCore{runtime, frameSource},
       renderSystem{renderCore},
       preview{project, renderSystem},
-      exportSession{project, renderSystem} {}
+      exportSession{renderSystem} {}
 
   NativeProjectSession project;
   NativeProjectCommandWriter commandWriter;

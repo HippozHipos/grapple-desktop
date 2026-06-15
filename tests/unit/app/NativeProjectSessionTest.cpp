@@ -634,9 +634,9 @@ int main() {
   GRAPPLE_REQUIRE(workspaceJobProgress.size() == 1);
   GRAPPLE_REQUIRE(workspaceJobProgress[0].jobId == foundation::JobId{"job_workspace_app"});
   GRAPPLE_REQUIRE(workspaceJobProgress[0].progress == 1.0);
-  const auto exportOnlyPrepare = cacheWorkspace.value().exportSession().prepareFromProject();
-  GRAPPLE_REQUIRE(exportOnlyPrepare);
-  const auto exportOnlyResult = cacheWorkspace.value().exportSession().render(render::ExportSettings{
+  auto exportOnlyPlan = cacheWorkspace.value().project().buildRenderPlan();
+  GRAPPLE_REQUIRE(exportOnlyPlan);
+  const auto exportOnlyResult = cacheWorkspace.value().exportSession().renderPlan(exportOnlyPlan.value().plan, render::ExportSettings{
     foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}},
     foundation::FrameRate{1, 1},
     foundation::Resolution{2, 1},
@@ -650,14 +650,17 @@ int main() {
   const std::filesystem::path videoExportPath =
     std::filesystem::temp_directory_path() /
     ("grapple_native_video_export_" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".avi");
-  const auto videoExport = cacheWorkspace.value().exportSession().renderToVideo(render::ExportSettings{
-    foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}},
-    foundation::FrameRate{1, 1},
-    foundation::Resolution{16, 16},
-    render::Codec{"mjpeg"},
-    render::RenderQuality::Final,
-    foundation::FilePath{videoExportPath.string()}
-  });
+  const auto videoExport = cacheWorkspace.value().exportSession().renderPlanToVideo(
+    exportOnlyPlan.value().plan,
+    render::ExportSettings{
+      foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}},
+      foundation::FrameRate{1, 1},
+      foundation::Resolution{16, 16},
+      render::Codec{"mjpeg"},
+      render::RenderQuality::Final,
+      foundation::FilePath{videoExportPath.string()}
+    }
+  );
   GRAPPLE_REQUIRE(videoExport);
   GRAPPLE_REQUIRE(videoExport.value().framesEvaluated == 1);
   GRAPPLE_REQUIRE(std::filesystem::exists(videoExportPath));
@@ -1117,17 +1120,30 @@ int main() {
   GRAPPLE_REQUIRE(repeatedCountedRefresh);
   GRAPPLE_REQUIRE(repeatedCountedRefresh.value().preparedPlanHash == countedRefresh.value().preparedPlanHash);
   GRAPPLE_REQUIRE(countedRuntime.prepareCount == 1);
-  app::NativeExportSession countedExport{
-    runtimeWorkspace.value().project(),
-    countedRenderSystem
-  };
-  const auto countedPrepare = countedExport.prepareFromProject();
-  GRAPPLE_REQUIRE(countedPrepare);
-  GRAPPLE_REQUIRE(countedPrepare.value().preparedPlanHash == countedRefresh.value().preparedPlanHash);
+  app::NativeExportSession countedExport{countedRenderSystem};
+  auto countedPlan = runtimeWorkspace.value().project().buildRenderPlan();
+  GRAPPLE_REQUIRE(countedPlan);
+  const auto countedExportResult = countedExport.renderPlan(countedPlan.value().plan, render::ExportSettings{
+    foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}},
+    foundation::FrameRate{1, 1},
+    foundation::Resolution{1920, 1080},
+    render::Codec{"mjpeg"},
+    render::RenderQuality::Final,
+    foundation::FilePath{"/tmp/app-counted-export.mov"}
+  });
+  GRAPPLE_REQUIRE(countedExportResult);
+  GRAPPLE_REQUIRE(countedExport.state().core.preparedPlanHash == countedRefresh.value().preparedPlanHash);
   GRAPPLE_REQUIRE(countedRuntime.prepareCount == 1);
-  const auto repeatedCountedPrepare = countedExport.prepareFromProject();
-  GRAPPLE_REQUIRE(repeatedCountedPrepare);
-  GRAPPLE_REQUIRE(repeatedCountedPrepare.value().preparedPlanHash == countedPrepare.value().preparedPlanHash);
+  const auto repeatedCountedExport = countedExport.renderPlan(countedPlan.value().plan, render::ExportSettings{
+    foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}},
+    foundation::FrameRate{1, 1},
+    foundation::Resolution{1920, 1080},
+    render::Codec{"mjpeg"},
+    render::RenderQuality::Final,
+    foundation::FilePath{"/tmp/app-counted-export-repeat.mov"}
+  });
+  GRAPPLE_REQUIRE(repeatedCountedExport);
+  GRAPPLE_REQUIRE(countedExport.state().core.preparedPlanHash == countedRefresh.value().preparedPlanHash);
   GRAPPLE_REQUIRE(countedRuntime.prepareCount == 1);
   const auto noteOnlyEdit = runtimeWorkspace.value().commandWriter().apply(
     project::CreateNoteCommand{
@@ -1140,7 +1156,7 @@ int main() {
   const auto noteOnlyRefresh = countedPreview.refreshFromProject();
   GRAPPLE_REQUIRE(noteOnlyRefresh);
   GRAPPLE_REQUIRE(noteOnlyRefresh.value().revision == noteOnlyEdit.value().snapshot.revision);
-  GRAPPLE_REQUIRE(noteOnlyRefresh.value().preparedPlanHash == countedPrepare.value().preparedPlanHash);
+  GRAPPLE_REQUIRE(noteOnlyRefresh.value().preparedPlanHash == countedExport.state().core.preparedPlanHash);
   GRAPPLE_REQUIRE(countedRenderSystem.state().core.revision == noteOnlyEdit.value().snapshot.revision);
   GRAPPLE_REQUIRE(countedRuntime.prepareCount == 1);
   const auto renamedCamera = runtimeWorkspace.value().commandWriter().apply(
@@ -1160,7 +1176,7 @@ int main() {
   const auto renamedCameraRefresh = countedPreview.refreshFromProject();
   GRAPPLE_REQUIRE(renamedCameraRefresh);
   GRAPPLE_REQUIRE(renamedCameraRefresh.value().revision == renamedCamera.value().snapshot.revision);
-  GRAPPLE_REQUIRE(renamedCameraRefresh.value().preparedPlanHash == countedPrepare.value().preparedPlanHash);
+  GRAPPLE_REQUIRE(renamedCameraRefresh.value().preparedPlanHash == countedExport.state().core.preparedPlanHash);
   GRAPPLE_REQUIRE(countedRenderSystem.state().core.revision == renamedCamera.value().snapshot.revision);
   GRAPPLE_REQUIRE(countedRuntime.prepareCount == 1);
   const auto runtimeRefresh = runtimeWorkspace.value().preview().refreshFromProject();
@@ -1177,16 +1193,19 @@ int main() {
   GRAPPLE_REQUIRE(runtimeFrame.value().frame.cameras[0].state.transform.position.y == 0.0);
   GRAPPLE_REQUIRE(runtimeFrame.value().frame.cameras[0].state.transform.scale.x == 1.5);
   GRAPPLE_REQUIRE(runtimeFrame.value().frame.cameras[0].state.transform.scale.y == 1.5);
-  const auto runtimeExportPrepare = runtimeWorkspace.value().exportSession().prepareFromProject();
-  GRAPPLE_REQUIRE(runtimeExportPrepare);
-  const auto runtimeExport = runtimeWorkspace.value().exportSession().render(render::ExportSettings{
-    foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}},
-    foundation::FrameRate{2, 1},
-    foundation::Resolution{1920, 1080},
-    render::Codec{"mjpeg"},
-    render::RenderQuality::Final,
-    foundation::FilePath{"/tmp/app-runtime-export.mov"}
-  });
+  auto runtimeExportPlan = runtimeWorkspace.value().project().buildRenderPlan();
+  GRAPPLE_REQUIRE(runtimeExportPlan);
+  const auto runtimeExport = runtimeWorkspace.value().exportSession().renderPlan(
+    runtimeExportPlan.value().plan,
+    render::ExportSettings{
+      foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}},
+      foundation::FrameRate{2, 1},
+      foundation::Resolution{1920, 1080},
+      render::Codec{"mjpeg"},
+      render::RenderQuality::Final,
+      foundation::FilePath{"/tmp/app-runtime-export.mov"}
+    }
+  );
   GRAPPLE_REQUIRE(runtimeExport);
   GRAPPLE_REQUIRE(runtimeExport.value().runtimeDiagnostics.empty());
   GRAPPLE_REQUIRE(runtimeExport.value().framesEvaluated == 2);
@@ -1220,8 +1239,10 @@ int main() {
   GRAPPLE_REQUIRE(frame.value().runtimeDiagnostics.empty());
   GRAPPLE_REQUIRE(frame.value().renderDiagnostics.empty());
 
-  app::NativeExportSession exportSession{session, appRenderSystem};
-  const auto exportAfterPreviewRefresh = exportSession.render(render::ExportSettings{
+  app::NativeExportSession exportSession{appRenderSystem};
+  const auto exportPlan = session.buildRenderPlan();
+  GRAPPLE_REQUIRE(exportPlan);
+  const auto exportAfterPreviewRefresh = exportSession.renderPlan(exportPlan.value().plan, render::ExportSettings{
     foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}},
     foundation::FrameRate{2, 1},
     foundation::Resolution{1920, 1080},
@@ -1232,13 +1253,7 @@ int main() {
   GRAPPLE_REQUIRE(exportAfterPreviewRefresh);
   GRAPPLE_REQUIRE(exportAfterPreviewRefresh.value().framesEvaluated == 2);
 
-  const auto exportPrepare = exportSession.prepareFromProject();
-  GRAPPLE_REQUIRE(exportPrepare);
-  GRAPPLE_REQUIRE(exportPrepare.value().revision == foundation::RevisionId{"rev_1"});
   GRAPPLE_REQUIRE(exportSession.state().core.hasPlan);
-  GRAPPLE_REQUIRE(exportSession.state().core.preparedPlanHash == exportPrepare.value().preparedPlanHash);
-  const auto exportPlan = session.buildRenderPlan();
-  GRAPPLE_REQUIRE(exportPlan);
   const auto explicitPlanExport = exportSession.renderPlan(exportPlan.value().plan, render::ExportSettings{
     foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}},
     foundation::FrameRate{2, 1},
@@ -1249,13 +1264,14 @@ int main() {
   });
   GRAPPLE_REQUIRE(explicitPlanExport);
   GRAPPLE_REQUIRE(explicitPlanExport.value().framesEvaluated == 2);
+  const foundation::Hash256 explicitPlanHash = exportSession.state().core.preparedPlanHash.value();
   const auto projectBeforeExport = session.snapshot();
   GRAPPLE_REQUIRE(projectBeforeExport);
   GRAPPLE_REQUIRE(projectBeforeExport.value().revision == foundation::RevisionId{"rev_1"});
   const std::string serializedProjectBeforeExport =
     project::serializeCanonicalProjectSnapshot(projectBeforeExport.value());
 
-  const auto exportResult = exportSession.render(render::ExportSettings{
+  const auto exportResult = exportSession.renderPlan(exportPlan.value().plan, render::ExportSettings{
     foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}},
     foundation::FrameRate{2, 1},
     foundation::Resolution{1920, 1080},
@@ -1269,9 +1285,9 @@ int main() {
   GRAPPLE_REQUIRE(exportResult.value().runtimeDiagnostics.empty());
   GRAPPLE_REQUIRE(exportResult.value().renderDiagnostics.empty());
   GRAPPLE_REQUIRE(exportSession.state().lastOutputPath->value == "/tmp/app-export.mov");
-  GRAPPLE_REQUIRE(exportSession.state().core.preparedPlanHash == exportPrepare.value().preparedPlanHash);
+  GRAPPLE_REQUIRE(exportSession.state().core.preparedPlanHash == explicitPlanHash);
 
-  const auto changedExportResolution = exportSession.render(render::ExportSettings{
+  const auto changedExportResolution = exportSession.renderPlan(exportPlan.value().plan, render::ExportSettings{
     foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}},
     foundation::FrameRate{2, 1},
     foundation::Resolution{1280, 720},
@@ -1280,7 +1296,7 @@ int main() {
     foundation::FilePath{"/tmp/app-export-720.mov"}
   });
   GRAPPLE_REQUIRE(changedExportResolution);
-  GRAPPLE_REQUIRE(exportSession.state().core.preparedPlanHash == exportPrepare.value().preparedPlanHash);
+  GRAPPLE_REQUIRE(exportSession.state().core.preparedPlanHash == explicitPlanHash);
   GRAPPLE_REQUIRE((exportSession.state().lastSettings->resolution == foundation::Resolution{1280, 720}));
   const auto projectAfterExport = session.snapshot();
   GRAPPLE_REQUIRE(projectAfterExport);

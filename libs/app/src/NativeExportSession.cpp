@@ -160,50 +160,8 @@ private:
 
 } // namespace
 
-NativeExportSession::NativeExportSession(
-  NativeProjectSession& project,
-  render::LocalRenderSystem& renderSystem
-) : project_{project},
-    renderSystem_{renderSystem} {}
-
-foundation::Result<NativeExportPrepareResult> NativeExportSession::prepareFromProject() {
-  auto planResult = project_.buildRenderPlan();
-  if (!planResult) {
-    return planResult.error();
-  }
-
-  auto loadResult = renderSystem_.loadPlan(planResult.value().plan);
-  if (!loadResult) {
-    return loadResult.error();
-  }
-
-  const render::LocalRenderSystemState renderState = renderSystem_.state();
-  return NativeExportPrepareResult{
-    planResult.value().plan.revision,
-    renderState.core.preparedPlanHash.value()
-  };
-}
-
-foundation::Result<render::FinalRenderResult> NativeExportSession::render(render::ExportSettings settings) {
-  return renderSystem_.exportRange(render::ExportRequest{std::move(settings)});
-}
-
-foundation::Result<render::FinalRenderResult> NativeExportSession::renderToVideo(
-  render::ExportSettings settings,
-  jobs::IProgressSink* progress,
-  jobs::CancellationToken* cancellation
-) {
-  NativeVideoExportSink sink{settings, progress, cancellation};
-  auto result = renderSystem_.exportRange(render::ExportRequest{std::move(settings), &sink});
-  if (!result) {
-    return result.error();
-  }
-  auto close = sink.close();
-  if (!close) {
-    return close.error();
-  }
-  return result;
-}
+NativeExportSession::NativeExportSession(render::LocalRenderSystem& renderSystem)
+  : renderSystem_{renderSystem} {}
 
 foundation::Result<render::FinalRenderResult> NativeExportSession::renderPlan(
   const projection::RenderPlan& plan,
