@@ -15,6 +15,10 @@ namespace {
 constexpr double CenteredCameraTransformPositionX = 0.0;
 constexpr double CenteredCameraTransformPositionY = 0.0;
 constexpr double NormalCameraTransformZoom = 1.0;
+constexpr double CameraTransformPositionXStep = 0.25;
+constexpr double CameraTransformPositionYStep = 0.2;
+constexpr double CameraTransformZoomInStep = 0.25;
+constexpr double CameraTransformZoomOutStep = 0.2;
 
 std::string lowercaseAscii(std::string value) {
   for (char& character : value) {
@@ -78,6 +82,24 @@ bool cameraIntentRequestsCenter(const std::string& normalized) {
 
 bool cameraIntentRequestsReset(const std::string& normalized) {
   return containsAsciiWord(normalized, "reset");
+}
+
+double intentStrengthMultiplier(const std::string& normalized) {
+  if (containsText(normalized, "a little") ||
+      containsAsciiWord(normalized, "slight") ||
+      containsAsciiWord(normalized, "slightly") ||
+      containsAsciiWord(normalized, "subtle") ||
+      containsAsciiWord(normalized, "gently")) {
+    return 0.5;
+  }
+  if (containsText(normalized, "a lot") ||
+      containsAsciiWord(normalized, "much") ||
+      containsAsciiWord(normalized, "far") ||
+      containsAsciiWord(normalized, "dramatic") ||
+      containsAsciiWord(normalized, "dramatically")) {
+    return 2.0;
+  }
+  return 1.0;
 }
 
 foundation::Result<double> numericEffectParamValue(
@@ -152,24 +174,25 @@ CameraTransformIntentDefaults NativeStewardPlanner::cameraTransformDefaultsForIn
   const std::string& intent
 ) const {
   const std::string normalized = lowercaseAscii(intent);
+  const double strength = intentStrengthMultiplier(normalized);
   CameraTransformIntentDefaults defaults;
 
   if (containsAsciiWord(normalized, "left")) {
-    defaults.positionX = -0.25;
+    defaults.positionX = -CameraTransformPositionXStep * strength;
   } else if (containsAsciiWord(normalized, "right")) {
-    defaults.positionX = 0.25;
+    defaults.positionX = CameraTransformPositionXStep * strength;
   }
 
   if (containsAsciiWord(normalized, "up")) {
-    defaults.positionY = -0.2;
+    defaults.positionY = -CameraTransformPositionYStep * strength;
   } else if (containsAsciiWord(normalized, "down")) {
-    defaults.positionY = 0.2;
+    defaults.positionY = CameraTransformPositionYStep * strength;
   }
 
   if (cameraIntentRequestsZoomOut(normalized)) {
-    defaults.zoom = 0.8;
+    defaults.zoom = NormalCameraTransformZoom - CameraTransformZoomOutStep * strength;
   } else if (cameraIntentRequestsZoomIn(normalized)) {
-    defaults.zoom = 1.5;
+    defaults.zoom = NormalCameraTransformZoom + 0.5 * strength;
   } else if (containsText(normalized, "subject")) {
     defaults.zoom = 1.1;
   }
@@ -186,6 +209,7 @@ std::optional<CameraTransformMotionKeyframes> NativeStewardPlanner::cameraMotion
   }
 
   const std::string normalized = lowercaseAscii(intent);
+  const double strength = intentStrengthMultiplier(normalized);
   if (!cameraIntentRequestsTemporalMotion(normalized)) {
     return std::nullopt;
   }
@@ -194,7 +218,7 @@ std::optional<CameraTransformMotionKeyframes> NativeStewardPlanner::cameraMotion
     return CameraTransformMotionKeyframes{
       effects::builtin_effect::PositionXParam,
       CenteredCameraTransformPositionX,
-      -0.25,
+      -CameraTransformPositionXStep * strength,
       activeRange.end
     };
   }
@@ -202,7 +226,7 @@ std::optional<CameraTransformMotionKeyframes> NativeStewardPlanner::cameraMotion
     return CameraTransformMotionKeyframes{
       effects::builtin_effect::PositionXParam,
       CenteredCameraTransformPositionX,
-      0.25,
+      CameraTransformPositionXStep * strength,
       activeRange.end
     };
   }
@@ -210,7 +234,7 @@ std::optional<CameraTransformMotionKeyframes> NativeStewardPlanner::cameraMotion
     return CameraTransformMotionKeyframes{
       effects::builtin_effect::PositionYParam,
       CenteredCameraTransformPositionY,
-      -0.2,
+      -CameraTransformPositionYStep * strength,
       activeRange.end
     };
   }
@@ -218,7 +242,7 @@ std::optional<CameraTransformMotionKeyframes> NativeStewardPlanner::cameraMotion
     return CameraTransformMotionKeyframes{
       effects::builtin_effect::PositionYParam,
       CenteredCameraTransformPositionY,
-      0.2,
+      CameraTransformPositionYStep * strength,
       activeRange.end
     };
   }
@@ -227,7 +251,7 @@ std::optional<CameraTransformMotionKeyframes> NativeStewardPlanner::cameraMotion
     return CameraTransformMotionKeyframes{
       effects::builtin_effect::ZoomParam,
       NormalCameraTransformZoom,
-      0.8,
+      NormalCameraTransformZoom - CameraTransformZoomOutStep * strength,
       activeRange.end
     };
   }
@@ -235,7 +259,7 @@ std::optional<CameraTransformMotionKeyframes> NativeStewardPlanner::cameraMotion
     return CameraTransformMotionKeyframes{
       effects::builtin_effect::ZoomParam,
       NormalCameraTransformZoom,
-      1.5,
+      NormalCameraTransformZoom + 0.5 * strength,
       activeRange.end
     };
   }
@@ -252,36 +276,37 @@ foundation::Result<timeline::Transform2D> NativeStewardPlanner::clipTransformFor
   const std::string& intent
 ) const {
   const std::string normalized = lowercaseAscii(intent);
+  const double strength = intentStrengthMultiplier(normalized);
   timeline::Transform2D transform = current;
   bool changed = false;
 
   if (containsAsciiWord(normalized, "left")) {
-    transform.position.x -= 0.25;
+    transform.position.x -= CameraTransformPositionXStep * strength;
     changed = true;
   } else if (containsAsciiWord(normalized, "right")) {
-    transform.position.x += 0.25;
+    transform.position.x += CameraTransformPositionXStep * strength;
     changed = true;
   }
 
   if (containsAsciiWord(normalized, "up")) {
-    transform.position.y -= 0.2;
+    transform.position.y -= CameraTransformPositionYStep * strength;
     changed = true;
   } else if (containsAsciiWord(normalized, "down")) {
-    transform.position.y += 0.2;
+    transform.position.y += CameraTransformPositionYStep * strength;
     changed = true;
   }
 
   if (containsText(normalized, "scale down") ||
       containsAsciiWord(normalized, "smaller") ||
       containsAsciiWord(normalized, "shrink")) {
-    transform.scale.x *= 0.75;
-    transform.scale.y *= 0.75;
+    transform.scale.x *= 1.0 - CameraTransformZoomInStep * strength;
+    transform.scale.y *= 1.0 - CameraTransformZoomInStep * strength;
     changed = true;
   } else if (containsText(normalized, "scale up") ||
              containsAsciiWord(normalized, "larger") ||
              containsAsciiWord(normalized, "bigger")) {
-    transform.scale.x *= 1.25;
-    transform.scale.y *= 1.25;
+    transform.scale.x *= 1.0 + CameraTransformZoomInStep * strength;
+    transform.scale.y *= 1.0 + CameraTransformZoomInStep * strength;
     changed = true;
   }
 
@@ -377,6 +402,7 @@ foundation::Result<std::vector<CameraTransformParamAdjustment>> NativeStewardPla
   }
 
   const std::string normalized = lowercaseAscii(intent);
+  const double strength = intentStrengthMultiplier(normalized);
   std::vector<CameraTransformParamAdjustment> adjustments;
 
   auto addAdjustment = [&](std::vector<CameraTransformParamAdjustment>& currentAdjustments,
@@ -440,7 +466,7 @@ foundation::Result<std::vector<CameraTransformParamAdjustment>> NativeStewardPla
         adjustments,
         effects::builtin_effect::PositionXParam,
         CameraTransformAdjustmentOperation::Add,
-        -0.25
+        -CameraTransformPositionXStep * strength
       );
       if (!positionX) {
         return positionX.error();
@@ -450,7 +476,7 @@ foundation::Result<std::vector<CameraTransformParamAdjustment>> NativeStewardPla
         adjustments,
         effects::builtin_effect::PositionXParam,
         CameraTransformAdjustmentOperation::Add,
-        0.25
+        CameraTransformPositionXStep * strength
       );
       if (!positionX) {
         return positionX.error();
@@ -462,7 +488,7 @@ foundation::Result<std::vector<CameraTransformParamAdjustment>> NativeStewardPla
         adjustments,
         effects::builtin_effect::PositionYParam,
         CameraTransformAdjustmentOperation::Add,
-        -0.2
+        -CameraTransformPositionYStep * strength
       );
       if (!positionY) {
         return positionY.error();
@@ -472,7 +498,7 @@ foundation::Result<std::vector<CameraTransformParamAdjustment>> NativeStewardPla
         adjustments,
         effects::builtin_effect::PositionYParam,
         CameraTransformAdjustmentOperation::Add,
-        0.2
+        CameraTransformPositionYStep * strength
       );
       if (!positionY) {
         return positionY.error();
@@ -485,7 +511,7 @@ foundation::Result<std::vector<CameraTransformParamAdjustment>> NativeStewardPla
       adjustments,
       effects::builtin_effect::ZoomParam,
       CameraTransformAdjustmentOperation::Multiply,
-      0.8
+      1.0 - CameraTransformZoomOutStep * strength
     );
     if (!zoom) {
       return zoom.error();
@@ -495,7 +521,7 @@ foundation::Result<std::vector<CameraTransformParamAdjustment>> NativeStewardPla
       adjustments,
       effects::builtin_effect::ZoomParam,
       CameraTransformAdjustmentOperation::Multiply,
-      1.25
+      1.0 + CameraTransformZoomInStep * strength
     );
     if (!zoom) {
       return zoom.error();

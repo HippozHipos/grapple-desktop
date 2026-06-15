@@ -198,6 +198,11 @@ int main() {
   GRAPPLE_REQUIRE(zoomRightDefaults.positionX == 0.25);
   GRAPPLE_REQUIRE(zoomRightDefaults.positionY == 0.0);
   GRAPPLE_REQUIRE(zoomRightDefaults.zoom == 1.5);
+  const app::CameraTransformIntentDefaults slightZoomRightDefaults =
+    stewardPlanner.cameraTransformDefaultsForIntent("Slightly move right and zoom in a little");
+  GRAPPLE_REQUIRE(slightZoomRightDefaults.positionX == 0.125);
+  GRAPPLE_REQUIRE(slightZoomRightDefaults.positionY == 0.0);
+  GRAPPLE_REQUIRE(slightZoomRightDefaults.zoom == 1.25);
   const std::optional<app::CameraTransformMotionKeyframes> panLeftMotion =
     stewardPlanner.cameraMotionKeyframesForIntent(
       "slowly pan left",
@@ -208,6 +213,16 @@ int main() {
   GRAPPLE_REQUIRE(panLeftMotion->startValue == 0.0);
   GRAPPLE_REQUIRE(panLeftMotion->endValue == -0.25);
   GRAPPLE_REQUIRE(panLeftMotion->endTime == foundation::TimeSeconds{4.0});
+  const std::optional<app::CameraTransformMotionKeyframes> farPanRightMotion =
+    stewardPlanner.cameraMotionKeyframesForIntent(
+      "slowly pan far right",
+      foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{4.0}}
+    );
+  GRAPPLE_REQUIRE(farPanRightMotion.has_value());
+  GRAPPLE_REQUIRE(farPanRightMotion->paramName == effects::builtin_effect::PositionXParam);
+  GRAPPLE_REQUIRE(farPanRightMotion->startValue == 0.0);
+  GRAPPLE_REQUIRE(farPanRightMotion->endValue == 0.5);
+  GRAPPLE_REQUIRE(farPanRightMotion->endTime == foundation::TimeSeconds{4.0});
   timeline::Transform2D plannedClipInputTransform;
   const auto plannedClipTransform =
     stewardPlanner.clipTransformForIntent(plannedClipInputTransform, "move right and make smaller");
@@ -216,6 +231,12 @@ int main() {
   GRAPPLE_REQUIRE(plannedClipTransform.value().position.y == 0.0);
   GRAPPLE_REQUIRE(plannedClipTransform.value().scale.x == 0.75);
   GRAPPLE_REQUIRE(plannedClipTransform.value().scale.y == 0.75);
+  const auto strongClipTransform =
+    stewardPlanner.clipTransformForIntent(plannedClipInputTransform, "move far right and make much bigger");
+  GRAPPLE_REQUIRE(strongClipTransform);
+  GRAPPLE_REQUIRE(strongClipTransform.value().position.x == 0.5);
+  GRAPPLE_REQUIRE(strongClipTransform.value().scale.x == 1.5);
+  GRAPPLE_REQUIRE(strongClipTransform.value().scale.y == 1.5);
   const auto unknownClipTransform =
     stewardPlanner.clipTransformForIntent(plannedClipInputTransform, "make it cinematic");
   GRAPPLE_REQUIRE(!unknownClipTransform);
