@@ -1337,6 +1337,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       printError(write.error());
       return 1;
     }
+    window.importMediaFile(grapple::foundation::FilePath{"/tmp/grapple-native-demo/starter-gradient.avi"});
+    const bool hadSelectedAssetBeforeOpen = window.selectedAssetId().has_value();
     window.openPackageRoot(grapple::foundation::FilePath{"/tmp/grapple-desktop-package"});
     const auto viewModel = workspace.value().project().buildViewModel();
     if (!viewModel) {
@@ -1346,9 +1348,13 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "project=" << viewModel.value().project.projectId.value() << '\n';
     std::cout << "revision=" << viewModel.value().project.revision.value() << '\n';
     std::cout << "commands=" << workspace.value().project().packageState().commandLog.records().size() << '\n';
+    std::cout << "hadSelectedAssetBeforeOpen=" << (hadSelectedAssetBeforeOpen ? "true" : "false") << '\n';
+    std::cout << "hasSelectedAssetAfterOpen=" << (window.selectedAssetId().has_value() ? "true" : "false") << '\n';
     return viewModel.value().project.projectId == grapple::foundation::ProjectId{"proj_desktop"} &&
            viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_5"} &&
-           workspace.value().project().packageState().commandLog.records().size() == 5
+           workspace.value().project().packageState().commandLog.records().size() == 5 &&
+           hadSelectedAssetBeforeOpen &&
+           !window.selectedAssetId().has_value()
       ? 0
       : 1;
   }

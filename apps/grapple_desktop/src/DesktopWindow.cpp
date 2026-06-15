@@ -2453,6 +2453,7 @@ public:
     }
 
     selectedNodeId_ = std::nullopt;
+    selectedAssetId_ = std::nullopt;
     refreshViewModelAndPreview();
     log_->append(QString{"Opened package %1"}.arg(qString(rootPath.value)));
   }
