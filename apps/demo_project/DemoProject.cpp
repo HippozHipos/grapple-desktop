@@ -7,7 +7,9 @@
 #include <opencv2/core.hpp>
 #include <opencv2/videoio.hpp>
 
+#include <chrono>
 #include <filesystem>
+#include <system_error>
 
 namespace grapple::demo {
 
@@ -38,9 +40,16 @@ foundation::Result<void> ensureStarterDemoVideo() {
   const foundation::FilePath path{"/tmp/grapple-native-demo/starter-gradient.avi"};
   const std::filesystem::path videoPath{path.value};
   std::filesystem::create_directories(videoPath.parent_path());
+  if (std::filesystem::exists(videoPath) && std::filesystem::file_size(videoPath) > 0U) {
+    return {};
+  }
+
+  const auto uniqueSuffix = std::chrono::steady_clock::now().time_since_epoch().count();
+  const std::filesystem::path temporaryPath = videoPath.parent_path() /
+                                             (videoPath.filename().string() + "." + std::to_string(uniqueSuffix) + ".tmp");
 
   cv::VideoWriter writer{
-    path.value,
+    temporaryPath.string(),
     cv::VideoWriter::fourcc('M', 'J', 'P', 'G'),
     30.0,
     cv::Size{width, height}
@@ -61,6 +70,18 @@ foundation::Result<void> ensureStarterDemoVideo() {
       }
     }
     writer.write(image);
+  }
+  writer.release();
+
+  std::error_code renameError;
+  std::filesystem::rename(temporaryPath, videoPath, renameError);
+  if (renameError) {
+    if (std::filesystem::exists(videoPath) && std::filesystem::file_size(videoPath) > 0U) {
+      std::filesystem::remove(temporaryPath);
+      return {};
+    }
+    std::filesystem::remove(temporaryPath);
+    return foundation::Error{"demo.video_rename_failed", "Could not install demo video " + path.value + "."};
   }
 
   return {};

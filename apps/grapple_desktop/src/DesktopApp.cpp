@@ -15,6 +15,7 @@
 #include <QString>
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <filesystem>
@@ -22,6 +23,7 @@
 #include <iostream>
 #include <optional>
 #include <string>
+#include <system_error>
 #include <utility>
 #include <variant>
 
@@ -101,6 +103,11 @@ grapple::foundation::Result<void> populateDemo(grapple::app::NativeProjectSessio
         }}
       : std::nullopt
   );
+}
+
+std::filesystem::path uniqueDesktopSmokeRoot() {
+  return std::filesystem::temp_directory_path() /
+         ("grapple-desktop-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
 }
 
 
@@ -239,12 +246,22 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   }
 
   QApplication app{argc, argv};
+  const std::filesystem::path smokeRoot = uniqueDesktopSmokeRoot();
+  std::error_code smokeRootError;
+  std::filesystem::create_directories(smokeRoot, smokeRootError);
+  if (smokeRootError) {
+    printError(grapple::foundation::Error{"desktop.smoke_root_create_failed", "Could not create desktop smoke root."});
+    return 1;
+  }
+  const std::filesystem::path packageRoot = smokeRoot / "package";
+  const std::filesystem::path starterVideoPath{"/tmp/grapple-native-demo/starter-gradient.avi"};
+
   grapple::app::NativeProjectSession session{
     grapple::foundation::ProjectId{"proj_desktop"},
     "Desktop Demo",
     grapple::storage::ProjectPackage{
       grapple::foundation::ProjectId{"proj_desktop"},
-      grapple::foundation::FilePath{"/tmp/grapple-desktop-package"},
+      grapple::foundation::FilePath{packageRoot.string()},
       grapple::storage::CurrentProjectPackageSchemaVersion
     }
   };
@@ -286,7 +303,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     populateStarterDemo ||
     emptyAddVideoSmoke ||
     emptyAddVideoUndoSmoke ||
-    productLoopSmoke;
+    productLoopSmoke ||
+    stewardClipTransformSmoke;
 
   if (needsStarterDemoVideo) {
     const auto demoVideo = grapple::demo::ensureStarterDemoVideo();
@@ -410,7 +428,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   }
 
   if (selectAudioClipSmoke) {
-    const std::filesystem::path audioPath{"/tmp/grapple-desktop-select-audio.wav"};
+    const std::filesystem::path audioPath = smokeRoot / "select-audio.wav";
     const auto audioWrite = writeDummyAudioFile(audioPath);
     if (!audioWrite) {
       printError(audioWrite.error());
@@ -451,7 +469,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   }
 
   if (selectAudioTrackSmoke) {
-    const std::filesystem::path audioPath{"/tmp/grapple-desktop-select-audio-track.wav"};
+    const std::filesystem::path audioPath = smokeRoot / "select-audio-track.wav";
     const auto audioWrite = writeDummyAudioFile(audioPath);
     if (!audioWrite) {
       printError(audioWrite.error());
@@ -574,7 +592,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   }
 
   if (importSmoke) {
-    window.importMediaFile(grapple::foundation::FilePath{"/tmp/grapple-native-demo/starter-gradient.avi"});
+    window.importMediaFile(grapple::foundation::FilePath{starterVideoPath.string()});
     const auto viewModel = workspace.value().project().buildViewModel();
     if (!viewModel) {
       printError(viewModel.error());
@@ -595,8 +613,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   }
 
   if (importMediaTypesSmoke) {
-    const std::filesystem::path imagePath{"/tmp/grapple-desktop-import-image.ppm"};
-    const std::filesystem::path audioPath{"/tmp/grapple-desktop-import-audio.wav"};
+    const std::filesystem::path imagePath = smokeRoot / "import-image.ppm";
+    const std::filesystem::path audioPath = smokeRoot / "import-audio.wav";
     const auto imageWrite = writeTinyPpm(imagePath);
     if (!imageWrite) {
       printError(imageWrite.error());
@@ -665,7 +683,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   }
 
   if (addVideoSmoke) {
-    window.importMediaFile(grapple::foundation::FilePath{"/tmp/grapple-native-demo/starter-gradient.avi"});
+    window.importMediaFile(grapple::foundation::FilePath{starterVideoPath.string()});
     window.addSelectedMediaToTimeline();
     const auto viewModel = workspace.value().project().buildViewModel();
     if (!viewModel) {
@@ -685,7 +703,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   if (emptyAddVideoSmoke) {
     window.show();
     app.processEvents();
-    window.importMediaFile(grapple::foundation::FilePath{"/tmp/grapple-native-demo/starter-gradient.avi"});
+    window.importMediaFile(grapple::foundation::FilePath{starterVideoPath.string()});
     const std::string stewardActionAfterImport = window.stewardPrimaryActionText();
     const bool stewardActionEnabledAfterImport = window.stewardPrimaryActionEnabled();
     window.clickStewardPrimaryAction();
@@ -727,7 +745,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   if (emptyAddVideoUndoSmoke) {
     window.show();
     app.processEvents();
-    window.importMediaFile(grapple::foundation::FilePath{"/tmp/grapple-native-demo/starter-gradient.avi"});
+    window.importMediaFile(grapple::foundation::FilePath{starterVideoPath.string()});
     window.clickStewardPrimaryAction();
     const auto afterAdd = workspace.value().project().buildViewModel();
     if (!afterAdd) {
@@ -1701,9 +1719,9 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       printError(write.error());
       return 1;
     }
-    window.importMediaFile(grapple::foundation::FilePath{"/tmp/grapple-native-demo/starter-gradient.avi"});
+    window.importMediaFile(grapple::foundation::FilePath{starterVideoPath.string()});
     const bool hadSelectedAssetBeforeOpen = window.selectedAssetId().has_value();
-    window.openPackageRoot(grapple::foundation::FilePath{"/tmp/grapple-desktop-package"});
+    window.openPackageRoot(grapple::foundation::FilePath{packageRoot.string()});
     const auto viewModel = workspace.value().project().buildViewModel();
     if (!viewModel) {
       printError(viewModel.error());
@@ -1726,7 +1744,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   if (exportSettingsSmoke) {
     window.show();
     app.processEvents();
-    const std::filesystem::path outputPath{"/tmp/grapple-desktop-export-settings.avi"};
+    const std::filesystem::path outputPath = smokeRoot / "export-settings.avi";
     std::filesystem::remove(outputPath);
     window.setExportResolutionControlValue(320, 180);
     window.setExportFrameRateControlValue(10.0);
@@ -1749,10 +1767,10 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   if (productLoopSmoke) {
     window.show();
     app.processEvents();
-    const std::filesystem::path outputPath{"/tmp/grapple-desktop-product-loop.avi"};
+    const std::filesystem::path outputPath = smokeRoot / "product-loop.avi";
     std::filesystem::remove(outputPath);
 
-    window.importMediaFile(grapple::foundation::FilePath{"/tmp/grapple-native-demo/starter-gradient.avi"});
+    window.importMediaFile(grapple::foundation::FilePath{starterVideoPath.string()});
     const std::string stewardActionAfterImport = window.stewardPrimaryActionText();
     const bool stewardActionEnabledAfterImport = window.stewardPrimaryActionEnabled();
     window.clickStewardPrimaryAction();
@@ -1917,7 +1935,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   if (stewardClipTransformSmoke) {
     window.show();
     app.processEvents();
-    window.importMediaFile(grapple::foundation::FilePath{"/tmp/grapple-native-demo/starter-gradient.avi"});
+    window.importMediaFile(grapple::foundation::FilePath{starterVideoPath.string()});
     window.clickStewardPrimaryAction();
     const std::string selectedClipActionText = window.stewardSelectedClipActionText();
     const bool selectedClipActionEnabledBeforeIntent = window.stewardSelectedClipActionEnabled();
@@ -1968,7 +1986,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   }
 
   if (editSaveSmoke) {
-    window.importMediaFile(grapple::foundation::FilePath{"/tmp/grapple-native-demo/starter-gradient.avi"});
+    window.importMediaFile(grapple::foundation::FilePath{starterVideoPath.string()});
     window.addSelectedMediaToTimeline();
     window.clickFirstTimelineCamera();
     window.setStewardIntent("Persist editable camera controls.");
@@ -1979,7 +1997,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       printError(write.error());
       return 1;
     }
-    auto reopened = grapple::app::NativeWorkspaceSession::openPackageRoot(grapple::foundation::FilePath{"/tmp/grapple-desktop-package"});
+    auto reopened = grapple::app::NativeWorkspaceSession::openPackageRoot(grapple::foundation::FilePath{packageRoot.string()});
     if (!reopened) {
       printError(reopened.error());
       return 1;
@@ -2045,7 +2063,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       conversation.runs[1].toolCalls.size() == 1 &&
       conversation.runs[1].toolCalls[0].toolSerializedId == "camera.add_transform_controls" &&
       conversation.runs[1].toolCalls[0].observedRevision == grapple::foundation::RevisionId{"rev_8"};
-    const std::filesystem::path reopenedExportPath{"/tmp/grapple-desktop-reopened-export.avi"};
+    const std::filesystem::path reopenedExportPath = smokeRoot / "reopened-export.avi";
     std::filesystem::remove(reopenedExportPath);
     const auto reopenedPlan = reopened.value().project().buildRenderPlan();
     if (!reopenedPlan) {
