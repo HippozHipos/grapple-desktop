@@ -402,7 +402,7 @@ public:
 
     previewFrame_ = new QFrame;
     previewFrame_->setObjectName("previewFrame");
-    previewFrame_->setMinimumSize(620, 420);
+    previewFrame_->setMinimumSize(560, 420);
     auto* previewLayout = new QVBoxLayout{previewFrame_};
     previewTitle_ = new QLabel{"Player"};
     previewTitle_->setObjectName("panelTitle");
@@ -412,7 +412,7 @@ public:
 
     viewportFrame_ = new QFrame;
     viewportFrame_->setObjectName("viewportFrame");
-    viewportFrame_->setMinimumSize(420, 420);
+    viewportFrame_->setMinimumSize(360, 420);
     auto* viewportLayout = new QVBoxLayout{viewportFrame_};
     viewportTitle_ = new QLabel{"Composition"};
     viewportTitle_->setObjectName("panelTitle");
@@ -578,6 +578,7 @@ public:
 
     auto* sidePanel = new QWidget;
     sidePanel->setObjectName("sidePanel");
+    sidePanel->setMinimumWidth(400);
     auto* sideLayout = new QVBoxLayout{sidePanel};
     sideLayout->setContentsMargins(0, 0, 0, 0);
     sideLayout->setSpacing(12);
