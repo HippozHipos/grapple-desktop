@@ -270,7 +270,7 @@ void EffectParamPanel::setSelection(
   }
 
   if (!hasAttachedEffect) {
-    addMessage("No editable controls yet. Ask Steward to create an edit for this selection.");
+    addMessage("No editable controls yet. Use Steward to create editable camera controls for this selection.");
   }
   layout_->addStretch(1);
 }
