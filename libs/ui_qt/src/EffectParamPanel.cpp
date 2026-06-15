@@ -43,6 +43,20 @@ std::optional<foundation::KeyframeId> keyframeIdAtPlayhead(
   return std::nullopt;
 }
 
+void appendLastEditedRow(QVBoxLayout* layout, const app::AppEffectParamRow& param) {
+  if (!param.lastEditedRevision.has_value()) {
+    return;
+  }
+
+  auto* lastEdited = new QLabel{
+    QString{"Last changed by %1 at %2"}
+      .arg(qString(param.lastEditedActorName.empty() ? param.lastEditedSourceKind : param.lastEditedActorName))
+      .arg(qString(param.lastEditedRevision->value()))
+  };
+  lastEdited->setObjectName("effectParamHelp");
+  layout->addWidget(lastEdited);
+}
+
 } // namespace
 
 EffectParamPanel::EffectParamPanel(QWidget* parent)
@@ -207,6 +221,7 @@ void EffectParamPanel::setSelection(
           rowLayout->addWidget(editor, 1);
           rowLayout->addWidget(setKeyframe);
           layout_->addWidget(row);
+          appendLastEditedRow(layout_, param);
           appendKeyframeRows();
           continue;
         }
@@ -233,6 +248,7 @@ void EffectParamPanel::setSelection(
           rowLayout->addWidget(editor, 1);
           rowLayout->addWidget(setKeyframe);
           layout_->addWidget(row);
+          appendLastEditedRow(layout_, param);
           appendKeyframeRows();
           continue;
         }
@@ -258,6 +274,7 @@ void EffectParamPanel::setSelection(
           rowLayout->addWidget(editor, 1);
           rowLayout->addWidget(setKeyframe);
           layout_->addWidget(row);
+          appendLastEditedRow(layout_, param);
           appendKeyframeRows();
           continue;
         }
@@ -277,6 +294,7 @@ void EffectParamPanel::setSelection(
           rowLayout->addWidget(value, 1);
           rowLayout->addWidget(setKeyframe);
           layout_->addWidget(row);
+          appendLastEditedRow(layout_, param);
           appendKeyframeRows();
           continue;
         }

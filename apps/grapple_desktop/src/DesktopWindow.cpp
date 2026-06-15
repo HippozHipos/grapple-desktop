@@ -1015,6 +1015,14 @@ public:
     return title->text().toStdString();
   }
 
+  std::string effectParamPanelText() const {
+    QStringList lines;
+    for (QLabel* label : effectParams_->findChildren<QLabel*>()) {
+      lines << label->text();
+    }
+    return lines.join('\n').toStdString();
+  }
+
   void setStewardIntent(std::string intent) {
     steward_->setIntent(std::move(intent));
   }
@@ -2645,6 +2653,10 @@ bool DesktopWindow::stewardPrimaryActionEnabled() const {
 
 std::string DesktopWindow::effectParamTitleText() const {
   return impl_->effectParamTitleText();
+}
+
+std::string DesktopWindow::effectParamPanelText() const {
+  return impl_->effectParamPanelText();
 }
 
 void DesktopWindow::setStewardIntent(std::string intent) {

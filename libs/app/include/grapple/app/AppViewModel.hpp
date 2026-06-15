@@ -102,6 +102,9 @@ struct AppEffectParamRow {
   std::string name;
   std::string label;
   timeline::ParamValue value;
+  std::optional<foundation::RevisionId> lastEditedRevision;
+  std::string lastEditedSourceKind;
+  std::string lastEditedActorName;
   std::optional<double> numericMin;
   std::optional<double> numericMax;
   std::optional<double> numericStep;

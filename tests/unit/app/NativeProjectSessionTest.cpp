@@ -901,6 +901,9 @@ int main() {
   const auto valueUpdatedEffectViewModel = effectSession.buildViewModel();
   GRAPPLE_REQUIRE(valueUpdatedEffectViewModel);
   GRAPPLE_REQUIRE(std::get<double>(valueUpdatedEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].value) == 0.6);
+  GRAPPLE_REQUIRE(valueUpdatedEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].lastEditedRevision == appParamValueUpdate.value().snapshot.revision);
+  GRAPPLE_REQUIRE(valueUpdatedEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].lastEditedSourceKind == "user");
+  GRAPPLE_REQUIRE(valueUpdatedEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].lastEditedActorName == "test");
   GRAPPLE_REQUIRE(valueUpdatedEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].keyframes.size() == 1);
   GRAPPLE_REQUIRE(valueUpdatedEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].keyframes[0].keyframeId == foundation::KeyframeId{"key_target_x_2"});
   const auto boolParamUpdate = effectEdits.setParamValue(
@@ -913,6 +916,9 @@ int main() {
   const auto boolUpdatedEffectViewModel = effectSession.buildViewModel();
   GRAPPLE_REQUIRE(boolUpdatedEffectViewModel);
   GRAPPLE_REQUIRE(!std::get<bool>(boolUpdatedEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[1].value));
+  GRAPPLE_REQUIRE(boolUpdatedEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[1].lastEditedRevision == boolParamUpdate.value().snapshot.revision);
+  GRAPPLE_REQUIRE(boolUpdatedEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[1].lastEditedSourceKind == "user");
+  GRAPPLE_REQUIRE(boolUpdatedEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[1].lastEditedActorName == "test");
   const auto appKeyframeDelete = effectEdits.deleteParamKeyframe(
     effectNodeId,
     "target_x",
@@ -1096,7 +1102,13 @@ int main() {
   const auto updatedRuntimeEffectViewModel = runtimeWorkspace.value().project().buildViewModel();
   GRAPPLE_REQUIRE(updatedRuntimeEffectViewModel);
   GRAPPLE_REQUIRE(std::get<double>(updatedRuntimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].value) == 0.25);
+  GRAPPLE_REQUIRE(updatedRuntimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].lastEditedRevision == updatedRuntimeEffect.value().snapshot.revision);
+  GRAPPLE_REQUIRE(updatedRuntimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].lastEditedSourceKind == "user");
+  GRAPPLE_REQUIRE(updatedRuntimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[0].lastEditedActorName == "test");
   GRAPPLE_REQUIRE(std::get<double>(updatedRuntimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[2].value) == 1.5);
+  GRAPPLE_REQUIRE(updatedRuntimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[2].lastEditedRevision == updatedRuntimeZoom.value().snapshot.revision);
+  GRAPPLE_REQUIRE(updatedRuntimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[2].lastEditedSourceKind == "user");
+  GRAPPLE_REQUIRE(updatedRuntimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].params[2].lastEditedActorName == "test");
   const auto runtimeDiagnosticsSnapshotBefore = runtimeWorkspace.value().project().snapshot();
   GRAPPLE_REQUIRE(runtimeDiagnosticsSnapshotBefore);
   const std::string serializedRuntimeDiagnosticsSnapshotBefore =
