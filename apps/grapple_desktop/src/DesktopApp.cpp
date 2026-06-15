@@ -1526,6 +1526,36 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       conversation.runs[0].toolCalls.size() == 1 &&
       conversation.runs[0].toolCalls[0].toolSerializedId == "effect.create_node" &&
       conversation.runs[0].toolCalls[0].observedRevision == grapple::foundation::RevisionId{"rev_8"};
+    const std::filesystem::path reopenedExportPath{"/tmp/grapple-desktop-reopened-export.avi"};
+    std::filesystem::remove(reopenedExportPath);
+    const auto reopenedPlan = reopened.value().project().buildRenderPlan();
+    if (!reopenedPlan) {
+      printError(reopenedPlan.error());
+      return 1;
+    }
+    const auto reopenedExport = reopened.value().exportSession().renderPlanToVideo(
+      reopenedPlan.value().plan,
+      grapple::render::ExportSettings{
+        grapple::foundation::TimeRange{grapple::foundation::TimeSeconds{0.0}, grapple::foundation::TimeSeconds{1.0}},
+        grapple::foundation::FrameRate{1, 1},
+        grapple::foundation::Resolution{320, 180},
+        grapple::render::Codec{"mjpeg"},
+        grapple::render::RenderQuality::Final,
+        grapple::foundation::FilePath{reopenedExportPath.string()}
+      }
+    );
+    if (!reopenedExport) {
+      printError(reopenedExport.error());
+      return 1;
+    }
+    const bool reopenedExportExists = std::filesystem::exists(reopenedExportPath);
+    const auto reopenedExportSize = reopenedExportExists ? std::filesystem::file_size(reopenedExportPath) : 0U;
+    const bool reopenedExportMatchesPlan =
+      reopenedExport.value().sourceRevision == viewModel.value().project.revision &&
+      reopenedExport.value().renderPlanHash == previewFrame.value().frame.renderPlanHash &&
+      reopenedExport.value().framesEvaluated == 1 &&
+      reopenedExportExists &&
+      reopenedExportSize > 0U;
     std::cout << "revision=" << viewModel.value().project.revision.value() << '\n';
     std::cout << "assets=" << viewModel.value().assets.count << '\n';
     std::cout << "clips=" << viewModel.value().timeline.clips.size() << '\n';
@@ -1534,6 +1564,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "reopenedTunedEffect=" << (reopenedTunedEffect ? "true" : "false") << '\n';
     std::cout << "reopenedPreviewTuned=" << (reopenedPreviewTuned ? "true" : "false") << '\n';
     std::cout << "stewardContextRestored=" << (stewardContextRestored ? "true" : "false") << '\n';
+    std::cout << "reopenedExportMatchesPlan=" << (reopenedExportMatchesPlan ? "true" : "false") << '\n';
+    std::cout << "reopenedExportSize=" << reopenedExportSize << '\n';
     return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_9"} &&
            viewModel.value().assets.count == 2 &&
            viewModel.value().timeline.clips.size() == 2 &&
@@ -1541,7 +1573,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            reopened.value().project().packageState().commandLog.records().size() == 9 &&
            reopenedTunedEffect &&
            reopenedPreviewTuned &&
-           stewardContextRestored
+           stewardContextRestored &&
+           reopenedExportMatchesPlan
       ? 0
       : 1;
   }
