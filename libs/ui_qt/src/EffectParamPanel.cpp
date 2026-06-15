@@ -109,6 +109,19 @@ void EffectParamPanel::setSelection(
       effectHeaderLayout->addWidget(deleteEffect);
       layout_->addWidget(effectHeader);
 
+      if (effect.createdRevision.has_value()) {
+        QString provenance = QString{"Created by %1 at %2"}
+          .arg(qString(effect.createdActorName.empty() ? effect.createdSourceKind : effect.createdActorName))
+          .arg(qString(effect.createdRevision->value()));
+        if (!effect.createdIntent.empty()) {
+          provenance += QString{": %1"}.arg(qString(effect.createdIntent));
+        }
+        auto* provenanceLabel = new QLabel{provenance};
+        provenanceLabel->setObjectName("effectParamHelp");
+        provenanceLabel->setWordWrap(true);
+        layout_->addWidget(provenanceLabel);
+      }
+
       if (effect.params.empty()) {
         auto* empty = new QLabel{"This effect has no exposed parameters."};
         empty->setObjectName("effectParamHelp");

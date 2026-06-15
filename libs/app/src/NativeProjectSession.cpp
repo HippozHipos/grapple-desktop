@@ -93,24 +93,6 @@ std::optional<std::string> snapshotLabelForRevision(
   return snapshot->label;
 }
 
-foundation::Result<std::optional<foundation::NodeId>> stewardEditTargetNodeId(
-  const history::CommandRecord& command
-) {
-  auto parsedCommand = project::deserializeCanonicalCommandPayload(
-    command.serializedName,
-    command.serializedPayload
-  );
-  if (!parsedCommand) {
-    return parsedCommand.error();
-  }
-
-  if (const auto* createEffect = std::get_if<project::CreateEffectCommand>(&parsedCommand.value())) {
-    return std::optional<foundation::NodeId>{createEffect->targetNodeId};
-  }
-
-  return std::optional<foundation::NodeId>{};
-}
-
 foundation::Result<std::string> nodeDisplayName(
   const project::ProjectSnapshot& snapshot,
   const foundation::NodeId& nodeId
@@ -138,6 +120,61 @@ foundation::Result<std::string> nodeDisplayName(
   }
 
   return nodeId.value();
+}
+
+struct EffectCreationProvenance {
+  foundation::CommandId commandId;
+  foundation::NodeId effectNodeId;
+  foundation::NodeId targetNodeId;
+  foundation::RevisionId revision;
+  std::string sourceKind;
+  std::string sourceActorName;
+  std::string intent;
+};
+
+foundation::Result<std::vector<EffectCreationProvenance>> effectCreationProvenance(
+  const std::vector<history::CommandRecord>& commands,
+  const std::vector<history::SnapshotRecord>& snapshots
+) {
+  std::vector<EffectCreationProvenance> provenance;
+  for (const history::CommandRecord& command : commands) {
+    auto parsedCommand = project::deserializeCanonicalCommandPayload(
+      command.serializedName,
+      command.serializedPayload
+    );
+    if (!parsedCommand) {
+      return parsedCommand.error();
+    }
+
+    const auto* createEffect = std::get_if<project::CreateEffectCommand>(&parsedCommand.value());
+    if (createEffect == nullptr) {
+      continue;
+    }
+
+    provenance.push_back(EffectCreationProvenance{
+      command.id,
+      createEffect->nodeId,
+      createEffect->targetNodeId,
+      command.afterRevision,
+      command.sourceKind,
+      command.sourceActorName,
+      snapshotLabelForRevision(snapshots, command.afterRevision).value_or(std::string{})
+    });
+  }
+  return provenance;
+}
+
+const EffectCreationProvenance* provenanceForEffect(
+  const std::vector<EffectCreationProvenance>& provenance,
+  const foundation::NodeId& effectNodeId
+) {
+  const auto match = std::find_if(provenance.begin(), provenance.end(), [&](const EffectCreationProvenance& creation) {
+    return creation.effectNodeId == effectNodeId;
+  });
+  if (match == provenance.end()) {
+    return nullptr;
+  }
+  return &*match;
 }
 
 project::RenderPlanInspectResult inspectRenderPlan(const projection::RenderPlan& plan) {
@@ -332,35 +369,28 @@ foundation::Result<NativeProjectViewModelResult> NativeProjectSession::buildView
     snapshot.canonicalHash
   };
   const storage::ProjectPackageState& packageState = session_.packageState();
-  for (const history::CommandRecord& command : packageState.commandLog.records()) {
-    if (command.sourceKind != "agent" || command.sourceActorName != "steward") {
+  auto effectProvenance = effectCreationProvenance(
+    packageState.commandLog.records(),
+    packageState.snapshots.records()
+  );
+  if (!effectProvenance) {
+    return effectProvenance.error();
+  }
+
+  for (const EffectCreationProvenance& creation : effectProvenance.value()) {
+    if (creation.sourceKind != "agent" || creation.sourceActorName != "steward" || creation.intent.empty()) {
       continue;
     }
-    const std::optional<std::string> intent = snapshotLabelForRevision(
-      packageState.snapshots.records(),
-      command.afterRevision
-    );
-    if (!intent.has_value()) {
-      continue;
-    }
-    auto targetNodeId = stewardEditTargetNodeId(command);
-    if (!targetNodeId) {
-      return targetNodeId.error();
-    }
-    std::string targetName;
-    if (targetNodeId.value().has_value()) {
-      auto displayName = nodeDisplayName(snapshot, targetNodeId.value().value());
-      if (!displayName) {
-        return displayName.error();
-      }
-      targetName = displayName.value();
+    auto targetName = nodeDisplayName(snapshot, creation.targetNodeId);
+    if (!targetName) {
+      return targetName.error();
     }
     viewModel.steward.edits.push_back(AppStewardEditRow{
-      command.id,
-      command.afterRevision,
-      targetNodeId.value(),
-      std::move(targetName),
-      intent.value()
+      creation.commandId,
+      creation.revision,
+      creation.targetNodeId,
+      targetName.value(),
+      creation.intent
     });
   }
   viewModel.assets.count = snapshot.assets.assets().size();
@@ -476,6 +506,7 @@ foundation::Result<NativeProjectViewModelResult> NativeProjectSession::buildView
     };
 
     for (const projection::RenderEffectNode& effect : effectGraph.nodes) {
+      const EffectCreationProvenance* creation = provenanceForEffect(effectProvenance.value(), effect.sourceNodeId);
       std::vector<AppEffectParamRow> params;
       params.reserve(effect.payload.params.values.size());
       for (const timeline::Param& param : effect.payload.params.values) {
@@ -503,6 +534,10 @@ foundation::Result<NativeProjectViewModelResult> NativeProjectSession::buildView
         effectGraph.id,
         effect.sourceNodeId,
         effectGraph.targetNodeId,
+        creation == nullptr ? std::nullopt : std::optional<foundation::RevisionId>{creation->revision},
+        creation == nullptr ? std::string{} : creation->sourceKind,
+        creation == nullptr ? std::string{} : creation->sourceActorName,
+        creation == nullptr ? std::string{} : creation->intent,
         effect.payload.displayName,
         implementationKindName(effect.payload.implementation.kind),
         effect.payload.implementation.entrypoint,

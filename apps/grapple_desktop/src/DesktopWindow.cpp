@@ -145,6 +145,18 @@ QString inspectorText(
       }
       for (const grapple::app::AppEffectRow& effect : graph.effects) {
         lines << QString{"Effect: %1"}.arg(qString(effect.displayName));
+        if (effect.createdRevision.has_value()) {
+          QString source = effect.createdActorName.empty()
+            ? qString(effect.createdSourceKind)
+            : qString(effect.createdActorName);
+          QString provenance = QString{"Created by %1 at %2"}
+            .arg(source)
+            .arg(qString(effect.createdRevision->value()));
+          if (!effect.createdIntent.empty()) {
+            provenance += QString{": %1"}.arg(qString(effect.createdIntent));
+          }
+          lines << provenance;
+        }
         lines << QString{"Range: %1 - %2"}
           .arg(timeText(effect.activeRange.start))
           .arg(timeText(effect.activeRange.end));

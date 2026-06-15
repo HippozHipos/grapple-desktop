@@ -111,6 +111,10 @@ struct AppEffectRow {
   foundation::GraphId graphId;
   foundation::NodeId sourceNodeId;
   foundation::NodeId targetNodeId;
+  std::optional<foundation::RevisionId> createdRevision;
+  std::string createdSourceKind;
+  std::string createdActorName;
+  std::string createdIntent;
   std::string displayName;
   std::string implementationKind;
   std::string entrypoint;

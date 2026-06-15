@@ -1041,6 +1041,10 @@ int main() {
   GRAPPLE_REQUIRE(runtimeEffectViewModel.value().timeline.effectGraphs[0].targetName == "Camera");
   GRAPPLE_REQUIRE(runtimeEffectViewModel.value().timeline.effectGraphs[0].effects.size() == 1);
   GRAPPLE_REQUIRE(runtimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].displayName == "Camera Transform");
+  GRAPPLE_REQUIRE(runtimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].createdRevision == foundation::RevisionId{"rev_3"});
+  GRAPPLE_REQUIRE(runtimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].createdSourceKind == "agent");
+  GRAPPLE_REQUIRE(runtimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].createdActorName == "steward");
+  GRAPPLE_REQUIRE(runtimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].createdIntent == "Center the subject with an editable camera transform.");
   GRAPPLE_REQUIRE(runtimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].implementationKind == "builtin");
   GRAPPLE_REQUIRE(runtimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].cameraTransformEffect);
   GRAPPLE_REQUIRE(runtimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].params.size() == 3);
@@ -1548,6 +1552,10 @@ int main() {
   GRAPPLE_REQUIRE(reopenedStewardViewModel.value().timeline.effectGraphs[0].targetName == "Camera");
   GRAPPLE_REQUIRE(reopenedStewardViewModel.value().timeline.effectGraphs[0].effects.size() == 1);
   GRAPPLE_REQUIRE(reopenedStewardViewModel.value().timeline.effectGraphs[0].effects[0].displayName == "Camera Transform");
+  GRAPPLE_REQUIRE(reopenedStewardViewModel.value().timeline.effectGraphs[0].effects[0].createdRevision == foundation::RevisionId{"rev_3"});
+  GRAPPLE_REQUIRE(reopenedStewardViewModel.value().timeline.effectGraphs[0].effects[0].createdSourceKind == "agent");
+  GRAPPLE_REQUIRE(reopenedStewardViewModel.value().timeline.effectGraphs[0].effects[0].createdActorName == "steward");
+  GRAPPLE_REQUIRE(reopenedStewardViewModel.value().timeline.effectGraphs[0].effects[0].createdIntent == durableIntent);
   GRAPPLE_REQUIRE(reopenedStewardViewModel.value().steward.edits.size() == 1);
   GRAPPLE_REQUIRE(reopenedStewardViewModel.value().steward.edits[0].revision == foundation::RevisionId{"rev_3"});
   GRAPPLE_REQUIRE(reopenedStewardViewModel.value().steward.edits[0].targetNodeId == stewardCameraNodeId);
