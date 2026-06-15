@@ -18,6 +18,7 @@
 #include <string_view>
 #include <utility>
 #include <variant>
+#include <vector>
 
 namespace grapple::app {
 
@@ -49,6 +50,13 @@ struct CameraTransformMotionKeyframes {
 struct CameraTransformParamAdjustment {
   foundation::NodeId effectNodeId;
   std::string paramName;
+  double value = 0.0;
+  double operand = 0.0;
+  bool multiply = false;
+};
+
+struct CameraTransformKeyframeAdjustment {
+  foundation::TimeSeconds time;
   double value = 0.0;
 };
 
@@ -370,8 +378,57 @@ foundation::Result<CameraTransformParamAdjustment> cameraTransformParamAdjustmen
   return CameraTransformParamAdjustment{
     effectNodeId,
     paramName,
-    multiply ? currentValue.value() * delta : currentValue.value() + delta
+    multiply ? currentValue.value() * delta : currentValue.value() + delta,
+    delta,
+    multiply
   };
+}
+
+foundation::Result<std::vector<CameraTransformKeyframeAdjustment>> adjustedCameraTransformKeyframes(
+  const project::ProjectSnapshot& snapshot,
+  const CameraTransformParamAdjustment& adjustment
+) {
+  const graph::GraphNode* effectNode = snapshot.graph.findNode(adjustment.effectNodeId);
+  if (effectNode == nullptr || effectNode->kind != graph::NodeKind::Effect) {
+    return foundation::Error{
+      "steward.camera_transform_effect_missing",
+      "Camera Transform keyframe adjustment requires an existing effect node."
+    };
+  }
+  const auto* payload = std::get_if<timeline::EffectPayload>(&effectNode->payload);
+  if (payload == nullptr) {
+    return foundation::Error{
+      "steward.camera_transform_effect_payload_missing",
+      "Camera Transform keyframe adjustment requires an effect payload."
+    };
+  }
+
+  const auto param = std::find_if(payload->params.values.begin(), payload->params.values.end(), [&](const timeline::Param& value) {
+    return value.name == adjustment.paramName;
+  });
+  if (param == payload->params.values.end()) {
+    return foundation::Error{
+      "steward.camera_transform_param_missing",
+      "Camera Transform controls are missing the requested parameter."
+    };
+  }
+
+  std::vector<CameraTransformKeyframeAdjustment> keyframes;
+  keyframes.reserve(param->keyframes.size());
+  for (const timeline::Param::Keyframe& keyframe : param->keyframes) {
+    const auto* numericValue = std::get_if<double>(&keyframe.value);
+    if (numericValue == nullptr) {
+      return foundation::Error{
+        "steward.camera_transform_keyframe_not_numeric",
+        "Camera Transform keyframe adjustment requires numeric keyframes."
+      };
+    }
+    keyframes.push_back(CameraTransformKeyframeAdjustment{
+      keyframe.time,
+      adjustment.multiply ? *numericValue * adjustment.operand : *numericValue + adjustment.operand
+    });
+  }
+  return keyframes;
 }
 
 foundation::Result<CameraTransformMotionKeyframes> cameraTransformMotionAdjustmentForIntent(
@@ -876,6 +933,7 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::a
   const bool motionRequested = cameraIntentRequestsExplicitMotion(intent);
   std::optional<CameraTransformMotionKeyframes> motion;
   std::optional<CameraTransformParamAdjustment> adjustment;
+  std::vector<CameraTransformKeyframeAdjustment> keyframeAdjustments;
   if (motionRequested) {
     auto motionAdjustment = cameraTransformMotionAdjustmentForIntent(snapshot.value(), cameraNodeId, intent, activeRange);
     if (!motionAdjustment) {
@@ -896,6 +954,15 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::a
       return paramAdjustment.error();
     }
     adjustment = paramAdjustment.value();
+    auto adjustedKeyframes = adjustedCameraTransformKeyframes(snapshot.value(), adjustment.value());
+    if (!adjustedKeyframes) {
+      auto finished = finishRunWithError(runId.value(), adjustedKeyframes.error());
+      if (!finished) {
+        return finished.error();
+      }
+      return adjustedKeyframes.error();
+    }
+    keyframeAdjustments = std::move(adjustedKeyframes.value());
   }
 
   auto message = appendEvent(
@@ -905,7 +972,9 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::a
       "assistant",
       motion.has_value()
         ? "Updating the existing Camera Transform controls as editable motion keyframes."
-        : "Updating the existing Camera Transform controls as an editable parameter change."
+        : keyframeAdjustments.empty()
+          ? "Updating the existing Camera Transform controls as an editable parameter change."
+          : "Updating the existing Camera Transform keyframes as an editable parameter change."
     )
   );
   if (!message) {
@@ -970,6 +1039,32 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::a
       }
       return endKeyframe.error();
     }
+  } else if (!keyframeAdjustments.empty()) {
+    std::int64_t keyframeIndex = 1;
+    for (const CameraTransformKeyframeAdjustment& keyframe : keyframeAdjustments) {
+      auto keyframeResult = bridge.dispatchToolCall(agent::AgentToolDispatchRequest{
+        runId.value(),
+        snapshot.value().info.id,
+        latestRevision,
+        stewardKeyframeToolCallIdForRun(runId.value(), keyframeIndex),
+        CanonicalCameraTransformKeyframeToolId,
+        cameraTransformKeyframeArgumentsPayload(
+          cameraNodeId,
+          adjustment->paramName,
+          keyframe.time,
+          keyframe.value
+        )
+      });
+      if (!keyframeResult) {
+        auto finished = finishRunWithError(runId.value(), keyframeResult.error());
+        if (!finished) {
+          return finished.error();
+        }
+        return keyframeResult.error();
+      }
+      latestRevision = keyframeResult.value().observedRevision;
+      ++keyframeIndex;
+    }
   } else {
     auto dispatched = bridge.dispatchToolCall(agent::AgentToolDispatchRequest{
       runId.value(),
@@ -1010,7 +1105,9 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::a
       "succeeded",
       motion.has_value()
         ? "Updated existing Camera Transform motion keyframes."
-        : "Updated existing Camera Transform controls."
+        : keyframeAdjustments.empty()
+          ? "Updated existing Camera Transform controls."
+          : "Updated existing Camera Transform keyframes."
     )
   );
   if (!runFinished) {

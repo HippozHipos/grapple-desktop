@@ -1523,6 +1523,44 @@ int main() {
   GRAPPLE_REQUIRE(stewardPanMidFrame.value().frame.cameras.size() == 1);
   GRAPPLE_REQUIRE(stewardPanMidFrame.value().frame.cameras[0].state.transform.position.x == 0.375);
 
+  const auto stewardShiftedKeyedControls = stewardAdjustWorkspace.value().steward().adjustCameraTransformControls(
+    stewardAdjustCameraNodeId,
+    "Move the camera framing right.",
+    foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{3.0}}
+  );
+  GRAPPLE_REQUIRE(stewardShiftedKeyedControls);
+  GRAPPLE_REQUIRE(stewardShiftedKeyedControls.value().snapshot.revision == foundation::RevisionId{"rev_8"});
+  const agent::AgentConversationState stewardShiftConversation =
+    stewardAdjustWorkspace.value().steward().conversationState();
+  GRAPPLE_REQUIRE(stewardShiftConversation.runs.size() == 4);
+  GRAPPLE_REQUIRE(stewardShiftConversation.runs[3].status == agent::AgentRunStatus::Succeeded);
+  GRAPPLE_REQUIRE(stewardShiftConversation.runs[3].toolCalls.size() == 2);
+  GRAPPLE_REQUIRE(stewardShiftConversation.runs[3].toolCalls[0].toolSerializedId == "camera.set_transform_keyframe");
+  GRAPPLE_REQUIRE(stewardShiftConversation.runs[3].toolCalls[0].toolCallId == foundation::ToolId{"tool_steward_camera_transform_keyframe_4_1"});
+  GRAPPLE_REQUIRE(stewardShiftConversation.runs[3].toolCalls[0].observedRevision == foundation::RevisionId{"rev_7"});
+  GRAPPLE_REQUIRE(stewardShiftConversation.runs[3].toolCalls[1].toolSerializedId == "camera.set_transform_keyframe");
+  GRAPPLE_REQUIRE(stewardShiftConversation.runs[3].toolCalls[1].toolCallId == foundation::ToolId{"tool_steward_camera_transform_keyframe_4_2"});
+  GRAPPLE_REQUIRE(stewardShiftConversation.runs[3].toolCalls[1].observedRevision == foundation::RevisionId{"rev_8"});
+  const auto stewardShiftViewModel = stewardAdjustWorkspace.value().project().buildViewModel();
+  GRAPPLE_REQUIRE(stewardShiftViewModel);
+  GRAPPLE_REQUIRE(stewardShiftViewModel.value().timeline.effectGraphs[0].effects[0].params[0].keyframes.size() == 2);
+  GRAPPLE_REQUIRE(std::get<double>(stewardShiftViewModel.value().timeline.effectGraphs[0].effects[0].params[0].keyframes[0].value) == 0.5);
+  GRAPPLE_REQUIRE(std::get<double>(stewardShiftViewModel.value().timeline.effectGraphs[0].effects[0].params[0].keyframes[1].value) == 0.75);
+  GRAPPLE_REQUIRE(stewardShiftViewModel.value().steward.edits.size() == 4);
+  GRAPPLE_REQUIRE(stewardShiftViewModel.value().steward.edits[3].editName == "Camera Transform Keyframe");
+  GRAPPLE_REQUIRE(stewardShiftViewModel.value().steward.edits[3].revision == foundation::RevisionId{"rev_8"});
+  GRAPPLE_REQUIRE(stewardShiftViewModel.value().steward.edits[3].intent == "Move the camera framing right.");
+  const auto stewardShiftRefresh = stewardAdjustWorkspace.value().preview().refreshFromProject();
+  GRAPPLE_REQUIRE(stewardShiftRefresh);
+  const auto stewardShiftMidFrame = stewardAdjustWorkspace.value().preview().renderFrame(render::RenderFrameRequest{
+    foundation::TimeSeconds{1.5},
+    render::RenderQuality::Draft
+  });
+  GRAPPLE_REQUIRE(stewardShiftMidFrame);
+  GRAPPLE_REQUIRE(stewardShiftMidFrame.value().runtimeDiagnostics.empty());
+  GRAPPLE_REQUIRE(stewardShiftMidFrame.value().frame.cameras.size() == 1);
+  GRAPPLE_REQUIRE(stewardShiftMidFrame.value().frame.cameras[0].state.transform.position.x == 0.625);
+
   app::NativeProjectSession stewardMotionProject{
     foundation::ProjectId{"proj_app_steward_motion"},
     "Steward Motion Project",
