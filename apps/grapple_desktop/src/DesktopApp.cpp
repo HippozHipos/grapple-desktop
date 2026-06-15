@@ -546,8 +546,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            steward.find("Loop") == std::string::npos &&
            steward.find("Create an editable result") == std::string::npos &&
            steward.find("editable graph") == std::string::npos &&
-           steward.find("Recent Steward runs") != std::string::npos &&
-           steward.find("- no runs yet") != std::string::npos &&
+           steward.find("Recent runs: none") != std::string::npos &&
            !viewModel.value().timeline.cameras.empty() &&
            selectedNodeId.has_value() &&
            selectedNodeId.value() == viewModel.value().timeline.cameras.front().sourceNodeId
@@ -1259,7 +1258,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            intentRecorded &&
            steward.find("Applied edits") != std::string::npos &&
            steward.find("- " + createdRevisionText + " Camera Transform on Camera: Center the walking subject with exposed controls.") != std::string::npos &&
-           steward.find("Recent Steward runs") != std::string::npos &&
+           steward.find("Recent runs:") != std::string::npos &&
            steward.find("- Center the walking subject with exposed controls. [succeeded]") != std::string::npos &&
            steward.find("effect.create_node -> succeeded at " + createdRevisionText) != std::string::npos &&
            steward.find("effect.create_node -> failed") == std::string::npos &&

@@ -176,19 +176,17 @@ void StewardPanel::setViewModel(
 
   QStringList lines{
     "Steward",
-    "Project state",
-    QString{"%1 assets | %2 clips | %3 cameras | %4 editable effects"}
+    QString{"Project: %1 assets | %2 clips | %3 cameras | %4 editable effects"}
       .arg(viewModel.assets.count)
       .arg(viewModel.timeline.clips.size())
       .arg(viewModel.timeline.cameras.size())
-      .arg(viewModel.timeline.effectCount),
-    "",
-    "Applied edits"
+      .arg(viewModel.timeline.effectCount)
   };
 
   if (viewModel.steward.edits.empty()) {
-    lines << "- no Steward edits yet";
+    lines << "Applied edits: none";
   } else {
+    lines << "Applied edits:";
     for (auto edit = viewModel.steward.edits.rbegin(); edit != viewModel.steward.edits.rend(); ++edit) {
       const QString effectText = edit->effectName.empty()
         ? QString{}
@@ -204,11 +202,10 @@ void StewardPanel::setViewModel(
     }
   }
 
-  lines << "";
-  lines << "Recent Steward runs";
   if (conversationState.runs.empty()) {
-    lines << "- no runs yet";
+    lines << "Recent runs: none";
   } else {
+    lines << "Recent runs:";
     for (auto run = conversationState.runs.rbegin(); run != conversationState.runs.rend(); ++run) {
       lines << QString{"- %1 [%2]"}
         .arg(qString(run->title))
