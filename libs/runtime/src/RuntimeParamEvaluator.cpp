@@ -1,6 +1,7 @@
 #include <grapple/runtime/RuntimeParamEvaluator.hpp>
+#include <grapple/foundation/KeyframeSampling.hpp>
 
-#include <algorithm>
+#include <optional>
 #include <string>
 #include <variant>
 #include <vector>
@@ -16,53 +17,6 @@ RuntimeValue runtimeValueFromParamValue(const timeline::ParamValue& value) {
     },
     value
   );
-}
-
-RuntimeValue sampledKeyframeValue(const RuntimeParam& param, foundation::TimeSeconds time) {
-  if (param.keyframes.empty()) {
-    return param.value;
-  }
-
-  std::vector<RuntimeParamKeyframe> keyframes = param.keyframes;
-  std::sort(keyframes.begin(), keyframes.end(), [](const RuntimeParamKeyframe& left, const RuntimeParamKeyframe& right) {
-    if (left.time != right.time) {
-      return left.time < right.time;
-    }
-    return left.id < right.id;
-  });
-
-  if (time <= keyframes.front().time) {
-    return keyframes.front().value;
-  }
-  if (time >= keyframes.back().time) {
-    return keyframes.back().value;
-  }
-
-  for (std::size_t index = 1; index < keyframes.size(); ++index) {
-    const RuntimeParamKeyframe& right = keyframes[index];
-    if (time > right.time) {
-      continue;
-    }
-    if (time == right.time) {
-      return right.value;
-    }
-
-    const RuntimeParamKeyframe& left = keyframes[index - 1];
-    const auto* leftNumber = std::get_if<double>(&left.value);
-    const auto* rightNumber = std::get_if<double>(&right.value);
-    if (leftNumber == nullptr || rightNumber == nullptr) {
-      return left.value;
-    }
-
-    const double span = right.time.value - left.time.value;
-    if (span <= 0.0) {
-      return RuntimeValue{*rightNumber};
-    }
-    const double ratio = (time.value - left.time.value) / span;
-    return RuntimeValue{*leftNumber + ((*rightNumber - *leftNumber) * ratio)};
-  }
-
-  return keyframes.back().value;
 }
 
 } // namespace
@@ -98,7 +52,19 @@ RuntimeValueMap evaluateRuntimeParams(
   for (const RuntimeParam& param : params) {
     values.push_back(RuntimeNamedValue{
       param.name,
-      sampledKeyframeValue(param, time)
+      foundation::sampleKeyframedValue<RuntimeParamKeyframe, RuntimeValue>(
+        param.value,
+        param.keyframes,
+        time,
+        [](const RuntimeValue& left, const RuntimeValue& right, double ratio) -> std::optional<RuntimeValue> {
+          const auto* leftNumber = std::get_if<double>(&left);
+          const auto* rightNumber = std::get_if<double>(&right);
+          if (leftNumber == nullptr || rightNumber == nullptr) {
+            return std::nullopt;
+          }
+          return RuntimeValue{*leftNumber + ((*rightNumber - *leftNumber) * ratio)};
+        }
+      )
     });
   }
   return values;

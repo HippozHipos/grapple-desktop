@@ -1,4 +1,5 @@
 #include <grapple/ui_qt/EffectParamPanel.hpp>
+#include <grapple/timeline/ParamSampling.hpp>
 
 #include <QAbstractSpinBox>
 #include <QCheckBox>
@@ -92,6 +93,26 @@ void appendLastEditedRow(QVBoxLayout* layout, const app::AppEffectParamRow& para
   };
   lastEdited->setObjectName("effectParamHelp");
   layout->addWidget(lastEdited);
+}
+
+timeline::Param timelineParamForSampling(const app::AppEffectParamRow& param) {
+  timeline::Param timelineParam{param.name, param.value};
+  timelineParam.keyframes.reserve(param.keyframes.size());
+  for (const app::AppEffectParamRow::Keyframe& keyframe : param.keyframes) {
+    timelineParam.keyframes.push_back(timeline::Param::Keyframe{
+      keyframe.keyframeId,
+      keyframe.time,
+      keyframe.value
+    });
+  }
+  return timelineParam;
+}
+
+timeline::ParamValue sampledParamValueAtPlayhead(
+  const app::AppEffectParamRow& param,
+  foundation::TimeSeconds playhead
+) {
+  return timeline::sampleParamValue(timelineParamForSampling(param), playhead);
 }
 
 } // namespace
@@ -188,9 +209,24 @@ void EffectParamPanel::setSelection(
         const foundation::NodeId parameterEffectNodeId = effect.sourceNodeId;
         const std::string paramName = param.name;
         const std::optional<foundation::KeyframeId> currentKeyframeId = keyframeIdAtPlayhead(param, playhead);
+        const bool animatedParam = !param.keyframes.empty();
+        const timeline::ParamValue displayedValue = sampledParamValueAtPlayhead(param, playhead);
         const QString displayName = param.label.empty()
           ? qString(param.name)
           : qString(param.label);
+
+        auto commitEditedValue = [this, parameterEffectNodeId, paramName, currentKeyframeId, animatedParam](timeline::ParamValue value) {
+          if (animatedParam) {
+            if (setKeyframeHandler_) {
+              setKeyframeHandler_(parameterEffectNodeId, paramName, std::move(value), currentKeyframeId);
+            }
+            return;
+          }
+
+          if (applyHandler_) {
+            applyHandler_(parameterEffectNodeId, paramName, std::move(value));
+          }
+        };
 
         auto appendKeyframeRows = [&] {
           for (std::size_t keyframeIndex = 0; keyframeIndex < param.keyframes.size(); ++keyframeIndex) {
@@ -237,7 +273,7 @@ void EffectParamPanel::setSelection(
         label->setToolTip(qString(param.name));
         rowLayout->addWidget(label);
 
-        const auto* numericValue = std::get_if<double>(&param.value);
+        const auto* numericValue = std::get_if<double>(&displayedValue);
         if (numericValue != nullptr && param.numericMin.has_value() && param.numericMax.has_value()) {
           auto* controlRow = new QWidget;
           auto* controlLayout = new QHBoxLayout{controlRow};
@@ -262,28 +298,24 @@ void EffectParamPanel::setSelection(
           slider->setValue(sliderIndexForParamValue(*numericValue, *param.numericMin, *param.numericMax));
           slider->setEnabled(*param.numericMax > *param.numericMin);
 
-          connect(editor, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, [this, slider, parameterEffectNodeId, paramName, min = *param.numericMin, max = *param.numericMax](double value) {
+          connect(editor, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, [this, slider, commitEditedValue, min = *param.numericMin, max = *param.numericMax](double value) {
             const QSignalBlocker blockSlider{slider};
             slider->setValue(sliderIndexForParamValue(value, min, max));
-            QTimer::singleShot(0, this, [this, parameterEffectNodeId, paramName, value] {
-              if (applyHandler_) {
-                applyHandler_(parameterEffectNodeId, paramName, timeline::ParamValue{value});
-              }
+            QTimer::singleShot(0, this, [commitEditedValue, value] {
+              commitEditedValue(timeline::ParamValue{value});
             });
           });
           connect(slider, &QSlider::valueChanged, this, [editor, min = *param.numericMin, max = *param.numericMax](int index) {
             const QSignalBlocker blockEditor{editor};
             editor->setValue(paramValueForSliderIndex(index, min, max));
           });
-          connect(slider, &QSlider::sliderReleased, this, [this, editor, parameterEffectNodeId, paramName, initialValue = *numericValue] {
+          connect(slider, &QSlider::sliderReleased, this, [this, editor, commitEditedValue, initialValue = *numericValue] {
             const double value = editor->value();
             if (sameNumericValue(value, initialValue)) {
               return;
             }
-            QTimer::singleShot(0, this, [this, parameterEffectNodeId, paramName, value] {
-              if (applyHandler_) {
-                applyHandler_(parameterEffectNodeId, paramName, timeline::ParamValue{value});
-              }
+            QTimer::singleShot(0, this, [commitEditedValue, value] {
+              commitEditedValue(timeline::ParamValue{value});
             });
           });
           auto* setKeyframe = new QPushButton{keyframeActionText(currentKeyframeId.has_value())};
@@ -306,7 +338,7 @@ void EffectParamPanel::setSelection(
           continue;
         }
 
-        if (const auto* boolValue = std::get_if<bool>(&param.value)) {
+        if (const auto* boolValue = std::get_if<bool>(&displayedValue)) {
           auto* controlRow = new QWidget;
           auto* controlLayout = new QHBoxLayout{controlRow};
           controlLayout->setContentsMargins(0, 0, 0, 0);
@@ -315,10 +347,8 @@ void EffectParamPanel::setSelection(
           editor->setObjectName(QString{"effectParamEditor_%1"}.arg(qString(param.name)));
           editor->setChecked(*boolValue);
 
-          connect(editor, &QCheckBox::toggled, this, [this, parameterEffectNodeId, paramName](bool value) {
-            if (applyHandler_) {
-              applyHandler_(parameterEffectNodeId, paramName, timeline::ParamValue{value});
-            }
+          connect(editor, &QCheckBox::toggled, this, [commitEditedValue](bool value) {
+            commitEditedValue(timeline::ParamValue{value});
           }, Qt::QueuedConnection);
           auto* setKeyframe = new QPushButton{keyframeActionText(currentKeyframeId.has_value())};
           setKeyframe->setToolTip(keyframeActionTooltip(currentKeyframeId.has_value()));
@@ -339,7 +369,7 @@ void EffectParamPanel::setSelection(
           continue;
         }
 
-        if (const auto* stringValue = std::get_if<std::string>(&param.value)) {
+        if (const auto* stringValue = std::get_if<std::string>(&displayedValue)) {
           auto* controlRow = new QWidget;
           auto* controlLayout = new QHBoxLayout{controlRow};
           controlLayout->setContentsMargins(0, 0, 0, 0);
@@ -347,10 +377,8 @@ void EffectParamPanel::setSelection(
           auto* editor = new QLineEdit{qString(*stringValue)};
           editor->setObjectName(QString{"effectParamEditor_%1"}.arg(qString(param.name)));
 
-          connect(editor, &QLineEdit::editingFinished, this, [this, editor, parameterEffectNodeId, paramName] {
-            if (applyHandler_) {
-              applyHandler_(parameterEffectNodeId, paramName, timeline::ParamValue{editor->text().toStdString()});
-            }
+          connect(editor, &QLineEdit::editingFinished, this, [editor, commitEditedValue] {
+            commitEditedValue(timeline::ParamValue{editor->text().toStdString()});
           });
           auto* setKeyframe = new QPushButton{keyframeActionText(currentKeyframeId.has_value())};
           setKeyframe->setToolTip(keyframeActionTooltip(currentKeyframeId.has_value()));
@@ -376,7 +404,7 @@ void EffectParamPanel::setSelection(
           auto* controlLayout = new QHBoxLayout{controlRow};
           controlLayout->setContentsMargins(0, 0, 0, 0);
           controlLayout->setSpacing(8);
-          auto* value = new QLabel{qString(app::paramValueDisplayText(param.value))};
+          auto* value = new QLabel{qString(app::paramValueDisplayText(displayedValue))};
           value->setObjectName("effectParamHelp");
           auto* setKeyframe = new QPushButton{keyframeActionText(currentKeyframeId.has_value())};
           setKeyframe->setToolTip(keyframeActionTooltip(currentKeyframeId.has_value()));

@@ -1370,7 +1370,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "adjustedCameraXAtMidpoint=" << adjustedCameraX << '\n';
 
     return stewardCreatedMotion &&
-           adjustedViewModel.value().project.revision == grapple::foundation::RevisionId{"rev_10"} &&
+           adjustedViewModel.value().project.revision == grapple::foundation::RevisionId{"rev_9"} &&
            adjustedParam->keyframes.size() == 2 &&
            adjustedParam->keyframes[1].keyframeId == param->keyframes[1].keyframeId &&
            adjustedParam->keyframes[1].time == grapple::foundation::TimeSeconds{10.0} &&
@@ -1498,7 +1498,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "adjustedScaleAtMidpoint=" << adjustedScaleAtMidpoint << '\n';
 
     return stewardCreatedZoom &&
-           adjustedViewModel.value().project.revision == grapple::foundation::RevisionId{"rev_10"} &&
+           adjustedViewModel.value().project.revision == grapple::foundation::RevisionId{"rev_9"} &&
            adjustedParam->keyframes.size() == 2 &&
            adjustedParam->keyframes[1].keyframeId == param->keyframes[1].keyframeId &&
            adjustedParam->keyframes[1].time == grapple::foundation::TimeSeconds{10.0} &&

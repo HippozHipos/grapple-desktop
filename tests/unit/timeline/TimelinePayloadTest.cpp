@@ -1,4 +1,5 @@
 #include <grapple/timeline/EffectPayload.hpp>
+#include <grapple/timeline/ParamSampling.hpp>
 #include <grapple/timeline/Payloads.hpp>
 #include <grapple/timeline/TimelineSerializer.hpp>
 
@@ -78,6 +79,32 @@ int main() {
       }
     }}
   }) == "[{\"name\":\"smoothing\",\"label\":\"Smoothing\",\"numeric\":{\"min\":0,\"max\":1,\"step\":0.01},\"value\":0.25,\"keyframes\":[{\"id\":\"key_smooth_1\",\"time\":1,\"value\":0.5},{\"id\":\"key_smooth_2\",\"time\":2,\"value\":0.75}]}]");
+
+  const timeline::Param animatedNumber{
+    "position_x",
+    0.25,
+    timeline::Param::Control{},
+    {
+      timeline::Param::Keyframe{foundation::KeyframeId{"key_position_x_2"}, foundation::TimeSeconds{2.0}, 1.0},
+      timeline::Param::Keyframe{foundation::KeyframeId{"key_position_x_0"}, foundation::TimeSeconds{0.0}, 0.0}
+    }
+  };
+  GRAPPLE_REQUIRE(std::get<double>(timeline::sampleParamValue(animatedNumber, foundation::TimeSeconds{-1.0})) == 0.0);
+  GRAPPLE_REQUIRE(std::get<double>(timeline::sampleParamValue(animatedNumber, foundation::TimeSeconds{1.0})) == 0.5);
+  GRAPPLE_REQUIRE(std::get<double>(timeline::sampleParamValue(animatedNumber, foundation::TimeSeconds{2.0})) == 1.0);
+  GRAPPLE_REQUIRE(std::get<double>(timeline::sampleParamValue(animatedNumber, foundation::TimeSeconds{3.0})) == 1.0);
+
+  const timeline::Param animatedToggle{
+    "enabled",
+    false,
+    timeline::Param::Control{},
+    {
+      timeline::Param::Keyframe{foundation::KeyframeId{"key_enabled_0"}, foundation::TimeSeconds{0.0}, false},
+      timeline::Param::Keyframe{foundation::KeyframeId{"key_enabled_2"}, foundation::TimeSeconds{2.0}, true}
+    }
+  };
+  GRAPPLE_REQUIRE(!std::get<bool>(timeline::sampleParamValue(animatedToggle, foundation::TimeSeconds{1.0})));
+  GRAPPLE_REQUIRE(std::get<bool>(timeline::sampleParamValue(animatedToggle, foundation::TimeSeconds{2.0})));
 
   return 0;
 }

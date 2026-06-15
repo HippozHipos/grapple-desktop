@@ -1,4 +1,5 @@
 add_library(grapple_timeline
+  src/ParamSampling.cpp
   src/ParamValue.cpp
   src/TimelineSerializer.cpp
 )
