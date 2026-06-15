@@ -2145,10 +2145,11 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            stewardSelectedRecentEditText.find("Recenter the subject.") != std::string::npos &&
            stewardSelectedRecentEditText.find("Camera Transform Controls on Camera") != std::string::npos &&
            selectedAfterRecentEdit.has_value() &&
-           selectedAfterRecentEdit.value() == viewModel.value().timeline.cameras.front().sourceNodeId &&
-           steward.find("1 assets | 1 clips | 1 cameras | 1 editable effects") != std::string::npos &&
-           steward.find("Next: apply the request to the exposed camera controls.") != std::string::npos &&
-           steward.find("Applied edits: select one to inspect its target.") != std::string::npos &&
+	           selectedAfterRecentEdit.value() == viewModel.value().timeline.cameras.front().sourceNodeId &&
+	           steward.find("1 assets | 1 clips | 1 cameras | 1 editable effects") != std::string::npos &&
+	           steward.find("Next: apply the request to the exposed camera controls.") != std::string::npos &&
+	           steward.find("Camera target: Camera") != std::string::npos &&
+	           steward.find("Applied edits: select one to inspect its target.") != std::string::npos &&
            steward.find("- Recenter the subject. [succeeded]") != std::string::npos &&
            steward.find("- Make the subject bigger. [succeeded]") != std::string::npos &&
            steward.find("Update Effect Parameter -> succeeded") != std::string::npos &&
@@ -2219,9 +2220,10 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            !selectedClipActionEnabledBeforeIntent &&
            selectedClipActionEnabledAfterIntent &&
            !window.stewardSelectedClipActionEnabled() &&
-           stewardIntent.empty() &&
-           steward.find("Next: choose camera controls or selected clip transform for this request.") != std::string::npos &&
-           steward.find("Selected clip action: apply the request to clip transform parameters.") != std::string::npos &&
+	           stewardIntent.empty() &&
+	           steward.find("Next: choose camera controls or selected clip transform for this request.") != std::string::npos &&
+	           steward.find("Clip target: starter-gradient") != std::string::npos &&
+	           steward.find("Selected clip action: apply the request to clip transform parameters.") != std::string::npos &&
            steward.find("Update Clip Transform -> succeeded") != std::string::npos &&
            log.find("Steward transformed selected clip") != std::string::npos
       ? 0

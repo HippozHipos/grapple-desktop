@@ -81,6 +81,42 @@ std::optional<foundation::NodeId> selectedVisualClipNodeId(
   return selectedClip->sourceNodeId;
 }
 
+QString cameraName(
+  const app::AppViewModel& viewModel,
+  const foundation::NodeId& cameraNodeId
+) {
+  for (const app::AppCameraRow& camera : viewModel.timeline.cameras) {
+    if (camera.sourceNodeId == cameraNodeId) {
+      return qString(camera.name);
+    }
+  }
+  return qString(cameraNodeId.value());
+}
+
+QString clipName(
+  const app::AppViewModel& viewModel,
+  const foundation::NodeId& clipNodeId
+) {
+  for (const app::AppClipRow& clip : viewModel.timeline.clips) {
+    if (clip.sourceNodeId == clipNodeId) {
+      return qString(clip.assetName);
+    }
+  }
+  return qString(clipNodeId.value());
+}
+
+QString assetName(
+  const app::AppViewModel& viewModel,
+  const foundation::AssetId& assetId
+) {
+  for (const app::AppAssetRow& asset : viewModel.assets.rows) {
+    if (asset.assetId == assetId) {
+      return qString(asset.name);
+    }
+  }
+  return qString(assetId.value());
+}
+
 bool containsNonWhitespace(const std::string& value) {
   return std::any_of(value.begin(), value.end(), [](unsigned char character) {
     return std::isspace(character) == 0;
@@ -317,7 +353,14 @@ void StewardPanel::setViewModel(
       .arg(viewModel.timeline.effectCount),
     nextStep
   };
+  if (selectedAssetId.has_value() && primaryAction_ == PrimaryAction::AddSelectedMedia) {
+    lines << QString{"Selected asset: %1"}.arg(assetName(viewModel, selectedAssetId.value()));
+  }
+  if (cameraTargetId.has_value()) {
+    lines << QString{"Camera target: %1"}.arg(cameraName(viewModel, cameraTargetId.value()));
+  }
   if (selectedClipTargetNodeId_.has_value()) {
+    lines << QString{"Clip target: %1"}.arg(clipName(viewModel, selectedClipTargetNodeId_.value()));
     lines << "Selected clip action: apply the request to clip transform parameters.";
   }
 
