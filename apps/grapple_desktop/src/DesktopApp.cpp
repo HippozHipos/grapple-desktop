@@ -2296,11 +2296,13 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            stewardSelectedRecentEdit == 0 &&
            stewardSelectedRecentEditText.find("Recenter the subject.") != std::string::npos &&
            stewardSelectedRecentEditText.find("Camera Transform on Camera") != std::string::npos &&
+           stewardSelectedRecentEditText.find("Position X=0") != std::string::npos &&
            selectedAfterRecentEdit.has_value() &&
 	           selectedAfterRecentEdit.value() == viewModel.value().timeline.cameras.front().sourceNodeId &&
 	           steward.find("1 assets | 1 clips | 1 cameras | 1 editable effects") != std::string::npos &&
 	           steward.find("Next: type the camera edit request, then apply it to the exposed controls.") != std::string::npos &&
 	           steward.find("Latest result: Camera Transform on Camera (" + viewModel.value().project.revision.value() + ")") != std::string::npos &&
+	           steward.find("Controls changed: Position X=0") != std::string::npos &&
 	           steward.find("Latest request: Recenter the subject.") != std::string::npos &&
            steward.find("Camera target: Camera") != std::string::npos &&
 	           steward.find("Applied edits: select one to inspect its target.") != std::string::npos &&

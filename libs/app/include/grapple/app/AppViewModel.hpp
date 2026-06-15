@@ -32,6 +32,7 @@ struct AppStewardEditRow {
   std::string targetName;
   std::string editName;
   std::string intent;
+  std::string controlSummary;
 };
 
 struct AppStewardView {

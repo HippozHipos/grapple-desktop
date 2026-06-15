@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <cstdlib>
 #include <optional>
+#include <sstream>
 #include <type_traits>
 #include <utility>
 #include <variant>
@@ -205,6 +206,80 @@ foundation::Result<EffectTargetDisplay> effectTargetDisplay(
   };
 }
 
+std::string effectParamLabel(
+  const project::ProjectSnapshot& snapshot,
+  const foundation::NodeId& effectNodeId,
+  const std::string& paramName
+) {
+  const graph::GraphNode* effectNode = snapshot.graph.findNode(effectNodeId);
+  if (effectNode == nullptr || effectNode->kind != graph::NodeKind::Effect) {
+    return paramName;
+  }
+  const auto* payload = std::get_if<timeline::EffectPayload>(&effectNode->payload);
+  if (payload == nullptr) {
+    return paramName;
+  }
+  const auto param = std::find_if(payload->params.values.begin(), payload->params.values.end(), [&](const timeline::Param& value) {
+    return value.name == paramName;
+  });
+  if (param == payload->params.values.end() || param->control.label.empty()) {
+    return paramName;
+  }
+  return param->control.label;
+}
+
+std::string effectParamValueSummary(
+  const project::ProjectSnapshot& snapshot,
+  const foundation::NodeId& effectNodeId,
+  const std::string& paramName,
+  const timeline::ParamValue& value
+) {
+  return effectParamLabel(snapshot, effectNodeId, paramName) + "=" + paramValueDisplayText(value);
+}
+
+std::string timeDisplayText(foundation::TimeSeconds time) {
+  std::ostringstream output;
+  output << time.value;
+  return output.str();
+}
+
+std::string effectParamKeyframeSummary(
+  const project::ProjectSnapshot& snapshot,
+  const foundation::NodeId& effectNodeId,
+  const std::string& paramName,
+  const timeline::Param::Keyframe& keyframe
+) {
+  return effectParamLabel(snapshot, effectNodeId, paramName) +
+         " " +
+         timeDisplayText(keyframe.time) +
+         "s=" +
+         paramValueDisplayText(keyframe.value);
+}
+
+std::string effectCreationControlSummary(const timeline::EffectPayload& payload) {
+  std::ostringstream summary;
+  for (std::size_t index = 0; index < payload.params.values.size(); ++index) {
+    const timeline::Param& param = payload.params.values[index];
+    if (index > 0) {
+      summary << ", ";
+    }
+    summary << (param.control.label.empty() ? param.name : param.control.label)
+            << "="
+            << paramValueDisplayText(param.value);
+  }
+  return summary.str();
+}
+
+void appendControlSummary(AppStewardEditRow& row, std::string summary) {
+  if (summary.empty()) {
+    return;
+  }
+  if (!row.controlSummary.empty()) {
+    row.controlSummary += ", ";
+  }
+  row.controlSummary += std::move(summary);
+}
+
 struct EffectCreationProvenance {
   foundation::CommandId commandId;
   foundation::NodeId effectNodeId;
@@ -306,7 +381,8 @@ foundation::Result<AppCommandProvenance> appCommandProvenance(
           createEffect->targetNodeId,
           targetName.value(),
           createEffect->payload.displayName,
-          intent
+          intent,
+          effectCreationControlSummary(createEffect->payload)
         });
       }
     } else if (const auto* updateParam = std::get_if<project::UpdateEffectParamValueCommand>(&parsedCommand.value())) {
@@ -339,6 +415,10 @@ foundation::Result<AppCommandProvenance> appCommandProvenance(
           AppStewardEditRow& row = provenance.stewardEdits[existingParamEdit->rowIndex];
           row.commandId = command.id;
           row.revision = command.afterRevision;
+          appendControlSummary(
+            row,
+            effectParamValueSummary(snapshot, updateParam->effectNodeId, updateParam->paramName, updateParam->value)
+          );
         } else {
           provenance.stewardEdits.push_back(AppStewardEditRow{
             command.id,
@@ -346,7 +426,8 @@ foundation::Result<AppCommandProvenance> appCommandProvenance(
             targetDisplay.value().targetNodeId,
             targetDisplay.value().targetName,
             editName,
-            intent
+            intent,
+            effectParamValueSummary(snapshot, updateParam->effectNodeId, updateParam->paramName, updateParam->value)
           });
           if (command.sourceRunId.has_value()) {
             stewardParamEditRows.push_back(StewardEditRowIndex{
@@ -399,6 +480,10 @@ foundation::Result<AppCommandProvenance> appCommandProvenance(
           AppStewardEditRow& row = provenance.stewardEdits[existingKeyframeEdit->rowIndex];
           row.commandId = command.id;
           row.revision = command.afterRevision;
+          appendControlSummary(
+            row,
+            effectParamKeyframeSummary(snapshot, upsertKeyframe->effectNodeId, upsertKeyframe->paramName, upsertKeyframe->keyframe)
+          );
         } else {
           provenance.stewardEdits.push_back(AppStewardEditRow{
             command.id,
@@ -406,7 +491,8 @@ foundation::Result<AppCommandProvenance> appCommandProvenance(
             targetDisplay.value().targetNodeId,
             targetDisplay.value().targetName,
             editName,
-            intent
+            intent,
+            effectParamKeyframeSummary(snapshot, upsertKeyframe->effectNodeId, upsertKeyframe->paramName, upsertKeyframe->keyframe)
           });
           if (command.sourceRunId.has_value()) {
             stewardKeyframeEditRows.push_back(StewardEditRowIndex{
@@ -431,7 +517,10 @@ foundation::Result<AppCommandProvenance> appCommandProvenance(
           updateClip->nodeId,
           targetName.value(),
           "Clip Transform",
-          intent
+          intent,
+          "Position=" + paramValueDisplayText(updateClip->payload.transform.position) +
+            ", Scale=" + paramValueDisplayText(updateClip->payload.transform.scale) +
+            ", Opacity=" + paramValueDisplayText(updateClip->payload.transform.opacity)
         });
       } else if (const auto* addMedia = std::get_if<project::AddMediaToTimelineCommand>(&parsedCommand.value())) {
         auto targetName = nodeDisplayName(snapshot, addMedia->clip.nodeId);
@@ -444,7 +533,10 @@ foundation::Result<AppCommandProvenance> appCommandProvenance(
           addMedia->clip.nodeId,
           targetName.value(),
           "Timeline Placement",
-          intent
+          intent,
+          "Start=" + timeDisplayText(addMedia->clip.payload.timelineRange.start) +
+            "s, Duration=" + timeDisplayText(foundation::TimeSeconds{addMedia->clip.payload.timelineRange.duration()}) +
+            "s"
         });
       }
     }

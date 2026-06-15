@@ -150,6 +150,10 @@ QString stewardEditResult(const app::AppStewardEditRow& edit) {
   return QString{" -> %1"}.arg(resultLabel);
 }
 
+QString stewardEditControlSummary(const app::AppStewardEditRow& edit) {
+  return edit.controlSummary.empty() ? QString{} : qString(edit.controlSummary);
+}
+
 const app::AppStewardEditRow* latestTargetedEdit(const app::AppViewModel& viewModel) {
   for (auto edit = viewModel.steward.edits.rbegin(); edit != viewModel.steward.edits.rend(); ++edit) {
     if (edit->targetNodeId.has_value()) {
@@ -394,6 +398,9 @@ void StewardPanel::setViewModel(
     lines << QString{"Latest result: %1 (%2)"}
       .arg(stewardEditResultLabel(*latestEdit))
       .arg(qString(latestEdit->revision.value()));
+    if (!latestEdit->controlSummary.empty()) {
+      lines << QString{"Controls changed: %1"}.arg(stewardEditControlSummary(*latestEdit));
+    }
     lines << QString{"Latest request: %1"}.arg(stewardEditRequest(*latestEdit));
   }
   if (selectedAssetId.has_value() && primaryAction_ == PrimaryAction::AddSelectedMedia) {
@@ -415,10 +422,11 @@ void StewardPanel::setViewModel(
       continue;
     }
     auto* item = new QListWidgetItem{
-      QString{"%1 %2%3"}
+      QString{"%1 %2%3%4"}
         .arg(qString(edit->revision.value()))
         .arg(stewardEditRequest(*edit))
         .arg(stewardEditResult(*edit))
+        .arg(edit->controlSummary.empty() ? QString{} : QString{" [%1]"}.arg(stewardEditControlSummary(*edit)))
     };
     item->setData(Qt::UserRole, qString(edit->targetNodeId->value()));
     item->setToolTip(item->text());

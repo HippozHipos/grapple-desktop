@@ -1269,6 +1269,7 @@ int main() {
   GRAPPLE_REQUIRE(runtimeEffectViewModel.value().steward.edits[0].targetName == "Camera");
   GRAPPLE_REQUIRE(runtimeEffectViewModel.value().steward.edits[0].editName == "Camera Transform");
   GRAPPLE_REQUIRE(runtimeEffectViewModel.value().steward.edits[0].intent == "Center the subject with an editable camera transform.");
+  GRAPPLE_REQUIRE(runtimeEffectViewModel.value().steward.edits[0].controlSummary == "Position X=0, Position Y=0, Zoom=1.1");
   const foundation::NodeId runtimeEffectNodeId = runtimeEffectViewModel.value().timeline.effectGraphs[0].effects[0].sourceNodeId;
   const auto initialRuntimeRefresh = runtimeWorkspace.value().preview().refreshFromProject();
   GRAPPLE_REQUIRE(initialRuntimeRefresh);
@@ -1607,6 +1608,7 @@ int main() {
   GRAPPLE_REQUIRE(stewardAdjustViewModel.value().steward.edits[1].targetName == "Camera");
   GRAPPLE_REQUIRE(stewardAdjustViewModel.value().steward.edits[1].editName == "Camera Transform");
   GRAPPLE_REQUIRE(stewardAdjustViewModel.value().steward.edits[1].intent == "Move the camera framing right.");
+  GRAPPLE_REQUIRE(stewardAdjustViewModel.value().steward.edits[1].controlSummary == "Position X=0.25");
   const auto stewardPannedControls = stewardAdjustWorkspace.value().steward().adjustCameraTransformControls(
     stewardAdjustCameraNodeId,
     "Pan right with existing editable camera controls.",
@@ -1638,6 +1640,7 @@ int main() {
   GRAPPLE_REQUIRE(stewardPanViewModel.value().steward.edits[2].editName == "Camera Transform Keyframe");
   GRAPPLE_REQUIRE(stewardPanViewModel.value().steward.edits[2].revision == foundation::RevisionId{"rev_6"});
   GRAPPLE_REQUIRE(stewardPanViewModel.value().steward.edits[2].intent == "Pan right with existing editable camera controls.");
+  GRAPPLE_REQUIRE(stewardPanViewModel.value().steward.edits[2].controlSummary == "Position X 0s=0.25, Position X 3s=0.5");
   const auto stewardPanRefresh = stewardAdjustWorkspace.value().preview().refreshFromProject();
   GRAPPLE_REQUIRE(stewardPanRefresh);
   const auto stewardPanMidFrame = stewardAdjustWorkspace.value().preview().renderFrame(render::RenderFrameRequest{
@@ -1723,6 +1726,7 @@ int main() {
   GRAPPLE_REQUIRE(stewardCombinedViewModel.value().steward.edits[4].intent == "Move the camera up and make the subject bigger.");
   GRAPPLE_REQUIRE(stewardCombinedViewModel.value().steward.edits[4].revision == foundation::RevisionId{"rev_10"});
   GRAPPLE_REQUIRE(stewardCombinedViewModel.value().steward.edits[4].editName == "Camera Transform");
+  GRAPPLE_REQUIRE(stewardCombinedViewModel.value().steward.edits[4].controlSummary == "Position Y=-0.2, Zoom=1.375");
 
   app::NativeProjectSession stewardRecenterProject{
     foundation::ProjectId{"proj_app_steward_recenter"},
