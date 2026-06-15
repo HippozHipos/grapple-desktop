@@ -82,6 +82,8 @@ add_test(NAME grapple_desktop_effect_keyframe_smoke COMMAND grapple_desktop --ef
 set_tests_properties(grapple_desktop_effect_keyframe_smoke PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 add_test(NAME grapple_desktop_steward_motion_smoke COMMAND grapple_desktop --steward-motion-smoke)
 set_tests_properties(grapple_desktop_steward_motion_smoke PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+add_test(NAME grapple_desktop_steward_zoom_motion_smoke COMMAND grapple_desktop --steward-zoom-motion-smoke)
+set_tests_properties(grapple_desktop_steward_zoom_motion_smoke PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 add_test(NAME grapple_desktop_delete_effect_smoke COMMAND grapple_desktop --delete-effect-smoke)
 set_tests_properties(grapple_desktop_delete_effect_smoke PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 add_test(NAME grapple_desktop_delete_smoke COMMAND grapple_desktop --delete-smoke)

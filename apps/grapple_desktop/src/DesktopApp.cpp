@@ -135,6 +135,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   bool setEffectParamSmoke = false;
   bool effectKeyframeSmoke = false;
   bool stewardMotionSmoke = false;
+  bool stewardZoomMotionSmoke = false;
   bool deleteEffectSmoke = false;
   bool deleteSmoke = false;
   bool deleteTrackSmoke = false;
@@ -204,6 +205,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       effectKeyframeSmoke = true;
     } else if (argument == "--steward-motion-smoke") {
       stewardMotionSmoke = true;
+    } else if (argument == "--steward-zoom-motion-smoke") {
+      stewardZoomMotionSmoke = true;
     } else if (argument == "--delete-effect-smoke") {
       deleteEffectSmoke = true;
     } else if (argument == "--delete-smoke") {
@@ -227,7 +230,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     } else if (argument == "--effect-screenshot" && index + 1 < argc) {
       effectScreenshotPath = argv[++index];
     } else {
-      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --select-audio-clip-smoke, --select-audio-track-smoke, --select-camera-smoke, --select-second-camera-smoke, --steward-smoke, --import-smoke, --import-media-types-smoke, --add-video-smoke, --empty-add-video-smoke, --empty-add-video-undo-smoke, --empty-add-track-smoke, --empty-add-camera-smoke, --update-camera-smoke, --add-note-smoke, --update-note-smoke, --move-clip-smoke, --trim-clip-smoke, --nudge-clip-smoke, --undo-redo-smoke, --add-effect-smoke, --set-effect-param-smoke, --effect-keyframe-smoke, --steward-motion-smoke, --delete-effect-smoke, --delete-smoke, --delete-track-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, --export-settings-smoke, --product-loop-smoke, --empty-launch-smoke, --screenshot <path>, or --effect-screenshot <path>.\n";
+      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --select-audio-clip-smoke, --select-audio-track-smoke, --select-camera-smoke, --select-second-camera-smoke, --steward-smoke, --import-smoke, --import-media-types-smoke, --add-video-smoke, --empty-add-video-smoke, --empty-add-video-undo-smoke, --empty-add-track-smoke, --empty-add-camera-smoke, --update-camera-smoke, --add-note-smoke, --update-note-smoke, --move-clip-smoke, --trim-clip-smoke, --nudge-clip-smoke, --undo-redo-smoke, --add-effect-smoke, --set-effect-param-smoke, --effect-keyframe-smoke, --steward-motion-smoke, --steward-zoom-motion-smoke, --delete-effect-smoke, --delete-smoke, --delete-track-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, --export-settings-smoke, --product-loop-smoke, --empty-launch-smoke, --screenshot <path>, or --effect-screenshot <path>.\n";
       return 1;
     }
   }
@@ -267,6 +270,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     setEffectParamSmoke ||
     effectKeyframeSmoke ||
     stewardMotionSmoke ||
+    stewardZoomMotionSmoke ||
     deleteEffectSmoke ||
     deleteSmoke ||
     deleteTrackSmoke ||
@@ -1371,6 +1375,134 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            adjustedParam->keyframes[1].lastEditedActorName == "desktop" &&
            adjustedFrame.value().frame.sourceRevision == adjustedViewModel.value().project.revision &&
            approx(adjustedCameraX, 0.25)
+      ? 0
+      : 1;
+  }
+
+  if (stewardZoomMotionSmoke) {
+    const auto approx = [](double lhs, double rhs) {
+      return std::abs(lhs - rhs) < 0.000001;
+    };
+
+    window.show();
+    app.processEvents();
+    window.clickFirstTimelineCamera();
+    window.setStewardIntent("Zoom in over time with editable camera controls.");
+    window.clickStewardPrimaryAction();
+    window.seekTo(grapple::foundation::TimeSeconds{5.0});
+
+    const auto viewModel = workspace.value().project().buildViewModel();
+    if (!viewModel) {
+      printError(viewModel.error());
+      return 1;
+    }
+    if (viewModel.value().timeline.effectGraphs.empty() ||
+        viewModel.value().timeline.effectGraphs.front().effects.empty()) {
+      std::cerr << "Steward zoom motion smoke requires an editable effect.\n";
+      return 1;
+    }
+
+    const auto& effect = viewModel.value().timeline.effectGraphs.front().effects.front();
+    const auto param = std::find_if(
+      effect.params.begin(),
+      effect.params.end(),
+      [](const grapple::app::AppEffectParamRow& row) {
+        return row.name == grapple::effects::builtin_effect::ZoomParam;
+      }
+    );
+    if (param == effect.params.end()) {
+      std::cerr << "Steward zoom motion smoke requires zoom.\n";
+      return 1;
+    }
+
+    const auto frame = workspace.value().preview().renderFrame(grapple::render::RenderFrameRequest{
+      workspace.value().preview().state().playhead,
+      grapple::render::RenderQuality::Draft
+    });
+    if (!frame) {
+      printError(frame.error());
+      return 1;
+    }
+    if (frame.value().frame.cameras.empty()) {
+      std::cerr << "Steward zoom motion smoke requires an evaluated camera.\n";
+      return 1;
+    }
+    const double scaleAtMidpoint = frame.value().frame.cameras.front().state.transform.scale.x;
+
+    const auto conversation = workspace.value().steward().conversationState();
+    std::cout << "revision=" << viewModel.value().project.revision.value() << '\n';
+    std::cout << "runs=" << conversation.runs.size() << '\n';
+    if (!conversation.runs.empty()) {
+      std::cout << "toolCalls=" << conversation.runs.front().toolCalls.size() << '\n';
+    }
+    std::cout << "zoomKeyframes=" << param->keyframes.size() << '\n';
+    std::cout << "scaleAtMidpoint=" << scaleAtMidpoint << '\n';
+
+    const bool stewardCreatedZoom =
+      viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_8"} &&
+      conversation.runs.size() == 1 &&
+      conversation.runs.front().toolCalls.size() == 3 &&
+      conversation.runs.front().toolCalls[0].toolSerializedId == "camera.add_transform_controls" &&
+      conversation.runs.front().toolCalls[1].toolSerializedId == "camera.set_transform_keyframe" &&
+      conversation.runs.front().toolCalls[2].toolSerializedId == "camera.set_transform_keyframe" &&
+      param->keyframes.size() == 2 &&
+      param->keyframes[0].time == grapple::foundation::TimeSeconds{0.0} &&
+      approx(std::get<double>(param->keyframes[0].value), 1.0) &&
+      param->keyframes[0].lastEditedActorName == "steward" &&
+      param->keyframes[1].time == grapple::foundation::TimeSeconds{10.0} &&
+      approx(std::get<double>(param->keyframes[1].value), 1.5) &&
+      param->keyframes[1].lastEditedActorName == "steward" &&
+      frame.value().frame.sourceRevision == viewModel.value().project.revision &&
+      approx(scaleAtMidpoint, 1.25);
+
+    window.seekTo(grapple::foundation::TimeSeconds{10.0});
+    window.setEffectParamControlValue(grapple::effects::builtin_effect::ZoomParam, 2.0);
+    window.setEffectParamKeyframeAtPlayhead(grapple::effects::builtin_effect::ZoomParam);
+    window.seekTo(grapple::foundation::TimeSeconds{5.0});
+
+    const auto adjustedViewModel = workspace.value().project().buildViewModel();
+    if (!adjustedViewModel) {
+      printError(adjustedViewModel.error());
+      return 1;
+    }
+    const auto& adjustedEffect = adjustedViewModel.value().timeline.effectGraphs.front().effects.front();
+    const auto adjustedParam = std::find_if(
+      adjustedEffect.params.begin(),
+      adjustedEffect.params.end(),
+      [](const grapple::app::AppEffectParamRow& row) {
+        return row.name == grapple::effects::builtin_effect::ZoomParam;
+      }
+    );
+    if (adjustedParam == adjustedEffect.params.end()) {
+      std::cerr << "Steward zoom motion smoke requires adjusted zoom.\n";
+      return 1;
+    }
+    const auto adjustedFrame = workspace.value().preview().renderFrame(grapple::render::RenderFrameRequest{
+      workspace.value().preview().state().playhead,
+      grapple::render::RenderQuality::Draft
+    });
+    if (!adjustedFrame) {
+      printError(adjustedFrame.error());
+      return 1;
+    }
+    if (adjustedFrame.value().frame.cameras.empty()) {
+      std::cerr << "Steward zoom motion smoke requires an adjusted evaluated camera.\n";
+      return 1;
+    }
+    const double adjustedScaleAtMidpoint = adjustedFrame.value().frame.cameras.front().state.transform.scale.x;
+
+    std::cout << "adjustedRevision=" << adjustedViewModel.value().project.revision.value() << '\n';
+    std::cout << "adjustedScaleAtMidpoint=" << adjustedScaleAtMidpoint << '\n';
+
+    return stewardCreatedZoom &&
+           adjustedViewModel.value().project.revision == grapple::foundation::RevisionId{"rev_10"} &&
+           adjustedParam->keyframes.size() == 2 &&
+           adjustedParam->keyframes[1].keyframeId == param->keyframes[1].keyframeId &&
+           adjustedParam->keyframes[1].time == grapple::foundation::TimeSeconds{10.0} &&
+           approx(std::get<double>(adjustedParam->keyframes[1].value), 2.0) &&
+           adjustedParam->keyframes[1].lastEditedActorName == "desktop" &&
+           adjustedFrame.value().frame.sourceRevision == adjustedViewModel.value().project.revision &&
+           approx(adjustedScaleAtMidpoint, 1.5)
       ? 0
       : 1;
   }
