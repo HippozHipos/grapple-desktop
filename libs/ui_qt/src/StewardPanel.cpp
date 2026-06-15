@@ -149,8 +149,10 @@ StewardPanel::StewardPanel(QWidget* parent)
   recentEdits_ = new QListWidget;
   recentEdits_->setObjectName("stewardRecentEdits");
   recentEdits_->setSelectionMode(QAbstractItemView::SingleSelection);
-  recentEdits_->setMinimumHeight(56);
-  recentEdits_->setMaximumHeight(78);
+  recentEdits_->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+  recentEdits_->setTextElideMode(Qt::ElideRight);
+  recentEdits_->setMinimumHeight(76);
+  recentEdits_->setMaximumHeight(116);
   layout->addWidget(recentEdits_);
   connect(recentEdits_, &QListWidget::itemActivated, this, [this](QListWidgetItem* item) {
     if (item == nullptr || !selectEditTargetHandler_) {
@@ -300,6 +302,7 @@ void StewardPanel::setViewModel(
 
   recentEdits_->blockSignals(true);
   recentEdits_->clear();
+  int selectedEditRow = -1;
   for (auto edit = viewModel.steward.edits.rbegin(); edit != viewModel.steward.edits.rend(); ++edit) {
     if (!edit->targetNodeId.has_value()) {
       continue;
@@ -316,7 +319,11 @@ void StewardPanel::setViewModel(
     item->setData(Qt::UserRole, qString(edit->targetNodeId->value()));
     item->setToolTip(qString(edit->intent));
     recentEdits_->addItem(item);
+    if (selectedEditRow == -1 && selectedNodeId.has_value() && selectedNodeId.value() == edit->targetNodeId.value()) {
+      selectedEditRow = recentEdits_->count() - 1;
+    }
   }
+  recentEdits_->setCurrentRow(selectedEditRow);
   recentEdits_->setVisible(recentEdits_->count() > 0);
   recentEdits_->blockSignals(false);
 
@@ -423,6 +430,10 @@ void StewardPanel::triggerRecentEdit(int row) {
 
 int StewardPanel::recentEditCount() const {
   return recentEdits_->count();
+}
+
+int StewardPanel::currentRecentEditRow() const {
+  return recentEdits_->currentRow();
 }
 
 } // namespace grapple::ui

@@ -54,6 +54,7 @@ public:
   [[nodiscard]] bool selectedClipActionEnabled() const;
   void triggerRecentEdit(int row);
   [[nodiscard]] int recentEditCount() const;
+  [[nodiscard]] int currentRecentEditRow() const;
 
 private:
   enum class PrimaryAction {

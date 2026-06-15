@@ -1013,6 +1013,10 @@ public:
     return steward_->recentEditCount();
   }
 
+  int stewardCurrentRecentEditRow() const {
+    return steward_->currentRecentEditRow();
+  }
+
   std::string effectParamTitleText() const {
     auto* title = findChild<QLabel*>("effectParamTitle");
     if (title == nullptr) {
@@ -2661,6 +2665,10 @@ bool DesktopWindow::stewardSelectedClipActionEnabled() const {
 
 int DesktopWindow::stewardRecentEditCount() const {
   return impl_->stewardRecentEditCount();
+}
+
+int DesktopWindow::stewardCurrentRecentEditRow() const {
+  return impl_->stewardCurrentRecentEditRow();
 }
 
 std::string DesktopWindow::effectParamTitleText() const {

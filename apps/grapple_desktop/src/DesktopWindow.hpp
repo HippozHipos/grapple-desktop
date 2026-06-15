@@ -49,6 +49,7 @@ public:
   [[nodiscard]] std::string stewardSelectedClipActionText() const;
   [[nodiscard]] bool stewardSelectedClipActionEnabled() const;
   [[nodiscard]] int stewardRecentEditCount() const;
+  [[nodiscard]] int stewardCurrentRecentEditRow() const;
   [[nodiscard]] std::string effectParamTitleText() const;
   [[nodiscard]] std::string effectParamPanelText() const;
   void setStewardIntent(std::string intent);
