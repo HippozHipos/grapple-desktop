@@ -1,0 +1,89 @@
+#pragma once
+
+#include <grapple/foundation/Result.hpp>
+#include <grapple/foundation/StrongId.hpp>
+#include <grapple/foundation/Time.hpp>
+#include <grapple/project/ProjectSnapshot.hpp>
+#include <grapple/timeline/Payloads.hpp>
+
+#include <optional>
+#include <string>
+#include <vector>
+
+namespace grapple::app {
+
+struct CameraTransformIntentDefaults {
+  double positionX = 0.0;
+  double positionY = 0.0;
+  double zoom = 1.0;
+};
+
+struct CameraTransformMotionKeyframes {
+  std::string paramName;
+  double startValue = 0.0;
+  double endValue = 0.0;
+  foundation::TimeSeconds endTime;
+};
+
+enum class CameraTransformAdjustmentOperation {
+  Set,
+  Add,
+  Multiply
+};
+
+struct CameraTransformParamAdjustment {
+  foundation::NodeId effectNodeId;
+  std::string paramName;
+  double value = 0.0;
+  double operand = 0.0;
+  CameraTransformAdjustmentOperation operation = CameraTransformAdjustmentOperation::Set;
+};
+
+struct CameraTransformKeyframeAdjustment {
+  std::optional<foundation::KeyframeId> keyframeId;
+  foundation::TimeSeconds time;
+  double value = 0.0;
+};
+
+class NativeStewardPlanner final {
+public:
+  [[nodiscard]] CameraTransformIntentDefaults cameraTransformDefaultsForIntent(
+    const std::string& intent
+  ) const;
+  [[nodiscard]] std::optional<CameraTransformMotionKeyframes> cameraMotionKeyframesForIntent(
+    const std::string& intent,
+    foundation::TimeRange activeRange
+  ) const;
+  [[nodiscard]] bool cameraIntentRequestsExplicitMotion(const std::string& intent) const;
+  [[nodiscard]] foundation::Result<timeline::Transform2D> clipTransformForIntent(
+    const timeline::Transform2D& current,
+    const std::string& intent
+  ) const;
+  [[nodiscard]] const timeline::EffectPayload* cameraTransformEffectPayload(
+    const project::ProjectSnapshot& snapshot,
+    const foundation::NodeId& cameraNodeId,
+    foundation::NodeId& effectNodeId
+  ) const;
+  [[nodiscard]] foundation::Result<std::optional<foundation::KeyframeId>> effectParamKeyframeIdAtTime(
+    const timeline::EffectPayload& payload,
+    const std::string& paramName,
+    foundation::TimeSeconds time
+  ) const;
+  [[nodiscard]] foundation::Result<std::vector<CameraTransformParamAdjustment>> cameraTransformParamAdjustmentsForIntent(
+    const project::ProjectSnapshot& snapshot,
+    const foundation::NodeId& cameraNodeId,
+    const std::string& intent
+  ) const;
+  [[nodiscard]] foundation::Result<std::vector<CameraTransformKeyframeAdjustment>> adjustedCameraTransformKeyframes(
+    const project::ProjectSnapshot& snapshot,
+    const CameraTransformParamAdjustment& adjustment
+  ) const;
+  [[nodiscard]] foundation::Result<CameraTransformMotionKeyframes> cameraTransformMotionAdjustmentForIntent(
+    const project::ProjectSnapshot& snapshot,
+    const foundation::NodeId& cameraNodeId,
+    const std::string& intent,
+    foundation::TimeRange activeRange
+  ) const;
+};
+
+} // namespace grapple::app

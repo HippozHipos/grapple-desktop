@@ -3,6 +3,7 @@
 #include <grapple/agent/AgentConversationState.hpp>
 #include <grapple/agent/AgentRunEventLog.hpp>
 #include <grapple/app/NativeProjectCommandWriter.hpp>
+#include <grapple/app/NativeStewardPlanner.hpp>
 #include <grapple/foundation/Result.hpp>
 #include <grapple/foundation/StrongId.hpp>
 #include <grapple/foundation/Time.hpp>
@@ -69,6 +70,7 @@ private:
 
   NativeProjectSession& project_;
   NativeProjectCommandWriter& commandWriter_;
+  NativeStewardPlanner planner_;
   std::vector<agent::AgentRun> runs_;
   agent::AgentRunEventLog events_;
   std::int64_t nextRunNumber_ = 1;

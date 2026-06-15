@@ -4,6 +4,7 @@
 #include <grapple/app/NativePreviewSession.hpp>
 #include <grapple/app/NativeProjectCommandWriter.hpp>
 #include <grapple/app/NativeProjectSession.hpp>
+#include <grapple/app/NativeStewardPlanner.hpp>
 #include <grapple/app/NativeWorkspaceSession.hpp>
 #include <grapple/asset/Asset.hpp>
 #include <grapple/foundation/Hash.hpp>
@@ -190,6 +191,35 @@ public:
 
 int main() {
   using namespace grapple;
+
+  app::NativeStewardPlanner stewardPlanner;
+  const app::CameraTransformIntentDefaults zoomRightDefaults =
+    stewardPlanner.cameraTransformDefaultsForIntent("Move right and zoom in on the subject");
+  GRAPPLE_REQUIRE(zoomRightDefaults.positionX == 0.25);
+  GRAPPLE_REQUIRE(zoomRightDefaults.positionY == 0.0);
+  GRAPPLE_REQUIRE(zoomRightDefaults.zoom == 1.5);
+  const std::optional<app::CameraTransformMotionKeyframes> panLeftMotion =
+    stewardPlanner.cameraMotionKeyframesForIntent(
+      "slowly pan left",
+      foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{4.0}}
+    );
+  GRAPPLE_REQUIRE(panLeftMotion.has_value());
+  GRAPPLE_REQUIRE(panLeftMotion->paramName == effects::builtin_effect::PositionXParam);
+  GRAPPLE_REQUIRE(panLeftMotion->startValue == 0.0);
+  GRAPPLE_REQUIRE(panLeftMotion->endValue == -0.25);
+  GRAPPLE_REQUIRE(panLeftMotion->endTime == foundation::TimeSeconds{4.0});
+  timeline::Transform2D plannedClipInputTransform;
+  const auto plannedClipTransform =
+    stewardPlanner.clipTransformForIntent(plannedClipInputTransform, "move right and make smaller");
+  GRAPPLE_REQUIRE(plannedClipTransform);
+  GRAPPLE_REQUIRE(plannedClipTransform.value().position.x == 0.25);
+  GRAPPLE_REQUIRE(plannedClipTransform.value().position.y == 0.0);
+  GRAPPLE_REQUIRE(plannedClipTransform.value().scale.x == 0.75);
+  GRAPPLE_REQUIRE(plannedClipTransform.value().scale.y == 0.75);
+  const auto unknownClipTransform =
+    stewardPlanner.clipTransformForIntent(plannedClipInputTransform, "make it cinematic");
+  GRAPPLE_REQUIRE(!unknownClipTransform);
+  GRAPPLE_REQUIRE(unknownClipTransform.error().code == "steward.clip_transform_intent_unknown");
 
   const std::filesystem::path appPackageRoot =
     std::filesystem::temp_directory_path() /

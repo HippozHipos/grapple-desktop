@@ -6,7 +6,6 @@
 #include <grapple/effects/BuiltinEffects.hpp>
 #include <grapple/foundation/FilePath.hpp>
 #include <grapple/foundation/Json.hpp>
-#include <grapple/graph/GraphNode.hpp>
 #include <grapple/timeline/Payloads.hpp>
 
 #include <algorithm>
@@ -30,634 +29,6 @@ constexpr const char CanonicalEffectUpdateParamKeyframeToolId[] = "effect.update
 constexpr const char CanonicalPlaceAssetToolId[] = "timeline.place_asset";
 constexpr const char CanonicalUpdateClipTransformToolId[] = "timeline.update_clip_transform";
 constexpr const char CanonicalUpdateEffectParamToolId[] = "effect.update_param_value";
-constexpr double CenteredCameraTransformPositionX = 0.0;
-constexpr double CenteredCameraTransformPositionY = 0.0;
-constexpr double NormalCameraTransformZoom = 1.0;
-
-struct CameraTransformIntentDefaults {
-  double positionX = CenteredCameraTransformPositionX;
-  double positionY = CenteredCameraTransformPositionY;
-  double zoom = NormalCameraTransformZoom;
-};
-
-struct CameraTransformMotionKeyframes {
-  std::string paramName;
-  double startValue = 0.0;
-  double endValue = 0.0;
-  foundation::TimeSeconds endTime;
-};
-
-enum class CameraTransformAdjustmentOperation {
-  Set,
-  Add,
-  Multiply
-};
-
-struct CameraTransformParamAdjustment {
-  foundation::NodeId effectNodeId;
-  std::string paramName;
-  double value = 0.0;
-  double operand = 0.0;
-  CameraTransformAdjustmentOperation operation = CameraTransformAdjustmentOperation::Set;
-};
-
-struct CameraTransformKeyframeAdjustment {
-  std::optional<foundation::KeyframeId> keyframeId;
-  foundation::TimeSeconds time;
-  double value = 0.0;
-};
-
-std::string lowercaseAscii(std::string value) {
-  for (char& character : value) {
-    character = static_cast<char>(std::tolower(static_cast<unsigned char>(character)));
-  }
-  return value;
-}
-
-bool containsText(const std::string& value, std::string_view text) {
-  return value.find(text) != std::string::npos;
-}
-
-bool containsAsciiWord(const std::string& value, std::string_view word) {
-  std::size_t position = value.find(word);
-  while (position != std::string::npos) {
-    const bool leftBoundary =
-      position == 0 ||
-      std::isalnum(static_cast<unsigned char>(value[position - 1])) == 0;
-    const std::size_t right = position + word.size();
-    const bool rightBoundary =
-      right >= value.size() ||
-      std::isalnum(static_cast<unsigned char>(value[right])) == 0;
-    if (leftBoundary && rightBoundary) {
-      return true;
-    }
-    position = value.find(word, position + 1);
-  }
-  return false;
-}
-
-bool cameraIntentRequestsZoomOut(const std::string& normalized) {
-  return containsText(normalized, "zoom out") ||
-         containsAsciiWord(normalized, "wide") ||
-         containsAsciiWord(normalized, "wider") ||
-         containsAsciiWord(normalized, "smaller") ||
-         containsAsciiWord(normalized, "shrink");
-}
-
-bool cameraIntentRequestsZoomIn(const std::string& normalized) {
-  return containsText(normalized, "zoom in") ||
-         containsAsciiWord(normalized, "closer") ||
-         containsAsciiWord(normalized, "close") ||
-         containsAsciiWord(normalized, "larger") ||
-         containsAsciiWord(normalized, "bigger");
-}
-
-bool cameraIntentRequestsTemporalMotion(const std::string& normalized) {
-  return containsAsciiWord(normalized, "pan") ||
-         containsText(normalized, "animate") ||
-         containsText(normalized, "over time") ||
-         containsText(normalized, "gradual") ||
-         containsText(normalized, "slowly");
-}
-
-CameraTransformIntentDefaults cameraTransformDefaultsForIntent(const std::string& intent) {
-  const std::string normalized = lowercaseAscii(intent);
-  CameraTransformIntentDefaults defaults;
-
-  if (containsAsciiWord(normalized, "left")) {
-    defaults.positionX = -0.25;
-  } else if (containsAsciiWord(normalized, "right")) {
-    defaults.positionX = 0.25;
-  }
-
-  if (containsAsciiWord(normalized, "up")) {
-    defaults.positionY = -0.2;
-  } else if (containsAsciiWord(normalized, "down")) {
-    defaults.positionY = 0.2;
-  }
-
-  if (cameraIntentRequestsZoomOut(normalized)) {
-    defaults.zoom = 0.8;
-  } else if (cameraIntentRequestsZoomIn(normalized)) {
-    defaults.zoom = 1.5;
-  } else if (containsText(normalized, "subject")) {
-    defaults.zoom = 1.1;
-  }
-
-  return defaults;
-}
-
-std::optional<CameraTransformMotionKeyframes> cameraMotionKeyframesForIntent(
-  const std::string& intent,
-  foundation::TimeRange activeRange
-) {
-  if (activeRange.end.value <= activeRange.start.value) {
-    return std::nullopt;
-  }
-
-  const std::string normalized = lowercaseAscii(intent);
-  if (!cameraIntentRequestsTemporalMotion(normalized)) {
-    return std::nullopt;
-  }
-
-  if (containsAsciiWord(normalized, "left")) {
-    return CameraTransformMotionKeyframes{
-      effects::builtin_effect::PositionXParam,
-      CenteredCameraTransformPositionX,
-      -0.25,
-      activeRange.end
-    };
-  }
-  if (containsAsciiWord(normalized, "right")) {
-    return CameraTransformMotionKeyframes{
-      effects::builtin_effect::PositionXParam,
-      CenteredCameraTransformPositionX,
-      0.25,
-      activeRange.end
-    };
-  }
-  if (containsAsciiWord(normalized, "up")) {
-    return CameraTransformMotionKeyframes{
-      effects::builtin_effect::PositionYParam,
-      CenteredCameraTransformPositionY,
-      -0.2,
-      activeRange.end
-    };
-  }
-  if (containsAsciiWord(normalized, "down")) {
-    return CameraTransformMotionKeyframes{
-      effects::builtin_effect::PositionYParam,
-      CenteredCameraTransformPositionY,
-      0.2,
-      activeRange.end
-    };
-  }
-
-  if (cameraIntentRequestsZoomOut(normalized)) {
-    return CameraTransformMotionKeyframes{
-      effects::builtin_effect::ZoomParam,
-      NormalCameraTransformZoom,
-      0.8,
-      activeRange.end
-    };
-  }
-  if (containsText(normalized, "zoom") || cameraIntentRequestsZoomIn(normalized)) {
-    return CameraTransformMotionKeyframes{
-      effects::builtin_effect::ZoomParam,
-      NormalCameraTransformZoom,
-      1.5,
-      activeRange.end
-    };
-  }
-
-  return std::nullopt;
-}
-
-bool cameraIntentRequestsExplicitMotion(const std::string& intent) {
-  return cameraIntentRequestsTemporalMotion(lowercaseAscii(intent));
-}
-
-foundation::Result<timeline::Transform2D> clipTransformForIntent(
-  const timeline::Transform2D& current,
-  const std::string& intent
-) {
-  const std::string normalized = lowercaseAscii(intent);
-  timeline::Transform2D transform = current;
-  bool changed = false;
-
-  if (containsAsciiWord(normalized, "left")) {
-    transform.position.x -= 0.25;
-    changed = true;
-  } else if (containsAsciiWord(normalized, "right")) {
-    transform.position.x += 0.25;
-    changed = true;
-  }
-
-  if (containsAsciiWord(normalized, "up")) {
-    transform.position.y -= 0.2;
-    changed = true;
-  } else if (containsAsciiWord(normalized, "down")) {
-    transform.position.y += 0.2;
-    changed = true;
-  }
-
-  if (containsText(normalized, "scale down") ||
-      containsAsciiWord(normalized, "smaller") ||
-      containsAsciiWord(normalized, "shrink")) {
-    transform.scale.x *= 0.75;
-    transform.scale.y *= 0.75;
-    changed = true;
-  } else if (containsText(normalized, "scale up") ||
-             containsAsciiWord(normalized, "larger") ||
-             containsAsciiWord(normalized, "bigger")) {
-    transform.scale.x *= 1.25;
-    transform.scale.y *= 1.25;
-    changed = true;
-  }
-
-  if (containsAsciiWord(normalized, "fade") ||
-      containsAsciiWord(normalized, "transparent") ||
-      containsText(normalized, "half opacity")) {
-    transform.opacity = 0.5;
-    changed = true;
-  }
-
-  if (!changed) {
-    return foundation::Error{
-      "steward.clip_transform_intent_unknown",
-      "Clip transform requests must explicitly mention movement, scale, or opacity."
-    };
-  }
-
-  return transform;
-}
-
-const timeline::EffectPayload* cameraTransformEffectPayload(
-  const project::ProjectSnapshot& snapshot,
-  const foundation::NodeId& cameraNodeId,
-  foundation::NodeId& effectNodeId
-) {
-  for (const graph::GraphEdge& edge : snapshot.graph.edges()) {
-    if (!edge.enabled ||
-        edge.kind != graph::EdgeKind::Targets ||
-        edge.targetNodeId != cameraNodeId) {
-      continue;
-    }
-    const graph::GraphNode* effectNode = snapshot.graph.findNode(edge.sourceNodeId);
-    if (effectNode == nullptr || effectNode->kind != graph::NodeKind::Effect) {
-      continue;
-    }
-    const auto* payload = std::get_if<timeline::EffectPayload>(&effectNode->payload);
-    if (payload == nullptr ||
-        payload->displayName != effects::builtin_effect::CameraTransformDisplayName ||
-        payload->implementation.kind != timeline::EffectImplementationKind::Builtin ||
-        payload->implementation.entrypoint != effects::builtin_effect::CameraTransformEntrypoint) {
-      continue;
-    }
-
-    effectNodeId = effectNode->id;
-    return payload;
-  }
-  return nullptr;
-}
-
-foundation::Result<double> numericEffectParamValue(
-  const timeline::EffectPayload& payload,
-  const std::string& paramName
-) {
-  const auto param = std::find_if(payload.params.values.begin(), payload.params.values.end(), [&](const timeline::Param& value) {
-    return value.name == paramName;
-  });
-  if (param == payload.params.values.end()) {
-    return foundation::Error{
-      "steward.camera_transform_param_missing",
-      "Camera Transform controls are missing the requested parameter."
-    };
-  }
-  const auto* value = std::get_if<double>(&param->value);
-  if (value == nullptr) {
-    return foundation::Error{
-      "steward.camera_transform_param_not_numeric",
-      "Camera Transform control parameter must be numeric."
-    };
-  }
-  return *value;
-}
-
-foundation::Result<std::optional<foundation::KeyframeId>> effectParamKeyframeIdAtTime(
-  const timeline::EffectPayload& payload,
-  const std::string& paramName,
-  foundation::TimeSeconds time
-) {
-  const auto param = std::find_if(payload.params.values.begin(), payload.params.values.end(), [&](const timeline::Param& value) {
-    return value.name == paramName;
-  });
-  if (param == payload.params.values.end()) {
-    return foundation::Error{
-      "steward.camera_transform_param_missing",
-      "Camera Transform controls are missing the requested parameter."
-    };
-  }
-
-  for (const timeline::Param::Keyframe& keyframe : param->keyframes) {
-    if (keyframe.time == time) {
-      return std::optional<foundation::KeyframeId>{keyframe.id};
-    }
-  }
-  return std::optional<foundation::KeyframeId>{};
-}
-
-bool cameraIntentRequestsCenter(const std::string& normalized) {
-  return containsAsciiWord(normalized, "center") ||
-         containsAsciiWord(normalized, "centre") ||
-         containsAsciiWord(normalized, "recenter") ||
-         containsAsciiWord(normalized, "recentre");
-}
-
-bool cameraIntentRequestsReset(const std::string& normalized) {
-  return containsAsciiWord(normalized, "reset");
-}
-
-double applyCameraTransformOperation(
-  double currentValue,
-  CameraTransformAdjustmentOperation operation,
-  double operand
-) {
-  switch (operation) {
-    case CameraTransformAdjustmentOperation::Set:
-      return operand;
-    case CameraTransformAdjustmentOperation::Add:
-      return currentValue + operand;
-    case CameraTransformAdjustmentOperation::Multiply:
-      return currentValue * operand;
-  }
-
-  return currentValue;
-}
-
-foundation::Result<std::optional<CameraTransformParamAdjustment>> cameraTransformParamAdjustment(
-  const timeline::EffectPayload& payload,
-  const foundation::NodeId& effectNodeId,
-  std::string paramName,
-  CameraTransformAdjustmentOperation operation,
-  double operand
-) {
-  auto currentValue = numericEffectParamValue(payload, paramName);
-  if (!currentValue) {
-    return currentValue.error();
-  }
-
-  const double value = applyCameraTransformOperation(currentValue.value(), operation, operand);
-  if (value == currentValue.value()) {
-    return std::optional<CameraTransformParamAdjustment>{};
-  }
-
-  return std::optional<CameraTransformParamAdjustment>{CameraTransformParamAdjustment{
-    effectNodeId,
-    std::move(paramName),
-    value,
-    operand,
-    operation
-  }};
-}
-
-foundation::Result<std::vector<CameraTransformParamAdjustment>> cameraTransformParamAdjustmentsForIntent(
-  const project::ProjectSnapshot& snapshot,
-  const foundation::NodeId& cameraNodeId,
-  const std::string& intent
-) {
-  const graph::GraphNode* cameraNode = snapshot.graph.findNode(cameraNodeId);
-  if (cameraNode == nullptr || cameraNode->kind != graph::NodeKind::Camera) {
-    return foundation::Error{
-      "steward.camera_missing",
-      "Steward camera control adjustment requires an existing camera node."
-    };
-  }
-
-  foundation::NodeId effectNodeId;
-  const timeline::EffectPayload* payload = cameraTransformEffectPayload(snapshot, cameraNodeId, effectNodeId);
-  if (payload == nullptr) {
-    return foundation::Error{
-      "steward.camera_transform_missing",
-      "Steward camera control adjustment requires existing Camera Transform controls."
-    };
-  }
-
-  const std::string normalized = lowercaseAscii(intent);
-  std::vector<CameraTransformParamAdjustment> adjustments;
-
-  auto addAdjustment = [&](std::vector<CameraTransformParamAdjustment>& adjustments,
-                           std::string adjustmentParamName,
-                           CameraTransformAdjustmentOperation adjustmentOperation,
-                           double adjustmentOperand) -> foundation::Result<void> {
-    auto adjustment = cameraTransformParamAdjustment(
-      *payload,
-      effectNodeId,
-      std::move(adjustmentParamName),
-      adjustmentOperation,
-      adjustmentOperand
-    );
-    if (!adjustment) {
-      return adjustment.error();
-    }
-    if (adjustment.value().has_value()) {
-      adjustments.push_back(std::move(adjustment.value().value()));
-    }
-    return {};
-  };
-
-  const bool centerRequested = cameraIntentRequestsCenter(normalized);
-  const bool resetRequested = cameraIntentRequestsReset(normalized);
-  if (centerRequested || resetRequested) {
-    auto positionX = addAdjustment(
-      adjustments,
-      effects::builtin_effect::PositionXParam,
-      CameraTransformAdjustmentOperation::Set,
-      CenteredCameraTransformPositionX
-    );
-    if (!positionX) {
-      return positionX.error();
-    }
-    auto positionY = addAdjustment(
-      adjustments,
-      effects::builtin_effect::PositionYParam,
-      CameraTransformAdjustmentOperation::Set,
-      CenteredCameraTransformPositionY
-    );
-    if (!positionY) {
-      return positionY.error();
-    }
-    if (resetRequested) {
-      auto zoom = addAdjustment(
-        adjustments,
-        effects::builtin_effect::ZoomParam,
-        CameraTransformAdjustmentOperation::Set,
-        NormalCameraTransformZoom
-      );
-      if (!zoom) {
-        return zoom.error();
-      }
-      return adjustments;
-    }
-  }
-
-  if (!centerRequested) {
-    if (containsAsciiWord(normalized, "left")) {
-      auto positionX = addAdjustment(
-        adjustments,
-        effects::builtin_effect::PositionXParam,
-        CameraTransformAdjustmentOperation::Add,
-        -0.25
-      );
-      if (!positionX) {
-        return positionX.error();
-      }
-    } else if (containsAsciiWord(normalized, "right")) {
-      auto positionX = addAdjustment(
-        adjustments,
-        effects::builtin_effect::PositionXParam,
-        CameraTransformAdjustmentOperation::Add,
-        0.25
-      );
-      if (!positionX) {
-        return positionX.error();
-      }
-    }
-
-    if (containsAsciiWord(normalized, "up")) {
-      auto positionY = addAdjustment(
-        adjustments,
-        effects::builtin_effect::PositionYParam,
-        CameraTransformAdjustmentOperation::Add,
-        -0.2
-      );
-      if (!positionY) {
-        return positionY.error();
-      }
-    } else if (containsAsciiWord(normalized, "down")) {
-      auto positionY = addAdjustment(
-        adjustments,
-        effects::builtin_effect::PositionYParam,
-        CameraTransformAdjustmentOperation::Add,
-        0.2
-      );
-      if (!positionY) {
-        return positionY.error();
-      }
-    }
-  }
-
-  if (cameraIntentRequestsZoomOut(normalized)) {
-    auto zoom = addAdjustment(
-      adjustments,
-      effects::builtin_effect::ZoomParam,
-      CameraTransformAdjustmentOperation::Multiply,
-      0.8
-    );
-    if (!zoom) {
-      return zoom.error();
-    }
-  } else if (cameraIntentRequestsZoomIn(normalized)) {
-    auto zoom = addAdjustment(
-      adjustments,
-      effects::builtin_effect::ZoomParam,
-      CameraTransformAdjustmentOperation::Multiply,
-      1.25
-    );
-    if (!zoom) {
-      return zoom.error();
-    }
-  }
-
-  if (adjustments.empty()) {
-    return foundation::Error{
-      "steward.camera_transform_intent_unknown",
-      "Camera Transform adjustments must explicitly mention center, reset, left, right, up, down, zoom, bigger, or smaller."
-    };
-  }
-  return adjustments;
-}
-
-foundation::Result<std::vector<CameraTransformKeyframeAdjustment>> adjustedCameraTransformKeyframes(
-  const project::ProjectSnapshot& snapshot,
-  const CameraTransformParamAdjustment& adjustment
-) {
-  const graph::GraphNode* effectNode = snapshot.graph.findNode(adjustment.effectNodeId);
-  if (effectNode == nullptr || effectNode->kind != graph::NodeKind::Effect) {
-    return foundation::Error{
-      "steward.camera_transform_effect_missing",
-      "Camera Transform keyframe adjustment requires an existing effect node."
-    };
-  }
-  const auto* payload = std::get_if<timeline::EffectPayload>(&effectNode->payload);
-  if (payload == nullptr) {
-    return foundation::Error{
-      "steward.camera_transform_effect_payload_missing",
-      "Camera Transform keyframe adjustment requires an effect payload."
-    };
-  }
-
-  const auto param = std::find_if(payload->params.values.begin(), payload->params.values.end(), [&](const timeline::Param& value) {
-    return value.name == adjustment.paramName;
-  });
-  if (param == payload->params.values.end()) {
-    return foundation::Error{
-      "steward.camera_transform_param_missing",
-      "Camera Transform controls are missing the requested parameter."
-    };
-  }
-
-  std::vector<CameraTransformKeyframeAdjustment> keyframes;
-  keyframes.reserve(param->keyframes.size());
-  for (const timeline::Param::Keyframe& keyframe : param->keyframes) {
-    const auto* numericValue = std::get_if<double>(&keyframe.value);
-    if (numericValue == nullptr) {
-      return foundation::Error{
-        "steward.camera_transform_keyframe_not_numeric",
-        "Camera Transform keyframe adjustment requires numeric keyframes."
-      };
-    }
-    keyframes.push_back(CameraTransformKeyframeAdjustment{
-      keyframe.id,
-      keyframe.time,
-      applyCameraTransformOperation(*numericValue, adjustment.operation, adjustment.operand)
-    });
-  }
-  return keyframes;
-}
-
-foundation::Result<CameraTransformMotionKeyframes> cameraTransformMotionAdjustmentForIntent(
-  const project::ProjectSnapshot& snapshot,
-  const foundation::NodeId& cameraNodeId,
-  const std::string& intent,
-  foundation::TimeRange activeRange
-) {
-  if (activeRange.end.value <= activeRange.start.value) {
-    return foundation::Error{
-      "steward.camera_transform_motion_range_invalid",
-      "Camera Transform motion adjustment requires a positive active range."
-    };
-  }
-
-  auto adjustments = cameraTransformParamAdjustmentsForIntent(snapshot, cameraNodeId, intent);
-  if (!adjustments) {
-    return adjustments.error();
-  }
-  if (adjustments.value().empty()) {
-    return foundation::Error{
-      "steward.camera_transform_noop",
-      "Camera Transform controls already match the requested adjustment."
-    };
-  }
-  if (adjustments.value().size() != 1) {
-    return foundation::Error{
-      "steward.camera_transform_motion_multi_param",
-      "Camera Transform motion adjustments must target one parameter."
-    };
-  }
-  const CameraTransformParamAdjustment& adjustment = adjustments.value().front();
-
-  foundation::NodeId effectNodeId;
-  const timeline::EffectPayload* payload = cameraTransformEffectPayload(snapshot, cameraNodeId, effectNodeId);
-  if (payload == nullptr) {
-    return foundation::Error{
-      "steward.camera_transform_missing",
-      "Steward camera control adjustment requires existing Camera Transform controls."
-    };
-  }
-
-  auto currentValue = numericEffectParamValue(*payload, adjustment.paramName);
-  if (!currentValue) {
-    return currentValue.error();
-  }
-
-  return CameraTransformMotionKeyframes{
-    adjustment.paramName,
-    currentValue.value(),
-    adjustment.value,
-    activeRange.end
-  };
-}
 
 std::string runStartedPayload(const std::string& title) {
   std::ostringstream payload;
@@ -1130,7 +501,7 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::t
     }
     return error;
   }
-  auto nextTransform = clipTransformForIntent(clipPayload->transform, intent);
+  auto nextTransform = planner_.clipTransformForIntent(clipPayload->transform, intent);
   if (!nextTransform) {
     auto finished = finishRunWithError(runId.value(), nextTransform.error());
     if (!finished) {
@@ -1217,12 +588,12 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::a
     return runId.error();
   }
 
-  const bool motionRequested = cameraIntentRequestsExplicitMotion(intent);
+  const bool motionRequested = planner_.cameraIntentRequestsExplicitMotion(intent);
   std::optional<CameraTransformMotionKeyframes> motion;
   std::vector<CameraTransformParamAdjustment> adjustments;
   std::vector<std::vector<CameraTransformKeyframeAdjustment>> keyframeAdjustmentsByParam;
   if (motionRequested) {
-    auto motionAdjustment = cameraTransformMotionAdjustmentForIntent(snapshot.value(), cameraNodeId, intent, activeRange);
+    auto motionAdjustment = planner_.cameraTransformMotionAdjustmentForIntent(snapshot.value(), cameraNodeId, intent, activeRange);
     if (!motionAdjustment) {
       auto finished = finishRunWithError(runId.value(), motionAdjustment.error());
       if (!finished) {
@@ -1232,7 +603,7 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::a
     }
     motion = motionAdjustment.value();
   } else {
-    auto paramAdjustments = cameraTransformParamAdjustmentsForIntent(snapshot.value(), cameraNodeId, intent);
+    auto paramAdjustments = planner_.cameraTransformParamAdjustmentsForIntent(snapshot.value(), cameraNodeId, intent);
     if (!paramAdjustments) {
       auto finished = finishRunWithError(runId.value(), paramAdjustments.error());
       if (!finished) {
@@ -1254,7 +625,7 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::a
     adjustments = std::move(paramAdjustments.value());
     keyframeAdjustmentsByParam.reserve(adjustments.size());
     for (const CameraTransformParamAdjustment& paramAdjustment : adjustments) {
-      auto adjustedKeyframes = adjustedCameraTransformKeyframes(snapshot.value(), paramAdjustment);
+      auto adjustedKeyframes = planner_.adjustedCameraTransformKeyframes(snapshot.value(), paramAdjustment);
       if (!adjustedKeyframes) {
         auto finished = finishRunWithError(runId.value(), adjustedKeyframes.error());
         if (!finished) {
@@ -1299,7 +670,7 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::a
   foundation::RevisionId latestRevision = snapshot.value().revision;
   if (motion.has_value()) {
     foundation::NodeId effectNodeId;
-    const timeline::EffectPayload* payload = cameraTransformEffectPayload(snapshot.value(), cameraNodeId, effectNodeId);
+    const timeline::EffectPayload* payload = planner_.cameraTransformEffectPayload(snapshot.value(), cameraNodeId, effectNodeId);
     if (payload == nullptr) {
       const foundation::Error error{
         "steward.camera_transform_missing",
@@ -1311,7 +682,7 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::a
       }
       return error;
     }
-    auto startKeyframeId = effectParamKeyframeIdAtTime(*payload, motion->paramName, activeRange.start);
+    auto startKeyframeId = planner_.effectParamKeyframeIdAtTime(*payload, motion->paramName, activeRange.start);
     if (!startKeyframeId) {
       auto finished = finishRunWithError(runId.value(), startKeyframeId.error());
       if (!finished) {
@@ -1319,7 +690,7 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::a
       }
       return startKeyframeId.error();
     }
-    auto endKeyframeId = effectParamKeyframeIdAtTime(*payload, motion->paramName, motion->endTime);
+    auto endKeyframeId = planner_.effectParamKeyframeIdAtTime(*payload, motion->paramName, motion->endTime);
     if (!endKeyframeId) {
       auto finished = finishRunWithError(runId.value(), endKeyframeId.error());
       if (!finished) {
@@ -1472,7 +843,7 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::c
   }
 
   foundation::NodeId existingEffectNodeId;
-  if (cameraTransformEffectPayload(snapshot.value(), cameraNodeId, existingEffectNodeId) != nullptr) {
+  if (planner_.cameraTransformEffectPayload(snapshot.value(), cameraNodeId, existingEffectNodeId) != nullptr) {
     const foundation::Error error{
       "agent.camera_transform_exists",
       "Camera already has Camera Transform controls."
@@ -1508,8 +879,8 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::c
 
   agent::AgentToolContext toolContext{stewardCommands, project_, commandWriter_};
   agent::AgentBridge bridge{registry, toolContext, events_, nextSequence_};
-  const CameraTransformIntentDefaults defaults = cameraTransformDefaultsForIntent(intent);
-  const std::optional<CameraTransformMotionKeyframes> motion = cameraMotionKeyframesForIntent(intent, activeRange);
+  const CameraTransformIntentDefaults defaults = planner_.cameraTransformDefaultsForIntent(intent);
+  const std::optional<CameraTransformMotionKeyframes> motion = planner_.cameraMotionKeyframesForIntent(intent, activeRange);
   auto dispatched = bridge.dispatchToolCall(agent::AgentToolDispatchRequest{
     runId.value(),
     snapshot.value().info.id,
@@ -1540,7 +911,7 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::c
   }
 
   foundation::NodeId effectNodeId;
-  const timeline::EffectPayload* createdPayload = cameraTransformEffectPayload(
+  const timeline::EffectPayload* createdPayload = planner_.cameraTransformEffectPayload(
     packageResult->snapshot,
     cameraNodeId,
     effectNodeId

@@ -11,6 +11,7 @@ add_library(grapple_app
   src/NativeProjectCommandWriter.cpp
   src/NativePreviewSession.cpp
   src/NativeProjectSession.cpp
+  src/NativeStewardPlanner.cpp
   src/NativeStewardSession.cpp
   src/NativeWorkspaceSession.cpp
 )
