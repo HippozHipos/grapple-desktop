@@ -48,11 +48,13 @@ public:
   [[nodiscard]] bool stewardPrimaryActionEnabled() const;
   [[nodiscard]] std::string stewardSelectedClipActionText() const;
   [[nodiscard]] bool stewardSelectedClipActionEnabled() const;
+  [[nodiscard]] int stewardRecentEditCount() const;
   [[nodiscard]] std::string effectParamTitleText() const;
   [[nodiscard]] std::string effectParamPanelText() const;
   void setStewardIntent(std::string intent);
   void clickStewardPrimaryAction();
   void clickStewardSelectedClipAction();
+  void clickStewardRecentEdit(int row);
   void startPlayback();
   void pausePlayback();
   void advancePlaybackFrame();

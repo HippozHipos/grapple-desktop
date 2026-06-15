@@ -1525,6 +1525,9 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     const auto selectedClipBeforeShowControls = window.selectedNodeId();
     window.clickStewardPrimaryAction();
     const auto selectedAfterShowControls = window.selectedNodeId();
+    const int stewardRecentEdits = window.stewardRecentEditCount();
+    window.clickStewardRecentEdit(0);
+    const auto selectedAfterRecentEdit = window.selectedNodeId();
     const std::string inspector = window.inspectorContents();
     const std::string logText = window.logContents();
     const std::string steward = window.stewardContents();
@@ -1544,6 +1547,10 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "steward=" << steward << '\n';
     std::cout << "stewardAction=" << stewardActionText << '\n';
     std::cout << "stewardActionEnabled=" << (stewardActionEnabled ? "true" : "false") << '\n';
+    std::cout << "recentEdits=" << stewardRecentEdits << '\n';
+    if (selectedAfterRecentEdit.has_value()) {
+      std::cout << "selectedAfterRecentEdit=" << selectedAfterRecentEdit->value() << '\n';
+    }
     std::cout << "effectParamTitle=" << effectParamTitle << '\n';
     std::cout << "effectParamPanel=" << effectParamPanel << '\n';
     const auto& snapshots = workspace.value().project().packageState().snapshots.records();
@@ -1586,8 +1593,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            inspector.find("Entrypoint:") == std::string::npos &&
            inspector.find("Position X (position_x)=0") != std::string::npos &&
            intentRecorded &&
-           steward.find("Applied edits") != std::string::npos &&
-           steward.find("- " + createdRevisionText + " Camera Transform on Camera: Center the walking subject with exposed controls.") != std::string::npos &&
+           stewardRecentEdits == 1 &&
+           steward.find("Applied edits: select one to inspect its target.") != std::string::npos &&
            steward.find("Recent runs:") != std::string::npos &&
            steward.find("- Center the walking subject with exposed controls. [succeeded]") != std::string::npos &&
            steward.find("Add Camera Transform Controls -> succeeded at " + createdRevisionText) != std::string::npos &&
@@ -1601,6 +1608,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            selectedClipBeforeShowControls.value() == expectedClipNodeId &&
            selectedAfterShowControls.has_value() &&
            selectedAfterShowControls.value() == expectedCameraNodeId &&
+           selectedAfterRecentEdit.has_value() &&
+           selectedAfterRecentEdit.value() == expectedCameraNodeId &&
            stewardActionText == "Apply Request To Camera Controls" &&
            stewardActionEnabled &&
            effectParamTitle == "Camera Transform on Camera" &&
@@ -1736,6 +1745,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     window.clickStewardPrimaryAction();
     window.setStewardIntent("Move the camera framing right.");
     window.clickStewardPrimaryAction();
+    const int stewardRecentEdits = window.stewardRecentEditCount();
+    window.clickStewardRecentEdit(0);
     const auto tunedViewModel = workspace.value().project().buildViewModel();
     if (!tunedViewModel) {
       printError(tunedViewModel.error());
@@ -1765,6 +1776,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     }
     const std::string steward = window.stewardContents();
     const std::string inspector = window.inspectorContents();
+    const auto selectedAfterRecentEdit = window.selectedNodeId();
     const std::string stewardActionText = window.stewardPrimaryActionText();
     const bool stewardActionEnabled = window.stewardPrimaryActionEnabled();
     const std::string effectParamTitle = window.effectParamTitleText();
@@ -1810,6 +1822,10 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "cameras=" << viewModel.value().timeline.cameras.size() << '\n';
     std::cout << "effects=" << viewModel.value().timeline.effectCount << '\n';
     std::cout << "evaluatedTunedPreview=" << (hasEvaluatedTunedPreview ? "true" : "false") << '\n';
+    std::cout << "recentEdits=" << stewardRecentEdits << '\n';
+    if (selectedAfterRecentEdit.has_value()) {
+      std::cout << "selectedAfterRecentEdit=" << selectedAfterRecentEdit->value() << '\n';
+    }
     std::cout << "exists=" << (exists ? "true" : "false") << '\n';
     std::cout << "size=" << size << '\n';
     std::cout << "inspector=" << inspector << '\n';
@@ -1829,11 +1845,12 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            hasEvaluatedTunedPreview &&
            stewardActionAfterImport == "Add Selected Media To Timeline" &&
            stewardActionEnabledAfterImport &&
+           stewardRecentEdits == 3 &&
+           selectedAfterRecentEdit.has_value() &&
+           selectedAfterRecentEdit.value() == viewModel.value().timeline.cameras.front().sourceNodeId &&
            steward.find("1 assets | 1 clips | 1 cameras | 1 editable effects") != std::string::npos &&
            steward.find("Next: apply the request to the exposed camera controls.") != std::string::npos &&
-           steward.find("Applied edits") != std::string::npos &&
-           steward.find("Camera Transform on Camera: Center the subject with editable camera controls.") != std::string::npos &&
-           steward.find("Camera Transform Parameter on Camera: Move the camera framing right.") != std::string::npos &&
+           steward.find("Applied edits: select one to inspect its target.") != std::string::npos &&
            steward.find("- Move the camera framing right. [succeeded]") != std::string::npos &&
            steward.find("Update Effect Param Value -> succeeded") != std::string::npos &&
            stewardActionText == "Apply Request To Camera Controls" &&

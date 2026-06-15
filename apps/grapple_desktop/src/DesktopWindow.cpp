@@ -614,6 +614,9 @@ public:
     ) {
       transformSelectedClipWithSteward(std::move(clipNodeId), std::move(intent));
     });
+    steward_->setSelectEditTargetHandler([this](grapple::foundation::NodeId targetNodeId) {
+      selectNode(std::move(targetNodeId));
+    });
     connect(mediaBin_, &QListWidget::currentRowChanged, this, [this](int row) { selectMediaAssetAtRow(row); });
     timeline_->setSeekHandler([this](grapple::foundation::TimeSeconds time) { seekTo(time); });
     timeline_->setSelectionHandler([this](grapple::foundation::NodeId nodeId) { selectNode(std::move(nodeId)); });
@@ -630,7 +633,7 @@ public:
       }
       QTabBar::tab:selected { background: #20242d; color: #f2f7ff; }
       QWidget#sidePanel { background: transparent; }
-      QWidget#stewardPanel, QTextEdit#stewardText, QTextEdit#stewardIntent {
+      QWidget#stewardPanel, QTextEdit#stewardText, QTextEdit#stewardIntent, QListWidget#stewardRecentEdits {
         background: #20242d; border: 1px solid #343b4a; border-radius: 10px; color: #eaf3ff;
       }
       QScrollArea#effectParamsScroll { background: #20242d; border: 0; }
@@ -638,6 +641,9 @@ public:
       QListWidget#mediaBin { color: #dce8f6; outline: 0; }
       QListWidget#mediaBin::item { padding: 10px; border-radius: 8px; }
       QListWidget#mediaBin::item:selected { background: #36506f; color: #ffffff; }
+      QListWidget#stewardRecentEdits { outline: 0; padding: 6px; }
+      QListWidget#stewardRecentEdits::item { padding: 7px 8px; border-radius: 7px; }
+      QListWidget#stewardRecentEdits::item:selected { background: #36506f; color: #ffffff; }
       QTextEdit#inspector { color: #eaf3ff; }
       QTextEdit#log { color: #b8c7dc; }
       QFrame#previewFrame, QFrame#viewportFrame {
@@ -1003,6 +1009,10 @@ public:
     return steward_->selectedClipActionEnabled();
   }
 
+  int stewardRecentEditCount() const {
+    return steward_->recentEditCount();
+  }
+
   std::string effectParamTitleText() const {
     auto* title = findChild<QLabel*>("effectParamTitle");
     if (title == nullptr) {
@@ -1029,6 +1039,10 @@ public:
 
   void clickStewardSelectedClipAction() {
     steward_->triggerSelectedClipAction();
+  }
+
+  void clickStewardRecentEdit(int row) {
+    steward_->triggerRecentEdit(row);
   }
 
   void showEffectControls() {
@@ -2645,6 +2659,10 @@ bool DesktopWindow::stewardSelectedClipActionEnabled() const {
   return impl_->stewardSelectedClipActionEnabled();
 }
 
+int DesktopWindow::stewardRecentEditCount() const {
+  return impl_->stewardRecentEditCount();
+}
+
 std::string DesktopWindow::effectParamTitleText() const {
   return impl_->effectParamTitleText();
 }
@@ -2663,6 +2681,10 @@ void DesktopWindow::clickStewardPrimaryAction() {
 
 void DesktopWindow::clickStewardSelectedClipAction() {
   impl_->clickStewardSelectedClipAction();
+}
+
+void DesktopWindow::clickStewardRecentEdit(int row) {
+  impl_->clickStewardRecentEdit(row);
 }
 
 void DesktopWindow::startPlayback() {

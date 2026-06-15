@@ -11,6 +11,7 @@
 #include <string>
 
 class QPushButton;
+class QListWidget;
 class QTextEdit;
 
 namespace grapple::ui {
@@ -24,6 +25,7 @@ public:
   using CreateCameraEffectHandler = std::function<void(std::string)>;
   using AdjustCameraControlsHandler = std::function<void(foundation::NodeId, std::string)>;
   using TransformSelectedClipHandler = std::function<void(foundation::NodeId, std::string)>;
+  using SelectEditTargetHandler = std::function<void(foundation::NodeId)>;
 
   explicit StewardPanel(QWidget* parent = nullptr);
 
@@ -34,6 +36,7 @@ public:
   void setCreateCameraEffectHandler(CreateCameraEffectHandler handler);
   void setAdjustCameraControlsHandler(AdjustCameraControlsHandler handler);
   void setTransformSelectedClipHandler(TransformSelectedClipHandler handler);
+  void setSelectEditTargetHandler(SelectEditTargetHandler handler);
   void setViewModel(
     const app::AppViewModel& viewModel,
     const agent::AgentConversationState& conversationState,
@@ -49,6 +52,8 @@ public:
   void triggerSelectedClipAction();
   [[nodiscard]] std::string selectedClipActionText() const;
   [[nodiscard]] bool selectedClipActionEnabled() const;
+  void triggerRecentEdit(int row);
+  [[nodiscard]] int recentEditCount() const;
 
 private:
   enum class PrimaryAction {
@@ -68,12 +73,14 @@ private:
   CreateCameraEffectHandler createCameraEffectHandler_;
   AdjustCameraControlsHandler adjustCameraControlsHandler_;
   TransformSelectedClipHandler transformSelectedClipHandler_;
+  SelectEditTargetHandler selectEditTargetHandler_;
   PrimaryAction primaryAction_ = PrimaryAction::Disabled;
   std::optional<foundation::NodeId> primaryTargetCameraNodeId_;
   std::optional<foundation::NodeId> selectedClipTargetNodeId_;
   QTextEdit* intent_ = nullptr;
   QPushButton* primaryActionButton_ = nullptr;
   QPushButton* selectedClipActionButton_ = nullptr;
+  QListWidget* recentEdits_ = nullptr;
   QTextEdit* text_ = nullptr;
 };
 

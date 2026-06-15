@@ -1,5 +1,6 @@
 #include <grapple/ui_qt/StewardPanel.hpp>
 
+#include <QListWidget>
 #include <QPushButton>
 #include <QTextEdit>
 #include <QVBoxLayout>
@@ -145,10 +146,29 @@ StewardPanel::StewardPanel(QWidget* parent)
     }
   });
 
+  recentEdits_ = new QListWidget;
+  recentEdits_->setObjectName("stewardRecentEdits");
+  recentEdits_->setSelectionMode(QAbstractItemView::SingleSelection);
+  recentEdits_->setMinimumHeight(56);
+  recentEdits_->setMaximumHeight(78);
+  layout->addWidget(recentEdits_);
+  connect(recentEdits_, &QListWidget::itemActivated, this, [this](QListWidgetItem* item) {
+    if (item == nullptr || !selectEditTargetHandler_) {
+      return;
+    }
+    selectEditTargetHandler_(foundation::NodeId{item->data(Qt::UserRole).toString().toStdString()});
+  });
+  connect(recentEdits_, &QListWidget::itemClicked, this, [this](QListWidgetItem* item) {
+    if (item == nullptr || !selectEditTargetHandler_) {
+      return;
+    }
+    selectEditTargetHandler_(foundation::NodeId{item->data(Qt::UserRole).toString().toStdString()});
+  });
+
   text_ = new QTextEdit;
   text_->setObjectName("stewardText");
   text_->setReadOnly(true);
-  text_->setMinimumHeight(110);
+  text_->setMinimumHeight(96);
   text_->setLineWrapMode(QTextEdit::WidgetWidth);
   layout->addWidget(text_);
 }
@@ -179,6 +199,10 @@ void StewardPanel::setAdjustCameraControlsHandler(AdjustCameraControlsHandler ha
 
 void StewardPanel::setTransformSelectedClipHandler(TransformSelectedClipHandler handler) {
   transformSelectedClipHandler_ = std::move(handler);
+}
+
+void StewardPanel::setSelectEditTargetHandler(SelectEditTargetHandler handler) {
+  selectEditTargetHandler_ = std::move(handler);
 }
 
 void StewardPanel::setViewModel(
@@ -274,23 +298,32 @@ void StewardPanel::setViewModel(
     lines << "Selected clip action: apply the request to clip transform parameters.";
   }
 
-  if (viewModel.steward.edits.empty()) {
+  recentEdits_->blockSignals(true);
+  recentEdits_->clear();
+  for (auto edit = viewModel.steward.edits.rbegin(); edit != viewModel.steward.edits.rend(); ++edit) {
+    if (!edit->targetNodeId.has_value()) {
+      continue;
+    }
+    const QString editText = edit->editName.empty()
+      ? QString{"Edit"}
+      : qString(edit->editName);
+    const QString targetText = edit->targetName.empty()
+      ? QString{}
+      : QString{" on %1"}.arg(qString(edit->targetName));
+    auto* item = new QListWidgetItem{
+      QString{"%1 %2%3"}.arg(qString(edit->revision.value())).arg(editText).arg(targetText)
+    };
+    item->setData(Qt::UserRole, qString(edit->targetNodeId->value()));
+    item->setToolTip(qString(edit->intent));
+    recentEdits_->addItem(item);
+  }
+  recentEdits_->setVisible(recentEdits_->count() > 0);
+  recentEdits_->blockSignals(false);
+
+  if (recentEdits_->count() == 0) {
     lines << "Applied edits: none";
   } else {
-    lines << "Applied edits:";
-    for (auto edit = viewModel.steward.edits.rbegin(); edit != viewModel.steward.edits.rend(); ++edit) {
-      const QString editText = edit->editName.empty()
-        ? QString{}
-        : QString{" %1"}.arg(qString(edit->editName));
-      const QString targetText = edit->targetName.empty()
-        ? QString{}
-        : QString{" on %1"}.arg(qString(edit->targetName));
-      lines << QString{"- %1%2%3: %4"}
-        .arg(qString(edit->revision.value()))
-        .arg(editText)
-        .arg(targetText)
-        .arg(qString(edit->intent));
-    }
+    lines << "Applied edits: select one to inspect its target.";
   }
 
   if (conversationState.runs.empty()) {
@@ -375,6 +408,21 @@ std::string StewardPanel::selectedClipActionText() const {
 
 bool StewardPanel::selectedClipActionEnabled() const {
   return selectedClipActionButton_->isVisible() && selectedClipActionButton_->isEnabled();
+}
+
+void StewardPanel::triggerRecentEdit(int row) {
+  if (row < 0 || row >= recentEdits_->count()) {
+    return;
+  }
+  recentEdits_->setCurrentRow(row);
+  auto* item = recentEdits_->item(row);
+  if (item != nullptr && selectEditTargetHandler_) {
+    selectEditTargetHandler_(foundation::NodeId{item->data(Qt::UserRole).toString().toStdString()});
+  }
+}
+
+int StewardPanel::recentEditCount() const {
+  return recentEdits_->count();
 }
 
 } // namespace grapple::ui
