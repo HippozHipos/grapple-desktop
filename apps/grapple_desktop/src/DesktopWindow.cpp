@@ -205,7 +205,7 @@ QString inspectorText(
   };
 
   auto selectedClipText = [&](const grapple::app::AppClipRow& clip) {
-    return QString{"Inspector\nClip\nAsset: %1\nType: %2\nRange: %3s - %4s\nPosition: %5, %6\nScale: %7, %8\nOpacity: %9\n\n%10"}
+    return QString{"Inspector\nClip\nAsset: %1\nType: %2\nRange: %3s - %4s\nPosition: %5, %6\nScale: %7, %8\nRotation: %9\nOpacity: %10\n\n%11"}
       .arg(qString(clip.assetName))
       .arg(qString(clip.kind))
       .arg(clip.timelineRange.start.value)
@@ -214,6 +214,7 @@ QString inspectorText(
       .arg(clip.transform.position.y, 0, 'f', 2)
       .arg(clip.transform.scale.x, 0, 'f', 2)
       .arg(clip.transform.scale.y, 0, 'f', 2)
+      .arg(clip.transform.rotationDegrees, 0, 'f', 2)
       .arg(clip.transform.opacity, 0, 'f', 2)
       .arg(attachedEffectsText(clip.sourceNodeId));
   };

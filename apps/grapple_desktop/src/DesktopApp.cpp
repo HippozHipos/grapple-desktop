@@ -2496,6 +2496,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     const auto& clip = viewModel.value().timeline.clips.front();
     const std::string steward = window.stewardContents();
     const std::string stewardIntent = window.stewardIntent();
+    const std::string inspector = window.inspectorContents();
     const std::string log = window.logContents();
     std::cout << "revision=" << viewModel.value().project.revision.value() << '\n';
     std::cout << "initialClipPositionX=" << clipBeforeTransform.position.x << '\n';
@@ -2514,6 +2515,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "selectedClipActionEnabledAfterAction=" << (window.stewardSelectedClipActionEnabled() ? "true" : "false") << '\n';
     std::cout << "steward=" << steward << '\n';
     std::cout << "stewardIntent=" << stewardIntent << '\n';
+    std::cout << "inspector=" << inspector << '\n';
     std::cout << "log=" << log << '\n';
     return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_3"} &&
            clip.transform.position.x == clipBeforeTransform.position.x + 0.25 &&
@@ -2528,9 +2530,11 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            !window.stewardSelectedClipActionEnabled() &&
 	           stewardIntent.empty() &&
 	           steward.find("Next: choose camera controls or selected clip transform for this request.") != std::string::npos &&
-	           steward.find("Clip target: starter-gradient") != std::string::npos &&
+           steward.find("Clip target: starter-gradient") != std::string::npos &&
 	           steward.find("Selected clip action: apply the request to clip transform parameters.") != std::string::npos &&
            steward.find("Rotation=-7.5") != std::string::npos &&
+           inspector.find("Rotation: -7.50") != std::string::npos &&
+           inspector.find("Opacity: 0.00") != std::string::npos &&
            steward.find("Update Clip Transform -> succeeded") != std::string::npos &&
            log.find("Steward transformed selected clip") != std::string::npos
       ? 0
