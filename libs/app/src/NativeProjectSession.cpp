@@ -185,12 +185,18 @@ struct EffectCommandProvenance {
   std::vector<EffectKeyframeEditProvenance> keyframeEdits;
 };
 
-foundation::Result<EffectCommandProvenance> effectCommandProvenance(
+struct AppCommandProvenance {
+  EffectCommandProvenance effects;
+  std::vector<AppStewardEditRow> stewardEdits;
+};
+
+foundation::Result<AppCommandProvenance> appCommandProvenance(
   const std::vector<history::CommandRecord>& commands,
   const std::vector<history::SnapshotRecord>& snapshots,
+  const project::ProjectSnapshot& snapshot,
   const foundation::RevisionId& contentRevision
 ) {
-  EffectCommandProvenance provenance;
+  AppCommandProvenance provenance;
   if (contentRevision == foundation::RevisionId{"rev_0"}) {
     return provenance;
   }
@@ -205,8 +211,13 @@ foundation::Result<EffectCommandProvenance> effectCommandProvenance(
       return parsedCommand.error();
     }
 
+    const bool stewardCommand = command.sourceKind == "agent" && command.sourceActorName == "steward";
+    const std::string intent = stewardCommand
+      ? snapshotLabelForRevision(snapshots, command.afterRevision).value_or(std::string{})
+      : std::string{};
+
     if (const auto* createEffect = std::get_if<project::CreateEffectCommand>(&parsedCommand.value())) {
-      provenance.creations.push_back(EffectCreationProvenance{
+      provenance.effects.creations.push_back(EffectCreationProvenance{
         command.id,
         createEffect->nodeId,
         createEffect->targetNodeId,
@@ -216,8 +227,22 @@ foundation::Result<EffectCommandProvenance> effectCommandProvenance(
         createEffect->payload.displayName,
         snapshotLabelForRevision(snapshots, command.afterRevision).value_or(std::string{})
       });
+      if (stewardCommand && !intent.empty()) {
+        auto targetName = nodeDisplayName(snapshot, createEffect->targetNodeId);
+        if (!targetName) {
+          return targetName.error();
+        }
+        provenance.stewardEdits.push_back(AppStewardEditRow{
+          command.id,
+          command.afterRevision,
+          createEffect->targetNodeId,
+          targetName.value(),
+          createEffect->payload.displayName,
+          intent
+        });
+      }
     } else if (const auto* updateParam = std::get_if<project::UpdateEffectParamValueCommand>(&parsedCommand.value())) {
-      provenance.paramEdits.push_back(EffectParamEditProvenance{
+      provenance.effects.paramEdits.push_back(EffectParamEditProvenance{
         updateParam->effectNodeId,
         updateParam->paramName,
         command.afterRevision,
@@ -225,7 +250,7 @@ foundation::Result<EffectCommandProvenance> effectCommandProvenance(
         command.sourceActorName
       });
     } else if (const auto* upsertKeyframe = std::get_if<project::UpsertEffectParamKeyframeCommand>(&parsedCommand.value())) {
-      provenance.keyframeEdits.push_back(EffectKeyframeEditProvenance{
+      provenance.effects.keyframeEdits.push_back(EffectKeyframeEditProvenance{
         upsertKeyframe->effectNodeId,
         upsertKeyframe->paramName,
         upsertKeyframe->keyframe.id,
@@ -233,6 +258,34 @@ foundation::Result<EffectCommandProvenance> effectCommandProvenance(
         command.sourceKind,
         command.sourceActorName
       });
+    } else if (stewardCommand && !intent.empty()) {
+      if (const auto* updateClip = std::get_if<project::UpdateClipCommand>(&parsedCommand.value())) {
+        auto targetName = nodeDisplayName(snapshot, updateClip->nodeId);
+        if (!targetName) {
+          return targetName.error();
+        }
+        provenance.stewardEdits.push_back(AppStewardEditRow{
+          command.id,
+          command.afterRevision,
+          updateClip->nodeId,
+          targetName.value(),
+          "Clip Transform",
+          intent
+        });
+      } else if (const auto* addMedia = std::get_if<project::AddMediaToTimelineCommand>(&parsedCommand.value())) {
+        auto targetName = nodeDisplayName(snapshot, addMedia->clip.nodeId);
+        if (!targetName) {
+          return targetName.error();
+        }
+        provenance.stewardEdits.push_back(AppStewardEditRow{
+          command.id,
+          command.afterRevision,
+          addMedia->clip.nodeId,
+          targetName.value(),
+          "Timeline Placement",
+          intent
+        });
+      }
     }
 
     if (command.afterRevision == contentRevision) {
@@ -244,7 +297,7 @@ foundation::Result<EffectCommandProvenance> effectCommandProvenance(
   if (!reachedContentRevision) {
     return foundation::Error{
       "app.content_revision_missing",
-      "Effect provenance requires the current content revision to exist in the command log."
+      "App command provenance requires the current content revision to exist in the command log."
     };
   }
   return provenance;
@@ -261,88 +314,6 @@ const EffectCreationProvenance* provenanceForEffect(
     return nullptr;
   }
   return &*match;
-}
-
-foundation::Result<std::vector<AppStewardEditRow>> stewardAppliedEdits(
-  const std::vector<history::CommandRecord>& commands,
-  const std::vector<history::SnapshotRecord>& snapshots,
-  const project::ProjectSnapshot& snapshot,
-  const foundation::RevisionId& contentRevision
-) {
-  std::vector<AppStewardEditRow> edits;
-  if (contentRevision == foundation::RevisionId{"rev_0"}) {
-    return edits;
-  }
-
-  bool reachedContentRevision = false;
-  for (const history::CommandRecord& command : commands) {
-    auto parsedCommand = project::deserializeCanonicalCommandPayload(
-      command.serializedName,
-      command.serializedPayload
-    );
-    if (!parsedCommand) {
-      return parsedCommand.error();
-    }
-
-    if (command.sourceKind == "agent" && command.sourceActorName == "steward") {
-      const std::string intent = snapshotLabelForRevision(snapshots, command.afterRevision).value_or(std::string{});
-      if (!intent.empty()) {
-        if (const auto* createEffect = std::get_if<project::CreateEffectCommand>(&parsedCommand.value())) {
-          auto targetName = nodeDisplayName(snapshot, createEffect->targetNodeId);
-          if (!targetName) {
-            return targetName.error();
-          }
-          edits.push_back(AppStewardEditRow{
-            command.id,
-            command.afterRevision,
-            createEffect->targetNodeId,
-            targetName.value(),
-            createEffect->payload.displayName,
-            intent
-          });
-        } else if (const auto* updateClip = std::get_if<project::UpdateClipCommand>(&parsedCommand.value())) {
-          auto targetName = nodeDisplayName(snapshot, updateClip->nodeId);
-          if (!targetName) {
-            return targetName.error();
-          }
-          edits.push_back(AppStewardEditRow{
-            command.id,
-            command.afterRevision,
-            updateClip->nodeId,
-            targetName.value(),
-            "Clip Transform",
-            intent
-          });
-        } else if (const auto* addMedia = std::get_if<project::AddMediaToTimelineCommand>(&parsedCommand.value())) {
-          auto targetName = nodeDisplayName(snapshot, addMedia->clip.nodeId);
-          if (!targetName) {
-            return targetName.error();
-          }
-          edits.push_back(AppStewardEditRow{
-            command.id,
-            command.afterRevision,
-            addMedia->clip.nodeId,
-            targetName.value(),
-            "Timeline Placement",
-            intent
-          });
-        }
-      }
-    }
-
-    if (command.afterRevision == contentRevision) {
-      reachedContentRevision = true;
-      break;
-    }
-  }
-
-  if (!reachedContentRevision) {
-    return foundation::Error{
-      "app.content_revision_missing",
-      "Steward applied edits require the current content revision to exist in the command log."
-    };
-  }
-  return edits;
 }
 
 const EffectParamEditProvenance* latestParamEditForParam(
@@ -570,24 +541,16 @@ foundation::Result<NativeProjectViewModelResult> NativeProjectSession::buildView
   if (!contentRevision) {
     return contentRevision.error();
   }
-  auto effectProvenance = effectCommandProvenance(
-    packageState.commandLog.records(),
-    packageState.snapshots.records(),
-    contentRevision.value()
-  );
-  if (!effectProvenance) {
-    return effectProvenance.error();
-  }
-  auto stewardEdits = stewardAppliedEdits(
+  auto commandProvenance = appCommandProvenance(
     packageState.commandLog.records(),
     packageState.snapshots.records(),
     snapshot,
     contentRevision.value()
   );
-  if (!stewardEdits) {
-    return stewardEdits.error();
+  if (!commandProvenance) {
+    return commandProvenance.error();
   }
-  viewModel.steward.edits = std::move(stewardEdits.value());
+  viewModel.steward.edits = std::move(commandProvenance.value().stewardEdits);
   viewModel.assets.count = snapshot.assets.assets().size();
   viewModel.timeline.duration = plan.duration;
 
@@ -701,12 +664,12 @@ foundation::Result<NativeProjectViewModelResult> NativeProjectSession::buildView
     };
 
     for (const projection::RenderEffectNode& effect : effectGraph.nodes) {
-      const EffectCreationProvenance* creation = provenanceForEffect(effectProvenance.value().creations, effect.sourceNodeId);
+      const EffectCreationProvenance* creation = provenanceForEffect(commandProvenance.value().effects.creations, effect.sourceNodeId);
       std::vector<AppEffectParamRow> params;
       params.reserve(effect.payload.params.values.size());
       for (const timeline::Param& param : effect.payload.params.values) {
         const EffectParamEditProvenance* paramEdit = latestParamEditForParam(
-          effectProvenance.value().paramEdits,
+          commandProvenance.value().effects.paramEdits,
           effect.sourceNodeId,
           param.name
         );
@@ -714,7 +677,7 @@ foundation::Result<NativeProjectViewModelResult> NativeProjectSession::buildView
         keyframes.reserve(param.keyframes.size());
         for (const timeline::Param::Keyframe& keyframe : param.keyframes) {
           const EffectKeyframeEditProvenance* keyframeEdit = latestKeyframeEditForKeyframe(
-            effectProvenance.value().keyframeEdits,
+            commandProvenance.value().effects.keyframeEdits,
             effect.sourceNodeId,
             param.name,
             keyframe.id
