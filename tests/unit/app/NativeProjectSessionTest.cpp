@@ -1335,6 +1335,53 @@ int main() {
   GRAPPLE_REQUIRE(std::get<double>(wordBoundaryViewModel.value().timeline.effectGraphs[0].effects[0].params[1].value) == 0.0);
   GRAPPLE_REQUIRE(std::get<double>(wordBoundaryViewModel.value().timeline.effectGraphs[0].effects[0].params[2].value) == 1.1);
 
+  const foundation::NodeId staticMoveCameraNodeId =
+    wordBoundaryWorkspace.value().commandWriter().nextNodeId("camera");
+  const auto staticMoveCamera = wordBoundaryWorkspace.value().commandWriter().apply(
+    project::CreateCameraCommand{
+      staticMoveCameraNodeId,
+      wordBoundaryCompositionNodeId,
+      wordBoundaryWorkspace.value().commandWriter().nextEdgeId("contains camera"),
+      timeline::CameraPayload{
+        "Static Move Camera",
+        timeline::CameraState{
+          timeline::Transform2D{},
+          timeline::CameraLens{35.0}
+        }
+      }
+    },
+    userSource()
+  );
+  GRAPPLE_REQUIRE(staticMoveCamera);
+  const auto staticMoveEffect = wordBoundaryWorkspace.value().steward().createCameraTransformEffect(
+    staticMoveCameraNodeId,
+    "Move the camera framing right with editable controls.",
+    foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}}
+  );
+  GRAPPLE_REQUIRE(staticMoveEffect);
+  const agent::AgentConversationState staticMoveConversation =
+    wordBoundaryWorkspace.value().steward().conversationState();
+  GRAPPLE_REQUIRE(staticMoveConversation.runs.size() == 2);
+  GRAPPLE_REQUIRE(staticMoveConversation.runs[1].status == agent::AgentRunStatus::Succeeded);
+  GRAPPLE_REQUIRE(staticMoveConversation.runs[1].toolCalls.size() == 1);
+  GRAPPLE_REQUIRE(staticMoveConversation.runs[1].toolCalls[0].toolSerializedId == "camera.add_transform_controls");
+  const auto staticMoveViewModel = wordBoundaryWorkspace.value().project().buildViewModel();
+  GRAPPLE_REQUIRE(staticMoveViewModel);
+  const app::AppEffectGraphRow* staticMoveGraph = nullptr;
+  for (const app::AppEffectGraphRow& graph : staticMoveViewModel.value().timeline.effectGraphs) {
+    if (graph.targetNodeId == staticMoveCameraNodeId) {
+      staticMoveGraph = &graph;
+    }
+  }
+  GRAPPLE_REQUIRE(staticMoveGraph != nullptr);
+  GRAPPLE_REQUIRE(staticMoveGraph->effects.size() == 1);
+  GRAPPLE_REQUIRE(std::get<double>(staticMoveGraph->effects[0].params[0].value) == 0.25);
+  GRAPPLE_REQUIRE(staticMoveGraph->effects[0].params[0].keyframes.empty());
+  GRAPPLE_REQUIRE(std::get<double>(staticMoveGraph->effects[0].params[1].value) == 0.0);
+  GRAPPLE_REQUIRE(staticMoveGraph->effects[0].params[1].keyframes.empty());
+  GRAPPLE_REQUIRE(std::get<double>(staticMoveGraph->effects[0].params[2].value) == 1.0);
+  GRAPPLE_REQUIRE(staticMoveGraph->effects[0].params[2].keyframes.empty());
+
   const auto updatedRuntimeEffect = runtimeWorkspace.value().effects().setParamValue(
     runtimeEffectNodeId,
     effects::builtin_effect::PositionXParam,

@@ -141,37 +141,14 @@ std::optional<CameraTransformMotionKeyframes> cameraMotionKeyframesForIntent(
   }
 
   const std::string normalized = lowercaseAscii(intent);
-  if (!containsAsciiWord(normalized, "pan") && !containsAsciiWord(normalized, "move")) {
-    const bool explicitZoomMotion =
-      (containsText(normalized, "zoom") ||
-       cameraIntentRequestsZoomIn(normalized) ||
-       cameraIntentRequestsZoomOut(normalized)) &&
-      (containsText(normalized, "animate") ||
-       containsText(normalized, "over time") ||
-       containsText(normalized, "gradual") ||
-       containsText(normalized, "slowly"));
-    if (!explicitZoomMotion) {
-      return std::nullopt;
-    }
-
-    if (cameraIntentRequestsZoomOut(normalized)) {
-      return CameraTransformMotionKeyframes{
-        effects::builtin_effect::ZoomParam,
-        NormalCameraTransformZoom,
-        0.8,
-        activeRange.end
-      };
-    }
-    if (!cameraIntentRequestsZoomIn(normalized)) {
-      return std::nullopt;
-    }
-
-    return CameraTransformMotionKeyframes{
-      effects::builtin_effect::ZoomParam,
-      NormalCameraTransformZoom,
-      1.5,
-      activeRange.end
-    };
+  const bool temporalMotion =
+    containsAsciiWord(normalized, "pan") ||
+    containsText(normalized, "animate") ||
+    containsText(normalized, "over time") ||
+    containsText(normalized, "gradual") ||
+    containsText(normalized, "slowly");
+  if (!temporalMotion) {
+    return std::nullopt;
   }
 
   if (containsAsciiWord(normalized, "left")) {
@@ -203,6 +180,23 @@ std::optional<CameraTransformMotionKeyframes> cameraMotionKeyframesForIntent(
       effects::builtin_effect::PositionYParam,
       CenteredCameraTransformPositionY,
       0.2,
+      activeRange.end
+    };
+  }
+
+  if (cameraIntentRequestsZoomOut(normalized)) {
+    return CameraTransformMotionKeyframes{
+      effects::builtin_effect::ZoomParam,
+      NormalCameraTransformZoom,
+      0.8,
+      activeRange.end
+    };
+  }
+  if (containsText(normalized, "zoom") || cameraIntentRequestsZoomIn(normalized)) {
+    return CameraTransformMotionKeyframes{
+      effects::builtin_effect::ZoomParam,
+      NormalCameraTransformZoom,
+      1.5,
       activeRange.end
     };
   }
