@@ -101,8 +101,8 @@ StewardPanel::StewardPanel(QWidget* parent)
   intent_->setLineWrapMode(QTextEdit::WidgetWidth);
   intent_->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
   intent_->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-  intent_->setMinimumHeight(54);
-  intent_->setMaximumHeight(72);
+  intent_->setMinimumHeight(48);
+  intent_->setMaximumHeight(64);
   layout->addWidget(intent_);
   connect(intent_, &QTextEdit::textChanged, this, [this] {
     updateActionButtons();
@@ -162,8 +162,8 @@ StewardPanel::StewardPanel(QWidget* parent)
   recentEdits_->setSelectionMode(QAbstractItemView::SingleSelection);
   recentEdits_->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
   recentEdits_->setTextElideMode(Qt::ElideRight);
-  recentEdits_->setMinimumHeight(76);
-  recentEdits_->setMaximumHeight(116);
+  recentEdits_->setMinimumHeight(52);
+  recentEdits_->setMaximumHeight(72);
   layout->addWidget(recentEdits_);
   connect(recentEdits_, &QListWidget::itemActivated, this, [this](QListWidgetItem* item) {
     if (item == nullptr || !selectEditTargetHandler_) {
@@ -181,7 +181,8 @@ StewardPanel::StewardPanel(QWidget* parent)
   text_ = new QTextEdit;
   text_->setObjectName("stewardText");
   text_->setReadOnly(true);
-  text_->setMinimumHeight(96);
+  text_->setMinimumHeight(72);
+  text_->setMaximumHeight(96);
   text_->setLineWrapMode(QTextEdit::WidgetWidth);
   layout->addWidget(text_);
 }

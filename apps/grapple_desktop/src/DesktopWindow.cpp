@@ -552,14 +552,14 @@ public:
     detailTabs_->addTab(inspector_, "Inspector");
     detailTabs_->addTab(summary_, "Project");
     detailTabs_->addTab(log_, "Log");
-    sideLayout->addWidget(steward_, 2);
-    sideLayout->addWidget(detailTabs_, 8);
+    sideLayout->addWidget(steward_, 0);
+    sideLayout->addWidget(detailTabs_, 1);
 
     layout->addWidget(actions, 0, 0, 1, 2);
     layout->addWidget(studioPanel, 1, 0, 1, 1);
-    layout->addWidget(sidePanel, 1, 1, 1, 1);
-    layout->addWidget(assetStrip, 2, 0, 1, 2);
-    layout->addWidget(timeline_, 3, 0, 1, 2);
+    layout->addWidget(sidePanel, 1, 1, 3, 1);
+    layout->addWidget(assetStrip, 2, 0, 1, 1);
+    layout->addWidget(timeline_, 3, 0, 1, 1);
     layout->setColumnStretch(0, 4);
     layout->setColumnStretch(1, 2);
     layout->setRowStretch(0, 0);
