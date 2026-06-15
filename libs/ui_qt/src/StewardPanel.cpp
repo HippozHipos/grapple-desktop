@@ -123,6 +123,42 @@ bool containsNonWhitespace(const std::string& value) {
   });
 }
 
+QString stewardEditName(const app::AppStewardEditRow& edit) {
+  return edit.editName.empty() ? QString{"Edit"} : qString(edit.editName);
+}
+
+QString stewardEditRequest(const app::AppStewardEditRow& edit) {
+  return edit.intent.empty() ? stewardEditName(edit) : qString(edit.intent);
+}
+
+QString stewardEditTargetSuffix(const app::AppStewardEditRow& edit) {
+  return edit.targetName.empty() ? QString{} : QString{" on %1"}.arg(qString(edit.targetName));
+}
+
+QString stewardEditResultLabel(const app::AppStewardEditRow& edit) {
+  if (edit.targetName.empty() && edit.editName.empty()) {
+    return {};
+  }
+  return QString{"%1%2"}.arg(stewardEditName(edit)).arg(stewardEditTargetSuffix(edit));
+}
+
+QString stewardEditResult(const app::AppStewardEditRow& edit) {
+  const QString resultLabel = stewardEditResultLabel(edit);
+  if (resultLabel.isEmpty()) {
+    return {};
+  }
+  return QString{" -> %1"}.arg(resultLabel);
+}
+
+const app::AppStewardEditRow* latestTargetedEdit(const app::AppViewModel& viewModel) {
+  for (auto edit = viewModel.steward.edits.rbegin(); edit != viewModel.steward.edits.rend(); ++edit) {
+    if (edit->targetNodeId.has_value()) {
+      return &(*edit);
+    }
+  }
+  return nullptr;
+}
+
 } // namespace
 
 StewardPanel::StewardPanel(QWidget* parent)
@@ -353,6 +389,12 @@ void StewardPanel::setViewModel(
       .arg(viewModel.timeline.effectCount),
     nextStep
   };
+  if (const app::AppStewardEditRow* latestEdit = latestTargetedEdit(viewModel)) {
+    lines << QString{"Latest result: %1 (%2)"}
+      .arg(stewardEditResultLabel(*latestEdit))
+      .arg(qString(latestEdit->revision.value()));
+    lines << QString{"Latest request: %1"}.arg(stewardEditRequest(*latestEdit));
+  }
   if (selectedAssetId.has_value() && primaryAction_ == PrimaryAction::AddSelectedMedia) {
     lines << QString{"Selected asset: %1"}.arg(assetName(viewModel, selectedAssetId.value()));
   }
@@ -371,20 +413,11 @@ void StewardPanel::setViewModel(
     if (!edit->targetNodeId.has_value()) {
       continue;
     }
-    const QString editText = edit->editName.empty()
-      ? QString{"Edit"}
-      : qString(edit->editName);
-    const QString requestText = edit->intent.empty()
-      ? editText
-      : qString(edit->intent);
-    const QString targetText = edit->targetName.empty()
-      ? QString{}
-      : QString{" on %1"}.arg(qString(edit->targetName));
-    const QString resultText = edit->targetName.empty() && edit->editName.empty()
-      ? QString{}
-      : QString{" -> %1%2"}.arg(editText).arg(targetText);
     auto* item = new QListWidgetItem{
-      QString{"%1 %2%3"}.arg(qString(edit->revision.value())).arg(requestText).arg(resultText)
+      QString{"%1 %2%3"}
+        .arg(qString(edit->revision.value()))
+        .arg(stewardEditRequest(*edit))
+        .arg(stewardEditResult(*edit))
     };
     item->setData(Qt::UserRole, qString(edit->targetNodeId->value()));
     item->setToolTip(item->text());
