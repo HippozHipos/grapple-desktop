@@ -49,6 +49,7 @@ public:
   [[nodiscard]] bool stewardPrimaryActionEnabled() const;
   [[nodiscard]] std::string stewardSelectedClipActionText() const;
   [[nodiscard]] bool stewardSelectedClipActionEnabled() const;
+  [[nodiscard]] bool addSelectedMediaActionEnabled() const;
   [[nodiscard]] int stewardRecentEditCount() const;
   [[nodiscard]] int stewardCurrentRecentEditRow() const;
   [[nodiscard]] std::string stewardRecentEditText(int row) const;

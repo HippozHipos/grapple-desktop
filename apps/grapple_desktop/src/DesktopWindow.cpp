@@ -535,6 +535,8 @@ public:
     auto* stepBackButton = new QPushButton{"-1s"};
     auto* stepForwardButton = new QPushButton{"+1s"};
     auto* importMediaButton = new QPushButton{"Import"};
+    addSelectedMediaButton_ = new QPushButton{"Add To Timeline"};
+    addSelectedMediaButton_->setEnabled(false);
     auto* undoButton = new QPushButton{"Undo"};
     auto* redoButton = new QPushButton{"Redo"};
     auto* exportButton = new QPushButton{"Export"};
@@ -598,6 +600,7 @@ public:
     auto* assetTitle = new QLabel{"Assets"};
     assetTitle->setObjectName("panelTitle");
     assetStripLayout->addWidget(assetTitle);
+    assetStripLayout->addWidget(addSelectedMediaButton_);
     assetStripLayout->addWidget(mediaBin_, 1);
 
     auto* sidePanel = new QWidget;
@@ -640,6 +643,7 @@ public:
     connect(undoButton, &QPushButton::clicked, this, [this] { undoLastEdit(); });
     connect(redoButton, &QPushButton::clicked, this, [this] { redoLastEdit(); });
     connect(importMediaButton, &QPushButton::clicked, this, [this] { chooseAndImportMedia(); });
+    connect(addSelectedMediaButton_, &QPushButton::clicked, this, [this] { addSelectedMediaToTimeline(); });
     connect(newPackageAction, &QAction::triggered, this, [this] { chooseAndNewPackage(); });
     connect(openPackageAction, &QAction::triggered, this, [this] { chooseAndOpenPackage(); });
     connect(saveAsPackageAction, &QAction::triggered, this, [this] { chooseAndSavePackageAs(); });
@@ -790,6 +794,7 @@ public:
     compositionViewport_->setViewModel(viewModel);
     compositionViewport_->setPlayhead(workspace_.preview().state().playhead);
     compositionViewport_->setSelectedNodeId(selectedNodeId_);
+    updateActionAvailability();
     updateInspector(viewModel);
     timelineDuration_ = viewModel.timeline.duration;
   }
@@ -1080,6 +1085,10 @@ public:
 
   bool stewardSelectedClipActionEnabled() const {
     return steward_->selectedClipActionEnabled();
+  }
+
+  bool addSelectedMediaActionEnabled() const {
+    return addSelectedMediaButton_->isEnabled();
   }
 
   int stewardRecentEditCount() const {
@@ -2555,6 +2564,10 @@ public:
   }
 
 private:
+  void updateActionAvailability() {
+    addSelectedMediaButton_->setEnabled(selectedAssetId_.has_value());
+  }
+
   void updateProjectHeader(const grapple::app::AppViewModel& viewModel) {
     const grapple::storage::ProjectPackage& package = workspace_.project().packageState().package;
     const QString projectName = qString(viewModel.project.name);
@@ -2602,6 +2615,7 @@ private:
     mediaBin_->clearSelection();
     timeline_->setSelectedNodeId(selectedNodeId_);
     compositionViewport_->setSelectedNodeId(selectedNodeId_);
+    updateActionAvailability();
 
     const auto viewModel = workspace_.project().buildViewModel();
     if (!viewModel) {
@@ -2768,6 +2782,7 @@ private:
     selectedNodeId_ = std::nullopt;
     timeline_->setSelectedNodeId(selectedNodeId_);
     compositionViewport_->setSelectedNodeId(selectedNodeId_);
+    updateActionAvailability();
 
     const auto viewModel = workspace_.project().buildViewModel();
     if (!viewModel) {
@@ -2845,6 +2860,7 @@ private:
   QTextEdit* log_ = nullptr;
   QFrame* previewFrame_ = nullptr;
   QFrame* viewportFrame_ = nullptr;
+  QPushButton* addSelectedMediaButton_ = nullptr;
   QTimer* playbackTimer_ = nullptr;
   QTimer* jobDispatchTimer_ = nullptr;
   grapple::jobs::MainThreadDispatcher jobDispatcher_;
@@ -2947,6 +2963,10 @@ std::string DesktopWindow::stewardSelectedClipActionText() const {
 
 bool DesktopWindow::stewardSelectedClipActionEnabled() const {
   return impl_->stewardSelectedClipActionEnabled();
+}
+
+bool DesktopWindow::addSelectedMediaActionEnabled() const {
+  return impl_->addSelectedMediaActionEnabled();
 }
 
 int DesktopWindow::stewardRecentEditCount() const {
