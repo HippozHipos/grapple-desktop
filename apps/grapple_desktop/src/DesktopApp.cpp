@@ -1648,8 +1648,27 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     window.advancePlaybackFrame();
     window.pausePlayback();
     const grapple::render::PreviewRenderShellState previewState = workspace.value().preview().state();
+    const auto frame = workspace.value().preview().renderFrame(grapple::render::RenderFrameRequest{
+      previewState.playhead,
+      grapple::render::RenderQuality::Draft
+    });
+    if (!frame) {
+      printError(frame.error());
+      return 1;
+    }
+    const auto viewModel = workspace.value().project().buildViewModel();
+    if (!viewModel) {
+      printError(viewModel.error());
+      return 1;
+    }
     std::cout << "playhead=" << previewState.playhead.value << '\n';
-    return previewState.playhead.value > 0.0 ? 0 : 1;
+    std::cout << "frameTime=" << frame.value().frame.time.value << '\n';
+    std::cout << "frameRevision=" << frame.value().frame.sourceRevision.value() << '\n';
+    return previewState.playhead.value > 0.0 &&
+           frame.value().frame.time == previewState.playhead &&
+           frame.value().frame.sourceRevision == viewModel.value().project.revision
+      ? 0
+      : 1;
   }
 
   if (openPackageSmoke) {
