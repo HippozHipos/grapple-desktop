@@ -2591,6 +2591,38 @@ int main() {
   GRAPPLE_REQUIRE(notesResult->notes[0].title == "Camera rationale");
   GRAPPLE_REQUIRE(notesResult->notes[0].markdown == "Keep the camera offset exposed as a parameter.");
 
+  const std::string workspacePackageStem =
+    "grapple_workspace_package_" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count());
+  const std::filesystem::path workspacePackageRoot = std::filesystem::temp_directory_path() / workspacePackageStem;
+  std::filesystem::remove_all(workspacePackageRoot);
+  auto workspacePackage = app::NativeWorkspaceSession::createPackageRoot(
+    foundation::FilePath{workspacePackageRoot.string()},
+    "Workspace Package"
+  );
+  GRAPPLE_REQUIRE(workspacePackage);
+  const auto workspaceWrite = workspacePackage.value().writePackage();
+  GRAPPLE_REQUIRE(workspaceWrite);
+  auto reopenedWorkspacePackage = app::NativeWorkspaceSession::openPackageRoot(
+    foundation::FilePath{workspacePackageRoot.string()}
+  );
+  GRAPPLE_REQUIRE(reopenedWorkspacePackage);
+  const auto workspacePackageViewModel = reopenedWorkspacePackage.value().project().buildViewModel();
+  GRAPPLE_REQUIRE(workspacePackageViewModel);
+  GRAPPLE_REQUIRE(workspacePackageViewModel.value().project.projectId == foundation::ProjectId{"proj_" + workspacePackageStem});
+  GRAPPLE_REQUIRE(workspacePackageViewModel.value().project.name == "Workspace Package");
+  GRAPPLE_REQUIRE(workspacePackageViewModel.value().project.revision == foundation::RevisionId{"rev_0"});
+  GRAPPLE_REQUIRE(workspacePackageViewModel.value().assets.count == 0);
+  GRAPPLE_REQUIRE(workspacePackageViewModel.value().timeline.clips.empty());
+  GRAPPLE_REQUIRE(reopenedWorkspacePackage.value().project().packageState().commandLog.records().empty());
+  GRAPPLE_REQUIRE(reopenedWorkspacePackage.value().project().packageState().snapshots.records().size() == 1);
+  auto duplicateWorkspacePackage = app::NativeWorkspaceSession::createPackageRoot(
+    foundation::FilePath{workspacePackageRoot.string()},
+    "Duplicate Workspace Package"
+  );
+  GRAPPLE_REQUIRE(!duplicateWorkspacePackage);
+  GRAPPLE_REQUIRE(duplicateWorkspacePackage.error().code == "app.package_manifest_already_exists");
+  std::filesystem::remove_all(workspacePackageRoot);
+
   const auto firstCommandId = session.packageState().commandLog.records()[0].id;
   const auto duplicate = session.applyAndCommit(
     project::ProjectCommandEnvelope{

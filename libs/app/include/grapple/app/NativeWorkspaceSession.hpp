@@ -32,14 +32,18 @@ public:
 
   static foundation::Result<NativeWorkspaceSession> fromProject(NativeProjectSession project);
   static foundation::Result<NativeWorkspaceSession> create(
-    foundation::ProjectId projectId,
     std::string projectName,
     storage::ProjectPackage package
+  );
+  static foundation::Result<NativeWorkspaceSession> createPackageRoot(
+    foundation::FilePath rootPath,
+    std::string projectName
   );
   static foundation::Result<NativeWorkspaceSession> openPackage(storage::ProjectPackage package);
   static foundation::Result<NativeWorkspaceSession> openPackageRoot(foundation::FilePath rootPath);
 
   foundation::Result<void> replaceWithProject(NativeProjectSession project);
+  foundation::Result<void> createPackageRootInPlace(foundation::FilePath rootPath, std::string projectName);
   foundation::Result<void> openPackageInPlace(storage::ProjectPackage package);
   foundation::Result<void> openPackageRootInPlace(foundation::FilePath rootPath);
   [[nodiscard]] foundation::Result<NativeWorkspaceWriteResult> writePackage() const;

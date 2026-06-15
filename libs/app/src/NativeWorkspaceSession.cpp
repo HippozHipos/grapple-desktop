@@ -7,11 +7,15 @@
 #include <grapple/asset/Asset.hpp>
 #include <grapple/media/CachingMediaReader.hpp>
 #include <grapple/media/FrameCache.hpp>
+#include <grapple/project/ProjectController.hpp>
+#include <grapple/project/ProjectSnapshot.hpp>
 #include <grapple/render/LocalRenderSystem.hpp>
 #include <grapple/runtime/BuiltinEffectRuntime.hpp>
 #include <grapple/runtime/RuntimeEvaluator.hpp>
 #include <grapple/storage/ProjectPackageReader.hpp>
+#include <grapple/storage/ProjectPackageSession.hpp>
 
+#include <cctype>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -89,6 +93,98 @@ foundation::FilePath agentRunsRelativePath() {
 
 foundation::FilePath agentEventsRelativePath() {
   return foundation::FilePath{"agent/events.json"};
+}
+
+foundation::Result<std::string> projectStemForPackageRoot(const foundation::FilePath& rootPath) {
+  if (rootPath.value.empty()) {
+    return foundation::Error{"app.package_root_empty", "Workspace package root path must not be empty."};
+  }
+
+  const std::filesystem::path path{rootPath.value};
+  const std::string stem = path.filename().string();
+  if (stem.empty() || stem == "." || stem == "..") {
+    return foundation::Error{"app.package_project_stem_empty", "Package root must have a project directory name."};
+  }
+
+  std::string normalized;
+  normalized.reserve(stem.size());
+  for (const unsigned char character : stem) {
+    if (std::isalnum(character) != 0) {
+      normalized.push_back(static_cast<char>(std::tolower(character)));
+    } else {
+      normalized.push_back('_');
+    }
+  }
+  return normalized;
+}
+
+foundation::Result<storage::ProjectPackage> createWorkspacePackage(
+  foundation::FilePath rootPath,
+  const std::string& projectName
+) {
+  if (projectName.empty()) {
+    return foundation::Error{"app.project_name_empty", "Workspace project name must not be empty."};
+  }
+
+  auto stem = projectStemForPackageRoot(rootPath);
+  if (!stem) {
+    return stem.error();
+  }
+  std::error_code existsError;
+  const bool manifestExists = std::filesystem::exists(
+    std::filesystem::path{rootPath.value} / "manifest.json",
+    existsError
+  );
+  if (existsError) {
+    return foundation::Error{"app.package_manifest_stat_failed", existsError.message()};
+  }
+  if (manifestExists) {
+    return foundation::Error{
+      "app.package_manifest_already_exists",
+      "New package root already contains a Grapple manifest. Open it instead."
+    };
+  }
+
+  return storage::ProjectPackage{
+    foundation::ProjectId{"proj_" + stem.value()},
+    std::move(rootPath),
+    storage::CurrentProjectPackageSchemaVersion
+  };
+}
+
+foundation::Result<NativeProjectSession> createInitializedPackageProject(
+  std::string projectName,
+  storage::ProjectPackage package
+) {
+  const foundation::ProjectId projectId = package.projectId;
+  project::ProjectDocument document = project::createEmptyProject(projectId, std::move(projectName));
+  project::ProjectSnapshot snapshot = project::makeProjectSnapshot(document);
+
+  storage::ProjectPackageState state;
+  state.package = std::move(package);
+  state.projectSnapshot = snapshot;
+  state.snapshotDocuments.push_back(snapshot);
+
+  const foundation::SnapshotId initialSnapshotId{"snap_initial_rev_0"};
+  auto snapshotRecord = state.snapshots.append(history::SnapshotRecord{
+    initialSnapshotId,
+    snapshot.info.id,
+    snapshot.revision,
+    snapshot.canonicalHash,
+    foundation::FilePath{"snapshots/rev_0.json"},
+    std::optional<std::string>{"initial"},
+    std::chrono::system_clock::now()
+  });
+  if (!snapshotRecord) {
+    return snapshotRecord.error();
+  }
+  state.head = history::HistoryHead{
+    snapshot.revision,
+    std::nullopt,
+    initialSnapshotId
+  };
+
+  return NativeProjectSession{storage::ProjectPackageSession{std::move(document), std::move(state)}};
 }
 
 foundation::Result<std::filesystem::path> packagePath(
@@ -301,15 +397,25 @@ foundation::Result<NativeWorkspaceSession> NativeWorkspaceSession::fromProject(N
 }
 
 foundation::Result<NativeWorkspaceSession> NativeWorkspaceSession::create(
-  foundation::ProjectId projectId,
   std::string projectName,
   storage::ProjectPackage package
 ) {
-  return fromProject(NativeProjectSession{
-    std::move(projectId),
-    std::move(projectName),
-    std::move(package)
-  });
+  auto project = createInitializedPackageProject(std::move(projectName), std::move(package));
+  if (!project) {
+    return project.error();
+  }
+  return fromProject(std::move(project.value()));
+}
+
+foundation::Result<NativeWorkspaceSession> NativeWorkspaceSession::createPackageRoot(
+  foundation::FilePath rootPath,
+  std::string projectName
+) {
+  auto package = createWorkspacePackage(std::move(rootPath), projectName);
+  if (!package) {
+    return package.error();
+  }
+  return create(std::move(projectName), std::move(package.value()));
 }
 
 foundation::Result<NativeWorkspaceSession> NativeWorkspaceSession::openPackage(storage::ProjectPackage package) {
@@ -346,6 +452,18 @@ foundation::Result<void> NativeWorkspaceSession::replaceWithProject(NativeProjec
   }
 
   state_ = std::make_unique<State>(std::move(project), std::move(mediaSources.value()));
+  return {};
+}
+
+foundation::Result<void> NativeWorkspaceSession::createPackageRootInPlace(
+  foundation::FilePath rootPath,
+  std::string projectName
+) {
+  auto workspace = createPackageRoot(std::move(rootPath), std::move(projectName));
+  if (!workspace) {
+    return workspace.error();
+  }
+  *this = std::move(workspace.value());
   return {};
 }
 

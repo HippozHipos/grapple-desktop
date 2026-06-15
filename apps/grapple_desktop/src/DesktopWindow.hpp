@@ -86,6 +86,7 @@ public:
   void setSelectedClipTransformControlValue(std::string controlName, double value);
   void undoLastEdit();
   void redoLastEdit();
+  void newPackageRoot(const foundation::FilePath& rootPath, std::string projectName);
   void savePackageAs(const foundation::FilePath& rootPath);
   void exportVideoFile(const foundation::FilePath& path);
   void setExportResolutionControlValue(int width, int height);

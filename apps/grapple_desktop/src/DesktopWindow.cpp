@@ -533,6 +533,7 @@ public:
     auto* saveButton = new QPushButton{"Save"};
     auto* moreButton = new QPushButton{"More"};
     auto* moreMenu = new QMenu{moreButton};
+    auto* newPackageAction = moreMenu->addAction("New Package");
     auto* openPackageAction = moreMenu->addAction("Open Package");
     auto* saveAsPackageAction = moreMenu->addAction("Save As Package");
     auto* addTrackAction = moreMenu->addAction("Add Track");
@@ -631,6 +632,7 @@ public:
     connect(undoButton, &QPushButton::clicked, this, [this] { undoLastEdit(); });
     connect(redoButton, &QPushButton::clicked, this, [this] { redoLastEdit(); });
     connect(importMediaButton, &QPushButton::clicked, this, [this] { chooseAndImportMedia(); });
+    connect(newPackageAction, &QAction::triggered, this, [this] { chooseAndNewPackage(); });
     connect(openPackageAction, &QAction::triggered, this, [this] { chooseAndOpenPackage(); });
     connect(saveAsPackageAction, &QAction::triggered, this, [this] { chooseAndSavePackageAs(); });
     connect(addTrackAction, &QAction::triggered, this, [this] { addTrack(); });
@@ -2493,6 +2495,26 @@ public:
     appendPackageSaved(write.value());
   }
 
+  void newPackageRoot(const grapple::foundation::FilePath& rootPath, std::string projectName) {
+    pausePlayback();
+    const auto created = workspace_.createPackageRootInPlace(rootPath, std::move(projectName));
+    if (!created) {
+      appendError(created.error());
+      return;
+    }
+    const auto write = workspace_.writePackage();
+    if (!write) {
+      appendError(write.error());
+      return;
+    }
+
+    selectedNodeId_ = std::nullopt;
+    selectedAssetId_ = std::nullopt;
+    refreshViewModelAndPreview();
+    appendPackageSaved(write.value());
+    log_->append(QString{"Created package %1"}.arg(qString(rootPath.value)));
+  }
+
   void savePackageAs(const grapple::foundation::FilePath& rootPath) {
     const auto write = workspace_.savePackageAs(rootPath);
     if (!write) {
@@ -2742,6 +2764,15 @@ private:
       return;
     }
     importMediaFile(grapple::foundation::FilePath{path.toStdString()});
+  }
+
+  void chooseAndNewPackage() {
+    const QString path = QFileDialog::getExistingDirectory(this, "New Package");
+    if (path.isEmpty()) {
+      return;
+    }
+    const std::string projectName = std::filesystem::path{path.toStdString()}.filename().string();
+    newPackageRoot(grapple::foundation::FilePath{path.toStdString()}, projectName);
   }
 
   void chooseAndExportVideo() {
@@ -3038,6 +3069,10 @@ void DesktopWindow::undoLastEdit() {
 
 void DesktopWindow::redoLastEdit() {
   impl_->redoLastEdit();
+}
+
+void DesktopWindow::newPackageRoot(const foundation::FilePath& rootPath, std::string projectName) {
+  impl_->newPackageRoot(rootPath, std::move(projectName));
 }
 
 void DesktopWindow::savePackageAs(const foundation::FilePath& rootPath) {

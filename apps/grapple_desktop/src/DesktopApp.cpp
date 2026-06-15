@@ -188,9 +188,12 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   bool playbackSmoke = false;
   bool openPackageSmoke = false;
   bool editSaveSmoke = false;
+  bool newPackageSmoke = false;
   bool exportSettingsSmoke = false;
   bool productLoopSmoke = false;
   bool emptyLaunchSmoke = false;
+  std::optional<std::string> openPackageRootArg;
+  std::optional<std::string> newPackageRootArg;
   std::optional<std::string> screenshotPath;
   std::optional<std::string> effectScreenshotPath;
   for (int index = 1; index < argc; ++index) {
@@ -271,20 +274,30 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       openPackageSmoke = true;
     } else if (argument == "--edit-save-smoke") {
       editSaveSmoke = true;
+    } else if (argument == "--new-package-smoke") {
+      newPackageSmoke = true;
     } else if (argument == "--export-settings-smoke") {
       exportSettingsSmoke = true;
     } else if (argument == "--product-loop-smoke") {
       productLoopSmoke = true;
     } else if (argument == "--empty-launch-smoke") {
       emptyLaunchSmoke = true;
+    } else if (argument == "--open-package" && index + 1 < argc) {
+      openPackageRootArg = argv[++index];
+    } else if (argument == "--new-package" && index + 1 < argc) {
+      newPackageRootArg = argv[++index];
     } else if (argument == "--screenshot" && index + 1 < argc) {
       screenshotPath = argv[++index];
     } else if (argument == "--effect-screenshot" && index + 1 < argc) {
       effectScreenshotPath = argv[++index];
     } else {
-      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --select-audio-clip-smoke, --select-audio-track-smoke, --select-camera-smoke, --select-second-camera-smoke, --steward-smoke, --import-smoke, --import-media-types-smoke, --add-video-smoke, --empty-add-video-smoke, --empty-add-video-undo-smoke, --empty-add-track-smoke, --empty-add-camera-smoke, --update-camera-smoke, --add-note-smoke, --update-note-smoke, --move-clip-smoke, --trim-clip-smoke, --nudge-clip-smoke, --undo-redo-smoke, --add-effect-smoke, --clip-effect-controls-smoke, --steward-submit-shortcut-smoke, --set-effect-param-smoke, --effect-keyframe-smoke, --steward-motion-smoke, --steward-zoom-motion-smoke, --steward-clip-transform-smoke, --delete-effect-smoke, --delete-smoke, --delete-track-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, --export-settings-smoke, --product-loop-smoke, --empty-launch-smoke, --screenshot <path>, or --effect-screenshot <path>.\n";
+      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --select-audio-clip-smoke, --select-audio-track-smoke, --select-camera-smoke, --select-second-camera-smoke, --steward-smoke, --import-smoke, --import-media-types-smoke, --add-video-smoke, --empty-add-video-smoke, --empty-add-video-undo-smoke, --empty-add-track-smoke, --empty-add-camera-smoke, --update-camera-smoke, --add-note-smoke, --update-note-smoke, --move-clip-smoke, --trim-clip-smoke, --nudge-clip-smoke, --undo-redo-smoke, --add-effect-smoke, --clip-effect-controls-smoke, --steward-submit-shortcut-smoke, --set-effect-param-smoke, --effect-keyframe-smoke, --steward-motion-smoke, --steward-zoom-motion-smoke, --steward-clip-transform-smoke, --delete-effect-smoke, --delete-smoke, --delete-track-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, --new-package-smoke, --export-settings-smoke, --product-loop-smoke, --empty-launch-smoke, --open-package <path>, --new-package <path>, --screenshot <path>, or --effect-screenshot <path>.\n";
       return 1;
     }
+  }
+  if (openPackageRootArg.has_value() && newPackageRootArg.has_value()) {
+    std::cerr << "--open-package and --new-package are mutually exclusive.\n";
+    return 1;
   }
 
   QApplication app{argc, argv};
@@ -297,16 +310,6 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   }
   const std::filesystem::path packageRoot = smokeRoot / "package";
   const std::filesystem::path starterVideoPath{"/tmp/grapple-native-demo/starter-gradient.avi"};
-
-  grapple::app::NativeProjectSession session{
-    grapple::foundation::ProjectId{"proj_desktop"},
-    "Desktop Demo",
-    grapple::storage::ProjectPackage{
-      grapple::foundation::ProjectId{"proj_desktop"},
-      grapple::foundation::FilePath{packageRoot.string()},
-      grapple::storage::CurrentProjectPackageSchemaVersion
-    }
-  };
 
   const bool populateStarterDemo =
     smoke ||
@@ -358,15 +361,46 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     }
   }
 
-  if (populateStarterDemo) {
-    const auto populated = populateDemo(session, true);
-    if (!populated) {
-      printError(populated.error());
-      return 1;
+  auto workspace = [&]() -> grapple::foundation::Result<grapple::app::NativeWorkspaceSession> {
+    if (openPackageRootArg.has_value()) {
+      return grapple::app::NativeWorkspaceSession::openPackageRoot(
+        grapple::foundation::FilePath{*openPackageRootArg}
+      );
     }
-  }
+    if (newPackageRootArg.has_value()) {
+      auto created = grapple::app::NativeWorkspaceSession::createPackageRoot(
+        grapple::foundation::FilePath{*newPackageRootArg},
+        std::filesystem::path{*newPackageRootArg}.filename().string()
+      );
+      if (!created) {
+        return created.error();
+      }
+      auto write = created.value().writePackage();
+      if (!write) {
+        return write.error();
+      }
+      return std::move(created.value());
+    }
 
-  auto workspace = grapple::app::NativeWorkspaceSession::fromProject(std::move(session));
+    grapple::app::NativeProjectSession session{
+      grapple::foundation::ProjectId{"proj_desktop"},
+      "Desktop Demo",
+      grapple::storage::ProjectPackage{
+        grapple::foundation::ProjectId{"proj_desktop"},
+        grapple::foundation::FilePath{packageRoot.string()},
+        grapple::storage::CurrentProjectPackageSchemaVersion
+      }
+    };
+
+    if (populateStarterDemo) {
+      const auto populated = populateDemo(session, true);
+      if (!populated) {
+        return populated.error();
+      }
+    }
+    return grapple::app::NativeWorkspaceSession::fromProject(std::move(session));
+  }();
+
   if (!workspace) {
     printError(workspace.error());
     return 1;
@@ -1958,6 +1992,40 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            workspace.value().project().packageState().commandLog.records().size() == 5 &&
            hadSelectedAssetBeforeOpen &&
            !window.selectedAssetId().has_value()
+      ? 0
+      : 1;
+  }
+
+  if (newPackageSmoke) {
+    const std::filesystem::path newPackageRoot = smokeRoot / "desktop-new-package";
+    std::filesystem::remove_all(newPackageRoot);
+    window.newPackageRoot(
+      grapple::foundation::FilePath{newPackageRoot.string()},
+      "Desktop New Package"
+    );
+    auto reopened = grapple::app::NativeWorkspaceSession::openPackageRoot(
+      grapple::foundation::FilePath{newPackageRoot.string()}
+    );
+    if (!reopened) {
+      printError(reopened.error());
+      return 1;
+    }
+    const auto viewModel = reopened.value().project().buildViewModel();
+    if (!viewModel) {
+      printError(viewModel.error());
+      return 1;
+    }
+    std::cout << "project=" << viewModel.value().project.projectId.value() << '\n';
+    std::cout << "name=" << viewModel.value().project.name << '\n';
+    std::cout << "assets=" << viewModel.value().assets.count << '\n';
+    std::cout << "clips=" << viewModel.value().timeline.clips.size() << '\n';
+    return viewModel.value().project.projectId == grapple::foundation::ProjectId{"proj_desktop_new_package"} &&
+           viewModel.value().project.name == "Desktop New Package" &&
+           viewModel.value().assets.count == 0 &&
+           viewModel.value().timeline.clips.empty() &&
+           std::filesystem::exists(newPackageRoot / "manifest.json") &&
+           std::filesystem::exists(newPackageRoot / "agent/runs.json") &&
+           std::filesystem::exists(newPackageRoot / "agent/events.json")
       ? 0
       : 1;
   }
