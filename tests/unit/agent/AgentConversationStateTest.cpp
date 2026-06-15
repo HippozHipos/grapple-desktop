@@ -129,7 +129,7 @@ int main() {
       foundation::RunId{"run_parent"},
       3,
       agent::AgentRunEventKind::ToolCallStarted,
-      R"({"toolCallId":"tool_call_1","toolSerializedId":"composition.inspect","argumentsJson":"{}"})"
+      R"({"toolCallId":"tool_call_1","toolSerializedId":"composition.inspect","toolDisplayName":"Inspect Composition","argumentsJson":"{}"})"
     ),
     event(
       foundation::RunId{"run_parent"},
@@ -187,6 +187,7 @@ int main() {
   GRAPPLE_REQUIRE(parent.toolCalls.size() == 1);
   GRAPPLE_REQUIRE(parent.toolCalls[0].toolCallId == foundation::ToolId{"tool_call_1"});
   GRAPPLE_REQUIRE(parent.toolCalls[0].toolSerializedId == "composition.inspect");
+  GRAPPLE_REQUIRE(parent.toolCalls[0].toolDisplayName == "Inspect Composition");
   GRAPPLE_REQUIRE(parent.toolCalls[0].status == agent::AgentConversationToolCallStatus::Succeeded);
   GRAPPLE_REQUIRE(parent.toolCalls[0].resultJson == R"({"revision":"rev_1"})");
   GRAPPLE_REQUIRE(parent.toolCalls[0].observedRevision == foundation::RevisionId{"rev_1"});

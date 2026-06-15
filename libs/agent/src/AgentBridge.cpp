@@ -11,11 +11,12 @@ namespace grapple::agent {
 
 namespace {
 
-std::string toolCallStartedPayload(const AgentToolDispatchRequest& request) {
+std::string toolCallStartedPayload(const AgentToolDispatchRequest& request, const std::string& toolDisplayName) {
   std::ostringstream payload;
   payload << '{'
           << "\"toolCallId\":" << foundation::jsonQuoted(request.toolCallId.value())
           << ",\"toolSerializedId\":" << foundation::jsonQuoted(request.toolSerializedId)
+          << ",\"toolDisplayName\":" << foundation::jsonQuoted(toolDisplayName)
           << ",\"argumentsJson\":" << foundation::jsonQuoted(request.argumentsJson)
           << '}';
   return payload.str();
@@ -61,16 +62,16 @@ AgentBridge::AgentBridge(
     nextSequence_{nextSequence} {}
 
 foundation::Result<ToolResult> AgentBridge::dispatchToolCall(const AgentToolDispatchRequest& request) {
+  const AgentTool* tool = tools_.findBySerializedId(request.toolSerializedId);
   auto started = appendEvent(
     request.runId,
     AgentRunEventKind::ToolCallStarted,
-    toolCallStartedPayload(request)
+    toolCallStartedPayload(request, tool != nullptr ? tool->displayName : request.toolSerializedId)
   );
   if (!started) {
     return started.error();
   }
 
-  const AgentTool* tool = tools_.findBySerializedId(request.toolSerializedId);
   if (tool == nullptr) {
     const foundation::Error error{
       "agent.tool_missing",

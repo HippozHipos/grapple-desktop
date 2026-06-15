@@ -1051,6 +1051,7 @@ int main() {
   GRAPPLE_REQUIRE(stewardMediaConversation.runs[0].status == agent::AgentRunStatus::Succeeded);
   GRAPPLE_REQUIRE(stewardMediaConversation.runs[0].toolCalls.size() == 1);
   GRAPPLE_REQUIRE(stewardMediaConversation.runs[0].toolCalls[0].toolSerializedId == "timeline.place_asset");
+  GRAPPLE_REQUIRE(stewardMediaConversation.runs[0].toolCalls[0].toolDisplayName == "Place Asset On Timeline");
   GRAPPLE_REQUIRE(stewardMediaConversation.runs[0].toolCalls[0].status == agent::AgentConversationToolCallStatus::Succeeded);
   GRAPPLE_REQUIRE(stewardMediaConversation.runs[0].toolCalls[0].observedRevision == foundation::RevisionId{"rev_2"});
   GRAPPLE_REQUIRE(stewardMediaWorkspace.value().project().packageState().commandLog.records().back().sourceRunId.has_value());
@@ -1125,11 +1126,13 @@ int main() {
   GRAPPLE_REQUIRE(stewardConversation.runs[0].messages.size() == 1);
   GRAPPLE_REQUIRE(stewardConversation.runs[0].toolCalls.size() == 1);
   GRAPPLE_REQUIRE(stewardConversation.runs[0].toolCalls[0].toolSerializedId == "camera.add_transform_controls");
+  GRAPPLE_REQUIRE(stewardConversation.runs[0].toolCalls[0].toolDisplayName == "Add Camera Transform Controls");
   GRAPPLE_REQUIRE(stewardConversation.runs[0].toolCalls[0].status == agent::AgentConversationToolCallStatus::Succeeded);
   GRAPPLE_REQUIRE(stewardConversation.runs[0].toolCalls[0].observedRevision == runtimeEffect.value().snapshot.revision);
   GRAPPLE_REQUIRE(stewardConversation.runs[1].status == agent::AgentRunStatus::Failed);
   GRAPPLE_REQUIRE(stewardConversation.runs[1].toolCalls.size() == 1);
   GRAPPLE_REQUIRE(stewardConversation.runs[1].toolCalls[0].toolSerializedId == "camera.add_transform_controls");
+  GRAPPLE_REQUIRE(stewardConversation.runs[1].toolCalls[0].toolDisplayName == "Add Camera Transform Controls");
   GRAPPLE_REQUIRE(stewardConversation.runs[1].toolCalls[0].status == agent::AgentConversationToolCallStatus::Failed);
   GRAPPLE_REQUIRE(stewardConversation.runs[1].diagnostics.size() == 1);
   GRAPPLE_REQUIRE(stewardConversation.runs[1].diagnostics[0].code == "agent.camera_transform_exists");
@@ -1661,6 +1664,7 @@ int main() {
   GRAPPLE_REQUIRE(reopenedStewardConversation.runs[0].status == agent::AgentRunStatus::Succeeded);
   GRAPPLE_REQUIRE(reopenedStewardConversation.runs[0].toolCalls.size() == 1);
   GRAPPLE_REQUIRE(reopenedStewardConversation.runs[0].toolCalls[0].toolSerializedId == "camera.add_transform_controls");
+  GRAPPLE_REQUIRE(reopenedStewardConversation.runs[0].toolCalls[0].toolDisplayName == "Add Camera Transform Controls");
   GRAPPLE_REQUIRE(reopenedStewardConversation.runs[0].toolCalls[0].toolCallId == foundation::ToolId{"tool_steward_camera_transform_1"});
   GRAPPLE_REQUIRE(reopenedStewardConversation.runs[0].toolCalls[0].observedRevision == foundation::RevisionId{"rev_3"});
   const auto reopenedStewardViewModel = reopenedStewardWorkspace.value().project().buildViewModel();

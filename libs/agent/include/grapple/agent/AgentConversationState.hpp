@@ -32,6 +32,7 @@ struct AgentConversationToolCall {
   std::int64_t finishedSequence = 0;
   foundation::ToolId toolCallId;
   std::string toolSerializedId;
+  std::string toolDisplayName;
   std::string argumentsJson;
   AgentConversationToolCallStatus status = AgentConversationToolCallStatus::Running;
   std::string resultJson;

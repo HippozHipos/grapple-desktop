@@ -220,7 +220,8 @@ void applyToolCallStarted(
 ) {
   auto toolCallId = requiredString(state, event, payload, "toolCallId");
   auto toolSerializedId = requiredString(state, event, payload, "toolSerializedId");
-  if (!toolCallId.has_value() || !toolSerializedId.has_value()) {
+  auto toolDisplayName = requiredString(state, event, payload, "toolDisplayName");
+  if (!toolCallId.has_value() || !toolSerializedId.has_value() || !toolDisplayName.has_value()) {
     return;
   }
 
@@ -230,6 +231,7 @@ void applyToolCallStarted(
     0,
     foundation::ToolId{toolCallId.value()},
     toolSerializedId.value(),
+    toolDisplayName.value(),
     optionalString(payload, "argumentsJson").value_or("{}"),
     AgentConversationToolCallStatus::Running,
     "",

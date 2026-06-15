@@ -259,7 +259,7 @@ void StewardPanel::setViewModel(
       }
       for (const agent::AgentConversationToolCall& toolCall : run->toolCalls) {
         QString toolLine = QString{"  %1 -> %2"}
-          .arg(qString(toolCall.toolSerializedId))
+          .arg(qString(toolCall.toolDisplayName))
           .arg(toolStatusText(toolCall.status));
         if (toolCall.observedRevision.has_value()) {
           toolLine += QString{" at %1"}.arg(qString(toolCall.observedRevision->value()));

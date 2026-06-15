@@ -1314,8 +1314,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            steward.find("- " + createdRevisionText + " Camera Transform on Camera: Center the walking subject with exposed controls.") != std::string::npos &&
            steward.find("Recent runs:") != std::string::npos &&
            steward.find("- Center the walking subject with exposed controls. [succeeded]") != std::string::npos &&
-           steward.find("camera.add_transform_controls -> succeeded at " + createdRevisionText) != std::string::npos &&
-           steward.find("camera.add_transform_controls -> failed") == std::string::npos &&
+           steward.find("Add Camera Transform Controls -> succeeded at " + createdRevisionText) != std::string::npos &&
+           steward.find("Add Camera Transform Controls -> failed") == std::string::npos &&
            steward.find("- Center the walking subject with exposed controls.") != std::string::npos &&
            selectedClipBeforeCreate.has_value() &&
            selectedClipBeforeCreate.value() == expectedClipNodeId &&

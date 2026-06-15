@@ -90,6 +90,7 @@ int main() {
   GRAPPLE_REQUIRE(log.records()[0].sequence == 1);
   GRAPPLE_REQUIRE(log.records()[0].kind == agent::AgentRunEventKind::ToolCallStarted);
   GRAPPLE_REQUIRE(log.records()[0].payloadJson.find("\"toolSerializedId\":\"project.inspect\"") != std::string::npos);
+  GRAPPLE_REQUIRE(log.records()[0].payloadJson.find("\"toolDisplayName\":\"Inspect Project\"") != std::string::npos);
   GRAPPLE_REQUIRE(log.records()[1].sequence == 2);
   GRAPPLE_REQUIRE(log.records()[1].kind == agent::AgentRunEventKind::ToolCallFinished);
   GRAPPLE_REQUIRE(log.records()[1].payloadJson.find("\"status\":\"succeeded\"") != std::string::npos);
@@ -113,6 +114,7 @@ int main() {
   GRAPPLE_REQUIRE(state.runs[0].toolCalls.size() == 1);
   GRAPPLE_REQUIRE(state.runs[0].toolCalls[0].toolCallId == foundation::ToolId{"tool_call_project_inspect"});
   GRAPPLE_REQUIRE(state.runs[0].toolCalls[0].toolSerializedId == "project.inspect");
+  GRAPPLE_REQUIRE(state.runs[0].toolCalls[0].toolDisplayName == "Inspect Project");
   GRAPPLE_REQUIRE(state.runs[0].toolCalls[0].status == agent::AgentConversationToolCallStatus::Succeeded);
   GRAPPLE_REQUIRE(state.runs[0].toolCalls[0].observedRevision == foundation::RevisionId{"rev_0"});
 
@@ -130,6 +132,7 @@ int main() {
   GRAPPLE_REQUIRE(!missingTool);
   GRAPPLE_REQUIRE(missingTool.error().code == "agent.tool_missing");
   GRAPPLE_REQUIRE(missingToolLog.records().size() == 2);
+  GRAPPLE_REQUIRE(missingToolLog.records()[0].payloadJson.find("\"toolDisplayName\":\"missing.tool\"") != std::string::npos);
   GRAPPLE_REQUIRE(missingToolLog.records()[1].kind == agent::AgentRunEventKind::ToolCallFinished);
   GRAPPLE_REQUIRE(missingToolLog.records()[1].payloadJson.find("\"status\":\"failed\"") != std::string::npos);
 
