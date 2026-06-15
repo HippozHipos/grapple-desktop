@@ -540,7 +540,7 @@ public:
     addSelectedMediaButton_->setEnabled(false);
     auto* undoButton = new QPushButton{"Undo"};
     auto* redoButton = new QPushButton{"Redo"};
-    auto* exportButton = new QPushButton{"Export"};
+    exportButton_ = new QPushButton{"Export"};
     auto* saveButton = new QPushButton{"Save"};
     auto* moreButton = new QPushButton{"More"};
     auto* moreMenu = new QMenu{moreButton};
@@ -590,7 +590,7 @@ public:
     actionRow->addWidget(undoButton);
     actionRow->addWidget(redoButton);
     actionRow->addWidget(saveButton);
-    actionRow->addWidget(exportButton);
+    actionRow->addWidget(exportButton_);
     actionRow->addWidget(moreButton);
 
     auto* assetStrip = new QWidget;
@@ -662,7 +662,7 @@ public:
     connect(opacityClipAction, &QAction::triggered, this, [this] { setSelectedClipOpacity(0.5); });
     connect(deleteClipAction, &QAction::triggered, this, [this] { deleteSelectedClip(); });
     connect(deleteTrackAction, &QAction::triggered, this, [this] { deleteSelectedTrack(); });
-    connect(exportButton, &QPushButton::clicked, this, [this] { chooseAndExportVideo(); });
+    connect(exportButton_, &QPushButton::clicked, this, [this] { chooseAndExportVideo(); });
     connect(saveButton, &QPushButton::clicked, this, [this] { savePackage(); });
     steward_->setImportMediaHandler([this] { chooseAndImportMedia(); });
     steward_->setAddCameraHandler([this] { addCamera(); });
@@ -1145,6 +1145,10 @@ public:
 
   std::string exportStatusText() const {
     return exportSettings_->status();
+  }
+
+  bool exportActionEnabled() const {
+    return exportButton_ != nullptr && exportButton_->isEnabled();
   }
 
   std::string currentDetailTabText() const {
@@ -2485,6 +2489,7 @@ public:
     exportInProgress_ = true;
     activeExportJobId_ = jobId;
     lastLoggedExportProgressPercent_ = -25;
+    updateActionAvailability();
     log_->append(QString{"Export queued -> %1"}.arg(qString(path.value)));
     exportSettings_->setStatus("Export queued");
     auto enqueue = workspace_.jobs().enqueue(grapple::jobs::Job{
@@ -2511,6 +2516,7 @@ public:
     if (!enqueue) {
       exportInProgress_ = false;
       activeExportJobId_.reset();
+      updateActionAvailability();
       exportSettings_->setStatus("Export could not start");
       appendError(enqueue.error());
       return false;
@@ -2552,6 +2558,7 @@ public:
   void completeExport(const grapple::foundation::Result<grapple::render::FinalRenderResult>& result) {
     exportInProgress_ = false;
     activeExportJobId_.reset();
+    updateActionAvailability();
     if (!result) {
       exportSettings_->setStatus("Export failed");
       appendError(result.error());
@@ -2629,6 +2636,13 @@ public:
 private:
   void updateActionAvailability() {
     addSelectedMediaButton_->setEnabled(selectedAssetId_.has_value());
+    const bool hasRenderableTimeline =
+      currentViewModel_.has_value() &&
+      currentViewModel_->timeline.duration.value > 0.0 &&
+      !currentViewModel_->timeline.clips.empty();
+    if (exportButton_ != nullptr) {
+      exportButton_->setEnabled(hasRenderableTimeline && !exportInProgress_);
+    }
   }
 
   void updateProjectHeader(const grapple::app::AppViewModel& viewModel) {
@@ -2939,6 +2953,7 @@ private:
   QFrame* previewFrame_ = nullptr;
   QFrame* viewportFrame_ = nullptr;
   QPushButton* addSelectedMediaButton_ = nullptr;
+  QPushButton* exportButton_ = nullptr;
   QTimer* playbackTimer_ = nullptr;
   QTimer* jobDispatchTimer_ = nullptr;
   grapple::jobs::MainThreadDispatcher jobDispatcher_;
@@ -3226,6 +3241,10 @@ void DesktopWindow::setExportCodecControlValue(std::string codec) {
 
 std::string DesktopWindow::exportStatusText() const {
   return impl_->exportStatusText();
+}
+
+bool DesktopWindow::exportActionEnabled() const {
+  return impl_->exportActionEnabled();
 }
 
 void DesktopWindow::setEffectParamControlDraftValue(const std::string& paramName, double value) {

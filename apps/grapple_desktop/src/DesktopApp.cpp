@@ -428,6 +428,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     const std::string stewardIntent = window.stewardIntent();
     const std::string stewardActionText = window.stewardPrimaryActionText();
     const bool stewardActionEnabled = window.stewardPrimaryActionEnabled();
+    const bool exportActionEnabled = window.exportActionEnabled();
     std::cout << "revision=" << viewModel.value().project.revision.value() << '\n';
     std::cout << "assets=" << viewModel.value().assets.count << '\n';
     std::cout << "clips=" << viewModel.value().timeline.clips.size() << '\n';
@@ -435,12 +436,14 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "stewardIntent=" << stewardIntent << '\n';
     std::cout << "stewardAction=" << stewardActionText << '\n';
     std::cout << "stewardActionEnabled=" << (stewardActionEnabled ? "true" : "false") << '\n';
+    std::cout << "exportActionEnabled=" << (exportActionEnabled ? "true" : "false") << '\n';
     std::cout << "steward=" << steward << '\n';
     return viewModel.value().assets.count == 0 &&
            viewModel.value().timeline.clips.empty() &&
            viewModel.value().timeline.cameras.empty() &&
            stewardActionText == "Import Media" &&
            stewardActionEnabled &&
+           !exportActionEnabled &&
            stewardIntent.empty() &&
            steward.find("0 assets | 0 clips | 0 cameras | 0 editable effects") != std::string::npos &&
            steward.find("Next: import media to start the timeline.") != std::string::npos
@@ -2141,6 +2144,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     const bool stewardActionEnabledAfterImport = window.stewardPrimaryActionEnabled();
     const bool addMediaActionEnabledAfterImport = window.addSelectedMediaActionEnabled();
     window.addSelectedMediaToTimeline();
+    const bool exportActionEnabledAfterMediaPlacement = window.exportActionEnabled();
     const auto basePreviewFrame = workspace.value().preview().renderFrame(grapple::render::RenderFrameRequest{
       workspace.value().preview().state().playhead,
       grapple::render::RenderQuality::Draft
@@ -2276,6 +2280,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "stewardActionAfterImport=" << stewardActionAfterImport << '\n';
     std::cout << "stewardActionEnabledAfterImport=" << (stewardActionEnabledAfterImport ? "true" : "false") << '\n';
     std::cout << "addMediaActionEnabledAfterImport=" << (addMediaActionEnabledAfterImport ? "true" : "false") << '\n';
+    std::cout << "exportActionEnabledAfterMediaPlacement=" << (exportActionEnabledAfterMediaPlacement ? "true" : "false") << '\n';
     std::cout << "stewardAction=" << stewardActionText << '\n';
     std::cout << "stewardActionEnabled=" << (stewardActionEnabled ? "true" : "false") << '\n';
     std::cout << "effectParamTitle=" << effectParamTitle << '\n';
@@ -2292,6 +2297,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            stewardActionAfterImport == "Add Selected Media To Timeline" &&
            stewardActionEnabledAfterImport &&
            addMediaActionEnabledAfterImport &&
+           exportActionEnabledAfterMediaPlacement &&
            stewardRecentEdits == 4 &&
            stewardSelectedRecentEdit == 0 &&
            stewardSelectedRecentEditText.find("Recenter the subject.") != std::string::npos &&

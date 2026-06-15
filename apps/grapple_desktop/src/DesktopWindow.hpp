@@ -58,6 +58,7 @@ public:
   [[nodiscard]] bool effectParamControlVisible(const std::string& paramName) const;
   [[nodiscard]] std::optional<double> effectParamControlValue(const std::string& paramName) const;
   [[nodiscard]] std::string exportStatusText() const;
+  [[nodiscard]] bool exportActionEnabled() const;
   [[nodiscard]] std::string currentDetailTabText() const;
   [[nodiscard]] std::string stewardIntent() const;
   void setStewardIntent(std::string intent);
