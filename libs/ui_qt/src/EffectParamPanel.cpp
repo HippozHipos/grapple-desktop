@@ -8,6 +8,7 @@
 #include <QLineEdit>
 #include <QPushButton>
 #include <QSignalBlocker>
+#include <QSizePolicy>
 #include <QSlider>
 #include <QTimer>
 #include <QVBoxLayout>
@@ -148,8 +149,11 @@ void EffectParamPanel::setSelection(
         QString{"%1 on %2"}.arg(qString(effect.displayName)).arg(qString(graph.targetName))
       };
       effectTitle->setObjectName("effectParamTitle");
-      auto* deleteEffect = new QPushButton{"Delete Effect"};
+      effectTitle->setWordWrap(true);
+      auto* deleteEffect = new QPushButton{"Delete"};
+      deleteEffect->setToolTip("Delete effect");
       deleteEffect->setObjectName("effectParamDelete");
+      deleteEffect->setFixedWidth(72);
       const foundation::NodeId effectNodeId = effect.sourceNodeId;
       connect(deleteEffect, &QPushButton::clicked, this, [this, effectNodeId] {
         if (deleteHandler_) {
@@ -245,6 +249,7 @@ void EffectParamPanel::setSelection(
           editor->setRange(*param.numericMin, *param.numericMax);
           editor->setDecimals(2);
           editor->setKeyboardTracking(false);
+          editor->setFixedWidth(74);
           if (param.numericStep.has_value()) {
             editor->setSingleStep(*param.numericStep);
           }
@@ -252,6 +257,7 @@ void EffectParamPanel::setSelection(
           editor->setToolTip(QString{"%1..%2"}.arg(*param.numericMin).arg(*param.numericMax));
           auto* slider = new QSlider{Qt::Horizontal};
           slider->setObjectName(QString{"effectParamSlider_%1"}.arg(qString(param.name)));
+          slider->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
           slider->setRange(0, ParamSliderTicks);
           slider->setValue(sliderIndexForParamValue(*numericValue, *param.numericMin, *param.numericMax));
           slider->setEnabled(*param.numericMax > *param.numericMin);
@@ -282,7 +288,7 @@ void EffectParamPanel::setSelection(
           });
           auto* setKeyframe = new QPushButton{keyframeActionText(currentKeyframeId.has_value())};
           setKeyframe->setToolTip(keyframeActionTooltip(currentKeyframeId.has_value()));
-          setKeyframe->setFixedWidth(58);
+          setKeyframe->setFixedWidth(50);
           setKeyframe->setObjectName(QString{"effectParamKeyframe_%1"}.arg(qString(param.name)));
           connect(setKeyframe, &QPushButton::clicked, this, [this, editor, parameterEffectNodeId, paramName, currentKeyframeId] {
             if (setKeyframeHandler_) {
@@ -290,8 +296,8 @@ void EffectParamPanel::setSelection(
             }
           });
 
-          controlLayout->addWidget(editor, 1);
-          controlLayout->addWidget(slider, 2);
+          controlLayout->addWidget(editor, 0);
+          controlLayout->addWidget(slider, 1);
           controlLayout->addWidget(setKeyframe);
           rowLayout->addWidget(controlRow);
           layout_->addWidget(row);
@@ -316,7 +322,7 @@ void EffectParamPanel::setSelection(
           }, Qt::QueuedConnection);
           auto* setKeyframe = new QPushButton{keyframeActionText(currentKeyframeId.has_value())};
           setKeyframe->setToolTip(keyframeActionTooltip(currentKeyframeId.has_value()));
-          setKeyframe->setFixedWidth(58);
+          setKeyframe->setFixedWidth(50);
           setKeyframe->setObjectName(QString{"effectParamKeyframe_%1"}.arg(qString(param.name)));
           connect(setKeyframe, &QPushButton::clicked, this, [this, editor, parameterEffectNodeId, paramName, currentKeyframeId] {
             if (setKeyframeHandler_) {
@@ -348,7 +354,7 @@ void EffectParamPanel::setSelection(
           });
           auto* setKeyframe = new QPushButton{keyframeActionText(currentKeyframeId.has_value())};
           setKeyframe->setToolTip(keyframeActionTooltip(currentKeyframeId.has_value()));
-          setKeyframe->setFixedWidth(58);
+          setKeyframe->setFixedWidth(50);
           setKeyframe->setObjectName(QString{"effectParamKeyframe_%1"}.arg(qString(param.name)));
           connect(setKeyframe, &QPushButton::clicked, this, [this, editor, parameterEffectNodeId, paramName, currentKeyframeId] {
             if (setKeyframeHandler_) {
@@ -374,7 +380,7 @@ void EffectParamPanel::setSelection(
           value->setObjectName("effectParamHelp");
           auto* setKeyframe = new QPushButton{keyframeActionText(currentKeyframeId.has_value())};
           setKeyframe->setToolTip(keyframeActionTooltip(currentKeyframeId.has_value()));
-          setKeyframe->setFixedWidth(58);
+          setKeyframe->setFixedWidth(50);
           setKeyframe->setObjectName(QString{"effectParamKeyframe_%1"}.arg(qString(param.name)));
           const timeline::ParamValue paramValue = param.value;
           connect(setKeyframe, &QPushButton::clicked, this, [this, parameterEffectNodeId, paramName, paramValue, currentKeyframeId] {
