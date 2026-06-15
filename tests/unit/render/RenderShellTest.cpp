@@ -526,6 +526,8 @@ int main() {
   const auto finalResult = finalRender.render(render::FinalRenderRequest{exportSettings, &finalSink});
   GRAPPLE_REQUIRE(finalResult);
   GRAPPLE_REQUIRE(finalResult.value().outputPath.value == "/exports/test.mov");
+  GRAPPLE_REQUIRE(finalResult.value().sourceRevision == foundation::RevisionId{"rev_3"});
+  GRAPPLE_REQUIRE(finalResult.value().renderPlanHash == coreAfterLoad.preparedPlanHash.value());
   GRAPPLE_REQUIRE(finalResult.value().framesEvaluated == 2);
   GRAPPLE_REQUIRE(finalResult.value().runtimeDiagnostics.empty());
   GRAPPLE_REQUIRE(finalResult.value().renderDiagnostics.empty());
@@ -603,6 +605,8 @@ int main() {
     &systemExportSink
   });
   GRAPPLE_REQUIRE(systemExport);
+  GRAPPLE_REQUIRE(systemExport.value().sourceRevision == foundation::RevisionId{"rev_3"});
+  GRAPPLE_REQUIRE(systemExport.value().renderPlanHash == systemStateAfterLoad.core.preparedPlanHash.value());
   GRAPPLE_REQUIRE(systemExport.value().framesEvaluated == 2);
   GRAPPLE_REQUIRE((systemExportSink.frameTimes == std::vector<foundation::TimeSeconds>{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{0.5}}));
   const auto systemStateAfterExport = localRenderSystem.state();
@@ -626,6 +630,8 @@ int main() {
     &exactPlanExportSink
   });
   GRAPPLE_REQUIRE(exactPlanExport);
+  GRAPPLE_REQUIRE(exactPlanExport.value().sourceRevision == foundation::RevisionId{"rev_3"});
+  GRAPPLE_REQUIRE(exactPlanExport.value().renderPlanHash == systemStateAfterLoad.core.preparedPlanHash.value());
   GRAPPLE_REQUIRE(exactPlanExport.value().framesEvaluated == 2);
   GRAPPLE_REQUIRE(!exactPlanExportSink.frameDescriptions.empty());
   GRAPPLE_REQUIRE(exactPlanExportSink.frameDescriptions[0] == "layers=1 clips=1 audioClips=1 cameras=0 effects=0");
@@ -834,6 +840,8 @@ int main() {
     makeExportSettings(foundation::Resolution{1920, 1080})
   });
   GRAPPLE_REQUIRE(cameraFinalResult);
+  GRAPPLE_REQUIRE(cameraFinalResult.value().sourceRevision == foundation::RevisionId{"rev_4"});
+  GRAPPLE_REQUIRE(cameraFinalResult.value().renderPlanHash == cameraCore.state().preparedPlanHash.value());
   GRAPPLE_REQUIRE(cameraFinalResult.value().framesEvaluated == 2);
   GRAPPLE_REQUIRE(cameraFinalResult.value().runtimeDiagnostics.empty());
   GRAPPLE_REQUIRE(cameraRuntime.processCount == 3);

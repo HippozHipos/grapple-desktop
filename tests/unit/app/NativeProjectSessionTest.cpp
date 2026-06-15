@@ -1155,6 +1155,8 @@ int main() {
     foundation::FilePath{"/tmp/app-counted-export.mov"}
   });
   GRAPPLE_REQUIRE(countedExportResult);
+  GRAPPLE_REQUIRE(countedExportResult.value().sourceRevision == countedPlan.value().plan.revision);
+  GRAPPLE_REQUIRE(countedExportResult.value().renderPlanHash == countedRefresh.value().preparedPlanHash);
   GRAPPLE_REQUIRE(countedExport.state().core.preparedPlanHash == countedRefresh.value().preparedPlanHash);
   GRAPPLE_REQUIRE(countedRuntime.prepareCount == 1);
   const auto repeatedCountedExport = countedExport.renderPlan(countedPlan.value().plan, render::ExportSettings{
@@ -1230,6 +1232,8 @@ int main() {
     }
   );
   GRAPPLE_REQUIRE(runtimeExport);
+  GRAPPLE_REQUIRE(runtimeExport.value().sourceRevision == runtimeExportPlan.value().plan.revision);
+  GRAPPLE_REQUIRE(runtimeExport.value().renderPlanHash == runtimeWorkspace.value().exportSession().state().core.preparedPlanHash.value());
   GRAPPLE_REQUIRE(runtimeExport.value().runtimeDiagnostics.empty());
   GRAPPLE_REQUIRE(runtimeExport.value().framesEvaluated == 2);
 
@@ -1274,6 +1278,8 @@ int main() {
     foundation::FilePath{"/tmp/app-export.mov"}
   });
   GRAPPLE_REQUIRE(exportAfterPreviewRefresh);
+  GRAPPLE_REQUIRE(exportAfterPreviewRefresh.value().sourceRevision == exportPlan.value().plan.revision);
+  GRAPPLE_REQUIRE(exportAfterPreviewRefresh.value().renderPlanHash == preview.state().core.preparedPlanHash.value());
   GRAPPLE_REQUIRE(exportAfterPreviewRefresh.value().framesEvaluated == 2);
 
   GRAPPLE_REQUIRE(exportSession.state().core.hasPlan);
@@ -1304,6 +1310,8 @@ int main() {
   });
   GRAPPLE_REQUIRE(exportResult);
   GRAPPLE_REQUIRE(exportResult.value().outputPath.value == "/tmp/app-export.mov");
+  GRAPPLE_REQUIRE(exportResult.value().sourceRevision == exportPlan.value().plan.revision);
+  GRAPPLE_REQUIRE(exportResult.value().renderPlanHash == explicitPlanHash);
   GRAPPLE_REQUIRE(exportResult.value().framesEvaluated == 2);
   GRAPPLE_REQUIRE(exportResult.value().runtimeDiagnostics.empty());
   GRAPPLE_REQUIRE(exportResult.value().renderDiagnostics.empty());

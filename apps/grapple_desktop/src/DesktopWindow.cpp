@@ -2382,8 +2382,10 @@ public:
       return;
     }
     appendDiagnostics(result.value());
-    log_->append(QString{"Export evaluated %1 frames -> %2"}
+    log_->append(QString{"Export evaluated %1 frames from %2 plan %3 -> %4"}
       .arg(result.value().framesEvaluated)
+      .arg(qString(result.value().sourceRevision.value()))
+      .arg(qString(result.value().renderPlanHash.toHex().substr(0, 8)))
       .arg(qString(result.value().outputPath.value)));
   }
 

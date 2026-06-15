@@ -17,6 +17,8 @@ struct FinalRenderRequest {
 
 struct FinalRenderResult {
   foundation::FilePath outputPath;
+  foundation::RevisionId sourceRevision;
+  foundation::Hash256 renderPlanHash;
   std::size_t framesEvaluated = 0;
   std::vector<runtime::RuntimeDiagnostic> runtimeDiagnostics;
   std::vector<RenderDiagnostic> renderDiagnostics;

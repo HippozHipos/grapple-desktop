@@ -22,6 +22,8 @@ foundation::Result<FinalRenderResult> FinalRenderShell::render(const FinalRender
   lastOutputPath_ = request.settings.outputPath;
   return FinalRenderResult{
     request.settings.outputPath,
+    range.value().sourceRevision,
+    range.value().renderPlanHash,
     range.value().framesEvaluated,
     range.value().runtimeDiagnostics,
     range.value().renderDiagnostics

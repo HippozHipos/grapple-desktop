@@ -437,6 +437,8 @@ foundation::Result<RenderRangeResult> LocalRenderCore::renderRange(const RenderR
   }
 
   return RenderRangeResult{
+    prepared_->sourceRevision,
+    prepared_->planHash,
     range.value().frames.size(),
     diagnostics,
     {}

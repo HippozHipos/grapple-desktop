@@ -106,6 +106,8 @@ struct RenderRangeRequest {
 };
 
 struct RenderRangeResult {
+  foundation::RevisionId sourceRevision;
+  foundation::Hash256 renderPlanHash;
   std::size_t framesEvaluated = 0;
   std::vector<runtime::RuntimeDiagnostic> runtimeDiagnostics;
   std::vector<RenderDiagnostic> renderDiagnostics;

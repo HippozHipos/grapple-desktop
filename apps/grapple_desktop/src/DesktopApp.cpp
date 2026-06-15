@@ -1247,6 +1247,11 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     const std::string log = window.logContents();
     const bool exists = std::filesystem::exists(outputPath);
     const auto size = exists ? std::filesystem::file_size(outputPath) : 0U;
+    const std::string expectedExportProvenance =
+      "Export evaluated 100 frames from " +
+      viewModel.value().project.revision.value() +
+      " plan " +
+      tunedPreviewFrame.value().frame.renderPlanHash.toHex().substr(0, 8);
     const bool hasTunedEditableEffect = std::any_of(
       viewModel.value().timeline.effectGraphs.begin(),
       viewModel.value().timeline.effectGraphs.end(),
@@ -1308,7 +1313,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            log.find("Imported starter-gradient") != std::string::npos &&
            log.find("Added starter-gradient to timeline") != std::string::npos &&
            log.find("Steward applied camera edit") != std::string::npos &&
-           log.find("Export evaluated 100 frames") != std::string::npos &&
+           log.find(expectedExportProvenance) != std::string::npos &&
            exists &&
            size > 0U
       ? 0
