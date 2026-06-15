@@ -27,8 +27,7 @@ protected:
 private:
   void drawGrid(QPainter& painter, const QRectF& world) const;
   void drawMediaFrame(QPainter& painter, const render::RenderedMediaFrame& mediaFrame, const QRectF& world) const;
-  void drawCamera(QPainter& painter, const app::AppCameraRow& camera, const QRectF& world) const;
-  [[nodiscard]] timeline::Transform2D evaluatedCameraTransform(const app::AppCameraRow& camera) const;
+  void drawCamera(QPainter& painter, const render::RenderedCamera& camera, const QRectF& world) const;
   [[nodiscard]] QRectF worldRect(
     double width,
     double height,
@@ -37,6 +36,7 @@ private:
   ) const;
   [[nodiscard]] std::optional<foundation::Resolution> dimensionsFor(const foundation::AssetId& assetId) const;
   [[nodiscard]] std::string mediaFrameLabel(const render::RenderedMediaFrame& mediaFrame) const;
+  [[nodiscard]] std::string cameraLabel(const render::RenderedCamera& camera) const;
   [[nodiscard]] bool selected(const foundation::NodeId& nodeId) const;
 
   std::optional<app::AppViewModel> viewModel_;

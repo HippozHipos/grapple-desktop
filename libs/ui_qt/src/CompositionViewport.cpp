@@ -74,10 +74,9 @@ void CompositionViewport::paintEvent(QPaintEvent* event) {
     for (const render::RenderedMediaFrame& mediaFrame : frame_->mediaFrames) {
       drawMediaFrame(painter, mediaFrame, world);
     }
-  }
-
-  for (const app::AppCameraRow& camera : viewModel_->timeline.cameras) {
-    drawCamera(painter, camera, world);
+    for (const render::RenderedCamera& camera : frame_->cameras) {
+      drawCamera(painter, camera, world);
+    }
   }
 
   painter.setPen(QColor{"#7890ad"});
@@ -138,10 +137,10 @@ void CompositionViewport::drawMediaFrame(
   painter.restore();
 }
 
-void CompositionViewport::drawCamera(QPainter& painter, const app::AppCameraRow& camera, const QRectF& world) const {
-  const timeline::Transform2D transform = evaluatedCameraTransform(camera);
+void CompositionViewport::drawCamera(QPainter& painter, const render::RenderedCamera& camera, const QRectF& world) const {
+  const timeline::Transform2D transform = camera.state.transform;
   QRectF cameraRect = worldRect(2.1, 1.18, transform, world);
-  const bool isSelected = selected(camera.sourceNodeId);
+  const bool isSelected = selected(camera.cameraNodeId);
 
   painter.save();
   painter.translate(cameraRect.center());
@@ -160,7 +159,7 @@ void CompositionViewport::drawCamera(QPainter& painter, const app::AppCameraRow&
 
   painter.setFont(QFont{"DejaVu Sans", 9, QFont::Bold});
   const QString label = QFontMetrics{painter.font()}.elidedText(
-    qString(camera.name),
+    qString(cameraLabel(camera)),
     Qt::ElideRight,
     static_cast<int>(std::max(20.0, cameraRect.width() - 16.0))
   );
@@ -171,20 +170,6 @@ void CompositionViewport::drawCamera(QPainter& painter, const app::AppCameraRow&
   painter.setPen(QColor{"#d8f3ff"});
   painter.drawText(labelRect.adjusted(6.0, 0.0, -6.0, 0.0), Qt::AlignVCenter | Qt::AlignLeft, label);
   painter.restore();
-}
-
-timeline::Transform2D CompositionViewport::evaluatedCameraTransform(const app::AppCameraRow& camera) const {
-  if (!frame_.has_value() || frame_->time != playhead_) {
-    return camera.state.transform;
-  }
-
-  for (const render::RenderedCamera& renderedCamera : frame_->cameras) {
-    if (renderedCamera.cameraNodeId == camera.sourceNodeId) {
-      return renderedCamera.state.transform;
-    }
-  }
-
-  return camera.state.transform;
 }
 
 QRectF CompositionViewport::worldRect(
@@ -229,6 +214,17 @@ std::string CompositionViewport::mediaFrameLabel(const render::RenderedMediaFram
     }
   }
   return mediaFrame.assetId.value();
+}
+
+std::string CompositionViewport::cameraLabel(const render::RenderedCamera& camera) const {
+  if (viewModel_.has_value()) {
+    for (const app::AppCameraRow& row : viewModel_->timeline.cameras) {
+      if (row.sourceNodeId == camera.cameraNodeId) {
+        return row.name;
+      }
+    }
+  }
+  return camera.cameraNodeId.value();
 }
 
 bool CompositionViewport::selected(const foundation::NodeId& nodeId) const {
