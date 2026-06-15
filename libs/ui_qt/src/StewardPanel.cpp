@@ -179,6 +179,7 @@ StewardPanel::StewardPanel(QWidget* parent)
   intent_->setMaximumHeight(64);
   layout->addWidget(intent_);
   connect(intent_, &QTextEdit::textChanged, this, [this] {
+    updateActionLabels();
     updateActionButtons();
   });
 
@@ -368,12 +369,12 @@ void StewardPanel::setViewModel(
     case PrimaryAction::CreateCameraEffect:
       nextStep = selectedClipActionAvailable
         ? targetChoiceStep
-        : "Next: create editable camera controls from the request.";
+        : "Next: type the camera edit request, then create editable camera controls.";
       break;
     case PrimaryAction::AdjustCameraControls:
       nextStep = selectedClipActionAvailable
         ? targetChoiceStep
-        : "Next: apply the request to the exposed camera controls.";
+        : "Next: type the camera edit request, then apply it to the exposed controls.";
       break;
     case PrimaryAction::Disabled:
       nextStep = "Next: select the project item needed for the edit.";
@@ -480,6 +481,7 @@ void StewardPanel::setViewModel(
     }
   }
 
+  updateActionLabels();
   text_->setPlainText(lines.join('\n'));
   updateActionButtons();
 }
@@ -552,6 +554,24 @@ std::string StewardPanel::recentEditText(int row) const {
 void StewardPanel::updateActionButtons() {
   primaryActionButton_->setEnabled(primaryActionCanRun());
   selectedClipActionButton_->setEnabled(selectedClipActionCanRun());
+}
+
+void StewardPanel::updateActionLabels() {
+  const bool hasIntent = intentHasText();
+  switch (primaryAction_) {
+    case PrimaryAction::CreateCameraEffect:
+      primaryActionButton_->setText(hasIntent ? "Create Editable Camera Controls" : "Type Request To Create Camera Controls");
+      break;
+    case PrimaryAction::AdjustCameraControls:
+      primaryActionButton_->setText(hasIntent ? "Apply Request To Camera Controls" : "Type Request To Apply Camera Controls");
+      break;
+    default:
+      break;
+  }
+
+  selectedClipActionButton_->setText(
+    hasIntent ? "Apply Request To Clip Transform" : "Type Request To Transform Clip"
+  );
 }
 
 bool StewardPanel::intentHasText() const {

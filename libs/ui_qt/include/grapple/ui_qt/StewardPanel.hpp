@@ -69,6 +69,7 @@ private:
   };
 
   void updateActionButtons();
+  void updateActionLabels();
   [[nodiscard]] bool intentHasText() const;
   [[nodiscard]] bool primaryActionCanRun() const;
   [[nodiscard]] bool selectedClipActionCanRun() const;

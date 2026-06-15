@@ -1822,7 +1822,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            selectedAfterRecentEdit.has_value() &&
            selectedAfterRecentEdit.value() == expectedCameraNodeId &&
            stewardIntent.empty() &&
-           stewardActionText == "Apply Request To Camera Controls" &&
+           stewardActionText == "Type Request To Apply Camera Controls" &&
            !stewardActionEnabled &&
            effectParamTitle == "Camera Transform on Camera" &&
            effectParamPanel.find("Position X") != std::string::npos &&
@@ -2273,7 +2273,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            selectedAfterRecentEdit.has_value() &&
 	           selectedAfterRecentEdit.value() == viewModel.value().timeline.cameras.front().sourceNodeId &&
 	           steward.find("1 assets | 1 clips | 1 cameras | 1 editable effects") != std::string::npos &&
-	           steward.find("Next: apply the request to the exposed camera controls.") != std::string::npos &&
+	           steward.find("Next: type the camera edit request, then apply it to the exposed controls.") != std::string::npos &&
 	           steward.find("Latest result: Camera Transform on Camera (" + viewModel.value().project.revision.value() + ")") != std::string::npos &&
 	           steward.find("Latest request: Recenter the subject.") != std::string::npos &&
            steward.find("Camera target: Camera") != std::string::npos &&
@@ -2283,7 +2283,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            steward.find("- Make the subject bigger. [succeeded]") != std::string::npos &&
            steward.find("Update Effect Parameter -> succeeded") != std::string::npos &&
            stewardIntent.empty() &&
-           stewardActionText == "Apply Request To Camera Controls" &&
+           stewardActionText == "Type Request To Apply Camera Controls" &&
            !stewardActionEnabled &&
            effectParamTitle == "Camera Transform on Camera" &&
            inspector.find("Position X (position_x)=0") != std::string::npos &&
@@ -2346,7 +2346,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            clip.transform.scale.x == 0.75 &&
            clip.transform.scale.y == 0.75 &&
            clip.transform.opacity == 1.0 &&
-           selectedClipActionText == "Apply Request To Clip Transform" &&
+           selectedClipActionText == "Type Request To Transform Clip" &&
            !selectedClipActionEnabledBeforeIntent &&
            selectedClipActionEnabledAfterIntent &&
            !window.stewardSelectedClipActionEnabled() &&
