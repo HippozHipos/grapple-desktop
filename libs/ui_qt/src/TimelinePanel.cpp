@@ -86,6 +86,17 @@ void TimelinePanel::paintEvent(QPaintEvent* event) {
     painter.drawText(labelX, 22, label);
   }
 
+  if (viewModel.timeline.layers.empty() &&
+      viewModel.timeline.audioTracks.empty() &&
+      viewModel.timeline.cameras.empty()) {
+    drawEmptyTimelinePrompt(
+      painter,
+      QRect{left, rulerHeight, trackWidth, std::max(1, height() - rulerHeight)}
+    );
+    drawPlayhead(painter, left, trackWidth, duration);
+    return;
+  }
+
   int y = rulerHeight;
   for (const app::AppLayerRow& layer : viewModel.timeline.layers) {
     drawLayerRow(
@@ -307,6 +318,16 @@ void TimelinePanel::drawCameraRow(
       elidedText(painter, qString(camera.name), cameraStrip.width() - 18)
     );
   }
+}
+
+void TimelinePanel::drawEmptyTimelinePrompt(QPainter& painter, const QRect& bounds) const {
+  painter.setPen(QColor{"#9fb0c8"});
+  painter.setFont(QFont{"DejaVu Sans", 12, QFont::Bold});
+  painter.drawText(
+    bounds.adjusted(18, 18, -18, -18),
+    Qt::AlignCenter,
+    "Timeline is empty\nImport media, then Add To Timeline"
+  );
 }
 
 void TimelinePanel::drawPlayhead(QPainter& painter, int left, int trackWidth, double duration) const {

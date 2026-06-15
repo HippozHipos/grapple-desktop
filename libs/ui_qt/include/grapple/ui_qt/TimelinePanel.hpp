@@ -57,6 +57,7 @@ private:
     const QColor& clipColor
   ) const;
   void drawCameraRow(QPainter& painter, const app::AppViewModel& viewModel, const QRect& row, int left) const;
+  void drawEmptyTimelinePrompt(QPainter& painter, const QRect& bounds) const;
   void drawPlayhead(QPainter& painter, int left, int trackWidth, double duration) const;
 
   std::optional<app::AppViewModel> viewModel_;
