@@ -98,7 +98,7 @@ StewardPanel::StewardPanel(QWidget* parent)
 
   intent_ = new QTextEdit;
   intent_->setObjectName("stewardIntent");
-  intent_->setPlaceholderText("Describe the edit you want Steward to apply.");
+  intent_->setPlaceholderText("Describe the edit you want Steward to apply. Ctrl+Enter applies it.");
   intent_->setAcceptRichText(false);
   intent_->setLineWrapMode(QTextEdit::WidgetWidth);
   intent_->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
