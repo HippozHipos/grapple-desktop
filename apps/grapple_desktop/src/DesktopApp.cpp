@@ -432,6 +432,9 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     const bool saveActionEnabled = window.saveActionEnabled();
     const bool undoActionEnabled = window.undoActionEnabled();
     const bool redoActionEnabled = window.redoActionEnabled();
+    const bool playActionEnabled = window.playActionEnabled();
+    const bool pauseActionEnabled = window.pauseActionEnabled();
+    const bool seekActionEnabled = window.seekActionEnabled();
     const bool selectedCameraMenuActionsEnabled = window.selectedCameraMenuActionsEnabled();
     const bool selectedClipMenuActionsEnabled = window.selectedClipMenuActionsEnabled();
     const bool selectedTrackMenuActionEnabled = window.selectedTrackMenuActionEnabled();
@@ -447,6 +450,9 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "saveActionEnabled=" << (saveActionEnabled ? "true" : "false") << '\n';
     std::cout << "undoActionEnabled=" << (undoActionEnabled ? "true" : "false") << '\n';
     std::cout << "redoActionEnabled=" << (redoActionEnabled ? "true" : "false") << '\n';
+    std::cout << "playActionEnabled=" << (playActionEnabled ? "true" : "false") << '\n';
+    std::cout << "pauseActionEnabled=" << (pauseActionEnabled ? "true" : "false") << '\n';
+    std::cout << "seekActionEnabled=" << (seekActionEnabled ? "true" : "false") << '\n';
     std::cout << "selectedCameraMenuActionsEnabled=" << (selectedCameraMenuActionsEnabled ? "true" : "false") << '\n';
     std::cout << "selectedClipMenuActionsEnabled=" << (selectedClipMenuActionsEnabled ? "true" : "false") << '\n';
     std::cout << "selectedTrackMenuActionEnabled=" << (selectedTrackMenuActionEnabled ? "true" : "false") << '\n';
@@ -461,6 +467,9 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            !saveActionEnabled &&
            !undoActionEnabled &&
            !redoActionEnabled &&
+           !playActionEnabled &&
+           !pauseActionEnabled &&
+           !seekActionEnabled &&
            !selectedCameraMenuActionsEnabled &&
            !selectedClipMenuActionsEnabled &&
            !selectedTrackMenuActionEnabled &&
@@ -2095,9 +2104,18 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   }
 
   if (playbackSmoke) {
+    const bool beforePlayActionEnabled = window.playActionEnabled();
+    const bool beforePauseActionEnabled = window.pauseActionEnabled();
+    const bool beforeSeekActionEnabled = window.seekActionEnabled();
     window.startPlayback();
+    const bool duringPlayActionEnabled = window.playActionEnabled();
+    const bool duringPauseActionEnabled = window.pauseActionEnabled();
+    const bool duringSeekActionEnabled = window.seekActionEnabled();
     window.advancePlaybackFrame();
     window.pausePlayback();
+    const bool afterPausePlayActionEnabled = window.playActionEnabled();
+    const bool afterPausePauseActionEnabled = window.pauseActionEnabled();
+    const bool afterPauseSeekActionEnabled = window.seekActionEnabled();
     const grapple::render::PreviewRenderShellState previewState = workspace.value().preview().state();
     const auto frame = workspace.value().preview().renderFrame(grapple::render::RenderFrameRequest{
       previewState.playhead,
@@ -2112,10 +2130,28 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       printError(viewModel.error());
       return 1;
     }
+    std::cout << "beforePlayActionEnabled=" << (beforePlayActionEnabled ? "true" : "false") << '\n';
+    std::cout << "beforePauseActionEnabled=" << (beforePauseActionEnabled ? "true" : "false") << '\n';
+    std::cout << "beforeSeekActionEnabled=" << (beforeSeekActionEnabled ? "true" : "false") << '\n';
+    std::cout << "duringPlayActionEnabled=" << (duringPlayActionEnabled ? "true" : "false") << '\n';
+    std::cout << "duringPauseActionEnabled=" << (duringPauseActionEnabled ? "true" : "false") << '\n';
+    std::cout << "duringSeekActionEnabled=" << (duringSeekActionEnabled ? "true" : "false") << '\n';
+    std::cout << "afterPausePlayActionEnabled=" << (afterPausePlayActionEnabled ? "true" : "false") << '\n';
+    std::cout << "afterPausePauseActionEnabled=" << (afterPausePauseActionEnabled ? "true" : "false") << '\n';
+    std::cout << "afterPauseSeekActionEnabled=" << (afterPauseSeekActionEnabled ? "true" : "false") << '\n';
     std::cout << "playhead=" << previewState.playhead.value << '\n';
     std::cout << "frameTime=" << frame.value().frame.time.value << '\n';
     std::cout << "frameRevision=" << frame.value().frame.sourceRevision.value() << '\n';
-    return previewState.playhead.value > 0.0 &&
+    return beforePlayActionEnabled &&
+           !beforePauseActionEnabled &&
+           beforeSeekActionEnabled &&
+           !duringPlayActionEnabled &&
+           duringPauseActionEnabled &&
+           duringSeekActionEnabled &&
+           afterPausePlayActionEnabled &&
+           !afterPausePauseActionEnabled &&
+           afterPauseSeekActionEnabled &&
+           previewState.playhead.value > 0.0 &&
            frame.value().frame.time == previewState.playhead &&
            frame.value().frame.sourceRevision == viewModel.value().project.revision
       ? 0

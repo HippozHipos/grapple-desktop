@@ -62,6 +62,9 @@ public:
   [[nodiscard]] bool saveActionEnabled() const;
   [[nodiscard]] bool undoActionEnabled() const;
   [[nodiscard]] bool redoActionEnabled() const;
+  [[nodiscard]] bool playActionEnabled() const;
+  [[nodiscard]] bool pauseActionEnabled() const;
+  [[nodiscard]] bool seekActionEnabled() const;
   [[nodiscard]] bool selectedCameraMenuActionsEnabled() const;
   [[nodiscard]] bool selectedClipMenuActionsEnabled() const;
   [[nodiscard]] bool selectedTrackMenuActionEnabled() const;

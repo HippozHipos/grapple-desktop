@@ -546,11 +546,11 @@ public:
     auto* refreshButton = new QPushButton{"Refresh"};
     playheadLabel_ = new QLabel;
     playheadLabel_->setObjectName("playheadLabel");
-    auto* playButton = new QPushButton{"Play"};
-    auto* pauseButton = new QPushButton{"Pause"};
-    auto* seekStartButton = new QPushButton{"Start"};
-    auto* stepBackButton = new QPushButton{"-1s"};
-    auto* stepForwardButton = new QPushButton{"+1s"};
+    playButton_ = new QPushButton{"Play"};
+    pauseButton_ = new QPushButton{"Pause"};
+    seekStartButton_ = new QPushButton{"Start"};
+    stepBackButton_ = new QPushButton{"-1s"};
+    stepForwardButton_ = new QPushButton{"+1s"};
     auto* importMediaButton = new QPushButton{"Import"};
     addSelectedMediaButton_ = new QPushButton{"Add To Timeline"};
     addSelectedMediaButton_->setEnabled(false);
@@ -597,11 +597,11 @@ public:
     actionRow->addWidget(titleBlock, 1);
     actionRow->addWidget(importMediaButton);
     actionRow->addWidget(playheadLabel_);
-    actionRow->addWidget(playButton);
-    actionRow->addWidget(pauseButton);
-    actionRow->addWidget(seekStartButton);
-    actionRow->addWidget(stepBackButton);
-    actionRow->addWidget(stepForwardButton);
+    actionRow->addWidget(playButton_);
+    actionRow->addWidget(pauseButton_);
+    actionRow->addWidget(seekStartButton_);
+    actionRow->addWidget(stepBackButton_);
+    actionRow->addWidget(stepForwardButton_);
     actionRow->addWidget(refreshButton);
     actionRow->addWidget(undoButton_);
     actionRow->addWidget(redoButton_);
@@ -652,11 +652,11 @@ public:
     setCentralWidget(root);
 
     connect(refreshButton, &QPushButton::clicked, this, [this] { refreshPreview(true); });
-    connect(playButton, &QPushButton::clicked, this, [this] { startPlayback(); });
-    connect(pauseButton, &QPushButton::clicked, this, [this] { pausePlayback(); });
-    connect(seekStartButton, &QPushButton::clicked, this, [this] { seekTo(grapple::foundation::TimeSeconds{0.0}); });
-    connect(stepBackButton, &QPushButton::clicked, this, [this] { stepPlayhead(-1.0); });
-    connect(stepForwardButton, &QPushButton::clicked, this, [this] { stepPlayhead(1.0); });
+    connect(playButton_, &QPushButton::clicked, this, [this] { startPlayback(); });
+    connect(pauseButton_, &QPushButton::clicked, this, [this] { pausePlayback(); });
+    connect(seekStartButton_, &QPushButton::clicked, this, [this] { seekTo(grapple::foundation::TimeSeconds{0.0}); });
+    connect(stepBackButton_, &QPushButton::clicked, this, [this] { stepPlayhead(-1.0); });
+    connect(stepForwardButton_, &QPushButton::clicked, this, [this] { stepPlayhead(1.0); });
     connect(undoButton_, &QPushButton::clicked, this, [this] { undoLastEdit(); });
     connect(redoButton_, &QPushButton::clicked, this, [this] { redoLastEdit(); });
     connect(importMediaButton, &QPushButton::clicked, this, [this] { chooseAndImportMedia(); });
@@ -802,6 +802,7 @@ public:
   void applyViewModel(const grapple::app::AppViewModel& viewModel) {
     currentViewModel_ = viewModel;
     currentProjectRevision_ = viewModel.project.revision;
+    timelineDuration_ = viewModel.timeline.duration;
     updateProjectHeader(viewModel);
     summary_->setText(summaryText(viewModel));
     rebuildMediaBin(viewModel);
@@ -815,7 +816,6 @@ public:
     compositionViewport_->setSelectedNodeId(selectedNodeId_);
     updateActionAvailability();
     updateInspector(viewModel);
-    timelineDuration_ = viewModel.timeline.duration;
   }
 
   void refreshViewModelAndPreview(bool logRefresh = false) {
@@ -1179,6 +1179,23 @@ public:
     return redoButton_ != nullptr && redoButton_->isEnabled();
   }
 
+  bool playActionEnabled() const {
+    return playButton_ != nullptr && playButton_->isEnabled();
+  }
+
+  bool pauseActionEnabled() const {
+    return pauseButton_ != nullptr && pauseButton_->isEnabled();
+  }
+
+  bool seekActionEnabled() const {
+    return seekStartButton_ != nullptr &&
+      seekStartButton_->isEnabled() &&
+      stepBackButton_ != nullptr &&
+      stepBackButton_->isEnabled() &&
+      stepForwardButton_ != nullptr &&
+      stepForwardButton_->isEnabled();
+  }
+
   bool selectedCameraMenuActionsEnabled() const {
     return actionsEnabled({renameCameraAction_, setCameraFocalLengthAction_});
   }
@@ -1266,6 +1283,7 @@ public:
 
     playbackTimer_->start();
     renderCurrentFrame();
+    updateActionAvailability();
   }
 
   void pausePlayback() {
@@ -1278,6 +1296,7 @@ public:
 
     renderCurrentFrame();
     refreshPlayheadEditControls();
+    updateActionAvailability();
   }
 
   void advancePlaybackFrame() {
@@ -2690,6 +2709,13 @@ private:
     addSelectedMediaButton_->setEnabled(selectedAssetId_.has_value());
     undoButton_->setEnabled(workspace_.commandWriter().canUndoLastCommittedCommand());
     redoButton_->setEnabled(workspace_.commandWriter().canRedoLastUndoneCommand());
+    const bool hasPlayableDuration = timelineDuration_.value > 0.0;
+    const bool isPlaying = workspace_.preview().state().playback == grapple::render::PreviewPlaybackState::Playing;
+    playButton_->setEnabled(hasPlayableDuration && !isPlaying);
+    pauseButton_->setEnabled(hasPlayableDuration && isPlaying);
+    seekStartButton_->setEnabled(hasPlayableDuration);
+    stepBackButton_->setEnabled(hasPlayableDuration);
+    stepForwardButton_->setEnabled(hasPlayableDuration);
     bool selectedCamera = false;
     bool selectedClip = false;
     bool selectedTrack = false;
@@ -3063,6 +3089,11 @@ private:
   QFrame* previewFrame_ = nullptr;
   QFrame* viewportFrame_ = nullptr;
   QPushButton* addSelectedMediaButton_ = nullptr;
+  QPushButton* playButton_ = nullptr;
+  QPushButton* pauseButton_ = nullptr;
+  QPushButton* seekStartButton_ = nullptr;
+  QPushButton* stepBackButton_ = nullptr;
+  QPushButton* stepForwardButton_ = nullptr;
   QPushButton* undoButton_ = nullptr;
   QPushButton* redoButton_ = nullptr;
   QPushButton* saveButton_ = nullptr;
@@ -3381,6 +3412,18 @@ bool DesktopWindow::undoActionEnabled() const {
 
 bool DesktopWindow::redoActionEnabled() const {
   return impl_->redoActionEnabled();
+}
+
+bool DesktopWindow::playActionEnabled() const {
+  return impl_->playActionEnabled();
+}
+
+bool DesktopWindow::pauseActionEnabled() const {
+  return impl_->pauseActionEnabled();
+}
+
+bool DesktopWindow::seekActionEnabled() const {
+  return impl_->seekActionEnabled();
 }
 
 bool DesktopWindow::selectedCameraMenuActionsEnabled() const {
