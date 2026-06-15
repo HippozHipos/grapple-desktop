@@ -2462,6 +2462,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     const std::filesystem::path saveAsRoot = smokeRoot / "desktop-save-as-package";
     std::filesystem::remove_all(saveAsRoot);
     window.savePackageAs(grapple::foundation::FilePath{saveAsRoot.string()});
+    const std::string saveAsHeader = window.projectHeaderText();
     auto reopenedSaveAs = grapple::app::NativeWorkspaceSession::openPackageRoot(grapple::foundation::FilePath{saveAsRoot.string()});
     if (!reopenedSaveAs) {
       printError(reopenedSaveAs.error());
@@ -2490,6 +2491,9 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       saveAsViewModel.value().timeline.effectCount == 1 &&
       saveAsConversation.diagnostics.empty() &&
       saveAsConversation.runs.size() == 2 &&
+      saveAsHeader.find("Desktop Demo") != std::string::npos &&
+      saveAsHeader.find("desktop-save-as-package") != std::string::npos &&
+      saveAsHeader.find(saveAsRoot.string()) != std::string::npos &&
       std::filesystem::exists(saveAsRoot / "manifest.json") &&
       std::filesystem::exists(saveAsRoot / "agent/runs.json") &&
       std::filesystem::exists(saveAsRoot / "agent/events.json") &&
@@ -2507,6 +2511,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "reopenedExportSize=" << reopenedExportSize << '\n';
     std::cout << "saveAsPackageLocalMediaCopied=" << (saveAsPackageLocalMediaCopied ? "true" : "false") << '\n';
     std::cout << "saveAsPackageLocalMediaMissing=" << (saveAsPackageLocalMediaMissing ? "true" : "false") << '\n';
+    std::cout << "saveAsHeader=" << saveAsHeader << '\n';
     std::cout << "saveAsRestored=" << (saveAsRestored ? "true" : "false") << '\n';
     return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_9"} &&
            viewModel.value().assets.count == 2 &&

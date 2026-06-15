@@ -104,6 +104,14 @@ QString summaryText(const grapple::app::AppViewModel& viewModel) {
   return lines.join('\n');
 }
 
+QString packageRootName(const grapple::foundation::FilePath& rootPath) {
+  const std::filesystem::path path{rootPath.value};
+  if (!path.filename().empty()) {
+    return qString(path.filename().string());
+  }
+  return qString(rootPath.value);
+}
+
 QString inspectorText(
   const grapple::app::AppViewModel& viewModel,
   const std::optional<grapple::foundation::NodeId>& selectedNodeId,
@@ -551,16 +559,16 @@ public:
     auto* deleteClipAction = moreMenu->addAction("Delete Clip");
     auto* deleteTrackAction = moreMenu->addAction("Delete Track");
     moreButton->setMenu(moreMenu);
-    auto* productTitle = new QLabel{"Grapple"};
-    productTitle->setObjectName("productTitle");
-    auto* productSubtitle = new QLabel{"Prompt -> editable result -> preview/export"};
-    productSubtitle->setObjectName("productSubtitle");
+    productTitle_ = new QLabel{"Grapple"};
+    productTitle_->setObjectName("productTitle");
+    productSubtitle_ = new QLabel{"Prompt -> editable result -> preview/export"};
+    productSubtitle_->setObjectName("productSubtitle");
     auto* titleBlock = new QWidget;
     auto* titleLayout = new QVBoxLayout{titleBlock};
     titleLayout->setContentsMargins(0, 0, 0, 0);
     titleLayout->setSpacing(0);
-    titleLayout->addWidget(productTitle);
-    titleLayout->addWidget(productSubtitle);
+    titleLayout->addWidget(productTitle_);
+    titleLayout->addWidget(productSubtitle_);
 
     auto* actions = new QWidget;
     actions->setObjectName("actions");
@@ -771,6 +779,7 @@ public:
   void applyViewModel(const grapple::app::AppViewModel& viewModel) {
     currentViewModel_ = viewModel;
     currentProjectRevision_ = viewModel.project.revision;
+    updateProjectHeader(viewModel);
     summary_->setText(summaryText(viewModel));
     rebuildMediaBin(viewModel);
     previewSurface_->setAssetLabels(viewModel.assets);
@@ -1039,6 +1048,10 @@ public:
 
   std::optional<grapple::foundation::AssetId> selectedAssetId() const {
     return selectedAssetId_;
+  }
+
+  std::string projectHeaderText() const {
+    return (productTitle_->text() + "\n" + productSubtitle_->text()).toStdString();
   }
 
   std::string inspectorContents() const {
@@ -2521,6 +2534,9 @@ public:
       appendError(write.error());
       return;
     }
+    if (currentViewModel_.has_value()) {
+      updateProjectHeader(currentViewModel_.value());
+    }
     appendPackageSaved(write.value());
   }
 
@@ -2539,6 +2555,14 @@ public:
   }
 
 private:
+  void updateProjectHeader(const grapple::app::AppViewModel& viewModel) {
+    const grapple::storage::ProjectPackage& package = workspace_.project().packageState().package;
+    const QString projectName = qString(viewModel.project.name);
+    productTitle_->setText(QString{"%1  [%2]"}.arg(projectName, qString(viewModel.project.revision.value())));
+    productSubtitle_->setText(QString{"%1  |  %2"}.arg(packageRootName(package.rootPath), qString(package.rootPath.value)));
+    setWindowTitle(QString{"%1 - Grapple"}.arg(projectName));
+  }
+
   void appendPackageSaved(const grapple::app::NativeWorkspaceWriteResult& write) {
     log_->append(QString{"Package saved\n%1\n%2\n%3\n%4\n%5\n%6\n%7"}
       .arg(qString(write.project.snapshotPath.value))
@@ -2816,6 +2840,8 @@ private:
   grapple::ui::ExportSettingsPanel* exportSettings_ = nullptr;
   grapple::ui::StewardPanel* steward_ = nullptr;
   QTabWidget* detailTabs_ = nullptr;
+  QLabel* productTitle_ = nullptr;
+  QLabel* productSubtitle_ = nullptr;
   QTextEdit* log_ = nullptr;
   QFrame* previewFrame_ = nullptr;
   QFrame* viewportFrame_ = nullptr;
@@ -2889,6 +2915,10 @@ std::optional<foundation::NodeId> DesktopWindow::selectedNodeId() const {
 
 std::optional<foundation::AssetId> DesktopWindow::selectedAssetId() const {
   return impl_->selectedAssetId();
+}
+
+std::string DesktopWindow::projectHeaderText() const {
+  return impl_->projectHeaderText();
 }
 
 std::string DesktopWindow::inspectorContents() const {
