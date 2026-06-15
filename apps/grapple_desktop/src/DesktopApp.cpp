@@ -1756,6 +1756,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     window.clickStewardPrimaryAction();
     window.setStewardIntent("Make the subject bigger.");
     window.clickStewardPrimaryAction();
+    window.setStewardIntent("Recenter the subject.");
+    window.clickStewardPrimaryAction();
     const int stewardRecentEdits = window.stewardRecentEditCount();
     window.clickStewardRecentEdit(0);
     const int stewardSelectedRecentEdit = window.stewardCurrentRecentEditRow();
@@ -1775,7 +1777,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     const bool hasEvaluatedTunedPreview =
       tunedPreviewFrame.value().frame.sourceRevision == tunedViewModel.value().project.revision &&
       tunedPreviewFrame.value().frame.cameras.size() == 1 &&
-      tunedPreviewFrame.value().frame.cameras.front().state.transform.position.x == 0.25 &&
+      tunedPreviewFrame.value().frame.cameras.front().state.transform.position.x == 0.0 &&
       tunedPreviewFrame.value().frame.cameras.front().state.transform.scale.x == 1.375;
     window.setExportResolutionControlValue(320, 180);
     window.setExportFrameRateControlValue(10.0);
@@ -1829,7 +1831,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
             );
             return positionParam != effect.params.end() &&
                    std::holds_alternative<double>(positionParam->value) &&
-                   std::get<double>(positionParam->value) == 0.25 &&
+                   std::get<double>(positionParam->value) == 0.0 &&
                    positionParam->lastEditedActorName == "steward" &&
                    zoomParam != effect.params.end() &&
                    std::holds_alternative<double>(zoomParam->value) &&
@@ -1870,19 +1872,20 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            hasEvaluatedTunedPreview &&
            stewardActionAfterImport == "Add Selected Media To Timeline" &&
            stewardActionEnabledAfterImport &&
-           stewardRecentEdits == 4 &&
+           stewardRecentEdits == 5 &&
            stewardSelectedRecentEdit == 0 &&
            selectedAfterRecentEdit.has_value() &&
            selectedAfterRecentEdit.value() == viewModel.value().timeline.cameras.front().sourceNodeId &&
            steward.find("1 assets | 1 clips | 1 cameras | 1 editable effects") != std::string::npos &&
            steward.find("Next: apply the request to the exposed camera controls.") != std::string::npos &&
            steward.find("Applied edits: select one to inspect its target.") != std::string::npos &&
+           steward.find("- Recenter the subject. [succeeded]") != std::string::npos &&
            steward.find("- Make the subject bigger. [succeeded]") != std::string::npos &&
            steward.find("Update Effect Param Value -> succeeded") != std::string::npos &&
            stewardActionText == "Apply Request To Camera Controls" &&
            stewardActionEnabled &&
            effectParamTitle == "Camera Transform on Camera" &&
-           inspector.find("Position X (position_x)=0.25") != std::string::npos &&
+           inspector.find("Position X (position_x)=0") != std::string::npos &&
            inspector.find("Zoom (zoom)=1.375") != std::string::npos &&
            inspector.find("last changed by steward at ") != std::string::npos &&
            effectParamPanel.find("Position X") != std::string::npos &&
