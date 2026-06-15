@@ -1414,9 +1414,9 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_8"} &&
       conversation.runs.size() == 1 &&
       conversation.runs.front().toolCalls.size() == 3 &&
-      conversation.runs.front().toolCalls[0].toolSerializedId == "camera.add_transform_controls" &&
-      conversation.runs.front().toolCalls[1].toolSerializedId == "camera.set_transform_keyframe" &&
-      conversation.runs.front().toolCalls[2].toolSerializedId == "camera.set_transform_keyframe" &&
+      conversation.runs.front().toolCalls[0].toolSerializedId == "effect.create_node" &&
+      conversation.runs.front().toolCalls[1].toolSerializedId == "effect.create_param_keyframe" &&
+      conversation.runs.front().toolCalls[2].toolSerializedId == "effect.create_param_keyframe" &&
       param->keyframes.size() == 2 &&
       param->keyframes[0].time == grapple::foundation::TimeSeconds{0.0} &&
       approx(std::get<double>(param->keyframes[0].value), 0.0) &&
@@ -1546,9 +1546,9 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_8"} &&
       conversation.runs.size() == 1 &&
       conversation.runs.front().toolCalls.size() == 3 &&
-      conversation.runs.front().toolCalls[0].toolSerializedId == "camera.add_transform_controls" &&
-      conversation.runs.front().toolCalls[1].toolSerializedId == "camera.set_transform_keyframe" &&
-      conversation.runs.front().toolCalls[2].toolSerializedId == "camera.set_transform_keyframe" &&
+      conversation.runs.front().toolCalls[0].toolSerializedId == "effect.create_node" &&
+      conversation.runs.front().toolCalls[1].toolSerializedId == "effect.create_param_keyframe" &&
+      conversation.runs.front().toolCalls[2].toolSerializedId == "effect.create_param_keyframe" &&
       param->keyframes.size() == 2 &&
       param->keyframes[0].time == grapple::foundation::TimeSeconds{0.0} &&
       approx(std::get<double>(param->keyframes[0].value), 1.0) &&
@@ -1707,8 +1707,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            steward.find("Applied edits: select one to inspect its target.") != std::string::npos &&
            steward.find("Recent runs:") != std::string::npos &&
            steward.find("- Center the walking subject with exposed controls. [succeeded]") != std::string::npos &&
-           steward.find("Add Camera Transform Controls -> succeeded at " + createdRevisionText) != std::string::npos &&
-           steward.find("Add Camera Transform Controls -> failed") == std::string::npos &&
+           steward.find("Create Effect Node -> succeeded at " + createdRevisionText) != std::string::npos &&
+           steward.find("Create Effect Node -> failed") == std::string::npos &&
            steward.find("- Center the walking subject with exposed controls.") != std::string::npos &&
            selectedClipBeforeCreate.has_value() &&
            selectedClipBeforeCreate.value() == expectedClipNodeId &&
@@ -2292,7 +2292,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       conversation.runs[0].toolCalls[0].observedRevision == grapple::foundation::RevisionId{"rev_7"} &&
       conversation.runs[1].status == grapple::agent::AgentRunStatus::Succeeded &&
       conversation.runs[1].toolCalls.size() == 1 &&
-      conversation.runs[1].toolCalls[0].toolSerializedId == "camera.add_transform_controls" &&
+      conversation.runs[1].toolCalls[0].toolSerializedId == "effect.create_node" &&
       conversation.runs[1].toolCalls[0].observedRevision == grapple::foundation::RevisionId{"rev_8"};
     const std::filesystem::path reopenedExportPath = smokeRoot / "reopened-export.avi";
     std::filesystem::remove(reopenedExportPath);

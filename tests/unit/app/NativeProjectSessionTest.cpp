@@ -1227,15 +1227,12 @@ int main() {
   GRAPPLE_REQUIRE(stewardConversation.runs[0].title == "Center the subject with an editable camera transform.");
   GRAPPLE_REQUIRE(stewardConversation.runs[0].messages.size() == 1);
   GRAPPLE_REQUIRE(stewardConversation.runs[0].toolCalls.size() == 1);
-  GRAPPLE_REQUIRE(stewardConversation.runs[0].toolCalls[0].toolSerializedId == "camera.add_transform_controls");
-  GRAPPLE_REQUIRE(stewardConversation.runs[0].toolCalls[0].toolDisplayName == "Add Camera Transform Controls");
+  GRAPPLE_REQUIRE(stewardConversation.runs[0].toolCalls[0].toolSerializedId == "effect.create_node");
+  GRAPPLE_REQUIRE(stewardConversation.runs[0].toolCalls[0].toolDisplayName == "Create Effect Node");
   GRAPPLE_REQUIRE(stewardConversation.runs[0].toolCalls[0].status == agent::AgentConversationToolCallStatus::Succeeded);
   GRAPPLE_REQUIRE(stewardConversation.runs[0].toolCalls[0].observedRevision == runtimeEffect.value().snapshot.revision);
   GRAPPLE_REQUIRE(stewardConversation.runs[1].status == agent::AgentRunStatus::Failed);
-  GRAPPLE_REQUIRE(stewardConversation.runs[1].toolCalls.size() == 1);
-  GRAPPLE_REQUIRE(stewardConversation.runs[1].toolCalls[0].toolSerializedId == "camera.add_transform_controls");
-  GRAPPLE_REQUIRE(stewardConversation.runs[1].toolCalls[0].toolDisplayName == "Add Camera Transform Controls");
-  GRAPPLE_REQUIRE(stewardConversation.runs[1].toolCalls[0].status == agent::AgentConversationToolCallStatus::Failed);
+  GRAPPLE_REQUIRE(stewardConversation.runs[1].toolCalls.empty());
   GRAPPLE_REQUIRE(stewardConversation.runs[1].diagnostics.size() == 1);
   GRAPPLE_REQUIRE(stewardConversation.runs[1].diagnostics[0].code == "agent.camera_transform_exists");
   GRAPPLE_REQUIRE(runtimeWorkspace.value().project().packageState().commandLog.records().back().sourceRunId.has_value());
@@ -1364,7 +1361,7 @@ int main() {
   GRAPPLE_REQUIRE(staticMoveConversation.runs.size() == 2);
   GRAPPLE_REQUIRE(staticMoveConversation.runs[1].status == agent::AgentRunStatus::Succeeded);
   GRAPPLE_REQUIRE(staticMoveConversation.runs[1].toolCalls.size() == 1);
-  GRAPPLE_REQUIRE(staticMoveConversation.runs[1].toolCalls[0].toolSerializedId == "camera.add_transform_controls");
+  GRAPPLE_REQUIRE(staticMoveConversation.runs[1].toolCalls[0].toolSerializedId == "effect.create_node");
   const auto staticMoveViewModel = wordBoundaryWorkspace.value().project().buildViewModel();
   GRAPPLE_REQUIRE(staticMoveViewModel);
   const app::AppEffectGraphRow* staticMoveGraph = nullptr;
@@ -1619,10 +1616,10 @@ int main() {
   GRAPPLE_REQUIRE(stewardPanConversation.runs.size() == 3);
   GRAPPLE_REQUIRE(stewardPanConversation.runs[2].status == agent::AgentRunStatus::Succeeded);
   GRAPPLE_REQUIRE(stewardPanConversation.runs[2].toolCalls.size() == 2);
-  GRAPPLE_REQUIRE(stewardPanConversation.runs[2].toolCalls[0].toolSerializedId == "camera.set_transform_keyframe");
+  GRAPPLE_REQUIRE(stewardPanConversation.runs[2].toolCalls[0].toolSerializedId == "effect.create_param_keyframe");
   GRAPPLE_REQUIRE(stewardPanConversation.runs[2].toolCalls[0].toolCallId == foundation::ToolId{"tool_steward_camera_transform_keyframe_3_1"});
   GRAPPLE_REQUIRE(stewardPanConversation.runs[2].toolCalls[0].observedRevision == foundation::RevisionId{"rev_5"});
-  GRAPPLE_REQUIRE(stewardPanConversation.runs[2].toolCalls[1].toolSerializedId == "camera.set_transform_keyframe");
+  GRAPPLE_REQUIRE(stewardPanConversation.runs[2].toolCalls[1].toolSerializedId == "effect.create_param_keyframe");
   GRAPPLE_REQUIRE(stewardPanConversation.runs[2].toolCalls[1].toolCallId == foundation::ToolId{"tool_steward_camera_transform_keyframe_3_2"});
   GRAPPLE_REQUIRE(stewardPanConversation.runs[2].toolCalls[1].observedRevision == foundation::RevisionId{"rev_6"});
   const auto stewardPanViewModel = stewardAdjustWorkspace.value().project().buildViewModel();
@@ -1661,10 +1658,10 @@ int main() {
   GRAPPLE_REQUIRE(stewardShiftConversation.runs.size() == 4);
   GRAPPLE_REQUIRE(stewardShiftConversation.runs[3].status == agent::AgentRunStatus::Succeeded);
   GRAPPLE_REQUIRE(stewardShiftConversation.runs[3].toolCalls.size() == 2);
-  GRAPPLE_REQUIRE(stewardShiftConversation.runs[3].toolCalls[0].toolSerializedId == "camera.set_transform_keyframe");
+  GRAPPLE_REQUIRE(stewardShiftConversation.runs[3].toolCalls[0].toolSerializedId == "effect.update_param_keyframe");
   GRAPPLE_REQUIRE(stewardShiftConversation.runs[3].toolCalls[0].toolCallId == foundation::ToolId{"tool_steward_camera_transform_keyframe_4_1"});
   GRAPPLE_REQUIRE(stewardShiftConversation.runs[3].toolCalls[0].observedRevision == foundation::RevisionId{"rev_7"});
-  GRAPPLE_REQUIRE(stewardShiftConversation.runs[3].toolCalls[1].toolSerializedId == "camera.set_transform_keyframe");
+  GRAPPLE_REQUIRE(stewardShiftConversation.runs[3].toolCalls[1].toolSerializedId == "effect.update_param_keyframe");
   GRAPPLE_REQUIRE(stewardShiftConversation.runs[3].toolCalls[1].toolCallId == foundation::ToolId{"tool_steward_camera_transform_keyframe_4_2"});
   GRAPPLE_REQUIRE(stewardShiftConversation.runs[3].toolCalls[1].observedRevision == foundation::RevisionId{"rev_8"});
   const auto stewardShiftViewModel = stewardAdjustWorkspace.value().project().buildViewModel();
@@ -1896,15 +1893,15 @@ int main() {
   GRAPPLE_REQUIRE(stewardMotionConversation.runs.size() == 1);
   GRAPPLE_REQUIRE(stewardMotionConversation.runs[0].status == agent::AgentRunStatus::Succeeded);
   GRAPPLE_REQUIRE(stewardMotionConversation.runs[0].toolCalls.size() == 3);
-  GRAPPLE_REQUIRE(stewardMotionConversation.runs[0].toolCalls[0].toolSerializedId == "camera.add_transform_controls");
-  GRAPPLE_REQUIRE(stewardMotionConversation.runs[0].toolCalls[0].toolDisplayName == "Add Camera Transform Controls");
+  GRAPPLE_REQUIRE(stewardMotionConversation.runs[0].toolCalls[0].toolSerializedId == "effect.create_node");
+  GRAPPLE_REQUIRE(stewardMotionConversation.runs[0].toolCalls[0].toolDisplayName == "Create Effect Node");
   GRAPPLE_REQUIRE(stewardMotionConversation.runs[0].toolCalls[0].observedRevision == foundation::RevisionId{"rev_3"});
-  GRAPPLE_REQUIRE(stewardMotionConversation.runs[0].toolCalls[1].toolSerializedId == "camera.set_transform_keyframe");
-  GRAPPLE_REQUIRE(stewardMotionConversation.runs[0].toolCalls[1].toolDisplayName == "Set Camera Transform Keyframe");
+  GRAPPLE_REQUIRE(stewardMotionConversation.runs[0].toolCalls[1].toolSerializedId == "effect.create_param_keyframe");
+  GRAPPLE_REQUIRE(stewardMotionConversation.runs[0].toolCalls[1].toolDisplayName == "Create Effect Param Keyframe");
   GRAPPLE_REQUIRE(stewardMotionConversation.runs[0].toolCalls[1].toolCallId == foundation::ToolId{"tool_steward_camera_transform_keyframe_1_1"});
   GRAPPLE_REQUIRE(stewardMotionConversation.runs[0].toolCalls[1].observedRevision == foundation::RevisionId{"rev_4"});
-  GRAPPLE_REQUIRE(stewardMotionConversation.runs[0].toolCalls[2].toolSerializedId == "camera.set_transform_keyframe");
-  GRAPPLE_REQUIRE(stewardMotionConversation.runs[0].toolCalls[2].toolDisplayName == "Set Camera Transform Keyframe");
+  GRAPPLE_REQUIRE(stewardMotionConversation.runs[0].toolCalls[2].toolSerializedId == "effect.create_param_keyframe");
+  GRAPPLE_REQUIRE(stewardMotionConversation.runs[0].toolCalls[2].toolDisplayName == "Create Effect Param Keyframe");
   GRAPPLE_REQUIRE(stewardMotionConversation.runs[0].toolCalls[2].toolCallId == foundation::ToolId{"tool_steward_camera_transform_keyframe_1_2"});
   GRAPPLE_REQUIRE(stewardMotionConversation.runs[0].toolCalls[2].observedRevision == foundation::RevisionId{"rev_5"});
   GRAPPLE_REQUIRE(
@@ -1996,9 +1993,9 @@ int main() {
   GRAPPLE_REQUIRE(stewardZoomConversation.runs[1].status == agent::AgentRunStatus::Succeeded);
   GRAPPLE_REQUIRE(stewardZoomConversation.runs[1].toolCalls.size() == 3);
   GRAPPLE_REQUIRE(stewardZoomConversation.runs[1].toolCalls[0].observedRevision == foundation::RevisionId{"rev_7"});
-  GRAPPLE_REQUIRE(stewardZoomConversation.runs[1].toolCalls[1].toolSerializedId == "camera.set_transform_keyframe");
+  GRAPPLE_REQUIRE(stewardZoomConversation.runs[1].toolCalls[1].toolSerializedId == "effect.create_param_keyframe");
   GRAPPLE_REQUIRE(stewardZoomConversation.runs[1].toolCalls[1].observedRevision == foundation::RevisionId{"rev_8"});
-  GRAPPLE_REQUIRE(stewardZoomConversation.runs[1].toolCalls[2].toolSerializedId == "camera.set_transform_keyframe");
+  GRAPPLE_REQUIRE(stewardZoomConversation.runs[1].toolCalls[2].toolSerializedId == "effect.create_param_keyframe");
   GRAPPLE_REQUIRE(stewardZoomConversation.runs[1].toolCalls[2].observedRevision == foundation::RevisionId{"rev_9"});
 
   const auto stewardZoomViewModel = stewardMotionWorkspace.value().project().buildViewModel();
@@ -2067,9 +2064,9 @@ int main() {
   GRAPPLE_REQUIRE(stewardBiggerConversation.runs.size() == 3);
   GRAPPLE_REQUIRE(stewardBiggerConversation.runs[2].status == agent::AgentRunStatus::Succeeded);
   GRAPPLE_REQUIRE(stewardBiggerConversation.runs[2].toolCalls.size() == 3);
-  GRAPPLE_REQUIRE(stewardBiggerConversation.runs[2].toolCalls[0].toolSerializedId == "camera.add_transform_controls");
-  GRAPPLE_REQUIRE(stewardBiggerConversation.runs[2].toolCalls[1].toolSerializedId == "camera.set_transform_keyframe");
-  GRAPPLE_REQUIRE(stewardBiggerConversation.runs[2].toolCalls[2].toolSerializedId == "camera.set_transform_keyframe");
+  GRAPPLE_REQUIRE(stewardBiggerConversation.runs[2].toolCalls[0].toolSerializedId == "effect.create_node");
+  GRAPPLE_REQUIRE(stewardBiggerConversation.runs[2].toolCalls[1].toolSerializedId == "effect.create_param_keyframe");
+  GRAPPLE_REQUIRE(stewardBiggerConversation.runs[2].toolCalls[2].toolSerializedId == "effect.create_param_keyframe");
 
   const auto stewardBiggerViewModel = stewardMotionWorkspace.value().project().buildViewModel();
   GRAPPLE_REQUIRE(stewardBiggerViewModel);
@@ -2436,8 +2433,8 @@ int main() {
   GRAPPLE_REQUIRE(reopenedStewardConversation.runs.size() == 1);
   GRAPPLE_REQUIRE(reopenedStewardConversation.runs[0].status == agent::AgentRunStatus::Succeeded);
   GRAPPLE_REQUIRE(reopenedStewardConversation.runs[0].toolCalls.size() == 1);
-  GRAPPLE_REQUIRE(reopenedStewardConversation.runs[0].toolCalls[0].toolSerializedId == "camera.add_transform_controls");
-  GRAPPLE_REQUIRE(reopenedStewardConversation.runs[0].toolCalls[0].toolDisplayName == "Add Camera Transform Controls");
+  GRAPPLE_REQUIRE(reopenedStewardConversation.runs[0].toolCalls[0].toolSerializedId == "effect.create_node");
+  GRAPPLE_REQUIRE(reopenedStewardConversation.runs[0].toolCalls[0].toolDisplayName == "Create Effect Node");
   GRAPPLE_REQUIRE(reopenedStewardConversation.runs[0].toolCalls[0].toolCallId == foundation::ToolId{"tool_steward_camera_transform_1"});
   GRAPPLE_REQUIRE(reopenedStewardConversation.runs[0].toolCalls[0].observedRevision == foundation::RevisionId{"rev_3"});
   const auto reopenedStewardViewModel = reopenedStewardWorkspace.value().project().buildViewModel();
@@ -2504,8 +2501,8 @@ int main() {
   GRAPPLE_REQUIRE(durableMotionConversation.runs[1].runId == foundation::RunId{"run_steward_2"});
   GRAPPLE_REQUIRE(durableMotionConversation.runs[1].title == durableMotionIntent);
   GRAPPLE_REQUIRE(durableMotionConversation.runs[1].toolCalls.size() == 3);
-  GRAPPLE_REQUIRE(durableMotionConversation.runs[1].toolCalls[1].toolSerializedId == "camera.set_transform_keyframe");
-  GRAPPLE_REQUIRE(durableMotionConversation.runs[1].toolCalls[2].toolSerializedId == "camera.set_transform_keyframe");
+  GRAPPLE_REQUIRE(durableMotionConversation.runs[1].toolCalls[1].toolSerializedId == "effect.create_param_keyframe");
+  GRAPPLE_REQUIRE(durableMotionConversation.runs[1].toolCalls[2].toolSerializedId == "effect.create_param_keyframe");
   GRAPPLE_REQUIRE(durableMotionConversation.runs[1].toolCalls[2].observedRevision == foundation::RevisionId{"rev_7"});
   const auto durableMotionViewModel = reopenedStewardMotionWorkspace.value().project().buildViewModel();
   GRAPPLE_REQUIRE(durableMotionViewModel);
