@@ -139,6 +139,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   bool editSaveSmoke = false;
   bool exportSettingsSmoke = false;
   bool productLoopSmoke = false;
+  bool emptyLaunchSmoke = false;
   std::optional<std::string> screenshotPath;
   std::optional<std::string> effectScreenshotPath;
   for (int index = 1; index < argc; ++index) {
@@ -211,12 +212,14 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       exportSettingsSmoke = true;
     } else if (argument == "--product-loop-smoke") {
       productLoopSmoke = true;
+    } else if (argument == "--empty-launch-smoke") {
+      emptyLaunchSmoke = true;
     } else if (argument == "--screenshot" && index + 1 < argc) {
       screenshotPath = argv[++index];
     } else if (argument == "--effect-screenshot" && index + 1 < argc) {
       effectScreenshotPath = argv[++index];
     } else {
-      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --select-audio-clip-smoke, --select-audio-track-smoke, --select-camera-smoke, --select-second-camera-smoke, --steward-smoke, --import-smoke, --import-media-types-smoke, --add-video-smoke, --empty-add-video-smoke, --empty-add-track-smoke, --empty-add-camera-smoke, --update-camera-smoke, --add-note-smoke, --update-note-smoke, --move-clip-smoke, --trim-clip-smoke, --nudge-clip-smoke, --undo-redo-smoke, --add-effect-smoke, --set-effect-param-smoke, --effect-keyframe-smoke, --delete-effect-smoke, --delete-smoke, --delete-track-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, --export-settings-smoke, --product-loop-smoke, --screenshot <path>, or --effect-screenshot <path>.\n";
+      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --select-audio-clip-smoke, --select-audio-track-smoke, --select-camera-smoke, --select-second-camera-smoke, --steward-smoke, --import-smoke, --import-media-types-smoke, --add-video-smoke, --empty-add-video-smoke, --empty-add-track-smoke, --empty-add-camera-smoke, --update-camera-smoke, --add-note-smoke, --update-note-smoke, --move-clip-smoke, --trim-clip-smoke, --nudge-clip-smoke, --undo-redo-smoke, --add-effect-smoke, --set-effect-param-smoke, --effect-keyframe-smoke, --delete-effect-smoke, --delete-smoke, --delete-track-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, --export-settings-smoke, --product-loop-smoke, --empty-launch-smoke, --screenshot <path>, or --effect-screenshot <path>.\n";
       return 1;
     }
   }
@@ -231,13 +234,52 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       grapple::storage::CurrentProjectPackageSchemaVersion
     }
   };
-  const auto demoVideo = grapple::demo::ensureStarterDemoVideo();
-  if (!demoVideo) {
-    printError(demoVideo.error());
-    return 1;
+
+  const bool populateStarterDemo =
+    smoke ||
+    mutateSmoke ||
+    seekSmoke ||
+    timelineSeekSmoke ||
+    selectSmoke ||
+    selectAudioClipSmoke ||
+    selectAudioTrackSmoke ||
+    selectCameraSmoke ||
+    selectSecondCameraSmoke ||
+    stewardSmoke ||
+    importSmoke ||
+    addVideoSmoke ||
+    updateCameraSmoke ||
+    addNoteSmoke ||
+    updateNoteSmoke ||
+    moveClipSmoke ||
+    trimClipSmoke ||
+    nudgeClipSmoke ||
+    undoRedoSmoke ||
+    addEffectSmoke ||
+    setEffectParamSmoke ||
+    effectKeyframeSmoke ||
+    deleteEffectSmoke ||
+    deleteSmoke ||
+    deleteTrackSmoke ||
+    playbackSmoke ||
+    openPackageSmoke ||
+    editSaveSmoke ||
+    exportSettingsSmoke ||
+    effectScreenshotPath.has_value();
+  const bool needsStarterDemoVideo =
+    populateStarterDemo ||
+    emptyAddVideoSmoke ||
+    productLoopSmoke;
+
+  if (needsStarterDemoVideo) {
+    const auto demoVideo = grapple::demo::ensureStarterDemoVideo();
+    if (!demoVideo) {
+      printError(demoVideo.error());
+      return 1;
+    }
   }
 
-  if (!emptyAddVideoSmoke && !emptyAddTrackSmoke && !emptyAddCameraSmoke && !importMediaTypesSmoke && !productLoopSmoke) {
+  if (populateStarterDemo) {
     const auto populated = populateDemo(session, true);
     if (!populated) {
       printError(populated.error());
@@ -252,6 +294,26 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   }
 
   DesktopWindow window{workspace.value()};
+
+  if (emptyLaunchSmoke) {
+    const auto viewModel = workspace.value().project().buildViewModel();
+    if (!viewModel) {
+      printError(viewModel.error());
+      return 1;
+    }
+    const std::string steward = window.stewardContents();
+    std::cout << "revision=" << viewModel.value().project.revision.value() << '\n';
+    std::cout << "assets=" << viewModel.value().assets.count << '\n';
+    std::cout << "clips=" << viewModel.value().timeline.clips.size() << '\n';
+    std::cout << "cameras=" << viewModel.value().timeline.cameras.size() << '\n';
+    std::cout << "steward=" << steward << '\n';
+    return viewModel.value().assets.count == 0 &&
+           viewModel.value().timeline.clips.empty() &&
+           viewModel.value().timeline.cameras.empty() &&
+           steward.find("0 clips | 0 cameras | 0 editable effects") != std::string::npos
+      ? 0
+      : 1;
+  }
 
   if (smoke) {
     const auto viewModel = workspace.value().project().buildViewModel();
