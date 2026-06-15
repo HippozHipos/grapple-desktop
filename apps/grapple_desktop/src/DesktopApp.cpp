@@ -699,9 +699,11 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "duration=" << viewModel.value().timeline.duration.value << '\n';
     std::cout << "stewardActionAfterImport=" << stewardActionAfterImport << '\n';
     std::cout << "stewardActionEnabledAfterImport=" << (stewardActionEnabledAfterImport ? "true" : "false") << '\n';
+    const std::string inspector = window.inspectorContents();
     if (window.selectedNodeId().has_value()) {
       std::cout << "selectedNode=" << window.selectedNodeId()->value() << '\n';
     }
+    std::cout << "inspector=" << inspector << '\n';
     return viewModel.value().assets.count == 1 &&
            viewModel.value().timeline.compositions.size() == 1 &&
            viewModel.value().timeline.layers.size() == 1 &&
@@ -710,7 +712,11 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            viewModel.value().timeline.duration.value > 9.9 &&
            stewardActionAfterImport == "Add Selected Media To Timeline" &&
            stewardActionEnabledAfterImport &&
-           window.selectedNodeId().has_value()
+           window.selectedNodeId().has_value() &&
+           window.selectedNodeId().value() == viewModel.value().timeline.clips.front().sourceNodeId &&
+           !window.selectedAssetId().has_value() &&
+           inspector.find("Inspector\nClip") != std::string::npos &&
+           inspector.find("Type: video") != std::string::npos
       ? 0
       : 1;
   }
