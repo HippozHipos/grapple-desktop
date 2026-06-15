@@ -35,6 +35,7 @@
 #include <QMenu>
 #include <QMouseEvent>
 #include <QPushButton>
+#include <QScrollArea>
 #include <QStringList>
 #include <QSpinBox>
 #include <QTabWidget>
@@ -475,6 +476,11 @@ public:
     effectParams_->setDeleteHandler([this](grapple::foundation::NodeId effectNodeId) {
       deleteEffect(effectNodeId);
     });
+    effectParamsScroll_ = new QScrollArea;
+    effectParamsScroll_->setObjectName("effectParamsScroll");
+    effectParamsScroll_->setWidgetResizable(true);
+    effectParamsScroll_->setFrameShape(QFrame::NoFrame);
+    effectParamsScroll_->setWidget(effectParams_);
 
     exportSettings_ = new grapple::ui::ExportSettingsPanel;
     exportSettingsDraft_ = exportSettings_->draft();
@@ -577,15 +583,15 @@ public:
     sideLayout->setSpacing(12);
     detailTabs_ = new QTabWidget;
     detailTabs_->setObjectName("detailsTabs");
-    detailTabs_->addTab(effectParams_, "Effects");
+    detailTabs_->addTab(effectParamsScroll_, "Effects");
     detailTabs_->addTab(cameraProperties_, "Camera");
     detailTabs_->addTab(clipTransform_, "Clip");
     detailTabs_->addTab(exportSettings_, "Export");
     detailTabs_->addTab(inspector_, "Inspector");
     detailTabs_->addTab(summary_, "Project");
     detailTabs_->addTab(log_, "Log");
-    sideLayout->addWidget(steward_, 3);
-    sideLayout->addWidget(detailTabs_, 7);
+    sideLayout->addWidget(steward_, 2);
+    sideLayout->addWidget(detailTabs_, 8);
 
     layout->addWidget(actions, 0, 0, 1, 2);
     layout->addWidget(studioPanel, 1, 0, 1, 1);
@@ -651,6 +657,7 @@ public:
       QWidget#stewardPanel, QTextEdit#stewardText, QTextEdit#stewardIntent {
         background: #20242d; border: 1px solid #343b4a; border-radius: 10px; color: #eaf3ff;
       }
+      QScrollArea#effectParamsScroll { background: #20242d; border: 0; }
       QTextEdit#stewardIntent { background: #10141d; padding: 8px 10px; }
       QListWidget#mediaBin { color: #dce8f6; outline: 0; }
       QListWidget#mediaBin::item { padding: 10px; border-radius: 8px; }
@@ -2484,7 +2491,7 @@ private:
     );
     if (selectedCamera) {
       if (app::cameraHasTransformEffect(viewModel, selectedNodeId)) {
-        detailTabs_->setCurrentWidget(effectParams_);
+        detailTabs_->setCurrentWidget(effectParamsScroll_);
       } else {
         detailTabs_->setCurrentWidget(cameraProperties_);
       }
@@ -2604,6 +2611,7 @@ private:
   grapple::ui::CameraPropertyPanel* cameraProperties_ = nullptr;
   grapple::ui::ClipTransformPanel* clipTransform_ = nullptr;
   grapple::ui::EffectParamPanel* effectParams_ = nullptr;
+  QScrollArea* effectParamsScroll_ = nullptr;
   grapple::ui::ExportSettingsPanel* exportSettings_ = nullptr;
   grapple::ui::StewardPanel* steward_ = nullptr;
   QTabWidget* detailTabs_ = nullptr;

@@ -144,7 +144,7 @@ StewardPanel::StewardPanel(QWidget* parent)
   text_ = new QTextEdit;
   text_->setObjectName("stewardText");
   text_->setReadOnly(true);
-  text_->setMinimumHeight(160);
+  text_->setMinimumHeight(110);
   text_->setLineWrapMode(QTextEdit::WidgetWidth);
   layout->addWidget(text_);
 }

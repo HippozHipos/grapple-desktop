@@ -1,5 +1,6 @@
 #include <grapple/ui_qt/EffectParamPanel.hpp>
 
+#include <QAbstractSpinBox>
 #include <QCheckBox>
 #include <QDoubleSpinBox>
 #include <QHBoxLayout>
@@ -73,6 +74,7 @@ EffectParamPanel::EffectParamPanel(QWidget* parent)
   layout_ = new QVBoxLayout{this};
   layout_->setContentsMargins(12, 12, 12, 12);
   layout_->setSpacing(10);
+  layout_->setSizeConstraint(QLayout::SetMinimumSize);
 }
 
 void EffectParamPanel::setApplyHandler(ApplyHandler handler) {
@@ -164,7 +166,7 @@ void EffectParamPanel::setSelection(
             const app::AppEffectParamRow::Keyframe& keyframe = param.keyframes[keyframeIndex];
             auto* keyframeRow = new QWidget;
             auto* keyframeLayout = new QHBoxLayout{keyframeRow};
-            keyframeLayout->setContentsMargins(92, 0, 0, 0);
+            keyframeLayout->setContentsMargins(12, 0, 0, 0);
             keyframeLayout->setSpacing(8);
 
             QString keyframeText = QString{"%1 = %2"}
@@ -196,20 +198,25 @@ void EffectParamPanel::setSelection(
         };
 
         auto* row = new QWidget;
-        auto* rowLayout = new QHBoxLayout{row};
+        auto* rowLayout = new QVBoxLayout{row};
         rowLayout->setContentsMargins(0, 0, 0, 0);
-        rowLayout->setSpacing(8);
+        rowLayout->setSpacing(4);
 
         auto* label = new QLabel{displayName};
-        label->setMinimumWidth(82);
         label->setToolTip(qString(param.name));
+        rowLayout->addWidget(label);
 
         const auto* numericValue = std::get_if<double>(&param.value);
         if (numericValue != nullptr && param.numericMin.has_value() && param.numericMax.has_value()) {
+          auto* controlRow = new QWidget;
+          auto* controlLayout = new QHBoxLayout{controlRow};
+          controlLayout->setContentsMargins(0, 0, 0, 0);
+          controlLayout->setSpacing(8);
           auto* editor = new QDoubleSpinBox;
           editor->setObjectName(QString{"effectParamEditor_%1"}.arg(qString(param.name)));
+          editor->setButtonSymbols(QAbstractSpinBox::NoButtons);
           editor->setRange(*param.numericMin, *param.numericMax);
-          editor->setDecimals(4);
+          editor->setDecimals(2);
           editor->setKeyboardTracking(false);
           if (param.numericStep.has_value()) {
             editor->setSingleStep(*param.numericStep);
@@ -232,9 +239,9 @@ void EffectParamPanel::setSelection(
             }
           });
 
-          rowLayout->addWidget(label);
-          rowLayout->addWidget(editor, 1);
-          rowLayout->addWidget(setKeyframe);
+          controlLayout->addWidget(editor, 1);
+          controlLayout->addWidget(setKeyframe);
+          rowLayout->addWidget(controlRow);
           layout_->addWidget(row);
           appendLastEditedRow(layout_, param);
           appendKeyframeRows();
@@ -242,6 +249,10 @@ void EffectParamPanel::setSelection(
         }
 
         if (const auto* boolValue = std::get_if<bool>(&param.value)) {
+          auto* controlRow = new QWidget;
+          auto* controlLayout = new QHBoxLayout{controlRow};
+          controlLayout->setContentsMargins(0, 0, 0, 0);
+          controlLayout->setSpacing(8);
           auto* editor = new QCheckBox;
           editor->setObjectName(QString{"effectParamEditor_%1"}.arg(qString(param.name)));
           editor->setChecked(*boolValue);
@@ -261,9 +272,9 @@ void EffectParamPanel::setSelection(
             }
           });
 
-          rowLayout->addWidget(label);
-          rowLayout->addWidget(editor, 1);
-          rowLayout->addWidget(setKeyframe);
+          controlLayout->addWidget(editor, 1);
+          controlLayout->addWidget(setKeyframe);
+          rowLayout->addWidget(controlRow);
           layout_->addWidget(row);
           appendLastEditedRow(layout_, param);
           appendKeyframeRows();
@@ -271,6 +282,10 @@ void EffectParamPanel::setSelection(
         }
 
         if (const auto* stringValue = std::get_if<std::string>(&param.value)) {
+          auto* controlRow = new QWidget;
+          auto* controlLayout = new QHBoxLayout{controlRow};
+          controlLayout->setContentsMargins(0, 0, 0, 0);
+          controlLayout->setSpacing(8);
           auto* editor = new QLineEdit{qString(*stringValue)};
           editor->setObjectName(QString{"effectParamEditor_%1"}.arg(qString(param.name)));
 
@@ -289,9 +304,9 @@ void EffectParamPanel::setSelection(
             }
           });
 
-          rowLayout->addWidget(label);
-          rowLayout->addWidget(editor, 1);
-          rowLayout->addWidget(setKeyframe);
+          controlLayout->addWidget(editor, 1);
+          controlLayout->addWidget(setKeyframe);
+          rowLayout->addWidget(controlRow);
           layout_->addWidget(row);
           appendLastEditedRow(layout_, param);
           appendKeyframeRows();
@@ -299,6 +314,10 @@ void EffectParamPanel::setSelection(
         }
 
         {
+          auto* controlRow = new QWidget;
+          auto* controlLayout = new QHBoxLayout{controlRow};
+          controlLayout->setContentsMargins(0, 0, 0, 0);
+          controlLayout->setSpacing(8);
           auto* value = new QLabel{qString(app::paramValueDisplayText(param.value))};
           value->setObjectName("effectParamHelp");
           auto* setKeyframe = new QPushButton{keyframeActionText(currentKeyframeId.has_value())};
@@ -311,9 +330,9 @@ void EffectParamPanel::setSelection(
               setKeyframeHandler_(parameterEffectNodeId, paramName, paramValue, currentKeyframeId);
             }
           });
-          rowLayout->addWidget(label);
-          rowLayout->addWidget(value, 1);
-          rowLayout->addWidget(setKeyframe);
+          controlLayout->addWidget(value, 1);
+          controlLayout->addWidget(setKeyframe);
+          rowLayout->addWidget(controlRow);
           layout_->addWidget(row);
           appendLastEditedRow(layout_, param);
           appendKeyframeRows();
