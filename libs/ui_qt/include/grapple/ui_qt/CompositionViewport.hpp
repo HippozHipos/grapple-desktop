@@ -5,6 +5,7 @@
 
 #include <QWidget>
 
+#include <memory>
 #include <optional>
 
 class QPaintEvent;
@@ -17,7 +18,7 @@ public:
   explicit CompositionViewport(QWidget* parent = nullptr);
 
   void setViewModel(app::AppViewModel viewModel);
-  void setFrame(render::RenderFrame frame);
+  void setFrame(std::shared_ptr<const render::RenderFrame> frame);
   void setPlayhead(foundation::TimeSeconds playhead);
   void setSelectedNodeId(std::optional<foundation::NodeId> selectedNodeId);
 
@@ -40,7 +41,7 @@ private:
   [[nodiscard]] bool selected(const foundation::NodeId& nodeId) const;
 
   std::optional<app::AppViewModel> viewModel_;
-  std::optional<render::RenderFrame> frame_;
+  std::shared_ptr<const render::RenderFrame> frame_;
   foundation::TimeSeconds playhead_;
   std::optional<foundation::NodeId> selectedNodeId_;
 };

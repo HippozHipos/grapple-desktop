@@ -7,7 +7,7 @@
 #include <QString>
 #include <QWidget>
 
-#include <optional>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -22,7 +22,7 @@ public:
   explicit PreviewSurface(QWidget* parent = nullptr);
 
   void setAssetLabels(const app::AppAssetSummary& assets);
-  void setFrame(render::RenderFrame frame);
+  void setFrame(std::shared_ptr<const render::RenderFrame> frame);
 
 protected:
   void paintEvent(QPaintEvent* event) override;
@@ -34,7 +34,7 @@ private:
   void drawMediaFrame(QPainter& painter, const render::RenderedMediaFrame& mediaFrame, const QRect& card) const;
   [[nodiscard]] QString assetLabel(const foundation::AssetId& assetId) const;
 
-  std::optional<render::RenderFrame> frame_;
+  std::shared_ptr<const render::RenderFrame> frame_;
   std::vector<std::pair<foundation::AssetId, std::string>> assetLabels_;
 };
 

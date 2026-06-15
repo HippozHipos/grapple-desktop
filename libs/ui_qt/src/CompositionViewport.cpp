@@ -35,9 +35,11 @@ void CompositionViewport::setViewModel(app::AppViewModel viewModel) {
   update();
 }
 
-void CompositionViewport::setFrame(render::RenderFrame frame) {
+void CompositionViewport::setFrame(std::shared_ptr<const render::RenderFrame> frame) {
   frame_ = std::move(frame);
-  playhead_ = frame_->time;
+  if (frame_ != nullptr) {
+    playhead_ = frame_->time;
+  }
   update();
 }
 
@@ -70,7 +72,7 @@ void CompositionViewport::paintEvent(QPaintEvent* event) {
   painter.drawRoundedRect(world, 12.0, 12.0);
   drawGrid(painter, world);
 
-  if (frame_.has_value() && frame_->time == playhead_) {
+  if (frame_ != nullptr && frame_->time == playhead_) {
     for (const render::RenderedMediaFrame& mediaFrame : frame_->mediaFrames) {
       drawMediaFrame(painter, mediaFrame, world);
     }

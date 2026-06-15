@@ -50,6 +50,7 @@
 #include <cmath>
 #include <filesystem>
 #include <iomanip>
+#include <memory>
 #include <optional>
 #include <sstream>
 #include <utility>
@@ -787,13 +788,14 @@ public:
     if (logDiagnostics) {
       appendDiagnostics(frame.value());
     }
-    previewSurface_->setFrame(frame.value().frame);
-    compositionViewport_->setFrame(frame.value().frame);
-    const QString provenance = renderProvenanceText(frame.value().frame, currentProjectRevision_);
+    auto renderedFrame = std::make_shared<const grapple::render::RenderFrame>(std::move(frame.value().frame));
+    previewSurface_->setFrame(renderedFrame);
+    compositionViewport_->setFrame(renderedFrame);
+    const QString provenance = renderProvenanceText(*renderedFrame, currentProjectRevision_);
     previewTitle_->setText(QString{"Player  %1"}.arg(provenance));
     viewportTitle_->setText(QString{"Composition  %1"}.arg(provenance));
-    playheadLabel_->setText(QString{"Playhead: %1"}.arg(timeText(previewState.playhead)));
-    timeline_->setPlayhead(previewState.playhead);
+    playheadLabel_->setText(QString{"Playhead: %1"}.arg(timeText(renderedFrame->time)));
+    timeline_->setPlayhead(renderedFrame->time);
     refreshPlaybackEditControlsIfNeeded();
   }
 

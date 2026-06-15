@@ -69,7 +69,7 @@ void PreviewSurface::setAssetLabels(const app::AppAssetSummary& assets) {
   update();
 }
 
-void PreviewSurface::setFrame(render::RenderFrame frame) {
+void PreviewSurface::setFrame(std::shared_ptr<const render::RenderFrame> frame) {
   frame_ = std::move(frame);
   update();
 }
@@ -81,12 +81,12 @@ void PreviewSurface::paintEvent(QPaintEvent* event) {
   painter.setRenderHint(QPainter::Antialiasing);
   painter.fillRect(rect(), QColor{"#0e1118"});
 
-  if (!frame_.has_value()) {
+  if (frame_ == nullptr) {
     drawCenteredText(painter, "No frame rendered");
     return;
   }
 
-  const render::RenderFrame& frame = frame_.value();
+  const render::RenderFrame& frame = *frame_;
   if (frame.image.has_value()) {
     drawRenderedImage(painter, frame);
     return;
