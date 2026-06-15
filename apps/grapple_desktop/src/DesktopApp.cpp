@@ -304,14 +304,20 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       return 1;
     }
     const std::string steward = window.stewardContents();
+    const std::string stewardActionText = window.stewardPrimaryActionText();
+    const bool stewardActionEnabled = window.stewardPrimaryActionEnabled();
     std::cout << "revision=" << viewModel.value().project.revision.value() << '\n';
     std::cout << "assets=" << viewModel.value().assets.count << '\n';
     std::cout << "clips=" << viewModel.value().timeline.clips.size() << '\n';
     std::cout << "cameras=" << viewModel.value().timeline.cameras.size() << '\n';
+    std::cout << "stewardAction=" << stewardActionText << '\n';
+    std::cout << "stewardActionEnabled=" << (stewardActionEnabled ? "true" : "false") << '\n';
     std::cout << "steward=" << steward << '\n';
     return viewModel.value().assets.count == 0 &&
            viewModel.value().timeline.clips.empty() &&
            viewModel.value().timeline.cameras.empty() &&
+           stewardActionText == "Import Media First" &&
+           !stewardActionEnabled &&
            steward.find("0 clips | 0 cameras | 0 editable effects") != std::string::npos
       ? 0
       : 1;
@@ -698,7 +704,9 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     window.show();
     app.processEvents();
     const std::string stewardBefore = window.stewardContents();
-    window.clickStewardCreateCameraEffect();
+    const std::string stewardActionBefore = window.stewardPrimaryActionText();
+    const bool stewardActionEnabledBefore = window.stewardPrimaryActionEnabled();
+    window.addCamera();
     const auto viewModel = workspace.value().project().buildViewModel();
     if (!viewModel) {
       printError(viewModel.error());
@@ -706,6 +714,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     }
     const std::string stewardAfter = window.stewardContents();
     std::cout << "stewardBefore=" << stewardBefore << '\n';
+    std::cout << "stewardActionBefore=" << stewardActionBefore << '\n';
+    std::cout << "stewardActionEnabledBefore=" << (stewardActionEnabledBefore ? "true" : "false") << '\n';
     std::cout << "stewardAfter=" << stewardAfter << '\n';
     std::cout << "revision=" << viewModel.value().project.revision.value() << '\n';
     std::cout << "compositions=" << viewModel.value().timeline.compositions.size() << '\n';
@@ -716,6 +726,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_2"} &&
            viewModel.value().timeline.compositions.size() == 1 &&
            viewModel.value().timeline.cameras.size() == 1 &&
+           stewardActionBefore == "Import Media First" &&
+           !stewardActionEnabledBefore &&
            stewardBefore.find("0 clips | 0 cameras | 0 editable effects") != std::string::npos &&
            stewardAfter.find("0 clips | 1 cameras | 0 editable effects") != std::string::npos &&
            window.selectedNodeId().has_value() &&

@@ -170,7 +170,11 @@ void StewardPanel::setViewModel(
   primaryTargetCameraNodeId_ = cameraTargetId;
   if (!cameraTargetId.has_value()) {
     primaryTargetCameraNodeId_ = std::nullopt;
-    if (viewModel.timeline.cameras.empty()) {
+    if (viewModel.timeline.clips.empty()) {
+      primaryAction_ = PrimaryAction::Disabled;
+      createCameraEffectButton_->setText("Import Media First");
+      createCameraEffectButton_->setEnabled(false);
+    } else if (viewModel.timeline.cameras.empty()) {
       primaryAction_ = PrimaryAction::AddCamera;
       createCameraEffectButton_->setText("Add Camera");
       createCameraEffectButton_->setEnabled(static_cast<bool>(addCameraHandler_));
