@@ -191,7 +191,11 @@ foundation::Result<EffectCommandProvenance> effectCommandProvenance(
   const foundation::RevisionId& contentRevision
 ) {
   EffectCommandProvenance provenance;
-  bool reachedContentRevision = contentRevision == foundation::RevisionId{"rev_0"};
+  if (contentRevision == foundation::RevisionId{"rev_0"}) {
+    return provenance;
+  }
+
+  bool reachedContentRevision = false;
   for (const history::CommandRecord& command : commands) {
     auto parsedCommand = project::deserializeCanonicalCommandPayload(
       command.serializedName,
@@ -257,6 +261,88 @@ const EffectCreationProvenance* provenanceForEffect(
     return nullptr;
   }
   return &*match;
+}
+
+foundation::Result<std::vector<AppStewardEditRow>> stewardAppliedEdits(
+  const std::vector<history::CommandRecord>& commands,
+  const std::vector<history::SnapshotRecord>& snapshots,
+  const project::ProjectSnapshot& snapshot,
+  const foundation::RevisionId& contentRevision
+) {
+  std::vector<AppStewardEditRow> edits;
+  if (contentRevision == foundation::RevisionId{"rev_0"}) {
+    return edits;
+  }
+
+  bool reachedContentRevision = false;
+  for (const history::CommandRecord& command : commands) {
+    auto parsedCommand = project::deserializeCanonicalCommandPayload(
+      command.serializedName,
+      command.serializedPayload
+    );
+    if (!parsedCommand) {
+      return parsedCommand.error();
+    }
+
+    if (command.sourceKind == "agent" && command.sourceActorName == "steward") {
+      const std::string intent = snapshotLabelForRevision(snapshots, command.afterRevision).value_or(std::string{});
+      if (!intent.empty()) {
+        if (const auto* createEffect = std::get_if<project::CreateEffectCommand>(&parsedCommand.value())) {
+          auto targetName = nodeDisplayName(snapshot, createEffect->targetNodeId);
+          if (!targetName) {
+            return targetName.error();
+          }
+          edits.push_back(AppStewardEditRow{
+            command.id,
+            command.afterRevision,
+            createEffect->targetNodeId,
+            targetName.value(),
+            createEffect->payload.displayName,
+            intent
+          });
+        } else if (const auto* updateClip = std::get_if<project::UpdateClipCommand>(&parsedCommand.value())) {
+          auto targetName = nodeDisplayName(snapshot, updateClip->nodeId);
+          if (!targetName) {
+            return targetName.error();
+          }
+          edits.push_back(AppStewardEditRow{
+            command.id,
+            command.afterRevision,
+            updateClip->nodeId,
+            targetName.value(),
+            "Clip Transform",
+            intent
+          });
+        } else if (const auto* addMedia = std::get_if<project::AddMediaToTimelineCommand>(&parsedCommand.value())) {
+          auto targetName = nodeDisplayName(snapshot, addMedia->clip.nodeId);
+          if (!targetName) {
+            return targetName.error();
+          }
+          edits.push_back(AppStewardEditRow{
+            command.id,
+            command.afterRevision,
+            addMedia->clip.nodeId,
+            targetName.value(),
+            "Timeline Placement",
+            intent
+          });
+        }
+      }
+    }
+
+    if (command.afterRevision == contentRevision) {
+      reachedContentRevision = true;
+      break;
+    }
+  }
+
+  if (!reachedContentRevision) {
+    return foundation::Error{
+      "app.content_revision_missing",
+      "Steward applied edits require the current content revision to exist in the command log."
+    };
+  }
+  return edits;
 }
 
 const EffectParamEditProvenance* latestParamEditForParam(
@@ -492,24 +578,16 @@ foundation::Result<NativeProjectViewModelResult> NativeProjectSession::buildView
   if (!effectProvenance) {
     return effectProvenance.error();
   }
-
-  for (const EffectCreationProvenance& creation : effectProvenance.value().creations) {
-    if (creation.sourceKind != "agent" || creation.sourceActorName != "steward" || creation.intent.empty()) {
-      continue;
-    }
-    auto targetName = nodeDisplayName(snapshot, creation.targetNodeId);
-    if (!targetName) {
-      return targetName.error();
-    }
-    viewModel.steward.edits.push_back(AppStewardEditRow{
-      creation.commandId,
-      creation.revision,
-      creation.targetNodeId,
-      targetName.value(),
-      creation.effectName,
-      creation.intent
-    });
+  auto stewardEdits = stewardAppliedEdits(
+    packageState.commandLog.records(),
+    packageState.snapshots.records(),
+    snapshot,
+    contentRevision.value()
+  );
+  if (!stewardEdits) {
+    return stewardEdits.error();
   }
+  viewModel.steward.edits = std::move(stewardEdits.value());
   viewModel.assets.count = snapshot.assets.assets().size();
   viewModel.timeline.duration = plan.duration;
 

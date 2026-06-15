@@ -1067,6 +1067,12 @@ int main() {
   GRAPPLE_REQUIRE(stewardMediaViewModel.value().timeline.clips.size() == 1);
   GRAPPLE_REQUIRE(stewardMediaViewModel.value().timeline.clips[0].sourceNodeId == stewardMediaPlacement.value().clipNodeId);
   GRAPPLE_REQUIRE(stewardMediaViewModel.value().timeline.duration == foundation::TimeSeconds{6.0});
+  GRAPPLE_REQUIRE(stewardMediaViewModel.value().steward.edits.size() == 1);
+  GRAPPLE_REQUIRE(stewardMediaViewModel.value().steward.edits[0].revision == foundation::RevisionId{"rev_2"});
+  GRAPPLE_REQUIRE(stewardMediaViewModel.value().steward.edits[0].targetNodeId == stewardMediaPlacement.value().clipNodeId);
+  GRAPPLE_REQUIRE(stewardMediaViewModel.value().steward.edits[0].targetName == "Steward Video");
+  GRAPPLE_REQUIRE(stewardMediaViewModel.value().steward.edits[0].effectName == "Timeline Placement");
+  GRAPPLE_REQUIRE(stewardMediaViewModel.value().steward.edits[0].intent == "Add Steward Video to the timeline.");
   const auto stewardClipTransform = stewardMediaWorkspace.value().steward().transformClip(
     stewardMediaPlacement.value().clipNodeId,
     "Move clip right and make it smaller."
@@ -1099,6 +1105,12 @@ int main() {
   GRAPPLE_REQUIRE(stewardClipTransformViewModel.value().timeline.clips[0].transform.opacity == 1.0);
   GRAPPLE_REQUIRE((stewardClipTransformViewModel.value().timeline.clips[0].timelineRange == foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{6.0}}));
   GRAPPLE_REQUIRE(stewardClipTransformViewModel.value().timeline.clips[0].assetId == foundation::AssetId{"asset_steward_media_video"});
+  GRAPPLE_REQUIRE(stewardClipTransformViewModel.value().steward.edits.size() == 2);
+  GRAPPLE_REQUIRE(stewardClipTransformViewModel.value().steward.edits[1].revision == foundation::RevisionId{"rev_3"});
+  GRAPPLE_REQUIRE(stewardClipTransformViewModel.value().steward.edits[1].targetNodeId == stewardMediaPlacement.value().clipNodeId);
+  GRAPPLE_REQUIRE(stewardClipTransformViewModel.value().steward.edits[1].targetName == "Steward Video");
+  GRAPPLE_REQUIRE(stewardClipTransformViewModel.value().steward.edits[1].effectName == "Clip Transform");
+  GRAPPLE_REQUIRE(stewardClipTransformViewModel.value().steward.edits[1].intent == "Move clip right and make it smaller.");
 
   app::NativeProjectSession runtimeProject{
     foundation::ProjectId{"proj_app_runtime"},
