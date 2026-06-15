@@ -1867,9 +1867,10 @@ int main() {
     userSource()
   );
   GRAPPLE_REQUIRE(reopenedSecondCamera);
+  const std::string durableMotionIntent = "Pan right with editable camera controls.";
   const auto reopenedSecondStewardEffect = reopenedStewardWorkspace.value().steward().createCameraTransformEffect(
     reopenedSecondCameraNodeId,
-    "Add editable controls to the second camera.",
+    durableMotionIntent,
     foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{2.0}}
   );
   GRAPPLE_REQUIRE(reopenedSecondStewardEffect);
@@ -1878,9 +1879,47 @@ int main() {
   GRAPPLE_REQUIRE(reopenedStewardConversationAfterSecondRun.diagnostics.empty());
   GRAPPLE_REQUIRE(reopenedStewardConversationAfterSecondRun.runs.size() == 2);
   GRAPPLE_REQUIRE(reopenedStewardConversationAfterSecondRun.runs[1].runId == foundation::RunId{"run_steward_2"});
-  GRAPPLE_REQUIRE(reopenedStewardConversationAfterSecondRun.runs[1].toolCalls.size() == 1);
+  GRAPPLE_REQUIRE(reopenedStewardConversationAfterSecondRun.runs[1].toolCalls.size() == 3);
   GRAPPLE_REQUIRE(reopenedStewardConversationAfterSecondRun.runs[1].toolCalls[0].toolCallId == foundation::ToolId{"tool_steward_camera_transform_2"});
-  GRAPPLE_REQUIRE(reopenedStewardConversationAfterSecondRun.runs[1].toolCalls[0].observedRevision == reopenedSecondStewardEffect.value().snapshot.revision);
+  GRAPPLE_REQUIRE(reopenedStewardConversationAfterSecondRun.runs[1].toolCalls[0].observedRevision == foundation::RevisionId{"rev_5"});
+  GRAPPLE_REQUIRE(reopenedStewardConversationAfterSecondRun.runs[1].toolCalls[1].toolCallId == foundation::ToolId{"tool_steward_camera_transform_keyframe_2_1"});
+  GRAPPLE_REQUIRE(reopenedStewardConversationAfterSecondRun.runs[1].toolCalls[1].observedRevision == foundation::RevisionId{"rev_6"});
+  GRAPPLE_REQUIRE(reopenedStewardConversationAfterSecondRun.runs[1].toolCalls[2].toolCallId == foundation::ToolId{"tool_steward_camera_transform_keyframe_2_2"});
+  GRAPPLE_REQUIRE(reopenedStewardConversationAfterSecondRun.runs[1].toolCalls[2].observedRevision == reopenedSecondStewardEffect.value().snapshot.revision);
+  const auto stewardMotionWrite = reopenedStewardWorkspace.value().writePackage();
+  GRAPPLE_REQUIRE(stewardMotionWrite);
+  auto reopenedStewardMotionWorkspace = app::NativeWorkspaceSession::openPackageRoot(foundation::FilePath{stewardPackageRoot.string()});
+  GRAPPLE_REQUIRE(reopenedStewardMotionWorkspace);
+  const agent::AgentConversationState durableMotionConversation =
+    reopenedStewardMotionWorkspace.value().steward().conversationState();
+  GRAPPLE_REQUIRE(durableMotionConversation.diagnostics.empty());
+  GRAPPLE_REQUIRE(durableMotionConversation.runs.size() == 2);
+  GRAPPLE_REQUIRE(durableMotionConversation.runs[1].runId == foundation::RunId{"run_steward_2"});
+  GRAPPLE_REQUIRE(durableMotionConversation.runs[1].title == durableMotionIntent);
+  GRAPPLE_REQUIRE(durableMotionConversation.runs[1].toolCalls.size() == 3);
+  GRAPPLE_REQUIRE(durableMotionConversation.runs[1].toolCalls[1].toolSerializedId == "camera.set_transform_keyframe");
+  GRAPPLE_REQUIRE(durableMotionConversation.runs[1].toolCalls[2].toolSerializedId == "camera.set_transform_keyframe");
+  GRAPPLE_REQUIRE(durableMotionConversation.runs[1].toolCalls[2].observedRevision == foundation::RevisionId{"rev_7"});
+  const auto durableMotionViewModel = reopenedStewardMotionWorkspace.value().project().buildViewModel();
+  GRAPPLE_REQUIRE(durableMotionViewModel);
+  GRAPPLE_REQUIRE(durableMotionViewModel.value().project.revision == foundation::RevisionId{"rev_7"});
+  const app::AppEffectGraphRow* durableMotionGraph = nullptr;
+  for (const app::AppEffectGraphRow& graph : durableMotionViewModel.value().timeline.effectGraphs) {
+    if (graph.targetNodeId == reopenedSecondCameraNodeId) {
+      durableMotionGraph = &graph;
+    }
+  }
+  GRAPPLE_REQUIRE(durableMotionGraph != nullptr);
+  GRAPPLE_REQUIRE(durableMotionGraph->effects.size() == 1);
+  GRAPPLE_REQUIRE(durableMotionGraph->effects[0].createdIntent == durableMotionIntent);
+  GRAPPLE_REQUIRE(durableMotionGraph->effects[0].params[0].name == effects::builtin_effect::PositionXParam);
+  GRAPPLE_REQUIRE(durableMotionGraph->effects[0].params[0].keyframes.size() == 2);
+  GRAPPLE_REQUIRE(durableMotionGraph->effects[0].params[0].keyframes[0].time == foundation::TimeSeconds{0.0});
+  GRAPPLE_REQUIRE(std::get<double>(durableMotionGraph->effects[0].params[0].keyframes[0].value) == 0.0);
+  GRAPPLE_REQUIRE(durableMotionGraph->effects[0].params[0].keyframes[0].lastEditedActorName == "steward");
+  GRAPPLE_REQUIRE(durableMotionGraph->effects[0].params[0].keyframes[1].time == foundation::TimeSeconds{2.0});
+  GRAPPLE_REQUIRE(std::get<double>(durableMotionGraph->effects[0].params[0].keyframes[1].value) == 0.25);
+  GRAPPLE_REQUIRE(durableMotionGraph->effects[0].params[0].keyframes[1].lastEditedActorName == "steward");
   std::filesystem::remove_all(stewardPackageRoot);
 
   app::NativeProjectSession noteSession{
