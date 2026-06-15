@@ -2260,7 +2260,7 @@ public:
           return grapple::foundation::Result<void>{};
         }
         progress.reportProgress(0.0);
-        auto result = workspace_.exportSession().renderPlanToVideo(std::move(plan), settings, &progress, &cancellation);
+        auto result = workspace_.exportSession().renderPlanToVideo(plan, settings, &progress, &cancellation);
         jobDispatcher_.post([this, result] {
           completeExport(result);
         });

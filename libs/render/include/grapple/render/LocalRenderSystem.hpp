@@ -24,7 +24,7 @@ struct ExportRequest {
 };
 
 struct ExportPlanRequest {
-  projection::RenderPlan plan;
+  const projection::RenderPlan& plan;
   ExportSettings settings;
   IRenderRangeSink* sink = nullptr;
 };

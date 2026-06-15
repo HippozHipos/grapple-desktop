@@ -206,24 +206,24 @@ foundation::Result<render::FinalRenderResult> NativeExportSession::renderToVideo
 }
 
 foundation::Result<render::FinalRenderResult> NativeExportSession::renderPlan(
-  projection::RenderPlan plan,
+  const projection::RenderPlan& plan,
   render::ExportSettings settings
 ) {
   return renderSystem_.exportPlanRange(render::ExportPlanRequest{
-    std::move(plan),
+    plan,
     std::move(settings)
   });
 }
 
 foundation::Result<render::FinalRenderResult> NativeExportSession::renderPlanToVideo(
-  projection::RenderPlan plan,
+  const projection::RenderPlan& plan,
   render::ExportSettings settings,
   jobs::IProgressSink* progress,
   jobs::CancellationToken* cancellation
 ) {
   NativeVideoExportSink sink{settings, progress, cancellation};
   auto result = renderSystem_.exportPlanRange(render::ExportPlanRequest{
-    std::move(plan),
+    plan,
     std::move(settings),
     &sink
   });

@@ -27,11 +27,11 @@ public:
     jobs::CancellationToken* cancellation = nullptr
   );
   foundation::Result<render::FinalRenderResult> renderPlan(
-    projection::RenderPlan plan,
+    const projection::RenderPlan& plan,
     render::ExportSettings settings
   );
   foundation::Result<render::FinalRenderResult> renderPlanToVideo(
-    projection::RenderPlan plan,
+    const projection::RenderPlan& plan,
     render::ExportSettings settings,
     jobs::IProgressSink* progress = nullptr,
     jobs::CancellationToken* cancellation = nullptr
