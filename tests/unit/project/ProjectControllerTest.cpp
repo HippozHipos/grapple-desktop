@@ -2,6 +2,7 @@
 #include <grapple/project/ProjectController.hpp>
 #include <grapple/project/ProjectCommandNames.hpp>
 #include <grapple/project/ProjectEventNames.hpp>
+#include <grapple/project/ProjectMediaPlacement.hpp>
 #include <grapple/project/ProjectSerializer.hpp>
 #include <grapple/projection/TimelineProjector.hpp>
 
@@ -35,6 +36,36 @@ bool allUnique(std::vector<std::string_view> values) {
   return std::adjacent_find(values.begin(), values.end()) == values.end();
 }
 
+class TestIdAllocator final : public grapple::project::IProjectIdAllocator {
+public:
+  grapple::foundation::CommandId nextCommandId() override {
+    return grapple::foundation::CommandId{"cmd_" + std::to_string(++commandId_)};
+  }
+
+  grapple::foundation::AssetId nextAssetId(const std::string& stem) override {
+    return grapple::foundation::AssetId{stem + "_" + std::to_string(++assetId_)};
+  }
+
+  grapple::foundation::NodeId nextNodeId(const std::string& stem) override {
+    return grapple::foundation::NodeId{stem + "_" + std::to_string(++nodeId_)};
+  }
+
+  grapple::foundation::EdgeId nextEdgeId(const std::string& stem) override {
+    return grapple::foundation::EdgeId{stem + "_" + std::to_string(++edgeId_)};
+  }
+
+  grapple::foundation::KeyframeId nextKeyframeId(const std::string& stem) override {
+    return grapple::foundation::KeyframeId{stem + "_" + std::to_string(++keyframeId_)};
+  }
+
+private:
+  int commandId_ = 0;
+  int assetId_ = 0;
+  int nodeId_ = 0;
+  int edgeId_ = 0;
+  int keyframeId_ = 0;
+};
+
 grapple::asset::Asset makeVideoAsset(
   grapple::foundation::AssetId assetId,
   std::string name
@@ -49,6 +80,26 @@ grapple::asset::Asset makeVideoAsset(
       grapple::foundation::TimeSeconds{10.0},
       grapple::foundation::Resolution{1920, 1080},
       grapple::foundation::FrameRate{30, 1}
+    }
+  };
+}
+
+grapple::asset::Asset makeDurationlessAsset(
+  grapple::foundation::AssetId assetId,
+  std::string name,
+  grapple::asset::AssetMediaType mediaType,
+  std::string sourcePath
+) {
+  return grapple::asset::Asset{
+    std::move(assetId),
+    std::move(name),
+    grapple::asset::AssetMetadata{
+      mediaType,
+      grapple::foundation::FilePath{std::move(sourcePath)},
+      std::nullopt,
+      std::nullopt,
+      std::nullopt,
+      std::nullopt
     }
   };
 }
@@ -126,6 +177,43 @@ int main() {
     project::serializedCommandName(project::CommandKind::UpdateNote),
     project::serializedCommandName(project::CommandKind::RestoreSnapshot)
   }));
+
+  TestIdAllocator placementIds;
+  const auto imagePlacement = project::buildMediaPlacementDraft(
+    placementIds,
+    makeDurationlessAsset(
+      foundation::AssetId{"asset_image"},
+      "Still",
+      asset::AssetMediaType::Image,
+      "/media/still.png"
+    ),
+    std::nullopt,
+    std::nullopt,
+    {}
+  );
+  GRAPPLE_REQUIRE(imagePlacement);
+  GRAPPLE_REQUIRE(imagePlacement.value().command.clip.payload.kind == timeline::ClipKind::Image);
+  GRAPPLE_REQUIRE(imagePlacement.value().command.clip.payload.timelineRange.start == foundation::TimeSeconds{0.0});
+  GRAPPLE_REQUIRE(imagePlacement.value().command.clip.payload.timelineRange.end == foundation::TimeSeconds{5.0});
+  GRAPPLE_REQUIRE(imagePlacement.value().command.clip.payload.sourceRange.start == foundation::TimeSeconds{0.0});
+  GRAPPLE_REQUIRE(imagePlacement.value().command.clip.payload.sourceRange.end == foundation::TimeSeconds{5.0});
+  GRAPPLE_REQUIRE(imagePlacement.value().command.camera.has_value());
+
+  TestIdAllocator durationlessAudioIds;
+  const auto durationlessAudioPlacement = project::buildMediaPlacementDraft(
+    durationlessAudioIds,
+    makeDurationlessAsset(
+      foundation::AssetId{"asset_audio_without_duration"},
+      "Durationless Audio",
+      asset::AssetMediaType::Audio,
+      "/media/audio.wav"
+    ),
+    std::nullopt,
+    std::nullopt,
+    {}
+  );
+  GRAPPLE_REQUIRE(!durationlessAudioPlacement);
+  GRAPPLE_REQUIRE(durationlessAudioPlacement.error().code == "project.asset_duration_missing");
   GRAPPLE_REQUIRE(allUnique({
     project::serializedCommandSourceKind(project::CommandSourceKind::User),
     project::serializedCommandSourceKind(project::CommandSourceKind::Agent),

@@ -33,7 +33,6 @@ constexpr const char CanonicalUpdateEffectParamToolId[] = "effect.update_param_v
 constexpr double CenteredCameraTransformPositionX = 0.0;
 constexpr double CenteredCameraTransformPositionY = 0.0;
 constexpr double NormalCameraTransformZoom = 1.0;
-constexpr double DefaultImagePlacementDurationSeconds = 5.0;
 
 struct CameraTransformIntentDefaults {
   double positionX = CenteredCameraTransformPositionX;
@@ -983,9 +982,6 @@ foundation::Result<NativeStewardMediaPlacementResult> NativeStewardSession::plac
   const asset::Asset* selectedAsset = snapshot.value().assets.find(assetId);
   if (selectedAsset != nullptr) {
     title = "Add " + selectedAsset->name + " to the timeline.";
-    if (!duration.has_value() && selectedAsset->metadata.mediaType == asset::AssetMediaType::Image) {
-      duration = foundation::TimeSeconds{DefaultImagePlacementDurationSeconds};
-    }
   }
 
   auto runId = startRun(snapshot.value(), title);

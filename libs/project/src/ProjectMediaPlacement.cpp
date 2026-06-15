@@ -12,6 +12,8 @@ namespace grapple::project {
 
 namespace {
 
+constexpr double DefaultImagePlacementDurationSeconds = 5.0;
+
 foundation::Result<foundation::TimeSeconds> durationForPlacement(
   const asset::Asset& selectedAsset,
   const std::optional<foundation::TimeSeconds>& requestedDuration
@@ -21,6 +23,9 @@ foundation::Result<foundation::TimeSeconds> durationForPlacement(
   }
   if (selectedAsset.metadata.duration.has_value()) {
     return selectedAsset.metadata.duration.value();
+  }
+  if (selectedAsset.metadata.mediaType == asset::AssetMediaType::Image) {
+    return foundation::TimeSeconds{DefaultImagePlacementDurationSeconds};
   }
   return foundation::Error{
     "project.asset_duration_missing",

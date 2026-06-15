@@ -59,8 +59,6 @@
 
 namespace {
 
-constexpr double DefaultImagePlacementDurationSeconds = 5.0;
-
 QString qString(const std::string& value) {
   return QString::fromStdString(value);
 }
@@ -1696,10 +1694,6 @@ public:
       appendError(grapple::foundation::Error{"desktop.asset_missing", "Selected media asset does not exist in the project."});
       return;
     }
-    const std::optional<grapple::foundation::TimeSeconds> duration =
-      selectedAsset->metadata.mediaType == grapple::asset::AssetMediaType::Image
-        ? std::optional<grapple::foundation::TimeSeconds>{grapple::foundation::TimeSeconds{DefaultImagePlacementDurationSeconds}}
-        : std::nullopt;
     auto compositions = grapple::project::inspectCompositions(snapshot.value());
     if (!compositions) {
       appendError(compositions.error());
@@ -1709,7 +1703,7 @@ public:
       workspace_.commandWriter(),
       *selectedAsset,
       std::nullopt,
-      duration,
+      std::nullopt,
       compositions.value().compositions
     );
     if (!placement) {
