@@ -1687,6 +1687,43 @@ int main() {
   GRAPPLE_REQUIRE(stewardShiftMidFrame.value().frame.cameras.size() == 1);
   GRAPPLE_REQUIRE(stewardShiftMidFrame.value().frame.cameras[0].state.transform.position.x == 0.625);
 
+  const auto stewardCombinedControls = stewardAdjustWorkspace.value().steward().adjustCameraTransformControls(
+    stewardAdjustCameraNodeId,
+    "Move the camera up and make the subject bigger.",
+    foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{3.0}}
+  );
+  GRAPPLE_REQUIRE(stewardCombinedControls);
+  GRAPPLE_REQUIRE(stewardCombinedControls.value().snapshot.revision == foundation::RevisionId{"rev_10"});
+  const agent::AgentConversationState stewardCombinedConversation =
+    stewardAdjustWorkspace.value().steward().conversationState();
+  GRAPPLE_REQUIRE(stewardCombinedConversation.runs.size() == 5);
+  GRAPPLE_REQUIRE(stewardCombinedConversation.runs[4].status == agent::AgentRunStatus::Succeeded);
+  GRAPPLE_REQUIRE(stewardCombinedConversation.runs[4].toolCalls.size() == 2);
+  GRAPPLE_REQUIRE(stewardCombinedConversation.runs[4].toolCalls[0].toolSerializedId == "effect.update_param_value");
+  GRAPPLE_REQUIRE(stewardCombinedConversation.runs[4].toolCalls[0].toolCallId == foundation::ToolId{"tool_steward_camera_transform_param_5_1"});
+  GRAPPLE_REQUIRE(stewardCombinedConversation.runs[4].toolCalls[0].observedRevision == foundation::RevisionId{"rev_9"});
+  GRAPPLE_REQUIRE(stewardCombinedConversation.runs[4].toolCalls[1].toolSerializedId == "effect.update_param_value");
+  GRAPPLE_REQUIRE(stewardCombinedConversation.runs[4].toolCalls[1].toolCallId == foundation::ToolId{"tool_steward_camera_transform_param_5_2"});
+  GRAPPLE_REQUIRE(stewardCombinedConversation.runs[4].toolCalls[1].observedRevision == foundation::RevisionId{"rev_10"});
+  const auto stewardCombinedViewModel = stewardAdjustWorkspace.value().project().buildViewModel();
+  GRAPPLE_REQUIRE(stewardCombinedViewModel);
+  GRAPPLE_REQUIRE(stewardCombinedViewModel.value().timeline.effectGraphs.size() == 1);
+  GRAPPLE_REQUIRE(stewardCombinedViewModel.value().timeline.effectGraphs[0].effects.size() == 1);
+  GRAPPLE_REQUIRE(stewardCombinedViewModel.value().timeline.effectGraphs[0].effects[0].params[0].name == effects::builtin_effect::PositionXParam);
+  GRAPPLE_REQUIRE(stewardCombinedViewModel.value().timeline.effectGraphs[0].effects[0].params[1].name == effects::builtin_effect::PositionYParam);
+  GRAPPLE_REQUIRE(stewardCombinedViewModel.value().timeline.effectGraphs[0].effects[0].params[2].name == effects::builtin_effect::ZoomParam);
+  GRAPPLE_REQUIRE(stewardCombinedViewModel.value().timeline.effectGraphs[0].effects[0].params[0].keyframes.size() == 2);
+  GRAPPLE_REQUIRE(std::get<double>(stewardCombinedViewModel.value().timeline.effectGraphs[0].effects[0].params[1].value) == -0.2);
+  GRAPPLE_REQUIRE(stewardCombinedViewModel.value().timeline.effectGraphs[0].effects[0].params[1].lastEditedRevision == foundation::RevisionId{"rev_9"});
+  GRAPPLE_REQUIRE(stewardCombinedViewModel.value().timeline.effectGraphs[0].effects[0].params[1].lastEditedActorName == "steward");
+  GRAPPLE_REQUIRE(std::get<double>(stewardCombinedViewModel.value().timeline.effectGraphs[0].effects[0].params[2].value) == 1.375);
+  GRAPPLE_REQUIRE(stewardCombinedViewModel.value().timeline.effectGraphs[0].effects[0].params[2].lastEditedRevision == foundation::RevisionId{"rev_10"});
+  GRAPPLE_REQUIRE(stewardCombinedViewModel.value().timeline.effectGraphs[0].effects[0].params[2].lastEditedActorName == "steward");
+  GRAPPLE_REQUIRE(stewardCombinedViewModel.value().steward.edits.size() == 5);
+  GRAPPLE_REQUIRE(stewardCombinedViewModel.value().steward.edits[4].intent == "Move the camera up and make the subject bigger.");
+  GRAPPLE_REQUIRE(stewardCombinedViewModel.value().steward.edits[4].revision == foundation::RevisionId{"rev_10"});
+  GRAPPLE_REQUIRE(stewardCombinedViewModel.value().steward.edits[4].editName == "Camera Transform");
+
   app::NativeProjectSession stewardRecenterProject{
     foundation::ProjectId{"proj_app_steward_recenter"},
     "Steward Recenter Project",

@@ -424,9 +424,7 @@ foundation::Result<std::vector<CameraTransformParamAdjustment>> cameraTransformP
   }
 
   const std::string normalized = lowercaseAscii(intent);
-  std::string paramName;
-  double operand = 0.0;
-  CameraTransformAdjustmentOperation operation = CameraTransformAdjustmentOperation::Add;
+  std::vector<CameraTransformParamAdjustment> adjustments;
 
   auto addAdjustment = [&](std::vector<CameraTransformParamAdjustment>& adjustments,
                            std::string adjustmentParamName,
@@ -451,7 +449,6 @@ foundation::Result<std::vector<CameraTransformParamAdjustment>> cameraTransformP
   const bool centerRequested = cameraIntentRequestsCenter(normalized);
   const bool resetRequested = cameraIntentRequestsReset(normalized);
   if (centerRequested || resetRequested) {
-    std::vector<CameraTransformParamAdjustment> adjustments;
     auto positionX = addAdjustment(
       adjustments,
       effects::builtin_effect::PositionXParam,
@@ -480,41 +477,83 @@ foundation::Result<std::vector<CameraTransformParamAdjustment>> cameraTransformP
       if (!zoom) {
         return zoom.error();
       }
+      return adjustments;
     }
-    return adjustments;
   }
 
-  if (containsAsciiWord(normalized, "left")) {
-    paramName = effects::builtin_effect::PositionXParam;
-    operand = -0.25;
-  } else if (containsAsciiWord(normalized, "right")) {
-    paramName = effects::builtin_effect::PositionXParam;
-    operand = 0.25;
-  } else if (containsAsciiWord(normalized, "up")) {
-    paramName = effects::builtin_effect::PositionYParam;
-    operand = -0.2;
-  } else if (containsAsciiWord(normalized, "down")) {
-    paramName = effects::builtin_effect::PositionYParam;
-    operand = 0.2;
-  } else if (cameraIntentRequestsZoomOut(normalized)) {
-    paramName = effects::builtin_effect::ZoomParam;
-    operand = 0.8;
-    operation = CameraTransformAdjustmentOperation::Multiply;
+  if (!centerRequested) {
+    if (containsAsciiWord(normalized, "left")) {
+      auto positionX = addAdjustment(
+        adjustments,
+        effects::builtin_effect::PositionXParam,
+        CameraTransformAdjustmentOperation::Add,
+        -0.25
+      );
+      if (!positionX) {
+        return positionX.error();
+      }
+    } else if (containsAsciiWord(normalized, "right")) {
+      auto positionX = addAdjustment(
+        adjustments,
+        effects::builtin_effect::PositionXParam,
+        CameraTransformAdjustmentOperation::Add,
+        0.25
+      );
+      if (!positionX) {
+        return positionX.error();
+      }
+    }
+
+    if (containsAsciiWord(normalized, "up")) {
+      auto positionY = addAdjustment(
+        adjustments,
+        effects::builtin_effect::PositionYParam,
+        CameraTransformAdjustmentOperation::Add,
+        -0.2
+      );
+      if (!positionY) {
+        return positionY.error();
+      }
+    } else if (containsAsciiWord(normalized, "down")) {
+      auto positionY = addAdjustment(
+        adjustments,
+        effects::builtin_effect::PositionYParam,
+        CameraTransformAdjustmentOperation::Add,
+        0.2
+      );
+      if (!positionY) {
+        return positionY.error();
+      }
+    }
+  }
+
+  if (cameraIntentRequestsZoomOut(normalized)) {
+    auto zoom = addAdjustment(
+      adjustments,
+      effects::builtin_effect::ZoomParam,
+      CameraTransformAdjustmentOperation::Multiply,
+      0.8
+    );
+    if (!zoom) {
+      return zoom.error();
+    }
   } else if (cameraIntentRequestsZoomIn(normalized)) {
-    paramName = effects::builtin_effect::ZoomParam;
-    operand = 1.25;
-    operation = CameraTransformAdjustmentOperation::Multiply;
-  } else {
+    auto zoom = addAdjustment(
+      adjustments,
+      effects::builtin_effect::ZoomParam,
+      CameraTransformAdjustmentOperation::Multiply,
+      1.25
+    );
+    if (!zoom) {
+      return zoom.error();
+    }
+  }
+
+  if (adjustments.empty()) {
     return foundation::Error{
       "steward.camera_transform_intent_unknown",
       "Camera Transform adjustments must explicitly mention center, reset, left, right, up, down, zoom, bigger, or smaller."
     };
-  }
-
-  std::vector<CameraTransformParamAdjustment> adjustments;
-  auto adjustment = addAdjustment(adjustments, std::move(paramName), operation, operand);
-  if (!adjustment) {
-    return adjustment.error();
   }
   return adjustments;
 }
