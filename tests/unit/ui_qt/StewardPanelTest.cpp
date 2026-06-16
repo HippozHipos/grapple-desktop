@@ -43,7 +43,11 @@ int main(int argc, char** argv) {
   bool cameraRouteCalled = false;
   bool textRouteCalled = false;
   bool noteRouteCalled = false;
+  bool startSampleCalled = false;
 
+  panel.setStartSampleHandler([&] {
+    startSampleCalled = true;
+  });
   panel.setTextClipIntentTargetsTextHandler([](std::string intent) {
     return containsText(intent, "title") || containsText(intent, "caption") || containsText(intent, "text");
   });
@@ -61,6 +65,18 @@ int main(int argc, char** argv) {
     noteRouteCalled = true;
     return true;
   });
+
+  panel.setViewModel(
+    grapple::app::AppViewModel{},
+    grapple::agent::AgentConversationState{},
+    std::nullopt,
+    std::nullopt
+  );
+  GRAPPLE_REQUIRE(panel.primaryActionText() == "Start Sample");
+  GRAPPLE_REQUIRE(panel.primaryActionEnabled());
+  GRAPPLE_REQUIRE(panel.suggestedRequestCount() == 0);
+  panel.triggerPrimaryAction();
+  GRAPPLE_REQUIRE(startSampleCalled);
 
   panel.setViewModel(
     viewModelWithCamera(),

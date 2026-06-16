@@ -27,7 +27,7 @@ public:
     Note
   };
 
-  using ImportMediaHandler = std::function<void()>;
+  using StartSampleHandler = std::function<void()>;
   using AddCameraHandler = std::function<void()>;
   using AddSelectedMediaHandler = std::function<void()>;
   using ShowCameraControlsHandler = std::function<void(foundation::NodeId)>;
@@ -58,7 +58,7 @@ public:
 
   explicit StewardPanel(QWidget* parent = nullptr);
 
-  void setImportMediaHandler(ImportMediaHandler handler);
+  void setStartSampleHandler(StartSampleHandler handler);
   void setAddCameraHandler(AddCameraHandler handler);
   void setAddSelectedMediaHandler(AddSelectedMediaHandler handler);
   void setShowCameraControlsHandler(ShowCameraControlsHandler handler);
@@ -110,7 +110,7 @@ public:
 private:
   enum class PrimaryAction {
     Disabled,
-    ImportMedia,
+    StartSample,
     AddSelectedMedia,
     AddCamera,
     AdjustCameraControls,
@@ -138,7 +138,7 @@ private:
   [[nodiscard]] bool selectedTargetIntentTargetsSelection() const;
   [[nodiscard]] bool primaryActionCanRun() const;
 
-  ImportMediaHandler importMediaHandler_;
+  StartSampleHandler startSampleHandler_;
   AddCameraHandler addCameraHandler_;
   AddSelectedMediaHandler addSelectedMediaHandler_;
   ShowCameraControlsHandler showCameraControlsHandler_;

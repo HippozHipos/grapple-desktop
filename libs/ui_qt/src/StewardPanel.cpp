@@ -352,9 +352,9 @@ StewardPanel::StewardPanel(QWidget* parent)
           addCameraHandler_();
         }
         return;
-      case PrimaryAction::ImportMedia:
-        if (importMediaHandler_) {
-          importMediaHandler_();
+      case PrimaryAction::StartSample:
+        if (startSampleHandler_) {
+          startSampleHandler_();
         }
         return;
       case PrimaryAction::AddSelectedMedia:
@@ -443,8 +443,8 @@ StewardPanel::StewardPanel(QWidget* parent)
   layout->addWidget(text_);
 }
 
-void StewardPanel::setImportMediaHandler(ImportMediaHandler handler) {
-  importMediaHandler_ = std::move(handler);
+void StewardPanel::setStartSampleHandler(StartSampleHandler handler) {
+  startSampleHandler_ = std::move(handler);
 }
 
 void StewardPanel::setAddCameraHandler(AddCameraHandler handler) {
@@ -574,8 +574,8 @@ void StewardPanel::setViewModel(
         primaryAction_ = PrimaryAction::AddSelectedMedia;
         primaryActionButton_->setText("Add Selected Media To Timeline");
       } else if (viewModel.assets.count == 0) {
-        primaryAction_ = PrimaryAction::ImportMedia;
-        primaryActionButton_->setText("Import Media");
+        primaryAction_ = PrimaryAction::StartSample;
+        primaryActionButton_->setText("Start Sample");
       } else {
         primaryAction_ = PrimaryAction::Disabled;
         primaryActionButton_->setText("Select Media To Add");
@@ -614,8 +614,8 @@ void StewardPanel::setViewModel(
         ? "Next: type a selected track delete request, or type a camera request."
         : "Next: type a selected clip request, or type a camera request.";
   switch (primaryAction_) {
-    case PrimaryAction::ImportMedia:
-      nextStep = "Next: import media or use Sample to start the timeline.";
+    case PrimaryAction::StartSample:
+      nextStep = "Next: start the sample, then try one suggested editable request.";
       break;
     case PrimaryAction::AddSelectedMedia:
       nextStep = "Next: add the selected media to the timeline.";
@@ -699,8 +699,7 @@ void StewardPanel::setViewModel(
     suggestions.push_back("Delete selected track.");
   } else {
     switch (primaryAction_) {
-      case PrimaryAction::ImportMedia:
-        suggestions.push_back("Add note \"Camera rationale\" saying Keep zoom editable.");
+      case PrimaryAction::StartSample:
         break;
       case PrimaryAction::AddSelectedMedia:
         suggestions.push_back("Add selected media to the timeline.");
@@ -925,8 +924,8 @@ void StewardPanel::updateActionLabels() {
     primaryActionButton_->setText("Update Camera");
   } else {
     switch (primaryAction_) {
-      case PrimaryAction::ImportMedia:
-        primaryActionButton_->setText("Import Media");
+      case PrimaryAction::StartSample:
+        primaryActionButton_->setText("Start Sample");
         break;
       case PrimaryAction::AddSelectedMedia:
         primaryActionButton_->setText("Add Selected Media To Timeline");
@@ -957,8 +956,8 @@ void StewardPanel::updateIntentPlaceholder() {
     selectedTrackTargetNodeId_.has_value() ||
     selectedNoteTargetNodeId_.has_value();
   switch (primaryAction_) {
-    case PrimaryAction::ImportMedia:
-      intent_->setPlaceholderText("Try: \"add note \\\"Camera rationale\\\" saying Keep zoom editable\", or use Sample/import media to start the timeline.");
+    case PrimaryAction::StartSample:
+      intent_->setPlaceholderText("Use Start Sample for the fastest editable demo, or use Import for your own media.");
       return;
     case PrimaryAction::AddSelectedMedia:
       intent_->setPlaceholderText("Add selected media to the timeline. Then try: \"center the subject\", \"add audio track\", or \"add title \\\"Opening\\\"\".");
@@ -1122,7 +1121,7 @@ bool StewardPanel::tryCreateTextClipFromPrimaryAction() {
       !textClipIntentTargetsTextHandler_(intent())) {
     return false;
   }
-  if (primaryAction_ == PrimaryAction::ImportMedia ||
+  if (primaryAction_ == PrimaryAction::StartSample ||
       primaryAction_ == PrimaryAction::AddSelectedMedia ||
       primaryAction_ == PrimaryAction::Disabled) {
     return false;
@@ -1204,8 +1203,8 @@ bool StewardPanel::primaryActionCanRun() const {
   }
 
   switch (primaryAction_) {
-    case PrimaryAction::ImportMedia:
-      return static_cast<bool>(importMediaHandler_);
+    case PrimaryAction::StartSample:
+      return static_cast<bool>(startSampleHandler_);
     case PrimaryAction::AddSelectedMedia:
       return static_cast<bool>(addSelectedMediaHandler_);
     case PrimaryAction::AddCamera:

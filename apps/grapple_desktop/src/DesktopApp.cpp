@@ -555,7 +555,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            viewModel.value().timeline.clips.empty() &&
            viewModel.value().timeline.cameras.empty() &&
            packageWritten &&
-           stewardActionText == "Import Media" &&
+           stewardActionText == "Start Sample" &&
            stewardActionEnabled &&
            !exportActionEnabled &&
            !saveActionEnabled &&
@@ -571,11 +571,10 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            timelineEmptyPrompt.find("Use Sample to start now") != std::string::npos &&
            timelineEmptyPrompt.find("import media and add it") != std::string::npos &&
            timelineEmptyPrompt.find("Ask Steward for an editable change") != std::string::npos &&
-           stewardIntentPlaceholder.find("add note") != std::string::npos &&
-           stewardIntentPlaceholder.find("Sample") != std::string::npos &&
-           stewardIntentPlaceholder.find("import media") != std::string::npos &&
+           stewardIntentPlaceholder.find("Start Sample") != std::string::npos &&
+           stewardIntentPlaceholder.find("Import") != std::string::npos &&
            steward.find("0 assets | 0 clips | 0 cameras | 0 editable effects") != std::string::npos &&
-           steward.find("Next: import media or use Sample to start the timeline.") != std::string::npos
+           steward.find("Next: start the sample, then try one suggested editable request.") != std::string::npos
       ? 0
       : 1;
   }
@@ -1331,7 +1330,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_2"} &&
            viewModel.value().timeline.compositions.size() == 1 &&
            viewModel.value().timeline.cameras.size() == 1 &&
-           stewardActionBefore == "Import Media" &&
+           stewardActionBefore == "Start Sample" &&
            stewardActionEnabledBefore &&
            stewardBefore.find("0 assets | 0 clips | 0 cameras | 0 editable effects") != std::string::npos &&
            stewardAfter.find("0 assets | 0 clips | 1 cameras | 0 editable effects") != std::string::npos &&

@@ -775,7 +775,7 @@ public:
         chooseAndExportVideo();
       }
     });
-    steward_->setImportMediaHandler([this] { chooseAndImportMedia(); });
+    steward_->setStartSampleHandler([this] { startStarterSample(); });
     steward_->setAddCameraHandler([this] { createCameraWithSteward(); });
     steward_->setAddSelectedMediaHandler([this] { placeSelectedMediaWithSteward(); });
     steward_->setShowCameraControlsHandler([this](grapple::foundation::NodeId cameraNodeId) {
