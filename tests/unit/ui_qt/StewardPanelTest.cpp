@@ -8,6 +8,7 @@
 #include "TestAssert.hpp"
 
 #include <QApplication>
+#include <QLabel>
 
 #include <string>
 
@@ -72,6 +73,9 @@ int main(int argc, char** argv) {
     std::nullopt,
     std::nullopt
   );
+  auto* editSummary = panel.findChild<QLabel*>("stewardEditSummary");
+  GRAPPLE_REQUIRE(editSummary != nullptr);
+  GRAPPLE_REQUIRE(editSummary->isHidden());
   GRAPPLE_REQUIRE(panel.primaryActionText() == "Start Sample");
   GRAPPLE_REQUIRE(panel.primaryActionEnabled());
   GRAPPLE_REQUIRE(panel.suggestedRequestCount() == 0);
@@ -90,6 +94,27 @@ int main(int argc, char** argv) {
   panel.triggerSuggestedRequest(0);
   GRAPPLE_REQUIRE(panel.intent() == "Center the subject with editable camera controls.");
   GRAPPLE_REQUIRE(panel.primaryActionText() == "Create Editable Camera Controls");
+
+  auto editedViewModel = viewModelWithCamera();
+  editedViewModel.steward.edits.push_back(grapple::app::AppStewardEditRow{
+    grapple::foundation::CommandId{"cmd_1"},
+    grapple::foundation::RevisionId{"rev_2"},
+    grapple::foundation::NodeId{"camera_1"},
+    "Camera",
+    "Camera Transform",
+    "Center subject.",
+    "Position X=0.25, Zoom=1.3"
+  });
+  panel.setViewModel(
+    editedViewModel,
+    grapple::agent::AgentConversationState{},
+    grapple::foundation::NodeId{"camera_1"},
+    std::nullopt
+  );
+  GRAPPLE_REQUIRE(!editSummary->isHidden());
+  GRAPPLE_REQUIRE(containsText(editSummary->text().toStdString(), "Editable result: Camera Transform on Camera (rev_2)"));
+  GRAPPLE_REQUIRE(containsText(editSummary->text().toStdString(), "Controls: Position X=0.25, Zoom=1.3"));
+  GRAPPLE_REQUIRE(containsText(editSummary->text().toStdString(), "Request: Center subject."));
 
   panel.setIntent("zoom in a little");
   panel.triggerPrimaryAction();

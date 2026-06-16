@@ -283,6 +283,33 @@ const app::AppStewardEditRow* latestTargetedEdit(const app::AppViewModel& viewMo
   return nullptr;
 }
 
+const app::AppStewardEditRow* selectedOrLatestTargetedEdit(
+  const app::AppViewModel& viewModel,
+  const std::optional<foundation::NodeId>& selectedNodeId
+) {
+  if (selectedNodeId.has_value()) {
+    for (auto edit = viewModel.steward.edits.rbegin(); edit != viewModel.steward.edits.rend(); ++edit) {
+      if (edit->targetNodeId.has_value() && edit->targetNodeId.value() == selectedNodeId.value()) {
+        return &(*edit);
+      }
+    }
+  }
+  return latestTargetedEdit(viewModel);
+}
+
+QString editSummaryText(const app::AppStewardEditRow& edit) {
+  QStringList lines{
+    QString{"Editable result: %1 (%2)"}
+      .arg(stewardEditResultLabel(edit))
+      .arg(qString(edit.revision.value()))
+  };
+  if (!edit.controlSummary.empty()) {
+    lines << QString{"Controls: %1"}.arg(stewardEditControlSummary(edit));
+  }
+  lines << QString{"Request: %1"}.arg(stewardEditRequest(edit));
+  return lines.join('\n');
+}
+
 } // namespace
 
 StewardPanel::StewardPanel(QWidget* parent)
@@ -414,6 +441,12 @@ StewardPanel::StewardPanel(QWidget* parent)
     setIntent(item->data(Qt::UserRole).toString().toStdString());
     intent_->setFocus();
   });
+
+  editSummary_ = new QLabel;
+  editSummary_->setObjectName("stewardEditSummary");
+  editSummary_->setWordWrap(true);
+  editSummary_->setVisible(false);
+  layout->addWidget(editSummary_);
 
   recentEdits_ = new QListWidget;
   recentEdits_->setObjectName("stewardRecentEdits");
@@ -662,6 +695,13 @@ void StewardPanel::setViewModel(
       lines << QString{"Controls changed: %1"}.arg(stewardEditControlSummary(*latestEdit));
     }
     lines << QString{"Latest request: %1"}.arg(stewardEditRequest(*latestEdit));
+  }
+  if (const app::AppStewardEditRow* selectedEdit = selectedOrLatestTargetedEdit(viewModel, selectedNodeId)) {
+    editSummary_->setText(editSummaryText(*selectedEdit));
+    editSummary_->setVisible(true);
+  } else {
+    editSummary_->clear();
+    editSummary_->setVisible(false);
   }
   if (selectedAssetId.has_value() && primaryAction_ == PrimaryAction::AddSelectedMedia) {
     lines << QString{"Selected asset: %1"}.arg(assetName(viewModel, selectedAssetId.value()));

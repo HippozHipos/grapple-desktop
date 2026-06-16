@@ -176,6 +176,7 @@ private:
   QPushButton* primaryActionButton_ = nullptr;
   QLabel* suggestedRequestsLabel_ = nullptr;
   QListWidget* suggestedRequests_ = nullptr;
+  QLabel* editSummary_ = nullptr;
   QListWidget* recentEdits_ = nullptr;
   QTextEdit* text_ = nullptr;
 };
