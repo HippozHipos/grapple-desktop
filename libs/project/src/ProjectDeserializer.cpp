@@ -848,6 +848,59 @@ foundation::Result<timeline::ClipPayload> parseClipPayload(const Json::Value& ob
   };
 }
 
+foundation::Result<timeline::TextClipPayload> parseTextClipPayload(const Json::Value& object, const std::string& path) {
+  auto members = requireOnlyMembers(object, {"text", "timelineRange", "transform", "style"}, path);
+  if (!members) {
+    return members.error();
+  }
+  auto text = requiredStringMember(object, "text", path);
+  if (!text) {
+    return text.error();
+  }
+  auto timelineRangeObject = requiredObjectMember(object, "timelineRange", path);
+  if (!timelineRangeObject) {
+    return timelineRangeObject.error();
+  }
+  auto timelineRange = parseTimeRange(timelineRangeObject.value(), path + ".timelineRange");
+  if (!timelineRange) {
+    return timelineRange.error();
+  }
+  auto transformObject = requiredObjectMember(object, "transform", path);
+  if (!transformObject) {
+    return transformObject.error();
+  }
+  auto transform = parseTransform(transformObject.value(), path + ".transform");
+  if (!transform) {
+    return transform.error();
+  }
+  auto styleObject = requiredObjectMember(object, "style", path);
+  if (!styleObject) {
+    return styleObject.error();
+  }
+  auto styleMembers = requireOnlyMembers(styleObject.value(), {"fontSize", "color"}, path + ".style");
+  if (!styleMembers) {
+    return styleMembers.error();
+  }
+  auto fontSize = requiredDoubleMember(styleObject.value(), "fontSize", path + ".style");
+  if (!fontSize) {
+    return fontSize.error();
+  }
+  auto colorObject = requiredObjectMember(styleObject.value(), "color", path + ".style");
+  if (!colorObject) {
+    return colorObject.error();
+  }
+  auto color = parseVec3(colorObject.value(), path + ".style.color");
+  if (!color) {
+    return color.error();
+  }
+  return timeline::TextClipPayload{
+    text.value(),
+    timelineRange.value(),
+    transform.value(),
+    timeline::TextClipStyle{fontSize.value(), color.value()}
+  };
+}
+
 foundation::Result<timeline::CameraPayload> parseCameraPayload(const Json::Value& object, const std::string& path) {
   auto members = requireOnlyMembers(object, {"name", "state"}, path);
   if (!members) {
@@ -1086,6 +1139,21 @@ foundation::Result<graph::NodePayload> parseNodePayload(
       return payloadObject.error();
     }
     auto payload = parseClipPayload(payloadObject.value(), path + ".payload");
+    if (!payload) {
+      return payload.error();
+    }
+    return graph::NodePayload{payload.value()};
+  }
+  if (type.value() == "text_clip") {
+    auto members = requireOnlyMembers(object, {"type", "payload"}, path);
+    if (!members) {
+      return members.error();
+    }
+    auto payloadObject = requiredObjectMember(object, "payload", path);
+    if (!payloadObject) {
+      return payloadObject.error();
+    }
+    auto payload = parseTextClipPayload(payloadObject.value(), path + ".payload");
     if (!payload) {
       return payload.error();
     }
@@ -1456,6 +1524,47 @@ foundation::Result<CreateClipCommand> parseCreateClipCommand(
   };
 }
 
+foundation::Result<CreateTextClipCommand> parseCreateTextClipCommand(
+  const Json::Value& object,
+  const std::string& path
+) {
+  auto members = requireOnlyMembers(object, {"nodeId", "trackNodeId", "containmentEdgeId", "payload", "order"}, path);
+  if (!members) {
+    return members.error();
+  }
+  auto nodeId = requiredStringMember(object, "nodeId", path);
+  if (!nodeId) {
+    return nodeId.error();
+  }
+  auto trackNodeId = requiredStringMember(object, "trackNodeId", path);
+  if (!trackNodeId) {
+    return trackNodeId.error();
+  }
+  auto containmentEdgeId = requiredStringMember(object, "containmentEdgeId", path);
+  if (!containmentEdgeId) {
+    return containmentEdgeId.error();
+  }
+  auto payloadObject = requiredObjectMember(object, "payload", path);
+  if (!payloadObject) {
+    return payloadObject.error();
+  }
+  auto payload = parseTextClipPayload(payloadObject.value(), path + ".payload");
+  if (!payload) {
+    return payload.error();
+  }
+  auto order = requiredInt64Member(object, "order", path);
+  if (!order) {
+    return order.error();
+  }
+  return CreateTextClipCommand{
+    foundation::NodeId{nodeId.value()},
+    foundation::NodeId{trackNodeId.value()},
+    foundation::EdgeId{containmentEdgeId.value()},
+    payload.value(),
+    order.value()
+  };
+}
+
 } // namespace
 
 foundation::Result<ProjectCommand> deserializeCanonicalCommandPayload(
@@ -1615,41 +1724,18 @@ foundation::Result<ProjectCommand> deserializeCanonicalCommandPayload(
     return validatedCommand(ProjectCommand{command});
   }
   if (serializedName == "project.create_clip") {
-    auto members = requireOnlyMembers(root.value(), {"nodeId", "trackNodeId", "containmentEdgeId", "payload", "order"}, "$");
-    if (!members) {
-      return members.error();
+    auto command = parseCreateClipCommand(root.value(), "$");
+    if (!command) {
+      return command.error();
     }
-    auto nodeId = requiredStringMember(root.value(), "nodeId", "$");
-    if (!nodeId) {
-      return nodeId.error();
+    return validatedCommand(ProjectCommand{command.value()});
+  }
+  if (serializedName == "project.create_text_clip") {
+    auto command = parseCreateTextClipCommand(root.value(), "$");
+    if (!command) {
+      return command.error();
     }
-    auto trackNodeId = requiredStringMember(root.value(), "trackNodeId", "$");
-    if (!trackNodeId) {
-      return trackNodeId.error();
-    }
-    auto containmentEdgeId = requiredStringMember(root.value(), "containmentEdgeId", "$");
-    if (!containmentEdgeId) {
-      return containmentEdgeId.error();
-    }
-    auto payloadObject = requiredObjectMember(root.value(), "payload", "$");
-    if (!payloadObject) {
-      return payloadObject.error();
-    }
-    auto payload = parseClipPayload(payloadObject.value(), "$.payload");
-    if (!payload) {
-      return payload.error();
-    }
-    auto order = requiredInt64Member(root.value(), "order", "$");
-    if (!order) {
-      return order.error();
-    }
-    return validatedCommand(ProjectCommand{CreateClipCommand{
-      foundation::NodeId{nodeId.value()},
-      foundation::NodeId{trackNodeId.value()},
-      foundation::EdgeId{containmentEdgeId.value()},
-      payload.value(),
-      order.value()
-    }});
+    return validatedCommand(ProjectCommand{command.value()});
   }
   if (serializedName == "project.move_clip") {
     auto members = requireOnlyMembers(root.value(), {"nodeId", "newStart"}, "$");
@@ -1715,6 +1801,25 @@ foundation::Result<ProjectCommand> deserializeCanonicalCommandPayload(
       return playbackRate.error();
     }
     return validatedCommand(ProjectCommand{UpdateClipCommand{foundation::NodeId{nodeId.value()}, transform.value(), playbackRate.value()}});
+  }
+  if (serializedName == "project.update_text_clip") {
+    auto members = requireOnlyMembers(root.value(), {"nodeId", "payload"}, "$");
+    if (!members) {
+      return members.error();
+    }
+    auto nodeId = requiredStringMember(root.value(), "nodeId", "$");
+    if (!nodeId) {
+      return nodeId.error();
+    }
+    auto payloadObject = requiredObjectMember(root.value(), "payload", "$");
+    if (!payloadObject) {
+      return payloadObject.error();
+    }
+    auto payload = parseTextClipPayload(payloadObject.value(), "$.payload");
+    if (!payload) {
+      return payload.error();
+    }
+    return validatedCommand(ProjectCommand{UpdateTextClipCommand{foundation::NodeId{nodeId.value()}, payload.value()}});
   }
   if (serializedName == "project.delete_clip") {
     auto members = requireOnlyMembers(root.value(), {"nodeId"}, "$");

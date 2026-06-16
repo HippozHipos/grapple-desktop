@@ -14,7 +14,8 @@ bool payloadMatchesNodeKind(const GraphNode& node) {
     case NodeKind::Track:
       return std::holds_alternative<timeline::TrackPayload>(node.payload);
     case NodeKind::Clip:
-      return std::holds_alternative<timeline::ClipPayload>(node.payload);
+      return std::holds_alternative<timeline::ClipPayload>(node.payload) ||
+             std::holds_alternative<timeline::TextClipPayload>(node.payload);
     case NodeKind::Camera:
       return std::holds_alternative<timeline::CameraPayload>(node.payload);
     case NodeKind::Effect:

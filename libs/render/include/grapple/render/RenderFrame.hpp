@@ -41,6 +41,14 @@ struct RenderedAudioClip {
   double playbackRate = 1.0;
 };
 
+struct RenderedTextFrame {
+  foundation::NodeId clipNodeId;
+  foundation::NodeId trackNodeId;
+  std::string text;
+  timeline::Transform2D transform;
+  timeline::TextClipStyle style;
+};
+
 struct RenderedImage {
   foundation::Resolution resolution;
   std::vector<std::uint8_t> rgbaPixels;
@@ -76,6 +84,7 @@ struct RenderFrame {
   foundation::TimeSeconds time;
   std::string description;
   std::vector<RenderedMediaFrame> mediaFrames;
+  std::vector<RenderedTextFrame> textFrames;
   std::vector<RenderedAudioClip> audioClips;
   std::vector<RenderedCamera> cameras;
   std::optional<RenderedImage> image;

@@ -22,6 +22,7 @@ using NodePayload = std::variant<
   timeline::CompositionPayload,
   timeline::TrackPayload,
   timeline::ClipPayload,
+  timeline::TextClipPayload,
   timeline::CameraPayload,
   timeline::EffectPayload,
   timeline::AssetPayload,

@@ -22,12 +22,42 @@ foundation::Result<void> requireNonEmptyId(const Id& id, const char* code, const
 
 foundation::Result<void> validateClipPlaybackRate(double playbackRate);
 
+foundation::Result<void> validateTimelineRange(
+  const foundation::TimeRange& range,
+  const char* code,
+  const char* message
+) {
+  if (range.start.value < 0.0 || range.end.value <= range.start.value) {
+    return foundation::Error{code, message};
+  }
+  return {};
+}
+
 foundation::Result<void> validateClipPayload(const timeline::ClipPayload& payload) {
   auto assetId = requireNonEmptyId(payload.assetId, "project.clip_asset_id_empty", "Clip asset id must not be empty.");
   if (!assetId) {
     return assetId;
   }
   return validateClipPlaybackRate(payload.playbackRate);
+}
+
+foundation::Result<void> validateTextClipPayload(const timeline::TextClipPayload& payload) {
+  auto text = requireNonEmpty(payload.text, "project.text_clip_text_empty", "Text clip text must not be empty.");
+  if (!text) {
+    return text;
+  }
+  auto range = validateTimelineRange(
+    payload.timelineRange,
+    "project.text_clip_timeline_range_invalid",
+    "Text clip requires a non-negative timeline range with end after start."
+  );
+  if (!range) {
+    return range;
+  }
+  if (!std::isfinite(payload.style.fontSize) || payload.style.fontSize <= 0.0) {
+    return foundation::Error{"project.text_clip_font_size_invalid", "Text clip font size must be a positive finite value."};
+  }
+  return {};
 }
 
 foundation::Result<void> validateClipPlaybackRate(double playbackRate) {
@@ -143,12 +173,16 @@ CommandKind commandKind(const ProjectCommand& command) {
         return CommandKind::AddMediaToTimeline;
       } else if constexpr (std::is_same_v<Command, CreateClipCommand>) {
         return CommandKind::CreateClip;
+      } else if constexpr (std::is_same_v<Command, CreateTextClipCommand>) {
+        return CommandKind::CreateTextClip;
       } else if constexpr (std::is_same_v<Command, MoveClipCommand>) {
         return CommandKind::MoveClip;
       } else if constexpr (std::is_same_v<Command, TrimClipCommand>) {
         return CommandKind::TrimClip;
       } else if constexpr (std::is_same_v<Command, UpdateClipCommand>) {
         return CommandKind::UpdateClip;
+      } else if constexpr (std::is_same_v<Command, UpdateTextClipCommand>) {
+        return CommandKind::UpdateTextClip;
       } else if constexpr (std::is_same_v<Command, DeleteClipCommand>) {
         return CommandKind::DeleteClip;
       } else if constexpr (std::is_same_v<Command, CreateCameraCommand>) {
@@ -243,6 +277,20 @@ foundation::Result<void> validateProjectCommandShape(const ProjectCommand& comma
           return containmentEdgeId;
         }
         return validateClipPayload(typedCommand.payload);
+      } else if constexpr (std::is_same_v<Command, CreateTextClipCommand>) {
+        auto nodeId = requireNonEmptyId(typedCommand.nodeId, "project.node_id_empty", "Command node id must not be empty.");
+        if (!nodeId) {
+          return nodeId;
+        }
+        auto trackNodeId = requireNonEmptyId(typedCommand.trackNodeId, "project.track_node_id_empty", "Track node id must not be empty.");
+        if (!trackNodeId) {
+          return trackNodeId;
+        }
+        auto containmentEdgeId = requireNonEmptyId(typedCommand.containmentEdgeId, "project.containment_edge_id_empty", "Containment edge id must not be empty.");
+        if (!containmentEdgeId) {
+          return containmentEdgeId;
+        }
+        return validateTextClipPayload(typedCommand.payload);
       } else if constexpr (std::is_same_v<Command, MoveClipCommand>) {
         return requireNonEmptyId(typedCommand.nodeId, "project.node_id_empty", "Command node id must not be empty.");
       } else if constexpr (std::is_same_v<Command, TrimClipCommand>) {
@@ -253,6 +301,12 @@ foundation::Result<void> validateProjectCommandShape(const ProjectCommand& comma
           return nodeId;
         }
         return validateClipPlaybackRate(typedCommand.playbackRate);
+      } else if constexpr (std::is_same_v<Command, UpdateTextClipCommand>) {
+        auto nodeId = requireNonEmptyId(typedCommand.nodeId, "project.node_id_empty", "Command node id must not be empty.");
+        if (!nodeId) {
+          return nodeId;
+        }
+        return validateTextClipPayload(typedCommand.payload);
       } else if constexpr (std::is_same_v<Command, DeleteClipCommand>) {
         return requireNonEmptyId(typedCommand.nodeId, "project.node_id_empty", "Command node id must not be empty.");
       } else if constexpr (std::is_same_v<Command, CreateCameraCommand>) {

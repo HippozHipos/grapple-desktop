@@ -1096,6 +1096,114 @@ int main() {
   GRAPPLE_REQUIRE(!trimMissingClip);
   GRAPPLE_REQUIRE(trimMissingClip.error().code == "project.clip_missing");
 
+  const timeline::TextClipPayload textClipPayload{
+    "Opening Title",
+    foundation::TimeRange{foundation::TimeSeconds{0.5}, foundation::TimeSeconds{3.5}},
+    timeline::Transform2D{
+      foundation::Vec2{0.0, 0.35},
+      foundation::Vec2{1.0, 1.0},
+      0.0,
+      1.0
+    },
+    timeline::TextClipStyle{40.0, foundation::Vec3{1.0, 0.9, 0.2}}
+  };
+  const project::ProjectCommandEnvelope createTextClip{
+    foundation::CommandId{"cmd_create_text_clip"},
+    foundation::ProjectId{"proj_move_clip"},
+    afterTrimClip.value().revision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::CreateTextClipCommand{
+      foundation::NodeId{"node_text_clip"},
+      foundation::NodeId{"node_move_clip_track"},
+      foundation::EdgeId{"edge_move_clip_contains_text_clip"},
+      textClipPayload,
+      3
+    }
+  };
+  GRAPPLE_REQUIRE(project::commandKind(createTextClip.payload) == project::CommandKind::CreateTextClip);
+  const std::string serializedCreateTextClip = project::serializeCanonicalCommandPayload(createTextClip.payload);
+  GRAPPLE_REQUIRE(serializedCreateTextClip.find("\"payload\":{\"text\":\"Opening Title\"") != std::string::npos);
+  const auto parsedCreateTextClip = project::deserializeCanonicalCommandPayload(
+    project::serializedCommandName(project::CommandKind::CreateTextClip),
+    serializedCreateTextClip
+  );
+  GRAPPLE_REQUIRE(parsedCreateTextClip);
+  GRAPPLE_REQUIRE(project::serializeCanonicalCommandPayload(parsedCreateTextClip.value()) == serializedCreateTextClip);
+  const auto createTextClipResult = moveClipProject.apply(createTextClip);
+  GRAPPLE_REQUIRE(createTextClipResult);
+  const auto afterCreateTextClip = moveClipProject.snapshot();
+  GRAPPLE_REQUIRE(afterCreateTextClip);
+  const graph::GraphNode* textClipNode = afterCreateTextClip.value().graph.findNode(foundation::NodeId{"node_text_clip"});
+  GRAPPLE_REQUIRE(textClipNode != nullptr);
+  const auto* createdTextClip = std::get_if<timeline::TextClipPayload>(&textClipNode->payload);
+  GRAPPLE_REQUIRE(createdTextClip != nullptr);
+  GRAPPLE_REQUIRE(createdTextClip->text == "Opening Title");
+  GRAPPLE_REQUIRE(createdTextClip->timelineRange.start == foundation::TimeSeconds{0.5});
+  const auto moveTextClip = moveClipProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_move_text_clip"},
+    foundation::ProjectId{"proj_move_clip"},
+    afterCreateTextClip.value().revision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::MoveClipCommand{foundation::NodeId{"node_text_clip"}, foundation::TimeSeconds{2.0}}
+  });
+  GRAPPLE_REQUIRE(moveTextClip);
+  const auto afterMoveTextClip = moveClipProject.snapshot();
+  GRAPPLE_REQUIRE(afterMoveTextClip);
+  const graph::GraphNode* movedTextClipNode = afterMoveTextClip.value().graph.findNode(foundation::NodeId{"node_text_clip"});
+  GRAPPLE_REQUIRE(movedTextClipNode != nullptr);
+  const auto* movedTextClip = std::get_if<timeline::TextClipPayload>(&movedTextClipNode->payload);
+  GRAPPLE_REQUIRE(movedTextClip != nullptr);
+  GRAPPLE_REQUIRE(movedTextClip->timelineRange.start == foundation::TimeSeconds{2.0});
+  GRAPPLE_REQUIRE(movedTextClip->timelineRange.end == foundation::TimeSeconds{5.0});
+  timeline::TextClipPayload updatedTextClipPayload = *movedTextClip;
+  updatedTextClipPayload.text = "Edited Title";
+  updatedTextClipPayload.style.fontSize = 54.0;
+  const project::ProjectCommandEnvelope updateTextClip{
+    foundation::CommandId{"cmd_update_text_clip"},
+    foundation::ProjectId{"proj_move_clip"},
+    afterMoveTextClip.value().revision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::UpdateTextClipCommand{foundation::NodeId{"node_text_clip"}, updatedTextClipPayload}
+  };
+  GRAPPLE_REQUIRE(project::commandKind(updateTextClip.payload) == project::CommandKind::UpdateTextClip);
+  const std::string serializedUpdateTextClip = project::serializeCanonicalCommandPayload(updateTextClip.payload);
+  const auto parsedUpdateTextClip = project::deserializeCanonicalCommandPayload(
+    project::serializedCommandName(project::CommandKind::UpdateTextClip),
+    serializedUpdateTextClip
+  );
+  GRAPPLE_REQUIRE(parsedUpdateTextClip);
+  GRAPPLE_REQUIRE(project::serializeCanonicalCommandPayload(parsedUpdateTextClip.value()) == serializedUpdateTextClip);
+  const auto updateTextClipResult = moveClipProject.apply(updateTextClip);
+  GRAPPLE_REQUIRE(updateTextClipResult);
+  const auto afterUpdateTextClip = moveClipProject.snapshot();
+  GRAPPLE_REQUIRE(afterUpdateTextClip);
+  const graph::GraphNode* updatedTextClipNode = afterUpdateTextClip.value().graph.findNode(foundation::NodeId{"node_text_clip"});
+  GRAPPLE_REQUIRE(updatedTextClipNode != nullptr);
+  const auto* updatedTextClip = std::get_if<timeline::TextClipPayload>(&updatedTextClipNode->payload);
+  GRAPPLE_REQUIRE(updatedTextClip != nullptr);
+  GRAPPLE_REQUIRE(updatedTextClip->text == "Edited Title");
+  GRAPPLE_REQUIRE(updatedTextClip->style.fontSize == 54.0);
+  const auto trimTextClipAsMedia = moveClipProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_trim_text_clip_as_media"},
+    foundation::ProjectId{"proj_move_clip"},
+    afterUpdateTextClip.value().revision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::TrimClipCommand{
+      foundation::NodeId{"node_text_clip"},
+      foundation::TimeRange{foundation::TimeSeconds{2.0}, foundation::TimeSeconds{4.0}},
+      foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{2.0}}
+    }
+  });
+  GRAPPLE_REQUIRE(!trimTextClipAsMedia);
+  GRAPPLE_REQUIRE(trimTextClipAsMedia.error().code == "project.clip_trim_payload_invalid");
+  const auto textClipSnapshotRoundTrip = project::deserializeCanonicalProjectSnapshot(
+    project::serializeCanonicalProjectSnapshot(afterUpdateTextClip.value())
+  );
+  GRAPPLE_REQUIRE(textClipSnapshotRoundTrip);
+  const graph::GraphNode* roundTrippedTextClipNode = textClipSnapshotRoundTrip.value().graph.findNode(foundation::NodeId{"node_text_clip"});
+  GRAPPLE_REQUIRE(roundTrippedTextClipNode != nullptr);
+  GRAPPLE_REQUIRE(std::holds_alternative<timeline::TextClipPayload>(roundTrippedTextClipNode->payload));
+
   project::ProjectController cameraProject{
     project::createEmptyProject(foundation::ProjectId{"proj_camera"}, "Camera Project")
   };

@@ -203,12 +203,16 @@ foundation::Result<void> ProjectController::applyPayload(const ProjectCommand& p
         return handleAddMediaToTimeline(typedCommand);
       } else if constexpr (std::is_same_v<Command, CreateClipCommand>) {
         return handleCreateClip(typedCommand);
+      } else if constexpr (std::is_same_v<Command, CreateTextClipCommand>) {
+        return handleCreateTextClip(typedCommand);
       } else if constexpr (std::is_same_v<Command, MoveClipCommand>) {
         return handleMoveClip(typedCommand);
       } else if constexpr (std::is_same_v<Command, TrimClipCommand>) {
         return handleTrimClip(typedCommand);
       } else if constexpr (std::is_same_v<Command, UpdateClipCommand>) {
         return handleUpdateClip(typedCommand);
+      } else if constexpr (std::is_same_v<Command, UpdateTextClipCommand>) {
+        return handleUpdateTextClip(typedCommand);
       } else if constexpr (std::is_same_v<Command, DeleteClipCommand>) {
         return handleDeleteClip(typedCommand);
       } else if constexpr (std::is_same_v<Command, CreateCameraCommand>) {
@@ -445,6 +449,41 @@ foundation::Result<void> ProjectController::handleCreateClip(const CreateClipCom
   });
 }
 
+foundation::Result<void> ProjectController::handleCreateTextClip(const CreateTextClipCommand& command) {
+  const graph::GraphNode* track = document_.graph.findNode(command.trackNodeId);
+  if (track == nullptr || track->kind != graph::NodeKind::Track) {
+    return foundation::Error{"project.track_missing", "Text clip must be created inside an existing visual track."};
+  }
+  const auto* trackPayload = std::get_if<timeline::TrackPayload>(&track->payload);
+  if (trackPayload == nullptr) {
+    return foundation::Error{"project.track_payload_invalid", "Text clip track must carry a track payload."};
+  }
+  if (trackPayload->kind != timeline::TrackKind::Visual) {
+    return foundation::Error{"project.text_clip_track_kind_mismatch", "Text clips can only be placed on visual tracks."};
+  }
+
+  auto nodeResult = document_.graph.addNode(graph::GraphNode{
+    command.nodeId,
+    graph::NodeKind::Clip,
+    command.payload,
+    true
+  });
+  if (!nodeResult) {
+    return nodeResult;
+  }
+
+  return document_.graph.addEdge(graph::GraphEdge{
+    command.containmentEdgeId,
+    graph::EdgeKind::Contains,
+    command.trackNodeId,
+    graph::PortName{},
+    command.nodeId,
+    graph::PortName{},
+    command.order,
+    true
+  });
+}
+
 foundation::Result<void> ProjectController::handleUpdateClip(const UpdateClipCommand& command) {
   const graph::GraphNode* clip = document_.graph.findNode(command.nodeId);
   if (clip == nullptr || clip->kind != graph::NodeKind::Clip) {
@@ -461,27 +500,50 @@ foundation::Result<void> ProjectController::handleUpdateClip(const UpdateClipCom
   return document_.graph.replaceNodePayload(command.nodeId, updatedPayload);
 }
 
+foundation::Result<void> ProjectController::handleUpdateTextClip(const UpdateTextClipCommand& command) {
+  const graph::GraphNode* clip = document_.graph.findNode(command.nodeId);
+  if (clip == nullptr || clip->kind != graph::NodeKind::Clip) {
+    return foundation::Error{"project.clip_missing", "Text clip updates require an existing clip node."};
+  }
+  if (!std::holds_alternative<timeline::TextClipPayload>(clip->payload)) {
+    return foundation::Error{"project.text_clip_payload_invalid", "Text clip updates require a text clip payload."};
+  }
+  return document_.graph.replaceNodePayload(command.nodeId, command.payload);
+}
+
 foundation::Result<void> ProjectController::handleMoveClip(const MoveClipCommand& command) {
   const graph::GraphNode* clip = document_.graph.findNode(command.nodeId);
   if (clip == nullptr || clip->kind != graph::NodeKind::Clip) {
     return foundation::Error{"project.clip_missing", "Clip movement requires an existing clip node."};
   }
 
-  const auto* payload = std::get_if<timeline::ClipPayload>(&clip->payload);
-  if (payload == nullptr) {
-    return foundation::Error{"project.clip_payload_invalid", "Clip movement requires a clip payload."};
-  }
-  if (command.newStart.value < 0.0) {
-    return foundation::Error{"project.clip_move_before_zero", "Clip movement cannot place a clip before timeline start."};
-  }
+  if (const auto* payload = std::get_if<timeline::ClipPayload>(&clip->payload)) {
+    if (command.newStart.value < 0.0) {
+      return foundation::Error{"project.clip_move_before_zero", "Clip movement cannot place a clip before timeline start."};
+    }
 
-  timeline::ClipPayload movedPayload = *payload;
-  const double duration = movedPayload.timelineRange.duration();
-  movedPayload.timelineRange = foundation::TimeRange{
-    command.newStart,
-    foundation::TimeSeconds{command.newStart.value + duration}
-  };
-  return document_.graph.replaceNodePayload(command.nodeId, movedPayload);
+    timeline::ClipPayload movedPayload = *payload;
+    const double duration = movedPayload.timelineRange.duration();
+    movedPayload.timelineRange = foundation::TimeRange{
+      command.newStart,
+      foundation::TimeSeconds{command.newStart.value + duration}
+    };
+    return document_.graph.replaceNodePayload(command.nodeId, movedPayload);
+  }
+  if (const auto* textPayload = std::get_if<timeline::TextClipPayload>(&clip->payload)) {
+    if (command.newStart.value < 0.0) {
+      return foundation::Error{"project.clip_move_before_zero", "Clip movement cannot place a clip before timeline start."};
+    }
+
+    timeline::TextClipPayload movedPayload = *textPayload;
+    const double duration = movedPayload.timelineRange.duration();
+    movedPayload.timelineRange = foundation::TimeRange{
+      command.newStart,
+      foundation::TimeSeconds{command.newStart.value + duration}
+    };
+    return document_.graph.replaceNodePayload(command.nodeId, movedPayload);
+  }
+  return foundation::Error{"project.clip_payload_invalid", "Clip movement requires a clip payload."};
 }
 
 foundation::Result<void> ProjectController::handleTrimClip(const TrimClipCommand& command) {
@@ -490,21 +552,23 @@ foundation::Result<void> ProjectController::handleTrimClip(const TrimClipCommand
     return foundation::Error{"project.clip_missing", "Clip trim requires an existing clip node."};
   }
 
-  const auto* payload = std::get_if<timeline::ClipPayload>(&clip->payload);
-  if (payload == nullptr) {
-    return foundation::Error{"project.clip_payload_invalid", "Clip trim requires a clip payload."};
-  }
   if (command.timelineRange.start.value < 0.0 || command.timelineRange.end.value <= command.timelineRange.start.value) {
     return foundation::Error{"project.clip_timeline_range_invalid", "Clip trim requires a non-negative timeline range with end after start."};
   }
-  if (command.sourceRange.start.value < 0.0 || command.sourceRange.end.value <= command.sourceRange.start.value) {
-    return foundation::Error{"project.clip_source_range_invalid", "Clip trim requires a non-negative source range with end after start."};
-  }
+  if (const auto* payload = std::get_if<timeline::ClipPayload>(&clip->payload)) {
+    if (command.sourceRange.start.value < 0.0 || command.sourceRange.end.value <= command.sourceRange.start.value) {
+      return foundation::Error{"project.clip_source_range_invalid", "Clip trim requires a non-negative source range with end after start."};
+    }
 
-  timeline::ClipPayload trimmedPayload = *payload;
-  trimmedPayload.timelineRange = command.timelineRange;
-  trimmedPayload.sourceRange = command.sourceRange;
-  return document_.graph.replaceNodePayload(command.nodeId, trimmedPayload);
+    timeline::ClipPayload trimmedPayload = *payload;
+    trimmedPayload.timelineRange = command.timelineRange;
+    trimmedPayload.sourceRange = command.sourceRange;
+    return document_.graph.replaceNodePayload(command.nodeId, trimmedPayload);
+  }
+  return foundation::Error{
+    "project.clip_trim_payload_invalid",
+    "Clip trim requires a media clip payload."
+  };
 }
 
 foundation::Result<void> ProjectController::handleDeleteClip(const DeleteClipCommand& command) {

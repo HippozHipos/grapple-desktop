@@ -64,6 +64,22 @@ struct ClipPayload {
   friend bool operator==(const ClipPayload&, const ClipPayload&) = default;
 };
 
+struct TextClipStyle {
+  double fontSize = 48.0;
+  foundation::Vec3 color{1.0, 1.0, 1.0};
+
+  friend bool operator==(const TextClipStyle&, const TextClipStyle&) = default;
+};
+
+struct TextClipPayload {
+  std::string text;
+  foundation::TimeRange timelineRange;
+  Transform2D transform;
+  TextClipStyle style;
+
+  friend bool operator==(const TextClipPayload&, const TextClipPayload&) = default;
+};
+
 struct CameraLens {
   double focalLength = 50.0;
 

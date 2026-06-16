@@ -397,6 +397,26 @@ grapple::projection::RenderPlan makeRenderPlan() {
       }
     },
     {
+      grapple::projection::RenderTextClip{
+        grapple::foundation::NodeId{"node_text_clip"},
+        grapple::foundation::NodeId{"node_track"},
+        grapple::timeline::TextClipPayload{
+          "Title",
+          grapple::foundation::TimeRange{
+            grapple::foundation::TimeSeconds{0.0},
+            grapple::foundation::TimeSeconds{6.0}
+          },
+          grapple::timeline::Transform2D{
+            grapple::foundation::Vec2{0.0, 0.35},
+            grapple::foundation::Vec2{1.0, 1.0},
+            0.0,
+            1.0
+          },
+          grapple::timeline::TextClipStyle{48.0, grapple::foundation::Vec3{1.0, 1.0, 1.0}}
+        }
+      }
+    },
+    {
       grapple::projection::RenderAudioClip{
         grapple::foundation::NodeId{"node_audio_clip"},
         grapple::foundation::NodeId{"node_track"},
@@ -665,8 +685,9 @@ int main() {
   GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.sourceRevision == foundation::RevisionId{"rev_3"});
   GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.renderPlanHash == coreAfterLoad.preparedPlanHash.value());
   GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.time == foundation::TimeSeconds{4.0});
-  GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.description == "layers=1 clips=1 audioClips=1 cameras=0 effects=0");
+  GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.description == "layers=1 clips=1 textClips=1 audioClips=1 cameras=0 effects=0");
   GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.mediaFrames.size() == 1);
+  GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.textFrames.size() == 1);
   GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.audioClips.size() == 1);
   GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.cameras.empty());
   GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.mediaFrames[0].clipNodeId == foundation::NodeId{"node_clip"});
@@ -675,6 +696,11 @@ int main() {
   GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.mediaFrames[0].kind == render::RenderedMediaKind::Video);
   GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.mediaFrames[0].sourceTime == foundation::TimeSeconds{4.0});
   GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.mediaFrames[0].transform == timeline::Transform2D{});
+  GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.textFrames[0].clipNodeId == foundation::NodeId{"node_text_clip"});
+  GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.textFrames[0].trackNodeId == foundation::NodeId{"node_track"});
+  GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.textFrames[0].text == "Title");
+  GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.textFrames[0].transform.position.y == 0.35);
+  GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.textFrames[0].style.fontSize == 48.0);
   GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.audioClips[0].clipNodeId == foundation::NodeId{"node_audio_clip"});
   GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.audioClips[0].trackNodeId == foundation::NodeId{"node_track"});
   GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.audioClips[0].assetId == foundation::AssetId{"asset_audio"});
@@ -693,8 +719,9 @@ int main() {
   GRAPPLE_REQUIRE(renderedInactiveFrame);
   GRAPPLE_REQUIRE(renderedInactiveFrame.value().frame.sourceRevision == foundation::RevisionId{"rev_3"});
   GRAPPLE_REQUIRE(renderedInactiveFrame.value().frame.renderPlanHash == coreAfterLoad.preparedPlanHash.value());
-  GRAPPLE_REQUIRE(renderedInactiveFrame.value().frame.description == "layers=1 clips=0 audioClips=0 cameras=0 effects=0");
+  GRAPPLE_REQUIRE(renderedInactiveFrame.value().frame.description == "layers=1 clips=0 textClips=0 audioClips=0 cameras=0 effects=0");
   GRAPPLE_REQUIRE(renderedInactiveFrame.value().frame.mediaFrames.empty());
+  GRAPPLE_REQUIRE(renderedInactiveFrame.value().frame.textFrames.empty());
   GRAPPLE_REQUIRE(renderedInactiveFrame.value().frame.audioClips.empty());
   GRAPPLE_REQUIRE(renderedInactiveFrame.value().frame.cameras.empty());
 
@@ -717,7 +744,7 @@ int main() {
   GRAPPLE_REQUIRE((finalSink.frameIndexes == std::vector<std::size_t>{0, 1}));
   GRAPPLE_REQUIRE((finalSink.frameTimes == std::vector<foundation::TimeSeconds>{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{0.5}}));
   GRAPPLE_REQUIRE(finalSink.frameDescriptions.size() == 2);
-  GRAPPLE_REQUIRE(finalSink.frameDescriptions[0] == "layers=1 clips=1 audioClips=1 cameras=0 effects=0");
+  GRAPPLE_REQUIRE(finalSink.frameDescriptions[0] == "layers=1 clips=1 textClips=1 audioClips=1 cameras=0 effects=0");
   GRAPPLE_REQUIRE(finalSink.frameAudioClips.size() == 2);
   GRAPPLE_REQUIRE(finalSink.frameAudioClips[0].size() == 1);
   GRAPPLE_REQUIRE(finalSink.frameAudioClips[0][0].assetId == foundation::AssetId{"asset_audio"});
@@ -778,7 +805,7 @@ int main() {
     render::RenderQuality::Draft
   });
   GRAPPLE_REQUIRE(systemFrame);
-  GRAPPLE_REQUIRE(systemFrame.value().frame.description == "layers=1 clips=1 audioClips=1 cameras=0 effects=0");
+  GRAPPLE_REQUIRE(systemFrame.value().frame.description == "layers=1 clips=1 textClips=1 audioClips=1 cameras=0 effects=0");
   const auto systemPause = localRenderSystem.pause();
   GRAPPLE_REQUIRE(systemPause);
 
@@ -817,7 +844,7 @@ int main() {
   GRAPPLE_REQUIRE(exactPlanExport.value().renderPlanHash == systemStateAfterLoad.core.preparedPlanHash.value());
   GRAPPLE_REQUIRE(exactPlanExport.value().framesEvaluated == 2);
   GRAPPLE_REQUIRE(!exactPlanExportSink.frameDescriptions.empty());
-  GRAPPLE_REQUIRE(exactPlanExportSink.frameDescriptions[0] == "layers=1 clips=1 audioClips=1 cameras=0 effects=0");
+  GRAPPLE_REQUIRE(exactPlanExportSink.frameDescriptions[0] == "layers=1 clips=1 textClips=1 audioClips=1 cameras=0 effects=0");
 
   TestFrameSource frameSource;
   render::LocalRenderCore imageCore{runtime, frameSource};
@@ -1065,7 +1092,7 @@ int main() {
   GRAPPLE_REQUIRE(cameraFrame);
   GRAPPLE_REQUIRE(cameraFrame.value().frame.sourceRevision == foundation::RevisionId{"rev_4"});
   GRAPPLE_REQUIRE(cameraFrame.value().frame.renderPlanHash == cameraCore.state().preparedPlanHash.value());
-  GRAPPLE_REQUIRE(cameraFrame.value().frame.description == "layers=1 clips=1 audioClips=1 cameras=1 effects=1");
+  GRAPPLE_REQUIRE(cameraFrame.value().frame.description == "layers=1 clips=1 textClips=1 audioClips=1 cameras=1 effects=1");
   GRAPPLE_REQUIRE(cameraFrame.value().frame.cameras.size() == 1);
   GRAPPLE_REQUIRE(cameraFrame.value().frame.cameras[0].cameraNodeId == foundation::NodeId{"node_camera"});
   GRAPPLE_REQUIRE(cameraFrame.value().frame.cameras[0].state.transform.position.x == 2.5);

@@ -26,6 +26,23 @@ int main() {
   GRAPPLE_REQUIRE(clip.sourceRange.start == foundation::TimeSeconds{1.0});
   GRAPPLE_REQUIRE(clip.assetId == foundation::AssetId{"asset_video"});
 
+  const timeline::TextClipPayload textClip{
+    "Lower third",
+    foundation::TimeRange{foundation::TimeSeconds{2.0}, foundation::TimeSeconds{7.0}},
+    timeline::Transform2D{
+      foundation::Vec2{0.1, -0.3},
+      foundation::Vec2{1.0, 1.0},
+      0.0,
+      1.0
+    },
+    timeline::TextClipStyle{
+      36.0,
+      foundation::Vec3{0.9, 0.8, 0.1}
+    }
+  };
+  GRAPPLE_REQUIRE(textClip.timelineRange.duration() == 5.0);
+  GRAPPLE_REQUIRE(textClip.text == "Lower third");
+
   const timeline::EffectPayload effect{
     "Subject Follow",
     timeline::EffectImplementation{
@@ -60,6 +77,7 @@ int main() {
     }
   }).find("\"focalLength\":35") != std::string::npos);
   GRAPPLE_REQUIRE(timeline::serializeCanonicalClipPayload(clip).find("\"assetId\":\"asset_video\"") != std::string::npos);
+  GRAPPLE_REQUIRE(timeline::serializeCanonicalTextClipPayload(textClip) == "{\"text\":\"Lower third\",\"timelineRange\":{\"start\":2,\"end\":7},\"transform\":{\"position\":{\"x\":0.10000000000000001,\"y\":-0.29999999999999999},\"scale\":{\"x\":1,\"y\":1},\"rotationDegrees\":0,\"opacity\":1},\"style\":{\"fontSize\":36,\"color\":{\"x\":0.90000000000000002,\"y\":0.80000000000000004,\"z\":0.10000000000000001}}}");
   GRAPPLE_REQUIRE(timeline::serializeCanonicalEffectPayload(effect).find("\"inlineSource\":\"def process(): pass\"") != std::string::npos);
   GRAPPLE_REQUIRE(timeline::serializeCanonicalEffectPayload(effect).find("\"modelDependencies\":[{\"modelId\":\"model_segmenter\",\"versionHash\":\"") != std::string::npos);
   GRAPPLE_REQUIRE(timeline::serializeCanonicalParamSet(timeline::ParamSet{

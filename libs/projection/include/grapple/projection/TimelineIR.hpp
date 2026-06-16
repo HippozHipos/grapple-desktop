@@ -38,6 +38,12 @@ struct TimelineClip {
   timeline::ClipPayload payload;
 };
 
+struct TimelineTextClip {
+  foundation::NodeId sourceNodeId;
+  foundation::NodeId trackNodeId;
+  timeline::TextClipPayload payload;
+};
+
 struct TimelineAudioClip {
   foundation::NodeId sourceNodeId;
   foundation::NodeId trackNodeId;
@@ -80,6 +86,7 @@ struct TimelineIR {
   std::vector<TimelineLayer> layers;
   std::vector<TimelineAudioTrack> audioTracks;
   std::vector<TimelineClip> clips;
+  std::vector<TimelineTextClip> textClips;
   std::vector<TimelineAudioClip> audioClips;
   std::vector<TimelineCamera> cameras;
   std::vector<TimelineEffectGraph> effectGraphs;

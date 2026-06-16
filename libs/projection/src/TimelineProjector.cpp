@@ -85,6 +85,9 @@ foundation::Result<BuildTimelineIRResult> TimelineProjector::buildTimelineIR(
     {},
     {},
     {},
+    {},
+    {},
+    {},
     {}
   };
 
@@ -115,7 +118,8 @@ foundation::Result<BuildTimelineIRResult> TimelineProjector::buildTimelineIR(
 
     if (node.kind == graph::NodeKind::Clip) {
       const auto* payload = std::get_if<timeline::ClipPayload>(&node.payload);
-      if (payload == nullptr) {
+      const auto* textPayload = std::get_if<timeline::TextClipPayload>(&node.payload);
+      if (payload == nullptr && textPayload == nullptr) {
         return foundation::Error{"projection.clip_payload_invalid", "Clip node must carry a clip payload."};
       }
 
@@ -131,12 +135,16 @@ foundation::Result<BuildTimelineIRResult> TimelineProjector::buildTimelineIR(
             return foundation::Error{"projection.clip_track_invalid", "Clip containment source must be a track."};
           }
 
-          if (payload->kind == timeline::ClipKind::Audio) {
+          if (payload != nullptr && payload->kind == timeline::ClipKind::Audio) {
             timeline.audioClips.push_back(TimelineAudioClip{node.id, edge.sourceNodeId, *payload});
-          } else {
+            extendDuration(timeline.duration, payload->timelineRange.end);
+          } else if (payload != nullptr) {
             timeline.clips.push_back(TimelineClip{node.id, edge.sourceNodeId, *payload});
+            extendDuration(timeline.duration, payload->timelineRange.end);
+          } else {
+            timeline.textClips.push_back(TimelineTextClip{node.id, edge.sourceNodeId, *textPayload});
+            extendDuration(timeline.duration, textPayload->timelineRange.end);
           }
-          extendDuration(timeline.duration, payload->timelineRange.end);
           foundTrack = true;
           break;
         }

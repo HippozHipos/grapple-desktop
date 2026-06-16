@@ -227,6 +227,21 @@ grapple::projection::RenderPlan makeClipPlan(double playbackRate) {
   return plan;
 }
 
+grapple::projection::RenderPlan makeTextClipPlan() {
+  grapple::projection::RenderPlan plan = makePlan("Video");
+  plan.textClips.push_back(grapple::projection::RenderTextClip{
+    grapple::foundation::NodeId{"node_text_clip"},
+    grapple::foundation::NodeId{"node_track"},
+    grapple::timeline::TextClipPayload{
+      "Title",
+      grapple::foundation::TimeRange{grapple::foundation::TimeSeconds{2.0}, grapple::foundation::TimeSeconds{6.0}},
+      grapple::timeline::Transform2D{},
+      grapple::timeline::TextClipStyle{48.0, grapple::foundation::Vec3{1.0, 1.0, 1.0}}
+    }
+  });
+  return plan;
+}
+
 grapple::projection::RenderPlan makeClipPlanWithAssetVersion(std::string assetVersion) {
   grapple::projection::RenderPlan plan = makeClipPlan(1.0);
   plan.assets[0].versionHash = grapple::foundation::stableHash(assetVersion);
@@ -909,7 +924,31 @@ int main() {
   GRAPPLE_REQUIRE(inactiveSample);
   GRAPPLE_REQUIRE(inactiveSample.value().sample.layers.size() == 1);
   GRAPPLE_REQUIRE(inactiveSample.value().sample.clips.empty());
+  GRAPPLE_REQUIRE(inactiveSample.value().sample.textClips.empty());
   GRAPPLE_REQUIRE(inactiveSample.value().sample.audioClips.empty());
+
+  const auto preparedTextClipPlan = evaluator.prepare(runtime::PrepareRuntimePlanRequest{
+    makeTextClipPlan()
+  });
+  GRAPPLE_REQUIRE(preparedTextClipPlan);
+  GRAPPLE_REQUIRE(preparedTextClipPlan.value().prepared.textClips.size() == 1);
+  const auto activeTextSample = evaluator.sample(runtime::RuntimeSampleRequest{
+    preparedTextClipPlan.value().prepared,
+    foundation::TimeSeconds{3.0},
+    runtime::RuntimeQuality::Interactive
+  });
+  GRAPPLE_REQUIRE(activeTextSample);
+  GRAPPLE_REQUIRE(activeTextSample.value().sample.clips.empty());
+  GRAPPLE_REQUIRE(activeTextSample.value().sample.textClips.size() == 1);
+  GRAPPLE_REQUIRE(activeTextSample.value().sample.textClips[0].sourceNodeId == foundation::NodeId{"node_text_clip"});
+  GRAPPLE_REQUIRE(activeTextSample.value().sample.textClips[0].payload.text == "Title");
+  const auto inactiveTextSample = evaluator.sample(runtime::RuntimeSampleRequest{
+    preparedTextClipPlan.value().prepared,
+    foundation::TimeSeconds{7.0},
+    runtime::RuntimeQuality::Interactive
+  });
+  GRAPPLE_REQUIRE(inactiveTextSample);
+  GRAPPLE_REQUIRE(inactiveTextSample.value().sample.textClips.empty());
 
   const auto preparedAudioClipPlan = evaluator.prepare(runtime::PrepareRuntimePlanRequest{
     makeAudioClipPlan()

@@ -81,6 +81,7 @@ foundation::Result<PrepareRuntimePlanResult> RuntimeEvaluator::prepare(
     graph,
     request.plan.layers,
     request.plan.clips,
+    request.plan.textClips,
     request.plan.audioClips,
     request.plan.cameras,
     {},
@@ -159,6 +160,7 @@ foundation::Result<RuntimeSampleResult> RuntimeEvaluator::sample(
     {},
     {},
     {},
+    {},
     request.prepared.diagnostics
   };
 
@@ -169,6 +171,12 @@ foundation::Result<RuntimeSampleResult> RuntimeEvaluator::sample(
   for (const projection::RenderClip& clip : request.prepared.clips) {
     if (clip.payload.timelineRange.contains(request.time)) {
       sample.clips.push_back(ResolvedClip{clip.sourceNodeId, clip.trackNodeId, clip.payload});
+    }
+  }
+
+  for (const projection::RenderTextClip& clip : request.prepared.textClips) {
+    if (clip.payload.timelineRange.contains(request.time)) {
+      sample.textClips.push_back(ResolvedTextClip{clip.sourceNodeId, clip.trackNodeId, clip.payload});
     }
   }
 

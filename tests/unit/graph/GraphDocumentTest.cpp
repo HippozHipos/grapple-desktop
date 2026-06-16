@@ -297,6 +297,17 @@ int main() {
     },
     true
   }));
+  GRAPPLE_REQUIRE(payloadGraph.addNode(graph::GraphNode{
+    foundation::NodeId{"node_text_clip_payload"},
+    graph::NodeKind::Clip,
+    timeline::TextClipPayload{
+      "Title",
+      foundation::TimeRange{foundation::TimeSeconds{3.0}, foundation::TimeSeconds{8.0}},
+      timeline::Transform2D{},
+      timeline::TextClipStyle{42.0, foundation::Vec3{1.0, 0.5, 0.0}}
+    },
+    true
+  }));
   const std::string effectSource = "def prepare(ctx):\n  return {'x': 1}\n";
   GRAPPLE_REQUIRE(payloadGraph.addNode(graph::GraphNode{
     foundation::NodeId{"node_effect_payload"},
@@ -330,6 +341,8 @@ int main() {
   GRAPPLE_REQUIRE(serializedPayloadGraph.find("\"sourceRange\":{\"start\":1,\"end\":11}") != std::string::npos);
   GRAPPLE_REQUIRE(serializedPayloadGraph.find("\"playbackRate\":0.5") != std::string::npos);
   GRAPPLE_REQUIRE(serializedPayloadGraph.find("\"rotationDegrees\":15") != std::string::npos);
+  GRAPPLE_REQUIRE(serializedPayloadGraph.find("\"type\":\"text_clip\",\"payload\":{\"text\":\"Title\"") != std::string::npos);
+  GRAPPLE_REQUIRE(serializedPayloadGraph.find("\"style\":{\"fontSize\":42,\"color\":{\"x\":1,\"y\":0.5,\"z\":0}}") != std::string::npos);
   GRAPPLE_REQUIRE(serializedPayloadGraph.find("\"lens\":{\"focalLength\":85}") != std::string::npos);
   GRAPPLE_REQUIRE(serializedPayloadGraph.find("\"inlineSource\":\"def prepare(ctx):\\n  return {'x': 1}\\n\"") != std::string::npos);
   GRAPPLE_REQUIRE(serializedPayloadGraph.find("\"activeRange\":{\"start\":0,\"end\":10}") != std::string::npos);

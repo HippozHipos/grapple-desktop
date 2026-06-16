@@ -2440,7 +2440,7 @@ int main() {
     render::RenderQuality::Draft
   });
   GRAPPLE_REQUIRE(frame);
-  GRAPPLE_REQUIRE(frame.value().frame.description == "layers=0 clips=0 audioClips=0 cameras=0 effects=0");
+  GRAPPLE_REQUIRE(frame.value().frame.description == "layers=0 clips=0 textClips=0 audioClips=0 cameras=0 effects=0");
   GRAPPLE_REQUIRE(frame.value().frame.mediaFrames.empty());
   GRAPPLE_REQUIRE(frame.value().runtimeDiagnostics.empty());
   GRAPPLE_REQUIRE(frame.value().renderDiagnostics.empty());

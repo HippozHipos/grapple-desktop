@@ -128,6 +128,14 @@ std::string serializeCanonicalCommandPayload(const ProjectCommand& command) {
         writeIdProperty(stream, "containmentEdgeId", typedCommand.containmentEdgeId.value());
         stream << ",\"payload\":" << timeline::serializeCanonicalClipPayload(typedCommand.payload);
         stream << ",\"order\":" << typedCommand.order;
+      } else if constexpr (std::is_same_v<Command, CreateTextClipCommand>) {
+        writeIdProperty(stream, "nodeId", typedCommand.nodeId.value());
+        stream << ',';
+        writeIdProperty(stream, "trackNodeId", typedCommand.trackNodeId.value());
+        stream << ',';
+        writeIdProperty(stream, "containmentEdgeId", typedCommand.containmentEdgeId.value());
+        stream << ",\"payload\":" << timeline::serializeCanonicalTextClipPayload(typedCommand.payload);
+        stream << ",\"order\":" << typedCommand.order;
       } else if constexpr (std::is_same_v<Command, MoveClipCommand>) {
         writeIdProperty(stream, "nodeId", typedCommand.nodeId.value());
         stream << ",\"newStart\":" << typedCommand.newStart.value;
@@ -139,6 +147,9 @@ std::string serializeCanonicalCommandPayload(const ProjectCommand& command) {
         writeIdProperty(stream, "nodeId", typedCommand.nodeId.value());
         stream << ",\"transform\":" << timeline::serializeCanonicalTransform(typedCommand.transform);
         stream << ",\"playbackRate\":" << typedCommand.playbackRate;
+      } else if constexpr (std::is_same_v<Command, UpdateTextClipCommand>) {
+        writeIdProperty(stream, "nodeId", typedCommand.nodeId.value());
+        stream << ",\"payload\":" << timeline::serializeCanonicalTextClipPayload(typedCommand.payload);
       } else if constexpr (std::is_same_v<Command, DeleteClipCommand>) {
         writeIdProperty(stream, "nodeId", typedCommand.nodeId.value());
       } else if constexpr (std::is_same_v<Command, CreateCameraCommand>) {

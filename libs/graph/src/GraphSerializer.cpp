@@ -64,6 +64,9 @@ std::string serializePayload(const NodePayload& payload) {
       } else if constexpr (std::is_same_v<Payload, timeline::ClipPayload>) {
         foundation::writeJsonStringProperty(stream, "type", "clip");
         stream << ",\"payload\":" << timeline::serializeCanonicalClipPayload(typedPayload);
+      } else if constexpr (std::is_same_v<Payload, timeline::TextClipPayload>) {
+        foundation::writeJsonStringProperty(stream, "type", "text_clip");
+        stream << ",\"payload\":" << timeline::serializeCanonicalTextClipPayload(typedPayload);
       } else if constexpr (std::is_same_v<Payload, timeline::CameraPayload>) {
         foundation::writeJsonStringProperty(stream, "type", "camera");
         stream << ",\"payload\":" << timeline::serializeCanonicalCameraPayload(typedPayload);

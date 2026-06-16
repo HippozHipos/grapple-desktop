@@ -37,10 +37,6 @@ foundation::Result<void> validateProjectSnapshotReferences(const ProjectSnapshot
     if (node.kind != graph::NodeKind::Clip) {
       continue;
     }
-    const auto* payload = std::get_if<timeline::ClipPayload>(&node.payload);
-    if (payload == nullptr) {
-      return foundation::Error{"project.snapshot_clip_payload_invalid", "Snapshot clip nodes must carry clip payloads."};
-    }
     auto trackPayload = invariant::requireContainingTrackPayload(
       snapshot.graph,
       node.id,
@@ -56,28 +52,38 @@ foundation::Result<void> validateProjectSnapshotReferences(const ProjectSnapshot
     if (!trackPayload) {
       return trackPayload.error();
     }
-    auto trackKind = invariant::requireClipMatchesTrackKind(
-      *payload,
-      *trackPayload.value(),
-      "project.snapshot_clip_track_kind_mismatch",
-      "Snapshot clip kind must match its containing track kind."
-    );
-    if (!trackKind) {
-      return trackKind.error();
+    if (const auto* payload = std::get_if<timeline::ClipPayload>(&node.payload)) {
+      auto trackKind = invariant::requireClipMatchesTrackKind(
+        *payload,
+        *trackPayload.value(),
+        "project.snapshot_clip_track_kind_mismatch",
+        "Snapshot clip kind must match its containing track kind."
+      );
+      if (!trackKind) {
+        return trackKind.error();
+      }
+      const asset::Asset* asset = snapshot.assets.find(payload->assetId);
+      if (asset == nullptr) {
+        return foundation::Error{"project.snapshot_clip_asset_missing", "Snapshot clip assets must exist in the snapshot asset catalog."};
+      }
+      auto assetKind = invariant::requireClipMatchesAssetMediaType(
+        *payload,
+        *asset,
+        "project.snapshot_clip_asset_kind_mismatch",
+        "Snapshot clip kind must match the referenced asset media type."
+      );
+      if (!assetKind) {
+        return assetKind.error();
+      }
+      continue;
     }
-    const asset::Asset* asset = snapshot.assets.find(payload->assetId);
-    if (asset == nullptr) {
-      return foundation::Error{"project.snapshot_clip_asset_missing", "Snapshot clip assets must exist in the snapshot asset catalog."};
+    if (std::holds_alternative<timeline::TextClipPayload>(node.payload)) {
+      if (trackPayload.value()->kind != timeline::TrackKind::Visual) {
+        return foundation::Error{"project.snapshot_text_clip_track_kind_mismatch", "Snapshot text clips must be contained by visual tracks."};
+      }
+      continue;
     }
-    auto assetKind = invariant::requireClipMatchesAssetMediaType(
-      *payload,
-      *asset,
-      "project.snapshot_clip_asset_kind_mismatch",
-      "Snapshot clip kind must match the referenced asset media type."
-    );
-    if (!assetKind) {
-      return assetKind.error();
-    }
+    return foundation::Error{"project.snapshot_clip_payload_invalid", "Snapshot clip nodes must carry clip payloads."};
   }
   return {};
 }

@@ -24,9 +24,11 @@ enum class CommandKind {
   DeleteTrack,
   AddMediaToTimeline,
   CreateClip,
+  CreateTextClip,
   MoveClip,
   TrimClip,
   UpdateClip,
+  UpdateTextClip,
   DeleteClip,
   CreateCamera,
   UpdateCamera,
@@ -107,6 +109,14 @@ struct CreateClipCommand {
   std::int64_t order = 0;
 };
 
+struct CreateTextClipCommand {
+  foundation::NodeId nodeId;
+  foundation::NodeId trackNodeId;
+  foundation::EdgeId containmentEdgeId;
+  timeline::TextClipPayload payload;
+  std::int64_t order = 0;
+};
+
 struct MoveClipCommand {
   foundation::NodeId nodeId;
   foundation::TimeSeconds newStart;
@@ -122,6 +132,11 @@ struct UpdateClipCommand {
   foundation::NodeId nodeId;
   timeline::Transform2D transform;
   double playbackRate = 1.0;
+};
+
+struct UpdateTextClipCommand {
+  foundation::NodeId nodeId;
+  timeline::TextClipPayload payload;
 };
 
 struct DeleteClipCommand {
@@ -215,9 +230,11 @@ using ProjectCommand = std::variant<
   DeleteTrackCommand,
   AddMediaToTimelineCommand,
   CreateClipCommand,
+  CreateTextClipCommand,
   MoveClipCommand,
   TrimClipCommand,
   UpdateClipCommand,
+  UpdateTextClipCommand,
   DeleteClipCommand,
   CreateCameraCommand,
   UpdateCameraCommand,

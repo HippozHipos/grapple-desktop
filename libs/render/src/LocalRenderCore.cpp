@@ -23,6 +23,7 @@ std::string describeSample(const runtime::RuntimeSample& sample) {
   std::ostringstream description;
   description << "layers=" << sample.layers.size()
               << " clips=" << sample.clips.size()
+              << " textClips=" << sample.textClips.size()
               << " audioClips=" << sample.audioClips.size()
               << " cameras=" << sample.cameras.size()
               << " effects=" << sample.effectOutputs.size();
@@ -103,6 +104,24 @@ std::vector<RenderedAudioClip> buildAudioClips(const runtime::RuntimeSample& sam
   }
 
   return audioClips;
+}
+
+std::vector<RenderedTextFrame> buildTextFrames(const runtime::RuntimeSample& sample) {
+  std::vector<RenderedTextFrame> textFrames;
+  textFrames.reserve(sample.textClips.size());
+
+  for (const projection::RenderTextClip& clip : sample.textClips) {
+    const timeline::TextClipPayload& payload = clip.payload;
+    textFrames.push_back(RenderedTextFrame{
+      clip.sourceNodeId,
+      clip.trackNodeId,
+      payload.text,
+      payload.transform,
+      payload.style
+    });
+  }
+
+  return textFrames;
 }
 
 void applyCameraTransformOutputs(
@@ -392,6 +411,7 @@ foundation::Result<RenderFrameResult> renderSampleFrame(
   );
 
   const std::vector<RenderedMediaFrame> mediaFrames = buildMediaFrames(sample);
+  const std::vector<RenderedTextFrame> textFrames = buildTextFrames(sample);
   const std::vector<RenderedAudioClip> audioClips = buildAudioClips(sample);
   const std::vector<RenderedCamera> cameras = buildRenderedCameras(sample);
   auto image = buildRenderedImage(mediaFrames, request.quality, frameSource, outputResolution);
@@ -407,6 +427,7 @@ foundation::Result<RenderFrameResult> renderSampleFrame(
       request.time,
       describeSample(sample),
       mediaFrames,
+      textFrames,
       audioClips,
       cameras,
       std::move(transformedImage)

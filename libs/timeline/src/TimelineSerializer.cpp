@@ -330,6 +330,20 @@ std::string serializeCanonicalClipPayload(const ClipPayload& payload) {
   return stream.str();
 }
 
+std::string serializeCanonicalTextClipPayload(const TextClipPayload& payload) {
+  std::ostringstream stream;
+  stream << '{';
+  foundation::writeJsonStringProperty(stream, "text", payload.text);
+  stream << ",\"timelineRange\":" << serializeCanonicalTimeRange(payload.timelineRange);
+  stream << ",\"transform\":" << serializeCanonicalTransform(payload.transform);
+  stream << ",\"style\":{\"fontSize\":";
+  writeNumber(stream, payload.style.fontSize);
+  stream << ",\"color\":";
+  writeVec3(stream, payload.style.color);
+  stream << "}}";
+  return stream.str();
+}
+
 std::string serializeCanonicalEffectImplementation(const EffectImplementation& implementation) {
   std::ostringstream stream;
   stream << '{';

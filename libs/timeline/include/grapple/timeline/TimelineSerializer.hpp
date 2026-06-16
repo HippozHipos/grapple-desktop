@@ -20,6 +20,7 @@ std::string serializeCanonicalParamSet(const ParamSet& params);
 std::string serializeCanonicalRuntimeParamSet(const ParamSet& params);
 std::string serializeCanonicalCameraPayload(const CameraPayload& payload);
 std::string serializeCanonicalClipPayload(const ClipPayload& payload);
+std::string serializeCanonicalTextClipPayload(const TextClipPayload& payload);
 std::string serializeCanonicalEffectImplementation(const EffectImplementation& implementation);
 std::string serializeCanonicalEffectParams(const EffectPayload& payload);
 std::string serializeCanonicalRuntimeEffectParams(const EffectPayload& payload);

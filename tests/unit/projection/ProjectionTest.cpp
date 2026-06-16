@@ -144,6 +144,30 @@ int main() {
   });
   GRAPPLE_REQUIRE(createClip);
 
+  const auto createTextClip = controller.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_text_clip"},
+    foundation::ProjectId{"proj_projection"},
+    createClip.value().afterRevision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::CreateTextClipCommand{
+      foundation::NodeId{"node_text_clip"},
+      foundation::NodeId{"node_track"},
+      foundation::EdgeId{"edge_contains_text_clip"},
+      timeline::TextClipPayload{
+        "Title Card",
+        foundation::TimeRange{foundation::TimeSeconds{2.0}, foundation::TimeSeconds{6.0}},
+        timeline::Transform2D{
+          foundation::Vec2{0.0, 0.4},
+          foundation::Vec2{1.0, 1.0},
+          0.0,
+          1.0
+        },
+        timeline::TextClipStyle{44.0, foundation::Vec3{1.0, 1.0, 1.0}}
+      }
+    }
+  });
+  GRAPPLE_REQUIRE(createTextClip);
+
   const timeline::CameraPayload cameraPayload{
     "Camera",
     timeline::CameraState{
@@ -154,7 +178,7 @@ int main() {
   const auto createCamera = controller.apply(project::ProjectCommandEnvelope{
     foundation::CommandId{"cmd_camera"},
     foundation::ProjectId{"proj_projection"},
-    createClip.value().afterRevision,
+    createTextClip.value().afterRevision,
     project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
     project::CreateCameraCommand{
       foundation::NodeId{"node_camera"},
@@ -274,16 +298,20 @@ int main() {
   });
   GRAPPLE_REQUIRE(timelineResult);
   GRAPPLE_REQUIRE(timelineResult.value().timeline.projectId == foundation::ProjectId{"proj_projection"});
-  GRAPPLE_REQUIRE(timelineResult.value().timeline.revision == foundation::RevisionId{"rev_7"});
+  GRAPPLE_REQUIRE(timelineResult.value().timeline.revision == foundation::RevisionId{"rev_8"});
   GRAPPLE_REQUIRE(timelineResult.value().timeline.duration == foundation::TimeSeconds{10.0});
   GRAPPLE_REQUIRE(timelineResult.value().timeline.layers.size() == 1);
   GRAPPLE_REQUIRE(timelineResult.value().timeline.audioTracks.empty());
   GRAPPLE_REQUIRE(timelineResult.value().timeline.layers[0].sourceNodeId == foundation::NodeId{"node_track"});
   GRAPPLE_REQUIRE(timelineResult.value().timeline.clips.size() == 1);
+  GRAPPLE_REQUIRE(timelineResult.value().timeline.textClips.size() == 1);
   GRAPPLE_REQUIRE(timelineResult.value().timeline.audioClips.empty());
   GRAPPLE_REQUIRE(timelineResult.value().timeline.clips[0].sourceNodeId == foundation::NodeId{"node_clip"});
   GRAPPLE_REQUIRE(timelineResult.value().timeline.clips[0].trackNodeId == foundation::NodeId{"node_track"});
   GRAPPLE_REQUIRE(timelineResult.value().timeline.clips[0].payload.assetId == foundation::AssetId{"asset_walking_woman"});
+  GRAPPLE_REQUIRE(timelineResult.value().timeline.textClips[0].sourceNodeId == foundation::NodeId{"node_text_clip"});
+  GRAPPLE_REQUIRE(timelineResult.value().timeline.textClips[0].trackNodeId == foundation::NodeId{"node_track"});
+  GRAPPLE_REQUIRE(timelineResult.value().timeline.textClips[0].payload.text == "Title Card");
   GRAPPLE_REQUIRE(timelineResult.value().timeline.cameras.size() == 1);
   GRAPPLE_REQUIRE(timelineResult.value().timeline.cameras[0].sourceNodeId == foundation::NodeId{"node_camera"});
   GRAPPLE_REQUIRE(timelineResult.value().timeline.cameras[0].state.lens.focalLength == 35.0);
@@ -319,14 +347,16 @@ int main() {
   });
   GRAPPLE_REQUIRE(planResult);
   GRAPPLE_REQUIRE(planResult.value().plan.projectId == foundation::ProjectId{"proj_projection"});
-  GRAPPLE_REQUIRE(planResult.value().plan.revision == foundation::RevisionId{"rev_7"});
+  GRAPPLE_REQUIRE(planResult.value().plan.revision == foundation::RevisionId{"rev_8"});
   GRAPPLE_REQUIRE(planResult.value().plan.duration == foundation::TimeSeconds{10.0});
   GRAPPLE_REQUIRE(planResult.value().plan.layers.size() == 1);
   GRAPPLE_REQUIRE(planResult.value().plan.audioTracks.empty());
   GRAPPLE_REQUIRE(planResult.value().plan.layers[0].sourceNodeId == foundation::NodeId{"node_track"});
   GRAPPLE_REQUIRE(planResult.value().plan.clips.size() == 1);
+  GRAPPLE_REQUIRE(planResult.value().plan.textClips.size() == 1);
   GRAPPLE_REQUIRE(planResult.value().plan.audioClips.empty());
   GRAPPLE_REQUIRE(planResult.value().plan.clips[0].payload.timelineRange.end == foundation::TimeSeconds{10.0});
+  GRAPPLE_REQUIRE(planResult.value().plan.textClips[0].payload.style.fontSize == 44.0);
   GRAPPLE_REQUIRE(planResult.value().plan.cameras.size() == 1);
   GRAPPLE_REQUIRE(planResult.value().plan.effectGraphs.size() == 1);
   GRAPPLE_REQUIRE(planResult.value().plan.effectGraphs[0].id == foundation::GraphId{"effect_graph_node_camera"});
@@ -439,6 +469,7 @@ int main() {
   GRAPPLE_REQUIRE(projection::hashRenderPlan(displayOnlyPlan) == projection::hashRenderPlan(planResult.value().plan));
   GRAPPLE_REQUIRE(serializedPlan.find("\"projectId\":\"proj_projection\"") != std::string::npos);
   GRAPPLE_REQUIRE(serializedPlan.find("\"duration\":10") != std::string::npos);
+  GRAPPLE_REQUIRE(serializedPlan.find("\"textClips\":[{\"sourceNodeId\":\"node_text_clip\",\"trackNodeId\":\"node_track\",\"payload\":{\"text\":\"Title Card\"") != std::string::npos);
   GRAPPLE_REQUIRE(serializedPlan.find("\"inlineSource\":\"def prepare(ctx):\\n  return {'x': 1}\\n\"") != std::string::npos);
   GRAPPLE_REQUIRE(serializedPlan.find("\"kind\":\"shader\",\"entrypoint\":\"mainImage\"") != std::string::npos);
   GRAPPLE_REQUIRE(serializedPlan.find("\"language\":\"glsl\"") != std::string::npos);
@@ -622,6 +653,7 @@ int main() {
   projection::RenderPlan reorderedPlan = orderedPlan;
   std::reverse(reorderedPlan.layers.begin(), reorderedPlan.layers.end());
   std::reverse(reorderedPlan.clips.begin(), reorderedPlan.clips.end());
+  std::reverse(reorderedPlan.textClips.begin(), reorderedPlan.textClips.end());
   std::reverse(reorderedPlan.cameras.begin(), reorderedPlan.cameras.end());
   std::reverse(reorderedPlan.effectGraphs.begin(), reorderedPlan.effectGraphs.end());
 
@@ -649,7 +681,7 @@ int main() {
 
   const auto updateEffectParamValueResult = controller.apply(updateEffectParamValue);
   GRAPPLE_REQUIRE(updateEffectParamValueResult);
-  GRAPPLE_REQUIRE(updateEffectParamValueResult.value().afterRevision == foundation::RevisionId{"rev_8"});
+  GRAPPLE_REQUIRE(updateEffectParamValueResult.value().afterRevision == foundation::RevisionId{"rev_9"});
 
   const auto updatedSnapshot = controller.snapshot();
   GRAPPLE_REQUIRE(updatedSnapshot);
@@ -661,7 +693,7 @@ int main() {
     updatedTimeline.value().timeline
   });
   GRAPPLE_REQUIRE(updatedPlan);
-  GRAPPLE_REQUIRE(updatedPlan.value().plan.revision == foundation::RevisionId{"rev_8"});
+  GRAPPLE_REQUIRE(updatedPlan.value().plan.revision == foundation::RevisionId{"rev_9"});
   GRAPPLE_REQUIRE(updatedPlan.value().plan.effectGraphs.size() == 1);
   GRAPPLE_REQUIRE(updatedPlan.value().plan.effectGraphs[0].nodes.size() == 2);
   const auto updatedPythonEffect = std::find_if(

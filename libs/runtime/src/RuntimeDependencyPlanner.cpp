@@ -205,6 +205,21 @@ RuntimeDependencyGraph RuntimeDependencyPlanner::build(const projection::RenderP
     dependencies.push_back(RenderNodeDependency{clip.sourceNodeId, dependencyId});
   }
 
+  for (const projection::RenderTextClip& clip : plan.textClips) {
+    const RuntimeDependencyId dependencyId = dependencyIdFor(clip.sourceNodeId);
+    graph.nodes.push_back(RuntimeDependencyNode{
+      dependencyId,
+      clip.sourceNodeId,
+      projection::hashRenderTextClipImplementation(),
+      projection::hashRenderTextClipParams(clip),
+      {},
+      {},
+      {},
+      clip.payload.timelineRange
+    });
+    dependencies.push_back(RenderNodeDependency{clip.sourceNodeId, dependencyId});
+  }
+
   for (const projection::RenderAudioClip& clip : plan.audioClips) {
     const RuntimeDependencyId dependencyId = dependencyIdFor(clip.sourceNodeId);
     graph.nodes.push_back(RuntimeDependencyNode{
