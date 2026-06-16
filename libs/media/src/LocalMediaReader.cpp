@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <string>
 #include <utility>
+#include <vector>
 
 namespace grapple::media {
 
@@ -86,10 +87,11 @@ foundation::Result<MediaFrame> imageFrame(
 
 foundation::Result<MediaFrame> videoFrame(
   const MediaSource& source,
+  VideoDecodeSession& session,
   foundation::TimeSeconds time,
   std::optional<foundation::Resolution> targetResolution
 ) {
-  auto decoded = decodeVideoFrame(source.path, time, targetResolution);
+  auto decoded = session.frameAt(time, targetResolution);
   if (!decoded) {
     return decoded.error();
   }
@@ -109,7 +111,24 @@ struct LocalMediaReader::Impl {
   explicit Impl(const MediaSourceCatalog& sourceCatalog)
     : sources{sourceCatalog} {}
 
+  foundation::Result<VideoDecodeSession*> videoSessionFor(const MediaSource& source) {
+    for (auto& entry : videoSessions) {
+      if (entry.first == source.assetId) {
+        return &entry.second;
+      }
+    }
+
+    auto session = VideoDecodeSession::open(source.path);
+    if (!session) {
+      return session.error();
+    }
+
+    videoSessions.emplace_back(source.assetId, std::move(session.value()));
+    return &videoSessions.back().second;
+  }
+
   const MediaSourceCatalog& sources;
+  std::vector<std::pair<foundation::AssetId, VideoDecodeSession>> videoSessions;
 };
 
 LocalMediaReader::LocalMediaReader(const MediaSourceCatalog& sources)
@@ -139,7 +158,12 @@ foundation::Result<MediaFrame> LocalMediaReader::frameAt(
     return foundation::Error{"media.audio_frame_unsupported", "Audio sources do not provide video frames."};
   }
 
-  return videoFrame(*source, time, targetResolution);
+  auto session = impl_->videoSessionFor(*source);
+  if (!session) {
+    return session.error();
+  }
+
+  return videoFrame(*source, *session.value(), time, targetResolution);
 }
 
 foundation::Result<AudioBuffer> LocalMediaReader::audioRange(

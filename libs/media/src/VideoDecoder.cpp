@@ -12,6 +12,7 @@ extern "C" {
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <utility>
 
 namespace grapple::media {
 
@@ -189,49 +190,11 @@ foundation::TimeSeconds durationFor(const AVFormatContext& format, const AVStrea
   return foundation::TimeSeconds{0.0};
 }
 
-} // namespace
-
-foundation::Result<VideoMetadata> inspectVideoFile(const foundation::FilePath& path) {
-  auto opened = openVideo(path);
-  if (!opened) {
-    return opened.error();
-  }
-
-  const AVStream* stream = opened.value().format->streams[opened.value().streamIndex];
-  const int width = opened.value().codec->width;
-  const int height = opened.value().codec->height;
-  if (width <= 0 || height <= 0) {
-    return ffmpegError("media.video_metadata_invalid", "Video file metadata is incomplete for " + path.value + ".");
-  }
-
-  const foundation::TimeSeconds duration = durationFor(*opened.value().format, *stream);
-  if (duration.value <= 0.0) {
-    return ffmpegError("media.video_metadata_invalid", "Video file metadata is incomplete for " + path.value + ".");
-  }
-
-  return VideoMetadata{
-    duration,
-    foundation::Resolution{width, height},
-    frameRateFor(*stream)
-  };
-}
-
-foundation::Result<DecodedVideoFrame> decodeVideoFrame(
-  const foundation::FilePath& path,
-  foundation::TimeSeconds time,
+foundation::Result<DecodedVideoFrame> rgbaFrameFromDecoded(
+  const AVFrame& decoded,
   std::optional<foundation::Resolution> targetResolution
 ) {
-  auto opened = openVideo(path);
-  if (!opened) {
-    return opened.error();
-  }
-
-  auto decoded = decodeFrame(opened.value(), time);
-  if (!decoded) {
-    return decoded.error();
-  }
-
-  const foundation::Resolution sourceResolution{decoded.value()->width, decoded.value()->height};
+  const foundation::Resolution sourceResolution{decoded.width, decoded.height};
   const foundation::Resolution outputResolution = outputResolutionFor(sourceResolution, targetResolution);
   AvImageBuffer scaledImage;
   if (av_image_alloc(
@@ -246,9 +209,9 @@ foundation::Result<DecodedVideoFrame> decodeVideoFrame(
   }
 
   SwsContextPtr scaler{sws_getContext(
-    decoded.value()->width,
-    decoded.value()->height,
-    static_cast<AVPixelFormat>(decoded.value()->format),
+    decoded.width,
+    decoded.height,
+    static_cast<AVPixelFormat>(decoded.format),
     outputResolution.width,
     outputResolution.height,
     AV_PIX_FMT_RGBA,
@@ -263,10 +226,10 @@ foundation::Result<DecodedVideoFrame> decodeVideoFrame(
 
   const int scaledRows = sws_scale(
     scaler.get(),
-    decoded.value()->data,
-    decoded.value()->linesize,
+    decoded.data,
+    decoded.linesize,
     0,
-    decoded.value()->height,
+    decoded.height,
     scaledImage.data,
     scaledImage.lineSizes
   );
@@ -281,12 +244,99 @@ foundation::Result<DecodedVideoFrame> decodeVideoFrame(
   );
   const int packedLineSize = outputResolution.width * 4;
   for (int row = 0; row < outputResolution.height; ++row) {
-    const std::uint8_t* source = scaledImage.data[0] + static_cast<std::size_t>(row) * static_cast<std::size_t>(scaledImage.lineSizes[0]);
-    std::uint8_t* destination = rgbaPixels.data() + static_cast<std::size_t>(row) * static_cast<std::size_t>(packedLineSize);
+    const std::uint8_t* source =
+      scaledImage.data[0] + static_cast<std::size_t>(row) * static_cast<std::size_t>(scaledImage.lineSizes[0]);
+    std::uint8_t* destination =
+      rgbaPixels.data() + static_cast<std::size_t>(row) * static_cast<std::size_t>(packedLineSize);
     std::copy(source, source + packedLineSize, destination);
   }
 
   return DecodedVideoFrame{outputResolution, std::move(rgbaPixels)};
+}
+
+} // namespace
+
+struct VideoDecodeSession::Impl {
+  Impl(foundation::FilePath sourcePath, OpenVideo openVideo)
+    : path{std::move(sourcePath)},
+      video{std::move(openVideo)} {}
+
+  foundation::FilePath path;
+  OpenVideo video;
+};
+
+VideoDecodeSession::VideoDecodeSession(std::unique_ptr<Impl> impl)
+  : impl_{std::move(impl)} {}
+
+VideoDecodeSession::~VideoDecodeSession() = default;
+
+VideoDecodeSession::VideoDecodeSession(VideoDecodeSession&&) noexcept = default;
+
+VideoDecodeSession& VideoDecodeSession::operator=(VideoDecodeSession&&) noexcept = default;
+
+foundation::Result<VideoDecodeSession> VideoDecodeSession::open(const foundation::FilePath& path) {
+  auto opened = openVideo(path);
+  if (!opened) {
+    return opened.error();
+  }
+
+  return VideoDecodeSession{
+    std::make_unique<Impl>(path, std::move(opened.value()))
+  };
+}
+
+foundation::Result<VideoMetadata> VideoDecodeSession::metadata() const {
+  const AVStream* stream = impl_->video.format->streams[impl_->video.streamIndex];
+  const int width = impl_->video.codec->width;
+  const int height = impl_->video.codec->height;
+  if (width <= 0 || height <= 0) {
+    return ffmpegError("media.video_metadata_invalid", "Video file metadata is incomplete for " + impl_->path.value + ".");
+  }
+
+  const foundation::TimeSeconds duration = durationFor(*impl_->video.format, *stream);
+  if (duration.value <= 0.0) {
+    return ffmpegError("media.video_metadata_invalid", "Video file metadata is incomplete for " + impl_->path.value + ".");
+  }
+
+  return VideoMetadata{
+    duration,
+    foundation::Resolution{width, height},
+    frameRateFor(*stream)
+  };
+}
+
+foundation::Result<DecodedVideoFrame> VideoDecodeSession::frameAt(
+  foundation::TimeSeconds time,
+  std::optional<foundation::Resolution> targetResolution
+) {
+  auto decoded = decodeFrame(impl_->video, time);
+  if (!decoded) {
+    return decoded.error();
+  }
+
+  return rgbaFrameFromDecoded(*decoded.value(), targetResolution);
+}
+
+foundation::Result<VideoMetadata> inspectVideoFile(const foundation::FilePath& path) {
+  auto session = VideoDecodeSession::open(path);
+  if (!session) {
+    return session.error();
+  }
+
+  return session.value().metadata();
+}
+
+foundation::Result<DecodedVideoFrame> decodeVideoFrame(
+  const foundation::FilePath& path,
+  foundation::TimeSeconds time,
+  std::optional<foundation::Resolution> targetResolution
+) {
+  auto session = VideoDecodeSession::open(path);
+  if (!session) {
+    return session.error();
+  }
+
+  return session.value().frameAt(time, targetResolution);
 }
 
 } // namespace grapple::media

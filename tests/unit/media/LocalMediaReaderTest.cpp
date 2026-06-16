@@ -1,4 +1,5 @@
 #include <grapple/media/LocalMediaReader.hpp>
+#include <grapple/media/VideoDecoder.hpp>
 
 #include <TestAssert.hpp>
 
@@ -79,6 +80,18 @@ int main() {
   largeVideoFrame.setTo(cv::Scalar{20, 80, 220});
   largeWriter.write(largeVideoFrame);
   largeWriter.release();
+
+  auto decodeSession = media::VideoDecodeSession::open(foundation::FilePath{videoPath.string()});
+  GRAPPLE_REQUIRE(decodeSession);
+  const auto sessionMetadata = decodeSession.value().metadata();
+  GRAPPLE_REQUIRE(sessionMetadata);
+  GRAPPLE_REQUIRE((sessionMetadata.value().resolution == foundation::Resolution{32, 24}));
+  const auto sessionFirstFrame = decodeSession.value().frameAt(foundation::TimeSeconds{0.0});
+  GRAPPLE_REQUIRE(sessionFirstFrame);
+  GRAPPLE_REQUIRE(redDominant(sessionFirstFrame.value().rgbaPixels));
+  const auto sessionSecondFrame = decodeSession.value().frameAt(foundation::TimeSeconds{0.5});
+  GRAPPLE_REQUIRE(sessionSecondFrame);
+  GRAPPLE_REQUIRE(greenDominant(sessionSecondFrame.value().rgbaPixels));
 
   media::MediaSourceCatalog sources;
   const auto registerSource = sources.registerSource(media::MediaSource{
