@@ -10,8 +10,10 @@
 #include <grapple/jobs/JobScheduler.hpp>
 #include <grapple/media/MediaSource.hpp>
 #include <grapple/media/OpenCVMediaReader.hpp>
+#include <grapple/foundation/Time.hpp>
 
 #include <memory>
+#include <optional>
 #include <string>
 
 namespace grapple::app {
@@ -20,6 +22,14 @@ struct NativeWorkspaceWriteResult {
   NativePackageWriteResult project;
   foundation::FilePath agentRunsPath;
   foundation::FilePath agentEventsPath;
+};
+
+struct NativeWorkspaceMediaPlacementResult {
+  storage::ProjectPackageSessionResult packageResult;
+  foundation::NodeId compositionNodeId;
+  foundation::NodeId trackNodeId;
+  foundation::NodeId clipNodeId;
+  std::optional<foundation::NodeId> createdCameraNodeId;
 };
 
 class NativeWorkspaceSession final : public project::IProjectQueryService {
@@ -60,6 +70,11 @@ public:
   [[nodiscard]] media::MediaSourceCatalog& mediaSources() noexcept;
   [[nodiscard]] std::size_t cachedMediaFrameCount() const noexcept;
   foundation::Result<foundation::AssetId> importMediaFile(foundation::FilePath path);
+  foundation::Result<NativeWorkspaceMediaPlacementResult> placeMediaAssetOnTimeline(
+    foundation::AssetId assetId,
+    project::CommandSource source,
+    std::optional<foundation::TimeSeconds> duration = std::nullopt
+  );
 
   [[nodiscard]] foundation::Result<project::ProjectQueryResult> query(
     const project::ProjectQuery& query

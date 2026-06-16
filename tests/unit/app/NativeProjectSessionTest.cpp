@@ -3736,6 +3736,35 @@ int main() {
   GRAPPLE_REQUIRE(reopenedWorkspacePackage.value().project().packageState().snapshots.records().size() == 2);
   GRAPPLE_REQUIRE(reopenedWorkspacePackage.value().mediaSources().sources().size() == 1);
   GRAPPLE_REQUIRE(reopenedWorkspacePackage.value().mediaSources().sources()[0].path == foundation::FilePath{(workspacePackageRoot / workspaceImportedSourcePath.value).lexically_normal().string()});
+
+  const std::string placementPackageStem =
+    "grapple_workspace_placement_" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count());
+  const std::filesystem::path placementPackageRoot = std::filesystem::temp_directory_path() / placementPackageStem;
+  std::filesystem::remove_all(placementPackageRoot);
+  auto placementWorkspace = app::NativeWorkspaceSession::createPackageRoot(
+    foundation::FilePath{placementPackageRoot.string()},
+    "Workspace Placement"
+  );
+  GRAPPLE_REQUIRE(placementWorkspace);
+  const std::filesystem::path placementImportSource = writeTinyPpm("grapple_workspace_placement_import");
+  const auto placementAssetId = placementWorkspace.value().importMediaFile(
+    foundation::FilePath{placementImportSource.string()}
+  );
+  GRAPPLE_REQUIRE(placementAssetId);
+  auto placement = placementWorkspace.value().placeMediaAssetOnTimeline(placementAssetId.value(), userSource());
+  GRAPPLE_REQUIRE(placement);
+  GRAPPLE_REQUIRE(placement.value().createdCameraNodeId.has_value());
+  const auto placementViewModel = placementWorkspace.value().project().buildViewModel();
+  GRAPPLE_REQUIRE(placementViewModel);
+  GRAPPLE_REQUIRE(placementViewModel.value().timeline.clips.size() == 1);
+  GRAPPLE_REQUIRE(placementViewModel.value().timeline.clips[0].sourceNodeId == placement.value().clipNodeId);
+  GRAPPLE_REQUIRE(placementViewModel.value().timeline.cameras.size() == 1);
+  GRAPPLE_REQUIRE(placementViewModel.value().timeline.cameras[0].sourceNodeId == placement.value().createdCameraNodeId.value());
+  GRAPPLE_REQUIRE(placementWorkspace.value().project().packageState().commandLog.records().size() == 2);
+  GRAPPLE_REQUIRE(placementWorkspace.value().project().packageState().snapshots.records().size() == 3);
+  std::filesystem::remove(placementImportSource);
+  std::filesystem::remove_all(placementPackageRoot);
+
   auto duplicateWorkspacePackage = app::NativeWorkspaceSession::createPackageRoot(
     foundation::FilePath{workspacePackageRoot.string()},
     "Duplicate Workspace Package"

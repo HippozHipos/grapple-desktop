@@ -9,7 +9,6 @@
 #include <grapple/foundation/Hash.hpp>
 #include <grapple/graph/GraphEdge.hpp>
 #include <grapple/jobs/MainThreadDispatcher.hpp>
-#include <grapple/project/ProjectMediaPlacement.hpp>
 #include <grapple/render/RenderDiagnostic.hpp>
 #include <grapple/runtime/RuntimeDiagnostic.hpp>
 #include <grapple/timeline/Payloads.hpp>
@@ -2193,40 +2192,9 @@ public:
       return;
     }
 
-    auto snapshot = workspace_.project().snapshot();
-    if (!snapshot) {
-      appendError(snapshot.error());
-      return;
-    }
-
-    const grapple::asset::Asset* selectedAsset = snapshot.value().assets.find(selectedAssetId_.value());
-    if (selectedAsset == nullptr) {
-      appendError(grapple::foundation::Error{"desktop.asset_missing", "Selected media asset does not exist in the project."});
-      return;
-    }
-    auto compositions = grapple::project::inspectCompositions(snapshot.value());
-    if (!compositions) {
-      appendError(compositions.error());
-      return;
-    }
-    auto placement = grapple::project::buildMediaPlacementDraft(
-      workspace_.commandWriter(),
-      *selectedAsset,
-      std::nullopt,
-      std::nullopt,
-      compositions.value().compositions
-    );
+    auto placement = workspace_.placeMediaAssetOnTimeline(selectedAssetId_.value(), userSource());
     if (!placement) {
       appendError(placement.error());
-      return;
-    }
-
-    const auto result = workspace_.commandWriter().apply(
-      std::move(placement.value().command),
-      userSource()
-    );
-    if (!result) {
-      appendError(result.error());
       return;
     }
 

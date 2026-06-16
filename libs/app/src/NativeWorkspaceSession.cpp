@@ -8,6 +8,7 @@
 #include <grapple/media/CachingMediaReader.hpp>
 #include <grapple/media/FrameCache.hpp>
 #include <grapple/project/ProjectController.hpp>
+#include <grapple/project/ProjectMediaPlacement.hpp>
 #include <grapple/project/ProjectSnapshot.hpp>
 #include <grapple/render/LocalRenderSystem.hpp>
 #include <grapple/runtime/BuiltinEffectRuntime.hpp>
@@ -791,6 +792,60 @@ foundation::Result<foundation::AssetId> NativeWorkspaceSession::importMediaFile(
   }
 
   return assetId;
+}
+
+foundation::Result<NativeWorkspaceMediaPlacementResult> NativeWorkspaceSession::placeMediaAssetOnTimeline(
+  foundation::AssetId assetId,
+  project::CommandSource source,
+  std::optional<foundation::TimeSeconds> duration
+) {
+  auto snapshot = state_->project.snapshot();
+  if (!snapshot) {
+    return snapshot.error();
+  }
+
+  const asset::Asset* asset = snapshot.value().assets.find(assetId);
+  if (asset == nullptr) {
+    return foundation::Error{
+      "app.media_asset_missing",
+      "Media placement requires an asset that exists in the project."
+    };
+  }
+
+  auto compositions = project::inspectCompositions(snapshot.value());
+  if (!compositions) {
+    return compositions.error();
+  }
+
+  auto placement = project::buildMediaPlacementDraft(
+    state_->commandWriter,
+    *asset,
+    std::nullopt,
+    duration,
+    compositions.value().compositions
+  );
+  if (!placement) {
+    return placement.error();
+  }
+
+  project::MediaPlacementDraft draft = std::move(placement.value());
+  const foundation::NodeId compositionNodeId = draft.compositionNodeId;
+  const foundation::NodeId trackNodeId = draft.trackNodeId;
+  const foundation::NodeId clipNodeId = draft.clipNodeId;
+  const std::optional<foundation::NodeId> createdCameraNodeId = draft.createdCameraNodeId;
+
+  auto applied = state_->commandWriter.apply(std::move(draft.command), std::move(source));
+  if (!applied) {
+    return applied.error();
+  }
+
+  return NativeWorkspaceMediaPlacementResult{
+    std::move(applied.value()),
+    compositionNodeId,
+    trackNodeId,
+    clipNodeId,
+    createdCameraNodeId
+  };
 }
 
 foundation::Result<NativeWorkspaceWriteResult> NativeWorkspaceSession::writePackage() const {

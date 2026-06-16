@@ -3,7 +3,6 @@
 #include <grapple/app/NativeProjectSession.hpp>
 #include <grapple/app/NativePreviewSession.hpp>
 #include <grapple/app/NativeWorkspaceSession.hpp>
-#include <grapple/project/ProjectMediaPlacement.hpp>
 #include <grapple/projection/RenderPlanSerializer.hpp>
 #include <grapple/render/LocalRenderCore.hpp>
 #include <grapple/render/LocalRenderSystem.hpp>
@@ -48,45 +47,6 @@ grapple::project::CommandSource cliUserSource() {
     std::nullopt,
     "cli"
   };
-}
-
-grapple::foundation::Result<void> placeImportedMediaOnTimeline(
-  grapple::app::NativeWorkspaceSession& workspace,
-  const grapple::foundation::AssetId& assetId
-) {
-  auto snapshot = workspace.project().snapshot();
-  if (!snapshot) {
-    return snapshot.error();
-  }
-  const grapple::asset::Asset* asset = snapshot.value().assets.find(assetId);
-  if (asset == nullptr) {
-    return grapple::foundation::Error{
-      "cli.imported_asset_missing",
-      "Imported media asset is not present in the project snapshot."
-    };
-  }
-  auto compositions = grapple::project::inspectCompositions(snapshot.value());
-  if (!compositions) {
-    return compositions.error();
-  }
-  auto placement = grapple::project::buildMediaPlacementDraft(
-    workspace.commandWriter(),
-    *asset,
-    std::nullopt,
-    std::nullopt,
-    compositions.value().compositions
-  );
-  if (!placement) {
-    return placement.error();
-  }
-  auto applied = workspace.commandWriter().apply(
-    placement.value().command,
-    cliUserSource()
-  );
-  if (!applied) {
-    return applied.error();
-  }
-  return {};
 }
 
 grapple::foundation::Result<grapple::render::ExportSettings> exportSettingsForTimeline(
@@ -158,7 +118,7 @@ grapple::foundation::Result<grapple::render::FinalRenderResult> exportImportedMe
   if (!imported) {
     return imported.error();
   }
-  auto placement = placeImportedMediaOnTimeline(workspace.value(), imported.value());
+  auto placement = workspace.value().placeMediaAssetOnTimeline(imported.value(), cliUserSource());
   if (!placement) {
     return placement.error();
   }
