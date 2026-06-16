@@ -2778,11 +2778,11 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   if (exportSettingsSmoke) {
     window.show();
     app.processEvents();
-    const std::filesystem::path outputPath = smokeRoot / "export-settings.avi";
+    const std::filesystem::path outputPath = smokeRoot / "export-settings.mp4";
     std::filesystem::remove(outputPath);
     window.setExportResolutionControlValue(320, 180);
     window.setExportFrameRateControlValue(10.0);
-    window.setExportCodecControlValue("mjpeg");
+    window.setExportCodecControlValue("mp4v");
     window.startPlayback();
     const bool playbackStartedBeforeExport = window.pauseActionEnabled();
     const bool exportStarted = window.startExportVideoFile(grapple::foundation::FilePath{outputPath.string()});

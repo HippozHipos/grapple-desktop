@@ -20,7 +20,7 @@ namespace grapple::ui {
 struct ExportSettingsDraft {
   foundation::Resolution resolution{1920, 1080};
   foundation::FrameRate frameRate{30, 1};
-  render::Codec codec{"mjpeg"};
+  render::Codec codec{"mp4v"};
 };
 
 class ExportSettingsPanel final : public QWidget {

@@ -60,8 +60,8 @@ ExportSettingsPanel::ExportSettingsPanel(QWidget* parent)
   codecLabel->setMinimumWidth(92);
   codec_ = new QComboBox;
   codec_->setObjectName("exportSettingsCodec");
-  codec_->addItem("mjpeg");
   codec_->addItem("mp4v");
+  codec_->addItem("mjpeg");
   connect(codec_, &QComboBox::currentTextChanged, this, [this] { emitDraft(); });
   codecLayout->addWidget(codecLabel);
   codecLayout->addWidget(codec_, 1);

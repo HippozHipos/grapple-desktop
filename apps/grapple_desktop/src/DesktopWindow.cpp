@@ -3943,7 +3943,12 @@ private:
   }
 
   void chooseAndExportVideo() {
-    const QString path = QFileDialog::getSaveFileName(this, "Export Video", "grapple-export.avi", "AVI Video (*.avi)");
+    const QString path = QFileDialog::getSaveFileName(
+      this,
+      "Export Video",
+      "grapple-export.mp4",
+      "MP4 Video (*.mp4);;AVI Video (*.avi)"
+    );
     if (path.isEmpty()) {
       return;
     }
