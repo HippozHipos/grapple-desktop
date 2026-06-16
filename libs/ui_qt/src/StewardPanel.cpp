@@ -446,6 +446,12 @@ StewardPanel::StewardPanel(QWidget* parent)
     }
     applySuggestedRequest(suggestedRequests_->row(item));
   });
+  connect(suggestedRequests_, &QListWidget::itemActivated, this, [this](QListWidgetItem* item) {
+    if (item == nullptr) {
+      return;
+    }
+    applySuggestedRequest(suggestedRequests_->row(item));
+  });
 
   editSummary_ = new QLabel;
   editSummary_->setObjectName("stewardEditSummary");
