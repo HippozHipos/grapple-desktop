@@ -80,6 +80,7 @@ public:
   void clickStewardRecentEdit(int row);
   void clickStewardSuggestedRequest(int row);
   void applyStewardSuggestedRequest(int row);
+  void pressPlaybackShortcut();
   void startPlayback();
   void pausePlayback();
   void advancePlaybackFrame();

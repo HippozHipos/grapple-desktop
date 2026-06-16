@@ -2662,12 +2662,12 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     const bool beforePlayActionEnabled = window.playActionEnabled();
     const bool beforePauseActionEnabled = window.pauseActionEnabled();
     const bool beforeSeekActionEnabled = window.seekActionEnabled();
-    window.startPlayback();
+    window.pressPlaybackShortcut();
     const bool duringPlayActionEnabled = window.playActionEnabled();
     const bool duringPauseActionEnabled = window.pauseActionEnabled();
     const bool duringSeekActionEnabled = window.seekActionEnabled();
     window.advancePlaybackFrame();
-    window.pausePlayback();
+    window.pressPlaybackShortcut();
     const bool afterPausePlayActionEnabled = window.playActionEnabled();
     const bool afterPausePauseActionEnabled = window.pauseActionEnabled();
     const bool afterPauseSeekActionEnabled = window.seekActionEnabled();

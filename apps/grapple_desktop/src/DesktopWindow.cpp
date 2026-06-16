@@ -79,6 +79,16 @@ QString qString(const std::string& value) {
   return QString::fromStdString(value);
 }
 
+bool focusedWidgetConsumesSpace() {
+  const QWidget* focus = QApplication::focusWidget();
+  return focus != nullptr &&
+    (focus->inherits("QLineEdit") ||
+     focus->inherits("QTextEdit") ||
+     focus->inherits("QPlainTextEdit") ||
+     focus->inherits("QAbstractSpinBox") ||
+     focus->inherits("QComboBox"));
+}
+
 QString timeText(grapple::foundation::TimeSeconds time) {
   std::ostringstream output;
   output << std::fixed << std::setprecision(2) << time.value << "s";
@@ -1461,6 +1471,22 @@ public:
     QApplication::processEvents();
   }
 
+  void pressPlaybackShortcut() {
+    QKeyEvent press{
+      QEvent::KeyPress,
+      Qt::Key_Space,
+      Qt::NoModifier
+    };
+    QApplication::sendEvent(this, &press);
+    QKeyEvent release{
+      QEvent::KeyRelease,
+      Qt::Key_Space,
+      Qt::NoModifier
+    };
+    QApplication::sendEvent(this, &release);
+    QApplication::processEvents();
+  }
+
   void clickStewardPrimaryAction() {
     steward_->triggerPrimaryAction();
   }
@@ -1493,6 +1519,16 @@ public:
     updateActionAvailability();
   }
 
+  void togglePlayback() {
+    if (pauseActionEnabled()) {
+      pausePlayback();
+      return;
+    }
+    if (playActionEnabled()) {
+      startPlayback();
+    }
+  }
+
   void pausePlayback() {
     playbackTimer_->stop();
     const auto pause = workspace_.preview().pause();
@@ -1504,6 +1540,15 @@ public:
     renderCurrentFrame();
     refreshPlayheadEditControls();
     updateActionAvailability();
+  }
+
+  void keyPressEvent(QKeyEvent* event) override {
+    if (event->key() == Qt::Key_Space && !event->isAutoRepeat() && !focusedWidgetConsumesSpace()) {
+      togglePlayback();
+      event->accept();
+      return;
+    }
+    QMainWindow::keyPressEvent(event);
   }
 
   void advancePlaybackFrame() {
@@ -4062,6 +4107,10 @@ void DesktopWindow::clickStewardSuggestedRequest(int row) {
 
 void DesktopWindow::applyStewardSuggestedRequest(int row) {
   impl_->applyStewardSuggestedRequest(row);
+}
+
+void DesktopWindow::pressPlaybackShortcut() {
+  impl_->pressPlaybackShortcut();
 }
 
 void DesktopWindow::startPlayback() {
