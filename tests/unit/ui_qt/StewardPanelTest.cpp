@@ -136,6 +136,8 @@ int main(int argc, char** argv) {
   panel.triggerSuggestedRequest(0);
   GRAPPLE_REQUIRE(panel.intent() == "Center the subject with editable camera controls.");
   GRAPPLE_REQUIRE(panel.primaryActionText() == "Create Editable Camera Controls");
+  panel.applySuggestedRequest(0);
+  GRAPPLE_REQUIRE(cameraRouteCalled);
 
   auto editedViewModel = viewModelWithCamera();
   editedViewModel.steward.edits.push_back(grapple::app::AppStewardEditRow{

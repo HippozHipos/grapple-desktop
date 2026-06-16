@@ -13,6 +13,7 @@
 
 class QPushButton;
 class QListWidget;
+class QListWidgetItem;
 class QTextEdit;
 class QLabel;
 
@@ -108,6 +109,7 @@ public:
   [[nodiscard]] int suggestedRequestCount() const;
   [[nodiscard]] std::string suggestedRequestText(int row) const;
   void triggerSuggestedRequest(int row);
+  void applySuggestedRequest(int row);
 
 private:
   enum class PrimaryAction {
@@ -140,6 +142,7 @@ private:
   [[nodiscard]] bool intentHasText() const;
   [[nodiscard]] bool selectedTargetIntentTargetsSelection() const;
   [[nodiscard]] bool primaryActionCanRun() const;
+  void draftSuggestedRequest(QListWidgetItem* item);
 
   StartSampleHandler startSampleHandler_;
   AddCameraHandler addCameraHandler_;

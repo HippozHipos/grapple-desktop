@@ -78,6 +78,7 @@ public:
   void clickStewardPrimaryAction();
   void clickStewardRecentEdit(int row);
   void clickStewardSuggestedRequest(int row);
+  void applyStewardSuggestedRequest(int row);
   void startPlayback();
   void pausePlayback();
   void advancePlaybackFrame();

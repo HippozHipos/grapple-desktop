@@ -425,7 +425,7 @@ StewardPanel::StewardPanel(QWidget* parent)
     triggerPrimaryAction();
   });
 
-  suggestedRequestsLabel_ = new QLabel{"Suggested Requests"};
+  suggestedRequestsLabel_ = new QLabel{"Suggested Requests (double-click to apply)"};
   suggestedRequestsLabel_->setObjectName("panelTitle");
   layout->addWidget(suggestedRequestsLabel_);
 
@@ -438,11 +438,13 @@ StewardPanel::StewardPanel(QWidget* parent)
   suggestedRequests_->setMaximumHeight(88);
   layout->addWidget(suggestedRequests_);
   connect(suggestedRequests_, &QListWidget::itemClicked, this, [this](QListWidgetItem* item) {
+    draftSuggestedRequest(item);
+  });
+  connect(suggestedRequests_, &QListWidget::itemDoubleClicked, this, [this](QListWidgetItem* item) {
     if (item == nullptr) {
       return;
     }
-    setIntent(item->data(Qt::UserRole).toString().toStdString());
-    intent_->setFocus();
+    applySuggestedRequest(suggestedRequests_->row(item));
   });
 
   editSummary_ = new QLabel;
@@ -950,10 +952,17 @@ void StewardPanel::triggerSuggestedRequest(int row) {
     return;
   }
   suggestedRequests_->setCurrentRow(row);
-  auto* item = suggestedRequests_->item(row);
-  if (item != nullptr) {
-    setIntent(item->data(Qt::UserRole).toString().toStdString());
-    intent_->setFocus();
+  draftSuggestedRequest(suggestedRequests_->item(row));
+}
+
+void StewardPanel::applySuggestedRequest(int row) {
+  if (row < 0 || row >= suggestedRequests_->count()) {
+    return;
+  }
+  suggestedRequests_->setCurrentRow(row);
+  draftSuggestedRequest(suggestedRequests_->item(row));
+  if (primaryActionCanRun()) {
+    triggerPrimaryAction();
   }
 }
 
@@ -1025,19 +1034,19 @@ void StewardPanel::updateActionLabels() {
 
 void StewardPanel::updateIntentPlaceholder() {
   if (selectedClipTargetNodeId_.has_value()) {
-    intent_->setPlaceholderText("Try: \"tint selected clip red\", \"brighten selected clip\", \"move selected clip right\", \"speed up selected clip\", or \"delete selected clip\".");
+    intent_->setPlaceholderText("Try: \"tint selected clip red\", \"brighten selected clip\", \"move selected clip right\", \"speed up selected clip\", or \"delete selected clip\". Double-click a suggestion to apply it.");
     return;
   }
   if (selectedTextClipTargetNodeId_.has_value()) {
-    intent_->setPlaceholderText("Try: \"change title to \\\"Final Title\\\"\", \"move selected text up\", \"fade selected text\", or \"delete selected text\".");
+    intent_->setPlaceholderText("Try: \"change title to \\\"Final Title\\\"\", \"move selected text up\", \"fade selected text\", or \"delete selected text\". Double-click a suggestion to apply it.");
     return;
   }
   if (selectedTrackTargetNodeId_.has_value()) {
-    intent_->setPlaceholderText("Try: \"delete selected track\".");
+    intent_->setPlaceholderText("Try: \"delete selected track\". Double-click a suggestion to apply it.");
     return;
   }
   if (selectedNoteTargetNodeId_.has_value()) {
-    intent_->setPlaceholderText("Try: \"update note to \\\"Keep zoom exposed as a user-editable control\\\"\".");
+    intent_->setPlaceholderText("Try: \"update note to \\\"Keep zoom exposed as a user-editable control\\\"\". Double-click a suggestion to apply it.");
     return;
   }
   switch (primaryAction_) {
@@ -1303,6 +1312,14 @@ bool StewardPanel::primaryActionCanRun() const {
   }
 
   return false;
+}
+
+void StewardPanel::draftSuggestedRequest(QListWidgetItem* item) {
+  if (item == nullptr) {
+    return;
+  }
+  setIntent(item->data(Qt::UserRole).toString().toStdString());
+  intent_->setFocus();
 }
 
 } // namespace grapple::ui

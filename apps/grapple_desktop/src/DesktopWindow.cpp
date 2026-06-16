@@ -1463,6 +1463,10 @@ public:
     steward_->triggerSuggestedRequest(row);
   }
 
+  void applyStewardSuggestedRequest(int row) {
+    steward_->applySuggestedRequest(row);
+  }
+
   void showEffectControls() {
     detailTabs_->setCurrentWidget(effectParamsScroll_);
   }
@@ -3995,6 +3999,10 @@ void DesktopWindow::clickStewardRecentEdit(int row) {
 
 void DesktopWindow::clickStewardSuggestedRequest(int row) {
   impl_->clickStewardSuggestedRequest(row);
+}
+
+void DesktopWindow::applyStewardSuggestedRequest(int row) {
+  impl_->applyStewardSuggestedRequest(row);
 }
 
 void DesktopWindow::startPlayback() {

@@ -1791,7 +1791,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     const std::string intentAfterSuggestion = window.stewardIntent();
     const std::string primaryActionText = window.stewardPrimaryActionText();
     const bool primaryActionEnabled = window.stewardPrimaryActionEnabled();
-    window.clickStewardPrimaryAction();
+    window.applyStewardSuggestedRequest(0);
     const std::string firstSuggestionAfterEffect = window.stewardSuggestedRequestText(0);
     const auto viewModel = workspace.value().project().buildViewModel();
     if (!viewModel) {
