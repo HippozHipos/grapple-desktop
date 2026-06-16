@@ -466,6 +466,21 @@ bool clipIntentMentionsClipTarget(const std::string& normalized) {
          containsAsciiWord(normalized, "layer");
 }
 
+bool clipDeleteIntentRequestsClip(const std::string& normalized) {
+  const bool deleteRequested =
+    containsAsciiWord(normalized, "delete") ||
+    containsAsciiWord(normalized, "remove");
+  if (!deleteRequested) {
+    return false;
+  }
+  return containsAsciiWord(normalized, "selected") ||
+         containsAsciiWord(normalized, "clip") ||
+         containsAsciiWord(normalized, "video") ||
+         containsAsciiWord(normalized, "text") ||
+         containsAsciiWord(normalized, "title") ||
+         containsAsciiWord(normalized, "caption");
+}
+
 bool clipIntentRequestsMoveLater(const std::string& normalized) {
   return containsAsciiWord(normalized, "later") ||
          containsText(normalized, "move forward");
@@ -767,6 +782,9 @@ bool NativeStewardPlanner::cameraIntentRequestsExplicitMotion(const std::string&
 
 bool NativeStewardPlanner::clipEditIntentTargetsClip(const std::string& intent) const {
   const std::string normalized = lowercaseAscii(intent);
+  if (clipDeleteIntentRequestsClip(normalized)) {
+    return false;
+  }
   if (!clipIntentMentionsClipTarget(normalized)) {
     return false;
   }
@@ -781,6 +799,10 @@ bool NativeStewardPlanner::clipEditIntentTargetsClip(const std::string& intent) 
     },
     intent
   ));
+}
+
+bool NativeStewardPlanner::clipDeleteIntentTargetsClip(const std::string& intent) const {
+  return clipDeleteIntentRequestsClip(lowercaseAscii(intent));
 }
 
 bool NativeStewardPlanner::textClipIntentTargetsText(const std::string& intent) const {

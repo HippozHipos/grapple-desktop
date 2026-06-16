@@ -25,6 +25,7 @@ public:
   using CreateCameraEffectHandler = std::function<void(std::string)>;
   using AdjustCameraControlsHandler = std::function<void(foundation::NodeId, std::string)>;
   using EditSelectedClipHandler = std::function<void(foundation::NodeId, std::string)>;
+  using TryDeleteSelectedClipHandler = std::function<bool(foundation::NodeId, std::string)>;
   using TryEditSelectedClipHandler = std::function<bool(foundation::NodeId, std::string)>;
   using EditSelectedTextClipHandler = std::function<void(foundation::NodeId, std::string)>;
   using TryEditSelectedTextClipHandler = std::function<bool(foundation::NodeId, std::string)>;
@@ -43,6 +44,7 @@ public:
   void setCreateCameraEffectHandler(CreateCameraEffectHandler handler);
   void setAdjustCameraControlsHandler(AdjustCameraControlsHandler handler);
   void setEditSelectedClipHandler(EditSelectedClipHandler handler);
+  void setTryDeleteSelectedClipHandler(TryDeleteSelectedClipHandler handler);
   void setTryEditSelectedClipHandler(TryEditSelectedClipHandler handler);
   void setEditSelectedTextClipHandler(EditSelectedTextClipHandler handler);
   void setTryEditSelectedTextClipHandler(TryEditSelectedTextClipHandler handler);
@@ -86,6 +88,7 @@ private:
   void updateActionButtons();
   void updateActionLabels();
   void updateIntentPlaceholder();
+  [[nodiscard]] bool tryDeleteSelectedClipFromPrimaryAction();
   [[nodiscard]] bool tryEditSelectedClipFromPrimaryAction();
   [[nodiscard]] bool tryEditSelectedTextClipFromPrimaryAction();
   [[nodiscard]] bool tryEditSelectedNoteFromPrimaryAction();
@@ -102,6 +105,7 @@ private:
   CreateCameraEffectHandler createCameraEffectHandler_;
   AdjustCameraControlsHandler adjustCameraControlsHandler_;
   EditSelectedClipHandler editSelectedClipHandler_;
+  TryDeleteSelectedClipHandler tryDeleteSelectedClipHandler_;
   TryEditSelectedClipHandler tryEditSelectedClipHandler_;
   EditSelectedTextClipHandler editSelectedTextClipHandler_;
   TryEditSelectedTextClipHandler tryEditSelectedTextClipHandler_;

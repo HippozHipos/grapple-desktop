@@ -31,6 +31,7 @@ constexpr const char CanonicalCreateTextClipToolId[] = "timeline.create_text_cli
 constexpr const char CanonicalUpdateTextClipToolId[] = "timeline.update_text_clip";
 constexpr const char CanonicalCreateNoteToolId[] = "note.create";
 constexpr const char CanonicalUpdateNoteToolId[] = "note.update";
+constexpr const char CanonicalDeleteClipToolId[] = "timeline.delete_clip";
 constexpr const char CanonicalMoveClipToolId[] = "timeline.move_clip";
 constexpr const char CanonicalTrimClipToolId[] = "timeline.trim_clip";
 constexpr const char CanonicalUpdateClipTransformToolId[] = "timeline.update_clip_transform";
@@ -212,6 +213,10 @@ foundation::ToolId stewardUpdateNoteToolCallIdForRun(const foundation::RunId& ru
   return foundation::ToolId{"tool_steward_update_note_" + std::to_string(stewardRunNumber(runId))};
 }
 
+foundation::ToolId stewardDeleteClipToolCallIdForRun(const foundation::RunId& runId) {
+  return foundation::ToolId{"tool_steward_delete_clip_" + std::to_string(stewardRunNumber(runId))};
+}
+
 foundation::ToolId stewardClipMoveToolCallIdForRun(const foundation::RunId& runId) {
   return foundation::ToolId{"tool_steward_clip_move_" + std::to_string(stewardRunNumber(runId))};
 }
@@ -348,6 +353,14 @@ std::string clipTransformArgumentsPayload(
   foundation::writeJsonStringProperty(arguments, "clipNodeId", clipNodeId.value());
   arguments << ',';
   writeTransformArguments(arguments, transform);
+  arguments << '}';
+  return arguments.str();
+}
+
+std::string clipDeleteArgumentsPayload(const foundation::NodeId& clipNodeId) {
+  std::ostringstream arguments;
+  arguments << '{';
+  foundation::writeJsonStringProperty(arguments, "clipNodeId", clipNodeId.value());
   arguments << '}';
   return arguments.str();
 }
@@ -1019,6 +1032,100 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::e
   return packageResult.value();
 }
 
+foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::deleteClip(
+  foundation::NodeId clipNodeId,
+  std::string intent
+) {
+  auto snapshot = project_.snapshot();
+  if (!snapshot) {
+    return snapshot.error();
+  }
+
+  if (!planner_.clipDeleteIntentTargetsClip(intent)) {
+    return foundation::Error{
+      "steward.clip_delete_intent_mismatch",
+      "Steward clip deletion requires an explicit delete or remove request for the selected clip."
+    };
+  }
+
+  auto runId = startRun(snapshot.value(), intent);
+  if (!runId) {
+    return runId.error();
+  }
+
+  const graph::GraphNode* clipNode = snapshot.value().graph.findNode(clipNodeId);
+  if (clipNode == nullptr || clipNode->kind != graph::NodeKind::Clip) {
+    const foundation::Error error{"steward.clip_missing", "Steward clip deletion requires an existing clip node."};
+    auto finished = finishRunWithError(runId.value(), error);
+    if (!finished) {
+      return finished.error();
+    }
+    return error;
+  }
+
+  auto message = appendEvent(
+    runId.value(),
+    agent::AgentRunEventKind::ModelMessage,
+    modelMessagePayload("assistant", "Deleting the selected timeline clip.")
+  );
+  if (!message) {
+    return message.error();
+  }
+
+  std::optional<storage::ProjectPackageSessionResult> packageResult;
+  CommittingAgentCommandService stewardCommands{project_, commandWriter_, intent, packageResult};
+  agent::AgentToolRegistry registry;
+  auto registered = agent::registerProjectTools(registry);
+  if (!registered) {
+    auto finished = finishRunWithError(runId.value(), registered.error());
+    if (!finished) {
+      return finished.error();
+    }
+    return registered.error();
+  }
+
+  agent::AgentToolContext toolContext{stewardCommands, project_, commandWriter_};
+  agent::AgentBridge bridge{registry, toolContext, events_, nextSequence_};
+  auto dispatched = bridge.dispatchToolCall(agent::AgentToolDispatchRequest{
+    runId.value(),
+    snapshot.value().info.id,
+    snapshot.value().revision,
+    stewardDeleteClipToolCallIdForRun(runId.value()),
+    CanonicalDeleteClipToolId,
+    clipDeleteArgumentsPayload(clipNodeId)
+  });
+  if (!dispatched) {
+    auto finished = finishRunWithError(runId.value(), dispatched.error());
+    if (!finished) {
+      return finished.error();
+    }
+    return dispatched.error();
+  }
+  if (!packageResult.has_value()) {
+    const foundation::Error error{
+      "steward.clip_delete_result_missing",
+      "Steward clip delete tool succeeded without a committed package result."
+    };
+    auto finished = finishRunWithError(runId.value(), error);
+    if (!finished) {
+      return finished.error();
+    }
+    return error;
+  }
+
+  auto runFinished = appendEvent(
+    runId.value(),
+    agent::AgentRunEventKind::RunFinished,
+    runFinishedPayload("succeeded", "Deleted selected timeline clip.")
+  );
+  if (!runFinished) {
+    return runFinished.error();
+  }
+
+  markRunStatus(runId.value(), agent::AgentRunStatus::Succeeded);
+  return packageResult.value();
+}
+
 foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::editTextClip(
   foundation::NodeId clipNodeId,
   std::string intent
@@ -1229,6 +1336,10 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::e
 
 bool NativeStewardSession::clipEditIntentTargetsClip(const std::string& intent) const {
   return planner_.clipEditIntentTargetsClip(intent);
+}
+
+bool NativeStewardSession::clipDeleteIntentTargetsClip(const std::string& intent) const {
+  return planner_.clipDeleteIntentTargetsClip(intent);
 }
 
 bool NativeStewardSession::textClipIntentTargetsText(const std::string& intent) const {

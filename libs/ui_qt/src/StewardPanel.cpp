@@ -257,6 +257,9 @@ StewardPanel::StewardPanel(QWidget* parent)
   primaryActionButton_->setObjectName("stewardPrimaryAction");
   layout->addWidget(primaryActionButton_);
   connect(primaryActionButton_, &QPushButton::clicked, this, [this] {
+    if (tryDeleteSelectedClipFromPrimaryAction()) {
+      return;
+    }
     if (tryEditSelectedClipFromPrimaryAction()) {
       return;
     }
@@ -324,6 +327,14 @@ StewardPanel::StewardPanel(QWidget* parent)
   selectedTargetActionButton_->setObjectName("stewardSelectedTargetAction");
   layout->addWidget(selectedTargetActionButton_);
   connect(selectedTargetActionButton_, &QPushButton::clicked, this, [this] {
+    if (tryDeleteSelectedClipHandler_ && selectedClipTargetNodeId_.has_value() &&
+        tryDeleteSelectedClipHandler_(selectedClipTargetNodeId_.value(), intent())) {
+      return;
+    }
+    if (tryDeleteSelectedClipHandler_ && selectedTextClipTargetNodeId_.has_value() &&
+        tryDeleteSelectedClipHandler_(selectedTextClipTargetNodeId_.value(), intent())) {
+      return;
+    }
     if (editSelectedClipHandler_ && selectedClipTargetNodeId_.has_value()) {
       editSelectedClipHandler_(selectedClipTargetNodeId_.value(), intent());
     } else if (editSelectedTextClipHandler_ && selectedTextClipTargetNodeId_.has_value()) {
@@ -389,6 +400,10 @@ void StewardPanel::setAdjustCameraControlsHandler(AdjustCameraControlsHandler ha
 
 void StewardPanel::setEditSelectedClipHandler(EditSelectedClipHandler handler) {
   editSelectedClipHandler_ = std::move(handler);
+}
+
+void StewardPanel::setTryDeleteSelectedClipHandler(TryDeleteSelectedClipHandler handler) {
+  tryDeleteSelectedClipHandler_ = std::move(handler);
 }
 
 void StewardPanel::setTryEditSelectedClipHandler(TryEditSelectedClipHandler handler) {
@@ -538,11 +553,11 @@ void StewardPanel::setViewModel(
   }
   if (selectedClipTargetNodeId_.has_value()) {
     lines << QString{"Clip target: %1"}.arg(clipName(viewModel, selectedClipTargetNodeId_.value()));
-    lines << "Clip route: mention clip/video, or use the clip action, to update clip parameters.";
+    lines << "Clip route: mention clip/video to update clip parameters, or delete/remove to delete it.";
   }
   if (selectedTextClipTargetNodeId_.has_value()) {
     lines << QString{"Text target: %1"}.arg(textClipName(viewModel, selectedTextClipTargetNodeId_.value()));
-    lines << "Text route: use the text action to update text clip parameters.";
+    lines << "Text route: use the text action to update text clip parameters, or delete/remove to delete it.";
   }
   if (selectedNoteTargetNodeId_.has_value()) {
     lines << QString{"Note target: %1"}.arg(noteName(viewModel, selectedNoteTargetNodeId_.value()));
@@ -727,7 +742,10 @@ void StewardPanel::updateActionLabels() {
 }
 
 void StewardPanel::updateIntentPlaceholder() {
-  const bool selectedTargetActionAvailable = selectedClipTargetNodeId_.has_value();
+  const bool selectedTargetActionAvailable =
+    selectedClipTargetNodeId_.has_value() ||
+    selectedTextClipTargetNodeId_.has_value() ||
+    selectedNoteTargetNodeId_.has_value();
   switch (primaryAction_) {
     case PrimaryAction::ImportMedia:
       intent_->setPlaceholderText("Try: \"add note \\\"Camera rationale\\\" saying Keep zoom editable\", or import media to start the timeline.");
@@ -763,6 +781,19 @@ void StewardPanel::updateIntentPlaceholder() {
       intent_->setPlaceholderText("Try: \"add note \\\"Camera rationale\\\" saying Keep zoom editable\", or select media, a clip, or a camera.");
       return;
   }
+}
+
+bool StewardPanel::tryDeleteSelectedClipFromPrimaryAction() {
+  if (!intentHasText() || !tryDeleteSelectedClipHandler_) {
+    return false;
+  }
+  if (selectedClipTargetNodeId_.has_value()) {
+    return tryDeleteSelectedClipHandler_(selectedClipTargetNodeId_.value(), intent());
+  }
+  if (selectedTextClipTargetNodeId_.has_value()) {
+    return tryDeleteSelectedClipHandler_(selectedTextClipTargetNodeId_.value(), intent());
+  }
+  return false;
 }
 
 bool StewardPanel::tryEditSelectedClipFromPrimaryAction() {
@@ -846,10 +877,12 @@ bool StewardPanel::selectedTargetActionCanRun() const {
     return false;
   }
   if (selectedClipTargetNodeId_.has_value()) {
-    return static_cast<bool>(editSelectedClipHandler_);
+    return static_cast<bool>(editSelectedClipHandler_) ||
+           static_cast<bool>(tryDeleteSelectedClipHandler_);
   }
   if (selectedTextClipTargetNodeId_.has_value()) {
-    return static_cast<bool>(editSelectedTextClipHandler_);
+    return static_cast<bool>(editSelectedTextClipHandler_) ||
+           static_cast<bool>(tryDeleteSelectedClipHandler_);
   }
   return selectedNoteTargetNodeId_.has_value() &&
          static_cast<bool>(editSelectedNoteHandler_);

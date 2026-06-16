@@ -158,6 +158,27 @@ foundation::Result<std::string> nodeDisplayName(
   return nodeId.value();
 }
 
+foundation::Result<std::string> nodeDisplayNameAtRevision(
+  const std::vector<project::ProjectSnapshot>& snapshotDocuments,
+  const foundation::RevisionId& revision,
+  const foundation::NodeId& nodeId
+) {
+  const auto snapshot = std::find_if(
+    snapshotDocuments.begin(),
+    snapshotDocuments.end(),
+    [&](const project::ProjectSnapshot& value) {
+      return value.revision == revision;
+    }
+  );
+  if (snapshot == snapshotDocuments.end()) {
+    return foundation::Error{
+      "app.snapshot_revision_missing",
+      "Command provenance requires the snapshot at revision " + revision.value() + "."
+    };
+  }
+  return nodeDisplayName(*snapshot, nodeId);
+}
+
 struct EffectTargetDisplay {
   foundation::NodeId targetNodeId;
   std::string targetName;
@@ -749,6 +770,20 @@ foundation::Result<AppCommandProvenance> appCommandProvenance(
           intent,
           "Text=" + updateText->payload.text +
             ", Font=" + numberDisplayText(updateText->payload.style.fontSize)
+        });
+      } else if (const auto* deleteClip = std::get_if<project::DeleteClipCommand>(&parsedCommand.value())) {
+        auto targetName = nodeDisplayNameAtRevision(snapshotDocuments, command.beforeRevision, deleteClip->nodeId);
+        if (!targetName) {
+          return targetName.error();
+        }
+        provenance.stewardEdits.push_back(AppStewardEditRow{
+          command.id,
+          command.afterRevision,
+          deleteClip->nodeId,
+          targetName.value(),
+          "Clip Delete",
+          intent,
+          "Deleted"
         });
       } else if (const auto* createNote = std::get_if<project::CreateNoteCommand>(&parsedCommand.value())) {
         provenance.stewardEdits.push_back(AppStewardEditRow{

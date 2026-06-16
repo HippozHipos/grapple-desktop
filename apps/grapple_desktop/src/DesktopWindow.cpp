@@ -784,6 +784,12 @@ public:
     ) {
       editSelectedClipWithSteward(std::move(clipNodeId), std::move(intent));
     });
+    steward_->setTryDeleteSelectedClipHandler([this](
+      grapple::foundation::NodeId clipNodeId,
+      std::string intent
+    ) {
+      return deleteSelectedClipWithPrimaryIntent(std::move(clipNodeId), std::move(intent));
+    });
     steward_->setTryEditSelectedClipHandler([this](
       grapple::foundation::NodeId clipNodeId,
       std::string intent
@@ -2635,6 +2641,36 @@ public:
     }
 
     editSelectedClipWithSteward(std::move(clipNodeId), std::move(intent));
+    return true;
+  }
+
+  void deleteSelectedClipWithSteward(
+    grapple::foundation::NodeId clipNodeId,
+    std::string intent
+  ) {
+    const auto deleted = workspace_.steward().deleteClip(clipNodeId, std::move(intent));
+    if (!deleted) {
+      appendError(deleted.error());
+      refreshViewModel();
+      return;
+    }
+
+    selectedNodeId_ = std::nullopt;
+    selectedAssetId_ = std::nullopt;
+    refreshViewModelAndPreview();
+    steward_->setIntent({});
+    log_->append("Steward deleted selected clip");
+  }
+
+  bool deleteSelectedClipWithPrimaryIntent(
+    grapple::foundation::NodeId clipNodeId,
+    std::string intent
+  ) {
+    if (!workspace_.steward().clipDeleteIntentTargetsClip(intent)) {
+      return false;
+    }
+
+    deleteSelectedClipWithSteward(std::move(clipNodeId), std::move(intent));
     return true;
   }
 

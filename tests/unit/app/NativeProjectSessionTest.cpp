@@ -279,6 +279,10 @@ int main() {
   GRAPPLE_REQUIRE(stewardPlanner.clipEditIntentTargetsClip("shorten selected clip"));
   GRAPPLE_REQUIRE(!stewardPlanner.clipEditIntentTargetsClip("slowly pan right"));
   GRAPPLE_REQUIRE(!stewardPlanner.clipEditIntentTargetsClip("make clip cinematic"));
+  GRAPPLE_REQUIRE(stewardPlanner.clipDeleteIntentTargetsClip("delete selected clip"));
+  GRAPPLE_REQUIRE(stewardPlanner.clipDeleteIntentTargetsClip("remove selected title"));
+  GRAPPLE_REQUIRE(!stewardPlanner.clipEditIntentTargetsClip("delete selected clip"));
+  GRAPPLE_REQUIRE(!stewardPlanner.clipDeleteIntentTargetsClip("make clip smaller"));
   const auto mixedClipEdit =
     stewardPlanner.clipEditForIntent(
       plannedClipInput,
@@ -1614,6 +1618,73 @@ int main() {
   GRAPPLE_REQUIRE(reopenedStewardMediaViewModel.value().steward.edits[6].editName == "Text Clip");
   GRAPPLE_REQUIRE(reopenedStewardMediaViewModel.value().steward.edits[6].intent == "Change title to \"Final Title\" and make font smaller.");
   std::filesystem::remove_all(stewardMediaPackageRoot);
+
+  const std::filesystem::path stewardDeletePackageRoot =
+    std::filesystem::temp_directory_path() /
+    ("grapple_native_app_steward_delete_" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+  app::NativeProjectSession stewardDeleteProject{
+    foundation::ProjectId{"proj_app_steward_delete"},
+    "Steward Delete Project",
+    storage::ProjectPackage{
+      foundation::ProjectId{"proj_app_steward_delete"},
+      foundation::FilePath{stewardDeletePackageRoot.string()},
+      storage::CurrentProjectPackageSchemaVersion
+    }
+  };
+  auto stewardDeleteWorkspace = app::NativeWorkspaceSession::fromProject(std::move(stewardDeleteProject));
+  GRAPPLE_REQUIRE(stewardDeleteWorkspace);
+  const auto stewardDeleteAsset = stewardDeleteWorkspace.value().commandWriter().apply(
+    project::RegisterAssetCommand{
+      asset::Asset{
+        foundation::AssetId{"asset_steward_delete_video"},
+        "Steward Delete Video",
+        asset::AssetMetadata{
+          asset::AssetMediaType::Video,
+          foundation::FilePath{"/tmp/steward-delete-video.avi"},
+          std::nullopt,
+          foundation::TimeSeconds{4.0},
+          foundation::Resolution{640, 360},
+          foundation::FrameRate{30, 1}
+        }
+      }
+    },
+    userSource()
+  );
+  GRAPPLE_REQUIRE(stewardDeleteAsset);
+  const auto stewardDeletePlacement = stewardDeleteWorkspace.value().steward().placeAssetOnTimeline(
+    foundation::AssetId{"asset_steward_delete_video"}
+  );
+  GRAPPLE_REQUIRE(stewardDeletePlacement);
+  const auto stewardDelete = stewardDeleteWorkspace.value().steward().deleteClip(
+    stewardDeletePlacement.value().clipNodeId,
+    "Delete selected clip."
+  );
+  GRAPPLE_REQUIRE(stewardDelete);
+  GRAPPLE_REQUIRE(stewardDelete.value().snapshot.revision == foundation::RevisionId{"rev_3"});
+  const agent::AgentConversationState stewardDeleteConversation =
+    stewardDeleteWorkspace.value().steward().conversationState();
+  GRAPPLE_REQUIRE(stewardDeleteConversation.diagnostics.empty());
+  GRAPPLE_REQUIRE(stewardDeleteConversation.runs.size() == 2);
+  GRAPPLE_REQUIRE(stewardDeleteConversation.runs[1].status == agent::AgentRunStatus::Succeeded);
+  GRAPPLE_REQUIRE(stewardDeleteConversation.runs[1].summary == "Deleted selected timeline clip.");
+  GRAPPLE_REQUIRE(stewardDeleteConversation.runs[1].messages.size() == 1);
+  GRAPPLE_REQUIRE(stewardDeleteConversation.runs[1].messages[0].content == "Deleting the selected timeline clip.");
+  GRAPPLE_REQUIRE(stewardDeleteConversation.runs[1].toolCalls.size() == 1);
+  GRAPPLE_REQUIRE(stewardDeleteConversation.runs[1].toolCalls[0].toolSerializedId == "timeline.delete_clip");
+  GRAPPLE_REQUIRE(stewardDeleteConversation.runs[1].toolCalls[0].toolDisplayName == "Delete Timeline Clip");
+  GRAPPLE_REQUIRE(stewardDeleteConversation.runs[1].toolCalls[0].toolCallId == foundation::ToolId{"tool_steward_delete_clip_2"});
+  GRAPPLE_REQUIRE(stewardDeleteConversation.runs[1].toolCalls[0].observedRevision == foundation::RevisionId{"rev_3"});
+  const auto stewardDeleteViewModel = stewardDeleteWorkspace.value().project().buildViewModel();
+  GRAPPLE_REQUIRE(stewardDeleteViewModel);
+  GRAPPLE_REQUIRE(stewardDeleteViewModel.value().timeline.clips.empty());
+  GRAPPLE_REQUIRE(stewardDeleteViewModel.value().steward.edits.size() == 2);
+  GRAPPLE_REQUIRE(stewardDeleteViewModel.value().steward.edits[1].revision == foundation::RevisionId{"rev_3"});
+  GRAPPLE_REQUIRE(stewardDeleteViewModel.value().steward.edits[1].targetNodeId == stewardDeletePlacement.value().clipNodeId);
+  GRAPPLE_REQUIRE(stewardDeleteViewModel.value().steward.edits[1].targetName == "Steward Delete Video");
+  GRAPPLE_REQUIRE(stewardDeleteViewModel.value().steward.edits[1].editName == "Clip Delete");
+  GRAPPLE_REQUIRE(stewardDeleteViewModel.value().steward.edits[1].intent == "Delete selected clip.");
+  GRAPPLE_REQUIRE(stewardDeleteViewModel.value().steward.edits[1].controlSummary == "Deleted");
+  std::filesystem::remove_all(stewardDeletePackageRoot);
 
   app::NativeProjectSession runtimeProject{
     foundation::ProjectId{"proj_app_runtime"},
