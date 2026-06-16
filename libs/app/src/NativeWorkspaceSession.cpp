@@ -29,7 +29,7 @@ namespace grapple::app {
 
 namespace {
 
-constexpr std::size_t MediaFrameCacheBytes = 256 * 1024 * 1024;
+constexpr std::size_t MediaFrameCacheBytes = 64 * 1024 * 1024;
 
 project::CommandSource importerSource() {
   return project::CommandSource{

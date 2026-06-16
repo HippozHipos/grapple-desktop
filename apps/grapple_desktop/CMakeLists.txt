@@ -11,6 +11,10 @@ set_target_properties(grapple_desktop PROPERTIES
   OUTPUT_NAME grapple
 )
 
+add_custom_command(TARGET grapple_desktop POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E rm -f "$<TARGET_FILE_DIR:grapple_desktop>/grapple_desktop"
+)
+
 target_compile_definitions(grapple_desktop
   PRIVATE
     GRAPPLE_NATIVE_VERSION="${PROJECT_VERSION}"
