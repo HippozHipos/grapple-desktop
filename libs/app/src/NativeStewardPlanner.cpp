@@ -209,6 +209,17 @@ bool cameraTransformDeleteIntentRequestsControls(const std::string& normalized) 
          containsAsciiWord(normalized, "framing");
 }
 
+bool trackDeleteIntentRequestsTrack(const std::string& normalized) {
+  const bool deleteRequested =
+    containsAsciiWord(normalized, "delete") ||
+    containsAsciiWord(normalized, "remove");
+  if (!deleteRequested) {
+    return false;
+  }
+  return containsAsciiWord(normalized, "track") ||
+         containsAsciiWord(normalized, "layer");
+}
+
 bool textIntentRequestsText(const std::string& normalized) {
   return containsAsciiWord(normalized, "title") ||
          containsAsciiWord(normalized, "text") ||
@@ -838,6 +849,10 @@ bool NativeStewardPlanner::clipEditIntentTargetsClip(const std::string& intent) 
 
 bool NativeStewardPlanner::clipDeleteIntentTargetsClip(const std::string& intent) const {
   return clipDeleteIntentRequestsClip(lowercaseAscii(intent));
+}
+
+bool NativeStewardPlanner::trackDeleteIntentTargetsTrack(const std::string& intent) const {
+  return trackDeleteIntentRequestsTrack(lowercaseAscii(intent));
 }
 
 bool NativeStewardPlanner::textClipIntentTargetsText(const std::string& intent) const {

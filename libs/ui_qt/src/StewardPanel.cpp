@@ -123,6 +123,39 @@ std::optional<foundation::NodeId> selectedNoteNodeId(
   return selectedNote->sourceNodeId;
 }
 
+std::optional<foundation::NodeId> selectedTrackNodeId(
+  const app::AppViewModel& viewModel,
+  const std::optional<foundation::NodeId>& selectedNodeId
+) {
+  if (!selectedNodeId.has_value()) {
+    return std::nullopt;
+  }
+
+  const auto selectedLayer = std::find_if(
+    viewModel.timeline.layers.begin(),
+    viewModel.timeline.layers.end(),
+    [&](const app::AppLayerRow& layer) {
+      return layer.sourceNodeId == selectedNodeId.value();
+    }
+  );
+  if (selectedLayer != viewModel.timeline.layers.end()) {
+    return selectedLayer->sourceNodeId;
+  }
+
+  const auto selectedAudioTrack = std::find_if(
+    viewModel.timeline.audioTracks.begin(),
+    viewModel.timeline.audioTracks.end(),
+    [&](const app::AppLayerRow& track) {
+      return track.sourceNodeId == selectedNodeId.value();
+    }
+  );
+  if (selectedAudioTrack != viewModel.timeline.audioTracks.end()) {
+    return selectedAudioTrack->sourceNodeId;
+  }
+
+  return std::nullopt;
+}
+
 QString cameraName(
   const app::AppViewModel& viewModel,
   const foundation::NodeId& cameraNodeId
@@ -169,6 +202,23 @@ QString noteName(
     }
   }
   return qString(noteNodeId.value());
+}
+
+QString trackName(
+  const app::AppViewModel& viewModel,
+  const foundation::NodeId& trackNodeId
+) {
+  for (const app::AppLayerRow& layer : viewModel.timeline.layers) {
+    if (layer.sourceNodeId == trackNodeId) {
+      return qString(layer.name);
+    }
+  }
+  for (const app::AppLayerRow& track : viewModel.timeline.audioTracks) {
+    if (track.sourceNodeId == trackNodeId) {
+      return qString(track.name);
+    }
+  }
+  return qString(trackNodeId.value());
 }
 
 QString assetName(
@@ -263,6 +313,9 @@ StewardPanel::StewardPanel(QWidget* parent)
     if (tryDeleteSelectedClipFromPrimaryAction()) {
       return;
     }
+    if (tryDeleteSelectedTrackFromPrimaryAction()) {
+      return;
+    }
     if (tryEditSelectedClipFromPrimaryAction()) {
       return;
     }
@@ -339,6 +392,10 @@ StewardPanel::StewardPanel(QWidget* parent)
     }
     if (tryDeleteSelectedClipHandler_ && selectedTextClipTargetNodeId_.has_value() &&
         tryDeleteSelectedClipHandler_(selectedTextClipTargetNodeId_.value(), intent())) {
+      return;
+    }
+    if (tryDeleteSelectedTrackHandler_ && selectedTrackTargetNodeId_.has_value() &&
+        tryDeleteSelectedTrackHandler_(selectedTrackTargetNodeId_.value(), intent())) {
       return;
     }
     if (editSelectedClipHandler_ && selectedClipTargetNodeId_.has_value()) {
@@ -424,6 +481,10 @@ void StewardPanel::setTryDeleteSelectedClipHandler(TryDeleteSelectedClipHandler 
   tryDeleteSelectedClipHandler_ = std::move(handler);
 }
 
+void StewardPanel::setTryDeleteSelectedTrackHandler(TryDeleteSelectedTrackHandler handler) {
+  tryDeleteSelectedTrackHandler_ = std::move(handler);
+}
+
 void StewardPanel::setTryEditSelectedClipHandler(TryEditSelectedClipHandler handler) {
   tryEditSelectedClipHandler_ = std::move(handler);
 }
@@ -465,10 +526,12 @@ void StewardPanel::setViewModel(
   const std::optional<foundation::NodeId> cameraTargetId = app::stewardCameraTargetId(viewModel, selectedNodeId);
   selectedClipTargetNodeId_ = selectedVisualClipNodeId(viewModel, selectedNodeId);
   selectedTextClipTargetNodeId_ = selectedTextClipNodeId(viewModel, selectedNodeId);
+  selectedTrackTargetNodeId_ = selectedTrackNodeId(viewModel, selectedNodeId);
   selectedNoteTargetNodeId_ = selectedNoteNodeId(viewModel, selectedNodeId);
   selectedTargetActionButton_->setVisible(
     selectedClipTargetNodeId_.has_value() ||
     selectedTextClipTargetNodeId_.has_value() ||
+    selectedTrackTargetNodeId_.has_value() ||
     selectedNoteTargetNodeId_.has_value()
   );
   primaryTargetCameraNodeId_ = cameraTargetId;
@@ -509,12 +572,15 @@ void StewardPanel::setViewModel(
   const bool selectedTargetActionAvailable =
     selectedClipTargetNodeId_.has_value() ||
     selectedTextClipTargetNodeId_.has_value() ||
+    selectedTrackTargetNodeId_.has_value() ||
     selectedNoteTargetNodeId_.has_value();
   const QString targetChoiceStep = selectedTextClipTargetNodeId_.has_value()
     ? "Next: type a camera request, or use the text action to edit the selected text clip."
     : selectedNoteTargetNodeId_.has_value()
       ? "Next: type a camera request, or use the note action to edit the selected note."
-      : "Next: type a camera request, or mention clip/video to edit the selected clip.";
+      : selectedTrackTargetNodeId_.has_value()
+        ? "Next: type a camera request, or use the track action to delete the selected track."
+        : "Next: type a camera request, or mention clip/video to edit the selected clip.";
   switch (primaryAction_) {
     case PrimaryAction::ImportMedia:
       nextStep = "Next: import media to start the timeline.";
@@ -568,6 +634,10 @@ void StewardPanel::setViewModel(
   }
   if (cameraTargetId.has_value()) {
     lines << QString{"Camera target: %1"}.arg(cameraName(viewModel, cameraTargetId.value()));
+  }
+  if (selectedTrackTargetNodeId_.has_value()) {
+    lines << QString{"Track target: %1"}.arg(trackName(viewModel, selectedTrackTargetNodeId_.value()));
+    lines << "Track route: delete/remove to delete the selected track.";
   }
   if (selectedClipTargetNodeId_.has_value()) {
     lines << QString{"Clip target: %1"}.arg(clipName(viewModel, selectedClipTargetNodeId_.value()));
@@ -755,7 +825,9 @@ void StewardPanel::updateActionLabels() {
       ? (hasIntent ? "Apply Request To Text" : "Type Request To Edit Text")
       : selectedNoteTargetNodeId_.has_value()
         ? (hasIntent ? "Apply Request To Note" : "Type Request To Edit Note")
-        : (hasIntent ? "Apply Request To Clip" : "Type Request To Edit Clip")
+        : selectedTrackTargetNodeId_.has_value()
+          ? (hasIntent ? "Apply Request To Track" : "Type Request To Delete Track")
+          : (hasIntent ? "Apply Request To Clip" : "Type Request To Edit Clip")
   );
 }
 
@@ -763,6 +835,7 @@ void StewardPanel::updateIntentPlaceholder() {
   const bool selectedTargetActionAvailable =
     selectedClipTargetNodeId_.has_value() ||
     selectedTextClipTargetNodeId_.has_value() ||
+    selectedTrackTargetNodeId_.has_value() ||
     selectedNoteTargetNodeId_.has_value();
   switch (primaryAction_) {
     case PrimaryAction::ImportMedia:
@@ -812,6 +885,16 @@ bool StewardPanel::tryDeleteSelectedClipFromPrimaryAction() {
     return tryDeleteSelectedClipHandler_(selectedTextClipTargetNodeId_.value(), intent());
   }
   return false;
+}
+
+bool StewardPanel::tryDeleteSelectedTrackFromPrimaryAction() {
+  if (!selectedTrackTargetNodeId_.has_value() ||
+      !intentHasText() ||
+      !tryDeleteSelectedTrackHandler_) {
+    return false;
+  }
+
+  return tryDeleteSelectedTrackHandler_(selectedTrackTargetNodeId_.value(), intent());
 }
 
 bool StewardPanel::tryUndoLastEditFromPrimaryAction() {
@@ -928,6 +1011,9 @@ bool StewardPanel::selectedTargetActionCanRun() const {
   if (selectedTextClipTargetNodeId_.has_value()) {
     return static_cast<bool>(editSelectedTextClipHandler_) ||
            static_cast<bool>(tryDeleteSelectedClipHandler_);
+  }
+  if (selectedTrackTargetNodeId_.has_value()) {
+    return static_cast<bool>(tryDeleteSelectedTrackHandler_);
   }
   return selectedNoteTargetNodeId_.has_value() &&
          static_cast<bool>(editSelectedNoteHandler_);

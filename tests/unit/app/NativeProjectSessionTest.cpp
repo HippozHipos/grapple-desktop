@@ -291,6 +291,10 @@ int main() {
   GRAPPLE_REQUIRE(stewardPlanner.clipDeleteIntentTargetsClip("remove selected title"));
   GRAPPLE_REQUIRE(!stewardPlanner.clipEditIntentTargetsClip("delete selected clip"));
   GRAPPLE_REQUIRE(!stewardPlanner.clipDeleteIntentTargetsClip("make clip smaller"));
+  GRAPPLE_REQUIRE(stewardPlanner.trackDeleteIntentTargetsTrack("delete selected track"));
+  GRAPPLE_REQUIRE(stewardPlanner.trackDeleteIntentTargetsTrack("remove selected layer"));
+  GRAPPLE_REQUIRE(!stewardPlanner.trackDeleteIntentTargetsTrack("delete selected clip"));
+  GRAPPLE_REQUIRE(!stewardPlanner.trackDeleteIntentTargetsTrack("make track louder"));
   const auto mixedClipEdit =
     stewardPlanner.clipEditForIntent(
       plannedClipInput,
@@ -3271,6 +3275,55 @@ int main() {
   GRAPPLE_REQUIRE(stewardUndoConversation.runs[2].toolCalls.empty());
   GRAPPLE_REQUIRE(stewardUndoConversation.runs[2].messages.size() == 1);
   GRAPPLE_REQUIRE(stewardUndoConversation.runs[2].messages[0].content == "Undoing the last committed project edit.");
+
+  app::NativeProjectSession trackDeleteSession{
+    foundation::ProjectId{"proj_app_steward_track_delete"},
+    "Steward Track Delete Project",
+    storage::ProjectPackage{
+      foundation::ProjectId{"proj_app_steward_track_delete"},
+      foundation::FilePath{"steward-track-delete.grapple"},
+      storage::CurrentProjectPackageSchemaVersion
+    }
+  };
+  app::NativeProjectCommandWriter trackDeleteWriter{trackDeleteSession};
+  const foundation::NodeId trackDeleteCompositionNodeId = trackDeleteWriter.nextNodeId("composition");
+  const auto trackDeleteComposition = trackDeleteWriter.apply(
+    project::CreateCompositionCommand{trackDeleteCompositionNodeId, "Main"},
+    userSource()
+  );
+  GRAPPLE_REQUIRE(trackDeleteComposition);
+  const foundation::NodeId trackDeleteTrackNodeId = trackDeleteWriter.nextNodeId("track");
+  const auto trackDeleteTrack = trackDeleteWriter.apply(
+    project::CreateTrackCommand{
+      trackDeleteTrackNodeId,
+      trackDeleteCompositionNodeId,
+      trackDeleteWriter.nextEdgeId("contains_track"),
+      "Video 1",
+      timeline::TrackKind::Visual
+    },
+    userSource()
+  );
+  GRAPPLE_REQUIRE(trackDeleteTrack);
+  app::NativeStewardSession trackDeleteSteward{trackDeleteSession, trackDeleteWriter};
+  auto stewardTrackDelete = trackDeleteSteward.deleteTrack(trackDeleteTrackNodeId, "Delete selected track.");
+  GRAPPLE_REQUIRE(stewardTrackDelete);
+  GRAPPLE_REQUIRE(stewardTrackDelete.value().snapshot.revision == foundation::RevisionId{"rev_3"});
+  const auto stewardTrackDeleteViewModel = trackDeleteSession.buildViewModel();
+  GRAPPLE_REQUIRE(stewardTrackDeleteViewModel);
+  GRAPPLE_REQUIRE(stewardTrackDeleteViewModel.value().timeline.layers.empty());
+  GRAPPLE_REQUIRE(stewardTrackDeleteViewModel.value().steward.edits.size() == 1);
+  GRAPPLE_REQUIRE(stewardTrackDeleteViewModel.value().steward.edits[0].editName == "Track Delete");
+  GRAPPLE_REQUIRE(stewardTrackDeleteViewModel.value().steward.edits[0].targetName == "Video 1");
+  GRAPPLE_REQUIRE(stewardTrackDeleteViewModel.value().steward.edits[0].controlSummary == "Deleted");
+  const history::CommandRecord& trackDeleteCommand = trackDeleteSession.packageState().commandLog.records().back();
+  GRAPPLE_REQUIRE(trackDeleteCommand.serializedName == "project.delete_track");
+  GRAPPLE_REQUIRE(trackDeleteCommand.sourceKind == "agent");
+  GRAPPLE_REQUIRE(trackDeleteCommand.sourceActorName == "steward");
+  GRAPPLE_REQUIRE(trackDeleteCommand.sourceRunId == foundation::RunId{"run_steward_1"});
+  const auto stewardTrackDeleteConversation = trackDeleteSteward.conversationState();
+  GRAPPLE_REQUIRE(stewardTrackDeleteConversation.runs.size() == 1);
+  GRAPPLE_REQUIRE(stewardTrackDeleteConversation.runs[0].toolCalls.size() == 1);
+  GRAPPLE_REQUIRE(stewardTrackDeleteConversation.runs[0].toolCalls[0].toolSerializedId == "timeline.delete_track");
 
   const std::string workspacePackageStem =
     "grapple_workspace_package_" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count());

@@ -187,6 +187,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   bool stewardZoomMotionSmoke = false;
   bool stewardClipTransformSmoke = false;
   bool stewardUndoSmoke = false;
+  bool stewardDeleteTrackSmoke = false;
   bool stewardDeleteClipSmoke = false;
   bool stewardDeleteCameraControlsSmoke = false;
   bool deleteEffectSmoke = false;
@@ -280,6 +281,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       stewardClipTransformSmoke = true;
     } else if (argument == "--steward-undo-smoke") {
       stewardUndoSmoke = true;
+    } else if (argument == "--steward-delete-track-smoke") {
+      stewardDeleteTrackSmoke = true;
     } else if (argument == "--steward-delete-clip-smoke") {
       stewardDeleteClipSmoke = true;
     } else if (argument == "--steward-delete-camera-controls-smoke") {
@@ -315,7 +318,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     } else if (argument == "--effect-screenshot" && index + 1 < argc) {
       effectScreenshotPath = argv[++index];
     } else {
-      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --select-audio-clip-smoke, --select-audio-track-smoke, --select-camera-smoke, --select-second-camera-smoke, --steward-smoke, --import-smoke, --import-media-types-smoke, --add-video-smoke, --empty-add-video-smoke, --empty-add-video-undo-smoke, --empty-add-text-smoke, --empty-add-track-smoke, --empty-add-camera-smoke, --update-camera-smoke, --add-note-smoke, --update-note-smoke, --move-clip-smoke, --trim-clip-smoke, --clip-timing-panel-smoke, --nudge-clip-smoke, --undo-redo-smoke, --add-effect-smoke, --clip-effect-controls-smoke, --steward-submit-shortcut-smoke, --steward-text-clip-smoke, --steward-note-smoke, --set-effect-param-smoke, --effect-keyframe-smoke, --steward-motion-smoke, --steward-zoom-motion-smoke, --steward-clip-transform-smoke, --steward-undo-smoke, --steward-delete-clip-smoke, --steward-delete-camera-controls-smoke, --delete-effect-smoke, --delete-smoke, --delete-track-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, --new-package-smoke, --export-settings-smoke, --product-loop-smoke, --empty-launch-smoke, --empty-save-smoke, --open-package <path>, --new-package <path>, --screenshot <path>, or --effect-screenshot <path>.\n";
+      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --select-audio-clip-smoke, --select-audio-track-smoke, --select-camera-smoke, --select-second-camera-smoke, --steward-smoke, --import-smoke, --import-media-types-smoke, --add-video-smoke, --empty-add-video-smoke, --empty-add-video-undo-smoke, --empty-add-text-smoke, --empty-add-track-smoke, --empty-add-camera-smoke, --update-camera-smoke, --add-note-smoke, --update-note-smoke, --move-clip-smoke, --trim-clip-smoke, --clip-timing-panel-smoke, --nudge-clip-smoke, --undo-redo-smoke, --add-effect-smoke, --clip-effect-controls-smoke, --steward-submit-shortcut-smoke, --steward-text-clip-smoke, --steward-note-smoke, --set-effect-param-smoke, --effect-keyframe-smoke, --steward-motion-smoke, --steward-zoom-motion-smoke, --steward-clip-transform-smoke, --steward-undo-smoke, --steward-delete-track-smoke, --steward-delete-clip-smoke, --steward-delete-camera-controls-smoke, --delete-effect-smoke, --delete-smoke, --delete-track-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, --new-package-smoke, --export-settings-smoke, --product-loop-smoke, --empty-launch-smoke, --empty-save-smoke, --open-package <path>, --new-package <path>, --screenshot <path>, or --effect-screenshot <path>.\n";
       return 1;
     }
   }
@@ -365,6 +368,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     stewardMotionSmoke ||
     stewardZoomMotionSmoke ||
     stewardUndoSmoke ||
+    stewardDeleteTrackSmoke ||
     deleteEffectSmoke ||
     deleteSmoke ||
     deleteTrackSmoke ||
@@ -2302,6 +2306,50 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "tracks=" << viewModel.value().timeline.layers.size()
               << " clips=" << viewModel.value().timeline.clips.size() << '\n';
     return viewModel.value().timeline.layers.empty() && viewModel.value().timeline.clips.empty() ? 0 : 1;
+  }
+
+  if (stewardDeleteTrackSmoke) {
+    window.show();
+    app.processEvents();
+    window.clickFirstTimelineTrack();
+    const std::string selectedTargetActionText = window.stewardSelectedTargetActionText();
+    window.setStewardIntent("Delete selected track.");
+    const bool selectedTargetActionEnabled = window.stewardSelectedTargetActionEnabled();
+    window.clickStewardSelectedTargetAction();
+    const auto viewModel = workspace.value().project().buildViewModel();
+    if (!viewModel) {
+      printError(viewModel.error());
+      return 1;
+    }
+    const auto conversation = workspace.value().steward().conversationState();
+    const std::string steward = window.stewardContents();
+    const std::string log = window.logContents();
+    std::cout << "revision=" << viewModel.value().project.revision.value() << '\n';
+    std::cout << "layers=" << viewModel.value().timeline.layers.size() << '\n';
+    std::cout << "clips=" << viewModel.value().timeline.clips.size() << '\n';
+    std::cout << "cameras=" << viewModel.value().timeline.cameras.size() << '\n';
+    std::cout << "selectedTargetActionText=" << selectedTargetActionText << '\n';
+    std::cout << "selectedTargetActionEnabled=" << (selectedTargetActionEnabled ? "true" : "false") << '\n';
+    std::cout << "runs=" << conversation.runs.size() << '\n';
+    std::cout << "steward=" << steward << '\n';
+    std::cout << "log=" << log << '\n';
+    return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_6"} &&
+           viewModel.value().timeline.layers.empty() &&
+           viewModel.value().timeline.clips.empty() &&
+           viewModel.value().timeline.cameras.size() == 1 &&
+           !window.selectedNodeId().has_value() &&
+           window.stewardIntent().empty() &&
+           selectedTargetActionText == "Type Request To Delete Track" &&
+           selectedTargetActionEnabled &&
+           conversation.runs.size() == 1 &&
+           conversation.runs[0].toolCalls.size() == 1 &&
+           conversation.runs[0].toolCalls[0].toolSerializedId == "timeline.delete_track" &&
+           steward.find("Track Delete") != std::string::npos &&
+           steward.find("Delete selected track.") != std::string::npos &&
+           steward.find("Delete Timeline Track -> succeeded") != std::string::npos &&
+           log.find("Steward deleted selected track") != std::string::npos
+      ? 0
+      : 1;
   }
 
   if (playbackSmoke) {

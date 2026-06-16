@@ -29,6 +29,7 @@ public:
   using AdjustCameraControlsHandler = std::function<void(foundation::NodeId, std::string)>;
   using EditSelectedClipHandler = std::function<void(foundation::NodeId, std::string)>;
   using TryDeleteSelectedClipHandler = std::function<bool(foundation::NodeId, std::string)>;
+  using TryDeleteSelectedTrackHandler = std::function<bool(foundation::NodeId, std::string)>;
   using TryEditSelectedClipHandler = std::function<bool(foundation::NodeId, std::string)>;
   using EditSelectedTextClipHandler = std::function<void(foundation::NodeId, std::string)>;
   using TryEditSelectedTextClipHandler = std::function<bool(foundation::NodeId, std::string)>;
@@ -51,6 +52,7 @@ public:
   void setAdjustCameraControlsHandler(AdjustCameraControlsHandler handler);
   void setEditSelectedClipHandler(EditSelectedClipHandler handler);
   void setTryDeleteSelectedClipHandler(TryDeleteSelectedClipHandler handler);
+  void setTryDeleteSelectedTrackHandler(TryDeleteSelectedTrackHandler handler);
   void setTryEditSelectedClipHandler(TryEditSelectedClipHandler handler);
   void setEditSelectedTextClipHandler(EditSelectedTextClipHandler handler);
   void setTryEditSelectedTextClipHandler(TryEditSelectedTextClipHandler handler);
@@ -97,6 +99,7 @@ private:
   [[nodiscard]] bool tryUndoLastEditFromPrimaryAction();
   [[nodiscard]] bool tryDeleteCameraControlsFromPrimaryAction();
   [[nodiscard]] bool tryDeleteSelectedClipFromPrimaryAction();
+  [[nodiscard]] bool tryDeleteSelectedTrackFromPrimaryAction();
   [[nodiscard]] bool tryEditSelectedClipFromPrimaryAction();
   [[nodiscard]] bool tryEditSelectedTextClipFromPrimaryAction();
   [[nodiscard]] bool tryEditSelectedNoteFromPrimaryAction();
@@ -117,6 +120,7 @@ private:
   AdjustCameraControlsHandler adjustCameraControlsHandler_;
   EditSelectedClipHandler editSelectedClipHandler_;
   TryDeleteSelectedClipHandler tryDeleteSelectedClipHandler_;
+  TryDeleteSelectedTrackHandler tryDeleteSelectedTrackHandler_;
   TryEditSelectedClipHandler tryEditSelectedClipHandler_;
   EditSelectedTextClipHandler editSelectedTextClipHandler_;
   TryEditSelectedTextClipHandler tryEditSelectedTextClipHandler_;
@@ -129,6 +133,7 @@ private:
   std::optional<foundation::NodeId> primaryTargetCameraNodeId_;
   std::optional<foundation::NodeId> selectedClipTargetNodeId_;
   std::optional<foundation::NodeId> selectedTextClipTargetNodeId_;
+  std::optional<foundation::NodeId> selectedTrackTargetNodeId_;
   std::optional<foundation::NodeId> selectedNoteTargetNodeId_;
   QTextEdit* intent_ = nullptr;
   QPushButton* primaryActionButton_ = nullptr;

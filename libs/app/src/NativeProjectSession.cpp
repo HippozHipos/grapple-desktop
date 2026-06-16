@@ -806,6 +806,20 @@ foundation::Result<AppCommandProvenance> appCommandProvenance(
           intent,
           "Deleted"
         });
+      } else if (const auto* deleteTrack = std::get_if<project::DeleteTrackCommand>(&parsedCommand.value())) {
+        auto targetName = nodeDisplayNameAtRevision(snapshotDocuments, command.beforeRevision, deleteTrack->nodeId);
+        if (!targetName) {
+          return targetName.error();
+        }
+        provenance.stewardEdits.push_back(AppStewardEditRow{
+          command.id,
+          command.afterRevision,
+          deleteTrack->nodeId,
+          targetName.value(),
+          "Track Delete",
+          intent,
+          "Deleted"
+        });
       } else if (const auto* deleteEffect = std::get_if<project::DeleteEffectCommand>(&parsedCommand.value())) {
         auto targetDisplay = effectTargetDisplayAtRevision(snapshotDocuments, command.beforeRevision, deleteEffect->nodeId);
         if (!targetDisplay) {

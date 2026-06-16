@@ -62,6 +62,10 @@ public:
     foundation::NodeId clipNodeId,
     std::string intent
   );
+  foundation::Result<storage::ProjectPackageSessionResult> deleteTrack(
+    foundation::NodeId trackNodeId,
+    std::string intent
+  );
   foundation::Result<storage::ProjectPackageSessionResult> editTextClip(
     foundation::NodeId clipNodeId,
     std::string intent
@@ -72,6 +76,7 @@ public:
   );
   [[nodiscard]] bool clipEditIntentTargetsClip(const std::string& intent) const;
   [[nodiscard]] bool clipDeleteIntentTargetsClip(const std::string& intent) const;
+  [[nodiscard]] bool trackDeleteIntentTargetsTrack(const std::string& intent) const;
   [[nodiscard]] bool textClipIntentTargetsText(const std::string& intent) const;
   [[nodiscard]] bool textClipEditIntentTargetsTextClip(const std::string& intent) const;
   [[nodiscard]] bool noteIntentTargetsNote(const std::string& intent) const;

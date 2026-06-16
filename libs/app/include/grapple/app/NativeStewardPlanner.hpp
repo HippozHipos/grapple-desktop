@@ -93,6 +93,7 @@ public:
   [[nodiscard]] bool cameraTransformDeleteIntentTargetsCameraControls(const std::string& intent) const;
   [[nodiscard]] bool clipEditIntentTargetsClip(const std::string& intent) const;
   [[nodiscard]] bool clipDeleteIntentTargetsClip(const std::string& intent) const;
+  [[nodiscard]] bool trackDeleteIntentTargetsTrack(const std::string& intent) const;
   [[nodiscard]] bool textClipIntentTargetsText(const std::string& intent) const;
   [[nodiscard]] TextClipIntentDefaults textClipDefaultsForIntent(const std::string& intent) const;
   [[nodiscard]] bool textClipEditIntentTargetsTextClip(const std::string& intent) const;
