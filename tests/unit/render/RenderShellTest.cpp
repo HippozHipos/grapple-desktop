@@ -1098,9 +1098,9 @@ int main() {
   GRAPPLE_REQUIRE(zoomImageFrame.value().frame.image.has_value());
   GRAPPLE_REQUIRE((zoomImageFrame.value().frame.image->resolution == foundation::Resolution{3, 1}));
   GRAPPLE_REQUIRE((zoomImageFrame.value().frame.image->rgbaPixels == std::vector<std::uint8_t>{
+    67, 74, 81, 255,
     40, 50, 60, 255,
-    40, 50, 60, 255,
-    70, 80, 90, 255
+    55, 65, 75, 255
   }));
   GRAPPLE_REQUIRE(zoomImageFrame.value().runtimeDiagnostics.empty());
 
@@ -1121,12 +1121,12 @@ int main() {
   GRAPPLE_REQUIRE(finalRangeImageSink.frameImages[0].has_value());
   GRAPPLE_REQUIRE((finalRangeImageSink.frameImages[0]->resolution == foundation::Resolution{4, 2}));
   GRAPPLE_REQUIRE((finalRangeImageSink.frameImages[0]->rgbaPixels == std::vector<std::uint8_t>{
-    40, 50, 60, 255,
-    40, 50, 60, 255,
+    32, 43, 52, 191,
+    41, 50, 61, 143,
     0, 0, 0, 0,
     0, 0, 0, 0,
-    40, 50, 60, 255,
-    40, 50, 60, 255,
+    32, 43, 52, 191,
+    41, 50, 61, 143,
     0, 0, 0, 0,
     0, 0, 0, 0
   }));

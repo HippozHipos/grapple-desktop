@@ -55,11 +55,6 @@ struct ClipExposure {
   double exposure = 0.0;
 };
 
-std::uint8_t opacityAdjustedAlpha(std::uint8_t alpha, double opacity) {
-  const double clampedOpacity = std::clamp(opacity, 0.0, 1.0);
-  return static_cast<std::uint8_t>(std::lround(static_cast<double>(alpha) * clampedOpacity));
-}
-
 foundation::Result<RenderedImage> renderedImageFromSourceFrame(SourceFrame frame) {
   if (frame.resolution.width <= 0 || frame.resolution.height <= 0) {
     return foundation::Error{
@@ -343,24 +338,81 @@ RenderedImage sampleTransformedImage(
   const double destinationCenterX = (static_cast<double>(targetWidth) - 1.0) * 0.5;
   const double destinationCenterY = (static_cast<double>(targetHeight) - 1.0) * 0.5;
 
-  for (int y = 0; y < targetHeight; ++y) {
-    for (int x = 0; x < targetWidth; ++x) {
-      const double destinationX = static_cast<double>(x) - destinationCenterX - destinationOffsetPixels.x;
-      const double destinationY = static_cast<double>(y) - destinationCenterY - destinationOffsetPixels.y;
-      const double rotatedX = (cosTheta * destinationX) + (sinTheta * destinationY);
-      const double rotatedY = (-sinTheta * destinationX) + (cosTheta * destinationY);
-      const int sourceX = static_cast<int>(std::lround((rotatedX / scaleX) + sourceCenterX + sourceOffsetPixels.x));
-      const int sourceY = static_cast<int>(std::lround((rotatedY / scaleY) + sourceCenterY + sourceOffsetPixels.y));
-      if (sourceX < 0 || sourceX >= sourceWidth || sourceY < 0 || sourceY >= sourceHeight) {
-        continue;
-      }
-      const std::size_t destinationIndex = static_cast<std::size_t>((y * targetWidth + x) * 4);
-      const std::size_t sourceIndex = static_cast<std::size_t>((sourceY * sourceWidth + sourceX) * 4);
-      transformed.rgbaPixels[destinationIndex] = image.rgbaPixels[sourceIndex];
-      transformed.rgbaPixels[destinationIndex + 1] = image.rgbaPixels[sourceIndex + 1];
-      transformed.rgbaPixels[destinationIndex + 2] = image.rgbaPixels[sourceIndex + 2];
-      transformed.rgbaPixels[destinationIndex + 3] = opacityAdjustedAlpha(image.rgbaPixels[sourceIndex + 3], transform.opacity);
+  const double inverseScaleX = 1.0 / scaleX;
+  const double inverseScaleY = 1.0 / scaleY;
+  const double sourceFromDestinationA = cosTheta * inverseScaleX;
+  const double sourceFromDestinationB = sinTheta * inverseScaleX;
+  const double sourceFromDestinationD = -sinTheta * inverseScaleY;
+  const double sourceFromDestinationE = cosTheta * inverseScaleY;
+  const double destinationOriginX = destinationCenterX + destinationOffsetPixels.x;
+  const double destinationOriginY = destinationCenterY + destinationOffsetPixels.y;
+  cv::Mat sourceFromDestination(2, 3, CV_64F);
+  sourceFromDestination.at<double>(0, 0) = sourceFromDestinationA;
+  sourceFromDestination.at<double>(0, 1) = sourceFromDestinationB;
+  sourceFromDestination.at<double>(0, 2) =
+    (-sourceFromDestinationA * destinationOriginX) -
+    (sourceFromDestinationB * destinationOriginY) +
+    sourceCenterX +
+    sourceOffsetPixels.x;
+  sourceFromDestination.at<double>(1, 0) = sourceFromDestinationD;
+  sourceFromDestination.at<double>(1, 1) = sourceFromDestinationE;
+  sourceFromDestination.at<double>(1, 2) =
+    (-sourceFromDestinationD * destinationOriginX) -
+    (sourceFromDestinationE * destinationOriginY) +
+    sourceCenterY +
+    sourceOffsetPixels.y;
+
+  std::vector<std::uint8_t> premultipliedSource = image.rgbaPixels;
+  const std::size_t sourcePixelCount = static_cast<std::size_t>(sourceWidth * sourceHeight);
+  for (std::size_t pixel = 0; pixel < sourcePixelCount; ++pixel) {
+    const std::size_t index = pixel * 4;
+    const double alpha = static_cast<double>(premultipliedSource[index + 3]) / 255.0;
+    premultipliedSource[index] =
+      static_cast<std::uint8_t>(std::lround(static_cast<double>(premultipliedSource[index]) * alpha));
+    premultipliedSource[index + 1] =
+      static_cast<std::uint8_t>(std::lround(static_cast<double>(premultipliedSource[index + 1]) * alpha));
+    premultipliedSource[index + 2] =
+      static_cast<std::uint8_t>(std::lround(static_cast<double>(premultipliedSource[index + 2]) * alpha));
+  }
+
+  const cv::Mat sourceMat(
+    sourceHeight,
+    sourceWidth,
+    CV_8UC4,
+    premultipliedSource.data()
+  );
+  cv::Mat transformedMat(
+    targetHeight,
+    targetWidth,
+    CV_8UC4,
+    transformed.rgbaPixels.data()
+  );
+  cv::warpAffine(
+    sourceMat,
+    transformedMat,
+    sourceFromDestination,
+    transformedMat.size(),
+    cv::INTER_LINEAR | cv::WARP_INVERSE_MAP,
+    cv::BORDER_CONSTANT,
+    cv::Scalar{0, 0, 0, 0}
+  );
+
+  const double clampedOpacity = std::clamp(transform.opacity, 0.0, 1.0);
+  const std::size_t targetPixelCount = static_cast<std::size_t>(targetWidth * targetHeight);
+  for (std::size_t pixel = 0; pixel < targetPixelCount; ++pixel) {
+    const std::size_t index = pixel * 4;
+    const std::uint8_t alpha = transformed.rgbaPixels[index + 3];
+    if (alpha > 0) {
+      const double alphaScale = 255.0 / static_cast<double>(alpha);
+      transformed.rgbaPixels[index] =
+        static_cast<std::uint8_t>(std::lround(std::clamp(static_cast<double>(transformed.rgbaPixels[index]) * alphaScale, 0.0, 255.0)));
+      transformed.rgbaPixels[index + 1] =
+        static_cast<std::uint8_t>(std::lround(std::clamp(static_cast<double>(transformed.rgbaPixels[index + 1]) * alphaScale, 0.0, 255.0)));
+      transformed.rgbaPixels[index + 2] =
+        static_cast<std::uint8_t>(std::lround(std::clamp(static_cast<double>(transformed.rgbaPixels[index + 2]) * alphaScale, 0.0, 255.0)));
     }
+    transformed.rgbaPixels[index + 3] =
+      static_cast<std::uint8_t>(std::lround(static_cast<double>(alpha) * clampedOpacity));
   }
 
   return transformed;
@@ -438,12 +490,34 @@ void compositeImageAt(RenderedImage& destination, const RenderedImage& source, i
   }
 }
 
+bool approximatelyEqual(double left, double right) {
+  return std::abs(left - right) < 0.000001;
+}
+
+bool isIdentityTransformForResolution(
+  const foundation::Transform2D& transform,
+  foundation::Resolution sourceResolution,
+  foundation::Resolution canvasResolution
+) {
+  return sourceResolution == canvasResolution &&
+         approximatelyEqual(transform.position.x, 0.0) &&
+         approximatelyEqual(transform.position.y, 0.0) &&
+         approximatelyEqual(transform.scale.x, 1.0) &&
+         approximatelyEqual(transform.scale.y, 1.0) &&
+         approximatelyEqual(transform.rotationDegrees, 0.0) &&
+         approximatelyEqual(transform.opacity, 1.0);
+}
+
 RenderedImage transformedMediaImage(
-  const RenderedImage& image,
+  RenderedImage image,
   const RenderedMediaFrame& mediaFrame,
   foundation::Resolution canvasResolution
 ) {
   const foundation::Transform2D& transform = mediaFrame.transform;
+  if (isIdentityTransformForResolution(transform, image.resolution, canvasResolution)) {
+    return image;
+  }
+
   timeline::Transform2D canvasTransform = transform;
   canvasTransform.scale.x *= static_cast<double>(canvasResolution.width) /
                              static_cast<double>(image.resolution.width);
@@ -657,7 +731,7 @@ foundation::Result<std::optional<RenderedImage>> buildRenderedImage(
 
     RenderedImage tinted = tintedImage(std::move(image.value()), mediaFrame);
     RenderedImage exposed = exposedImage(std::move(tinted), mediaFrame);
-    RenderedImage transformed = transformedMediaImage(exposed, mediaFrame, canvas->resolution);
+    RenderedImage transformed = transformedMediaImage(std::move(exposed), mediaFrame, canvas->resolution);
     compositeImageOver(canvas.value(), transformed);
   }
 
