@@ -718,20 +718,17 @@ foundation::Result<std::optional<RenderedImage>> buildRenderedImage(
       return image.error();
     }
 
-    if (!canvas.has_value()) {
-      const foundation::Resolution canvasResolution = outputResolution.value_or(image.value().resolution);
-      canvas = RenderedImage{
-        canvasResolution,
-        std::vector<std::uint8_t>(
-          static_cast<std::size_t>(canvasResolution.width * canvasResolution.height * 4),
-          0
-        )
-      };
-    }
+    const foundation::Resolution canvasResolution = canvas.has_value()
+      ? canvas->resolution
+      : outputResolution.value_or(image.value().resolution);
 
     RenderedImage tinted = tintedImage(std::move(image.value()), mediaFrame);
     RenderedImage exposed = exposedImage(std::move(tinted), mediaFrame);
-    RenderedImage transformed = transformedMediaImage(std::move(exposed), mediaFrame, canvas->resolution);
+    RenderedImage transformed = transformedMediaImage(std::move(exposed), mediaFrame, canvasResolution);
+    if (!canvas.has_value()) {
+      canvas = std::move(transformed);
+      continue;
+    }
     compositeImageOver(canvas.value(), transformed);
   }
 
