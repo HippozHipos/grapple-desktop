@@ -2128,7 +2128,9 @@ public:
     const auto imported = importMediaFileIntoWorkspace(path);
     if (!imported) {
       appendError(imported.error());
+      return;
     }
+    addSelectedMediaToTimeline();
   }
 
   void importMediaFiles(std::vector<grapple::foundation::FilePath> paths) {
@@ -2168,7 +2170,11 @@ public:
       return;
     }
 
-    importMediaFiles(std::move(paths));
+    if (paths.size() == 1) {
+      importMediaFile(paths.front());
+    } else {
+      importMediaFiles(std::move(paths));
+    }
     event->acceptProposedAction();
   }
 

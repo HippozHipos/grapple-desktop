@@ -534,7 +534,6 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   DesktopWindow window{workspace.value()};
   if (importMediaPathArg.has_value()) {
     window.importMediaFile(grapple::foundation::FilePath{*importMediaPathArg});
-    window.addSelectedMediaToTimeline();
   }
 
   if (launchImportMediaSmoke) {
@@ -655,7 +654,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            !selectedNoteMenuActionEnabled &&
            stewardIntent.empty() &&
            timelineEmptyPrompt.find("Use Sample to start now") != std::string::npos &&
-           timelineEmptyPrompt.find("import/drop media, then double-click it") != std::string::npos &&
+           timelineEmptyPrompt.find("import/drop media to start") != std::string::npos &&
            timelineEmptyPrompt.find("Ask Steward for an editable change") != std::string::npos &&
            toolbarTooltips.find("Space") != std::string::npos &&
            toolbarTooltips.find("Home") != std::string::npos &&
@@ -1212,13 +1211,18 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "assets=" << viewModel.value().assets.count << '\n';
     std::cout << "clips=" << viewModel.value().timeline.clips.size() << '\n';
     std::cout << "duration=" << viewModel.value().timeline.duration.value << '\n';
+    if (window.selectedNodeId().has_value()) {
+      std::cout << "selectedNode=" << window.selectedNodeId()->value() << '\n';
+    }
     if (window.selectedAssetId().has_value()) {
       std::cout << "selectedAsset=" << window.selectedAssetId()->value() << '\n';
     }
     return viewModel.value().assets.count == 2 &&
-           viewModel.value().timeline.clips.size() == 1 &&
-           viewModel.value().timeline.duration.value > 9.9 &&
-           window.selectedAssetId().has_value()
+           viewModel.value().timeline.clips.size() == 2 &&
+           viewModel.value().timeline.duration.value > 19.9 &&
+           window.selectedNodeId().has_value() &&
+           window.selectedNodeId().value() == viewModel.value().timeline.clips.back().sourceNodeId &&
+           !window.selectedAssetId().has_value()
       ? 0
       : 1;
   }
@@ -1320,7 +1324,6 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     const std::string stewardActionAfterImport = window.stewardPrimaryActionText();
     const bool stewardActionEnabledAfterImport = window.stewardPrimaryActionEnabled();
     const bool addMediaActionEnabledAfterImport = window.addSelectedMediaActionEnabled();
-    window.clickStewardPrimaryAction();
     const auto viewModel = workspace.value().project().buildViewModel();
     if (!viewModel) {
       printError(viewModel.error());
@@ -1346,9 +1349,9 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            viewModel.value().timeline.cameras.size() == 1 &&
            viewModel.value().timeline.clips.size() == 1 &&
            viewModel.value().timeline.duration.value > 9.9 &&
-           stewardActionAfterImport == "Add Selected Media To Timeline" &&
-           stewardActionEnabledAfterImport &&
-           addMediaActionEnabledAfterImport &&
+           stewardActionAfterImport == "Choose Or Type Request" &&
+           !stewardActionEnabledAfterImport &&
+           !addMediaActionEnabledAfterImport &&
            window.selectedNodeId().has_value() &&
            window.selectedNodeId().value() == viewModel.value().timeline.clips.front().sourceNodeId &&
            !window.selectedAssetId().has_value() &&
@@ -1362,7 +1365,6 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     window.show();
     app.processEvents();
     window.importMediaFile(grapple::foundation::FilePath{starterVideoPath.string()});
-    window.clickStewardPrimaryAction();
     const auto afterAdd = workspace.value().project().buildViewModel();
     if (!afterAdd) {
       printError(afterAdd.error());
