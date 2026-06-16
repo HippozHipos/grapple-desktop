@@ -1132,10 +1132,12 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       return 1;
     }
 
-    window.importMediaFile(grapple::foundation::FilePath{imagePath.string()});
-    window.addSelectedMediaToTimeline();
-    window.importMediaFile(grapple::foundation::FilePath{audioPath.string()});
-    window.addSelectedMediaToTimeline();
+    window.importMediaFiles({
+      grapple::foundation::FilePath{imagePath.string()},
+      grapple::foundation::FilePath{audioPath.string()}
+    });
+    window.addMediaAssetAtRowToTimeline(0);
+    window.addMediaAssetAtRowToTimeline(1);
     const auto viewModel = workspace.value().project().buildViewModel();
     if (!viewModel) {
       printError(viewModel.error());

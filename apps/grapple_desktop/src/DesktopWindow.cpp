@@ -26,7 +26,9 @@
 #include <QAction>
 #include <QApplication>
 #include <QComboBox>
+#include <QDragEnterEvent>
 #include <QDoubleSpinBox>
+#include <QDropEvent>
 #include <QFileDialog>
 #include <QFrame>
 #include <QGridLayout>
@@ -42,6 +44,7 @@
 #include <QMainWindow>
 #include <QMenu>
 #include <QMessageBox>
+#include <QMimeData>
 #include <QMouseEvent>
 #include <QPushButton>
 #include <QScrollArea>
@@ -54,6 +57,7 @@
 #include <QTabWidget>
 #include <QTextEdit>
 #include <QTimer>
+#include <QUrl>
 #include <QVBoxLayout>
 #include <QWidget>
 
@@ -472,6 +476,7 @@ public:
     : workspace_{workspace} {
     setWindowTitle("Grapple");
     resize(1440, 860);
+    setAcceptDrops(true);
 
     auto* root = new QWidget;
     auto* layout = new QGridLayout{root};
@@ -1909,6 +1914,47 @@ public:
     if (!imported) {
       appendError(imported.error());
     }
+  }
+
+  void importMediaFiles(std::vector<grapple::foundation::FilePath> paths) {
+    for (const grapple::foundation::FilePath& path : paths) {
+      const auto imported = importMediaFileIntoWorkspace(path);
+      if (!imported) {
+        appendError(imported.error());
+        return;
+      }
+    }
+  }
+
+  void dragEnterEvent(QDragEnterEvent* event) override {
+    if (event->mimeData() == nullptr || !event->mimeData()->hasUrls()) {
+      return;
+    }
+    for (const QUrl& url : event->mimeData()->urls()) {
+      if (url.isLocalFile()) {
+        event->acceptProposedAction();
+        return;
+      }
+    }
+  }
+
+  void dropEvent(QDropEvent* event) override {
+    if (event->mimeData() == nullptr || !event->mimeData()->hasUrls()) {
+      return;
+    }
+
+    std::vector<grapple::foundation::FilePath> paths;
+    for (const QUrl& url : event->mimeData()->urls()) {
+      if (url.isLocalFile()) {
+        paths.push_back(grapple::foundation::FilePath{url.toLocalFile().toStdString()});
+      }
+    }
+    if (paths.empty()) {
+      return;
+    }
+
+    importMediaFiles(std::move(paths));
+    event->acceptProposedAction();
   }
 
   void startStarterSample() {
@@ -4060,6 +4106,10 @@ void DesktopWindow::updateSelectedNote(std::string title, std::string markdown) 
 
 void DesktopWindow::importMediaFile(const foundation::FilePath& path) {
   impl_->importMediaFile(path);
+}
+
+void DesktopWindow::importMediaFiles(std::vector<foundation::FilePath> paths) {
+  impl_->importMediaFiles(std::move(paths));
 }
 
 void DesktopWindow::startStarterSample() {

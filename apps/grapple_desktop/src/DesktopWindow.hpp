@@ -10,6 +10,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <vector>
 
 namespace grapple::app {
 class NativeWorkspaceSession;
@@ -90,6 +91,7 @@ public:
   void addNote();
   void updateSelectedNote(std::string title, std::string markdown);
   void importMediaFile(const foundation::FilePath& path);
+  void importMediaFiles(std::vector<foundation::FilePath> paths);
   void startStarterSample();
   void addMediaAssetAtRowToTimeline(int row);
   void addSelectedMediaToTimeline();
