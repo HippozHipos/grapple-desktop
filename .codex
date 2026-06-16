@@ -4,12 +4,27 @@ This native implementation is based on `/home/rahul/Documents/grapple-migration`
 Use those migration design files as the product/system source of truth, not the
 old `showrunner-services` implementation.
 
+Product bet:
+- Grapple is a native video editor where the agent edits the composition graph,
+  not final pixels.
+- The core loop is: import media -> inspect timeline -> ask Steward for an edit
+  -> apply canonical graph command -> preview evaluated result -> adjust exposed
+  effect parameters -> render/export through the same shared core.
+- Primary metric: time from intent to a correct, editable previewed graph change.
+- Move aggressively toward the MVP product loop, but do not cut architectural
+  corners or add breadth before the agent-edit loop is fast, correct, and editable.
+
 Before implementing anything, ask:
 Is this the simplest, minimal, cleanest, architecturally correct way to do it?
 
 Before making any nontrivial implementation decision, state the decision explicitly
 against these rules. If the clean decision is to rewrite/delete touched bad code,
 do that instead of layering more code around it.
+
+Do not stop to ask permission for ordinary reads, builds, tests, local edits,
+profiling, or installing reasonable development tools. Ask only when the action
+is destructive, requires product/business judgment, needs external credentials,
+or would introduce a new architectural commitment.
 
 If the issue comes from bad existing code, stop and rewrite/delete the bad code path.
 Do not add support code, aliases, shims, fallbacks, compatibility layers, or compensating
@@ -28,6 +43,8 @@ Core rules:
 - Do not add validation as a substitute for understanding the broken invariant.
 - Keep providers dumb: exact inputs in, exact provider calls out.
 - Resolve product/system concepts at one clear boundary.
+- UI shells display snapshots and send commands. UI does not own canonical state,
+  render-plan construction, effect semantics, or project mutation.
 - Project Core owns canonical graph state, TimelineIR, and RenderPlan construction requests.
 - The local native app may have separate preview and final render shells.
 - Preview and final render shells must be thin adapters over one shared render/runtime core.
@@ -43,6 +60,15 @@ Core rules:
 - Do not let agents produce black-box edits when the same result can be represented as editable nodes and parameters.
 - If a clean fix requires deleting old bloat in the touched path, delete it instead of supporting it.
 - Do not build full future features early. Build the minimal correct foundation that keeps the later feature possible without putting that feature into the core path now.
+- Keep future 3D, variants, model runtimes, and cloud collaboration possible by
+  clean boundaries and typed data, not by implementing those features early.
+- Support Linux, Windows, and macOS through portable C++/Qt/CMake and shared
+  module boundaries. Do not add platform-specific code in core paths unless it
+  is isolated behind a small named boundary and explicitly justified.
+- Preview quality and export quality can have different shell policy, but they
+  must not diverge in graph interpretation or runtime semantics.
+- Use small, verified commits while moving quickly. Build and run relevant tests
+  before committing; push clean verified chunks when a remote is configured.
 
 Chat/conversation UI is fragile:
 - Trace backend event emission -> persisted run events -> canonical conversation_state projection -> SSE payload -> frontend applyConversationState -> render.
