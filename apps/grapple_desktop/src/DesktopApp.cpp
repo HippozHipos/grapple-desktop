@@ -2828,6 +2828,9 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     window.setStewardIntent("Tint selected clip red.");
     const bool selectedTargetActionEnabledForTint = window.stewardSelectedTargetActionEnabled();
     window.clickStewardSelectedTargetAction();
+    window.setStewardIntent("Make clip tint stronger and blue.");
+    const bool selectedTargetActionEnabledForTintUpdate = window.stewardSelectedTargetActionEnabled();
+    window.clickStewardSelectedTargetAction();
     window.setStewardIntent("Move selected clip right, rotate slightly left, make it smaller, make it faster, and make it invisible.");
     const bool selectedTargetActionEnabledAfterIntent = window.stewardSelectedTargetActionEnabled();
     window.clickStewardPrimaryAction();
@@ -2847,6 +2850,44 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     const std::string effectParamTitle = window.effectParamTitleText();
     const std::string effectParamPanel = window.effectParamPanelText();
     const std::string log = window.logContents();
+    const bool clipTintUpdated = std::any_of(
+      viewModel.value().timeline.effectGraphs.begin(),
+      viewModel.value().timeline.effectGraphs.end(),
+      [](const grapple::app::AppEffectGraphRow& graph) {
+        return std::any_of(
+          graph.effects.begin(),
+          graph.effects.end(),
+          [](const grapple::app::AppEffectRow& effect) {
+            if (effect.entrypoint != grapple::effects::builtin_effect::ClipTintEntrypoint ||
+                effect.params.size() != 2) {
+              return false;
+            }
+            const auto colorParam = std::find_if(
+              effect.params.begin(),
+              effect.params.end(),
+              [](const grapple::app::AppEffectParamRow& row) {
+                return row.name == grapple::effects::builtin_effect::ClipTintColorParam;
+              }
+            );
+            const auto amountParam = std::find_if(
+              effect.params.begin(),
+              effect.params.end(),
+              [](const grapple::app::AppEffectParamRow& row) {
+                return row.name == grapple::effects::builtin_effect::ClipTintAmountParam;
+              }
+            );
+            return colorParam != effect.params.end() &&
+                   std::holds_alternative<grapple::foundation::Vec3>(colorParam->value) &&
+                   std::get<grapple::foundation::Vec3>(colorParam->value) == grapple::foundation::Vec3{0.2, 0.45, 1.0} &&
+                   colorParam->lastEditedActorName == "steward" &&
+                   amountParam != effect.params.end() &&
+                   std::holds_alternative<double>(amountParam->value) &&
+                   std::get<double>(amountParam->value) == 0.6 &&
+                   amountParam->lastEditedActorName == "steward";
+          }
+        );
+      }
+    );
     std::cout << "revision=" << viewModel.value().project.revision.value() << '\n';
     std::cout << "initialClipPositionX=" << clipBeforeTransform.position.x << '\n';
     std::cout << "initialClipScaleX=" << clipBeforeTransform.scale.x << '\n';
@@ -2863,6 +2904,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "stewardIntentPlaceholderBeforeIntent=" << stewardIntentPlaceholderBeforeIntent << '\n';
     std::cout << "selectedTargetActionEnabledBeforeIntent=" << (selectedTargetActionEnabledBeforeIntent ? "true" : "false") << '\n';
     std::cout << "selectedTargetActionEnabledForTint=" << (selectedTargetActionEnabledForTint ? "true" : "false") << '\n';
+    std::cout << "selectedTargetActionEnabledForTintUpdate=" << (selectedTargetActionEnabledForTintUpdate ? "true" : "false") << '\n';
     std::cout << "selectedTargetActionEnabledAfterIntent=" << (selectedTargetActionEnabledAfterIntent ? "true" : "false") << '\n';
     std::cout << "selectedTargetActionEnabledAfterAction=" << (window.stewardSelectedTargetActionEnabled() ? "true" : "false") << '\n';
     std::cout << "effectParamTitle=" << effectParamTitle << '\n';
@@ -2871,11 +2913,12 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "stewardIntent=" << stewardIntent << '\n';
     std::cout << "inspector=" << inspector << '\n';
     std::cout << "log=" << log << '\n';
-    return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_5"} &&
+    return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_7"} &&
            viewModel.value().timeline.effectCount == 1 &&
            viewModel.value().timeline.effectGraphs.size() == 1 &&
            viewModel.value().timeline.effectGraphs[0].effects.size() == 1 &&
            viewModel.value().timeline.effectGraphs[0].effects[0].displayName == grapple::effects::builtin_effect::ClipTintDisplayName &&
+           clipTintUpdated &&
            clip.transform.position.x == clipBeforeTransform.position.x + 0.25 &&
            clip.transform.position.y == clipBeforeTransform.position.y &&
            clip.transform.scale.x == clipBeforeTransform.scale.x * 0.75 &&
@@ -2887,13 +2930,15 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            stewardIntentPlaceholderBeforeIntent.find("speed up clip") != std::string::npos &&
            !selectedTargetActionEnabledBeforeIntent &&
            selectedTargetActionEnabledForTint &&
+           selectedTargetActionEnabledForTintUpdate &&
            selectedTargetActionEnabledAfterIntent &&
            !window.stewardSelectedTargetActionEnabled() &&
 	           stewardIntent.empty() &&
 	           steward.find("Next: type a camera request, or mention clip/video to edit the selected clip.") != std::string::npos &&
            steward.find("Clip target: starter-gradient") != std::string::npos &&
-	           steward.find("Clip route: mention tint/color for editable Clip Tint") != std::string::npos &&
+           steward.find("Clip route: mention tint/color for editable Clip Tint") != std::string::npos &&
            steward.find("Tint selected clip red.") != std::string::npos &&
+           steward.find("Make clip tint stronger and blue.") != std::string::npos &&
            steward.find("Rotation=-7.5") != std::string::npos &&
            inspector.find("Rotation: -7.50") != std::string::npos &&
            inspector.find("Speed: 1.25x") != std::string::npos &&
@@ -2902,9 +2947,11 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            effectParamPanel.find("Tint Color") != std::string::npos &&
            effectParamPanel.find("Tint Amount") != std::string::npos &&
            steward.find("Create Effect Node -> succeeded") != std::string::npos &&
+           steward.find("Update Effect Parameter -> succeeded") != std::string::npos &&
            steward.find("Update Clip Transform -> succeeded") != std::string::npos &&
            steward.find("Update Clip Playback Rate -> succeeded") != std::string::npos &&
            log.find("Steward created clip tint controls") != std::string::npos &&
+           log.find("Steward adjusted clip tint controls") != std::string::npos &&
            log.find("Steward edited selected clip") != std::string::npos
       ? 0
       : 1;

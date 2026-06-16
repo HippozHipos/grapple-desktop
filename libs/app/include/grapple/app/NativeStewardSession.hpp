@@ -80,6 +80,10 @@ public:
     std::string intent,
     foundation::TimeRange activeRange
   );
+  foundation::Result<storage::ProjectPackageSessionResult> adjustClipTintControls(
+    foundation::NodeId clipNodeId,
+    std::string intent
+  );
   foundation::Result<storage::ProjectPackageSessionResult> deleteClip(
     foundation::NodeId clipNodeId,
     std::string intent

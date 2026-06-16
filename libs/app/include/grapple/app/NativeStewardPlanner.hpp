@@ -62,6 +62,11 @@ struct ClipTintIntentDefaults {
   double amount = 0.35;
 };
 
+struct ClipTintParamAdjustment {
+  std::string paramName;
+  timeline::ParamValue value;
+};
+
 struct TextClipIntentDefaults {
   std::string text;
   foundation::TimeSeconds duration{3.0};
@@ -116,6 +121,10 @@ public:
   [[nodiscard]] bool clipEditIntentTargetsClip(const std::string& intent) const;
   [[nodiscard]] bool clipTintIntentTargetsClip(const std::string& intent) const;
   [[nodiscard]] ClipTintIntentDefaults clipTintDefaultsForIntent(const std::string& intent) const;
+  [[nodiscard]] foundation::Result<std::vector<ClipTintParamAdjustment>> clipTintParamAdjustmentsForIntent(
+    const timeline::EffectPayload& current,
+    const std::string& intent
+  ) const;
   [[nodiscard]] bool clipDeleteIntentTargetsClip(const std::string& intent) const;
   [[nodiscard]] bool trackCreateIntentTargetsTrack(const std::string& intent) const;
   [[nodiscard]] TrackIntentDefaults trackDefaultsForIntent(const std::string& intent) const;

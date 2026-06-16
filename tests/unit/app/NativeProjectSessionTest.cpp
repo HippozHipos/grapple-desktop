@@ -3574,6 +3574,51 @@ int main() {
   GRAPPLE_REQUIRE(tintConversation.runs[1].toolCalls[0].toolSerializedId == "effect.create_node");
   GRAPPLE_REQUIRE(tintConversation.runs[1].toolCalls[0].toolDisplayName == "Create Effect Node");
   GRAPPLE_REQUIRE(tintConversation.runs[1].toolCalls[0].toolCallId == foundation::ToolId{"tool_steward_clip_tint_2"});
+  const auto tintAdjusted = tintWorkspace.value().steward().adjustClipTintControls(
+    tintPlacement.value().clipNodeId,
+    "Make clip tint stronger and blue."
+  );
+  GRAPPLE_REQUIRE(tintAdjusted);
+  const auto adjustedTintRefresh = tintWorkspace.value().preview().refreshFromProject();
+  GRAPPLE_REQUIRE(adjustedTintRefresh);
+  const auto adjustedTintFrame = tintWorkspace.value().preview().renderFrame(render::RenderFrameRequest{
+    foundation::TimeSeconds{0.0},
+    render::RenderQuality::Draft
+  });
+  GRAPPLE_REQUIRE(adjustedTintFrame);
+  GRAPPLE_REQUIRE(adjustedTintFrame.value().frame.image.has_value());
+  GRAPPLE_REQUIRE(adjustedTintFrame.value().frame.image->rgbaPixels != tintedFrame.value().frame.image->rgbaPixels);
+  GRAPPLE_REQUIRE(adjustedTintFrame.value().frame.mediaFrames.size() == 1);
+  GRAPPLE_REQUIRE(adjustedTintFrame.value().frame.mediaFrames[0].tintColor.has_value());
+  const foundation::Vec3 expectedBlueTint{0.2, 0.45, 1.0};
+  GRAPPLE_REQUIRE(adjustedTintFrame.value().frame.mediaFrames[0].tintColor.value() == expectedBlueTint);
+  GRAPPLE_REQUIRE(adjustedTintFrame.value().frame.mediaFrames[0].tintAmount == 0.6);
+  const auto adjustedTintViewModel = tintWorkspace.value().project().buildViewModel();
+  GRAPPLE_REQUIRE(adjustedTintViewModel);
+  GRAPPLE_REQUIRE(adjustedTintViewModel.value().timeline.effectGraphs.size() == 1);
+  GRAPPLE_REQUIRE(adjustedTintViewModel.value().timeline.effectGraphs[0].effects.size() == 1);
+  GRAPPLE_REQUIRE(adjustedTintViewModel.value().timeline.effectGraphs[0].effects[0].params.size() == 2);
+  GRAPPLE_REQUIRE(std::get<foundation::Vec3>(adjustedTintViewModel.value().timeline.effectGraphs[0].effects[0].params[0].value) == expectedBlueTint);
+  GRAPPLE_REQUIRE(std::get<double>(adjustedTintViewModel.value().timeline.effectGraphs[0].effects[0].params[1].value) == 0.6);
+  GRAPPLE_REQUIRE(adjustedTintViewModel.value().timeline.effectGraphs[0].effects[0].params[0].lastEditedRevision == foundation::RevisionId{"rev_4"});
+  GRAPPLE_REQUIRE(adjustedTintViewModel.value().timeline.effectGraphs[0].effects[0].params[0].lastEditedSourceKind == "agent");
+  GRAPPLE_REQUIRE(adjustedTintViewModel.value().timeline.effectGraphs[0].effects[0].params[0].lastEditedActorName == "steward");
+  GRAPPLE_REQUIRE(adjustedTintViewModel.value().timeline.effectGraphs[0].effects[0].params[1].lastEditedRevision == foundation::RevisionId{"rev_5"});
+  GRAPPLE_REQUIRE(adjustedTintViewModel.value().timeline.effectGraphs[0].effects[0].params[1].lastEditedSourceKind == "agent");
+  GRAPPLE_REQUIRE(adjustedTintViewModel.value().timeline.effectGraphs[0].effects[0].params[1].lastEditedActorName == "steward");
+  const agent::AgentConversationState adjustedTintConversation = tintWorkspace.value().steward().conversationState();
+  GRAPPLE_REQUIRE(adjustedTintConversation.diagnostics.empty());
+  GRAPPLE_REQUIRE(adjustedTintConversation.runs.size() == 3);
+  GRAPPLE_REQUIRE(adjustedTintConversation.runs[2].status == agent::AgentRunStatus::Succeeded);
+  GRAPPLE_REQUIRE(adjustedTintConversation.runs[2].toolCalls.size() == 2);
+  GRAPPLE_REQUIRE(adjustedTintConversation.runs[2].toolCalls[0].toolSerializedId == "effect.update_param_value");
+  GRAPPLE_REQUIRE(adjustedTintConversation.runs[2].toolCalls[0].toolDisplayName == "Update Effect Parameter");
+  GRAPPLE_REQUIRE(adjustedTintConversation.runs[2].toolCalls[0].toolCallId == foundation::ToolId{"tool_steward_clip_tint_param_3_1"});
+  GRAPPLE_REQUIRE(adjustedTintConversation.runs[2].toolCalls[0].observedRevision == foundation::RevisionId{"rev_4"});
+  GRAPPLE_REQUIRE(adjustedTintConversation.runs[2].toolCalls[1].toolSerializedId == "effect.update_param_value");
+  GRAPPLE_REQUIRE(adjustedTintConversation.runs[2].toolCalls[1].toolDisplayName == "Update Effect Parameter");
+  GRAPPLE_REQUIRE(adjustedTintConversation.runs[2].toolCalls[1].toolCallId == foundation::ToolId{"tool_steward_clip_tint_param_3_2"});
+  GRAPPLE_REQUIRE(adjustedTintConversation.runs[2].toolCalls[1].observedRevision == foundation::RevisionId{"rev_5"});
   std::filesystem::remove(tintImportSource);
   std::filesystem::remove_all(tintPackageRoot);
 

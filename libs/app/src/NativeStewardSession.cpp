@@ -271,6 +271,12 @@ foundation::ToolId stewardClipTintToolCallIdForRun(const foundation::RunId& runI
   return foundation::ToolId{"tool_steward_clip_tint_" + std::to_string(stewardRunNumber(runId))};
 }
 
+foundation::ToolId stewardClipTintParamToolCallIdForRun(const foundation::RunId& runId, std::int64_t index) {
+  return foundation::ToolId{
+    "tool_steward_clip_tint_param_" + std::to_string(stewardRunNumber(runId)) + "_" + std::to_string(index)
+  };
+}
+
 foundation::ToolId stewardCameraTransformParamToolCallIdForRun(const foundation::RunId& runId, std::int64_t index) {
   return foundation::ToolId{
     "tool_steward_camera_transform_param_" +
@@ -549,10 +555,11 @@ std::optional<foundation::NodeId> firstVisualTrackNodeId(const project::ProjectS
   return std::nullopt;
 }
 
-bool targetHasBuiltinEffect(
+const timeline::EffectPayload* builtinEffectPayloadForTarget(
   const project::ProjectSnapshot& snapshot,
   const foundation::NodeId& targetNodeId,
-  std::string_view entrypoint
+  std::string_view entrypoint,
+  foundation::NodeId& effectNodeId
 ) {
   for (const graph::GraphEdge& edge : snapshot.graph.edges()) {
     if (!edge.enabled ||
@@ -568,10 +575,20 @@ bool targetHasBuiltinEffect(
     if (payload != nullptr &&
         payload->implementation.kind == timeline::EffectImplementationKind::Builtin &&
         payload->implementation.entrypoint == entrypoint) {
-      return true;
+      effectNodeId = effectNode->id;
+      return payload;
     }
   }
-  return false;
+  return nullptr;
+}
+
+bool targetHasBuiltinEffect(
+  const project::ProjectSnapshot& snapshot,
+  const foundation::NodeId& targetNodeId,
+  std::string_view entrypoint
+) {
+  foundation::NodeId effectNodeId;
+  return builtinEffectPayloadForTarget(snapshot, targetNodeId, entrypoint, effectNodeId) != nullptr;
 }
 
 std::string clipMoveArgumentsPayload(
@@ -626,16 +643,38 @@ std::string clipPlaybackRateArgumentsPayload(
 std::string effectParamValueArgumentsPayload(
   const foundation::NodeId& effectNodeId,
   const std::string& paramName,
-  double value
+  const timeline::ParamValue& value
 ) {
   std::ostringstream arguments;
   arguments << '{';
   foundation::writeJsonStringProperty(arguments, "effectNodeId", effectNodeId.value());
   arguments << ',';
   foundation::writeJsonStringProperty(arguments, "paramName", paramName);
-  arguments << ",\"value\":" << value;
+  arguments << ",\"value\":";
+  if (const auto* numeric = std::get_if<double>(&value)) {
+    arguments << *numeric;
+  } else if (const auto* boolean = std::get_if<bool>(&value)) {
+    arguments << (*boolean ? "true" : "false");
+  } else if (const auto* text = std::get_if<std::string>(&value)) {
+    arguments << foundation::jsonQuoted(*text);
+  } else if (const auto* vec2 = std::get_if<foundation::Vec2>(&value)) {
+    arguments << "{\"x\":" << vec2->x << ",\"y\":" << vec2->y << '}';
+  } else if (const auto* vec3 = std::get_if<foundation::Vec3>(&value)) {
+    arguments << "{\"x\":" << vec3->x << ",\"y\":" << vec3->y << ",\"z\":" << vec3->z << '}';
+  } else if (const auto* rect = std::get_if<foundation::Rect>(&value)) {
+    arguments << "{\"x\":" << rect->x << ",\"y\":" << rect->y
+              << ",\"width\":" << rect->width << ",\"height\":" << rect->height << '}';
+  }
   arguments << '}';
   return arguments.str();
+}
+
+std::string effectParamValueArgumentsPayload(
+  const foundation::NodeId& effectNodeId,
+  const std::string& paramName,
+  double value
+) {
+  return effectParamValueArgumentsPayload(effectNodeId, paramName, timeline::ParamValue{value});
 }
 
 foundation::Result<agent::ToolResult> dispatchEffectKeyframeToolCall(
@@ -1725,6 +1764,115 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::c
     runId.value(),
     agent::AgentRunEventKind::RunFinished,
     runFinishedPayload("succeeded", "Created editable Clip Tint parameters.")
+  );
+  if (!runFinished) {
+    return runFinished.error();
+  }
+
+  markRunStatus(runId.value(), agent::AgentRunStatus::Succeeded);
+  return packageResult.value();
+}
+
+foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::adjustClipTintControls(
+  foundation::NodeId clipNodeId,
+  std::string intent
+) {
+  auto snapshot = project_.snapshot();
+  if (!snapshot) {
+    return snapshot.error();
+  }
+
+  if (!planner_.clipTintIntentTargetsClip(intent)) {
+    return foundation::Error{
+      "steward.clip_tint_intent_mismatch",
+      "Clip Tint adjustment requires an explicit color or tint request for a selected clip."
+    };
+  }
+
+  foundation::NodeId effectNodeId;
+  const timeline::EffectPayload* payload = builtinEffectPayloadForTarget(
+    snapshot.value(),
+    clipNodeId,
+    effects::builtin_effect::ClipTintEntrypoint,
+    effectNodeId
+  );
+  if (payload == nullptr) {
+    return foundation::Error{
+      "steward.clip_tint_missing",
+      "Steward Clip Tint adjustment requires existing Clip Tint controls."
+    };
+  }
+
+  auto adjustments = planner_.clipTintParamAdjustmentsForIntent(*payload, intent);
+  if (!adjustments) {
+    return adjustments.error();
+  }
+
+  auto runId = startRun(snapshot.value(), intent);
+  if (!runId) {
+    return runId.error();
+  }
+
+  auto message = appendEvent(
+    runId.value(),
+    agent::AgentRunEventKind::ModelMessage,
+    modelMessagePayload("assistant", "Updating the existing Clip Tint controls as editable parameters.")
+  );
+  if (!message) {
+    return message.error();
+  }
+
+  std::optional<storage::ProjectPackageSessionResult> packageResult;
+  CommittingAgentCommandService stewardCommands{project_, commandWriter_, intent, packageResult};
+  agent::AgentToolRegistry registry;
+  auto registered = agent::registerProjectTools(registry);
+  if (!registered) {
+    auto finished = finishRunWithError(runId.value(), registered.error());
+    if (!finished) {
+      return finished.error();
+    }
+    return registered.error();
+  }
+
+  agent::AgentToolContext toolContext{stewardCommands, project_, commandWriter_};
+  agent::AgentBridge bridge{registry, toolContext, events_, nextSequence_};
+  foundation::RevisionId latestRevision = snapshot.value().revision;
+  std::int64_t toolCallIndex = 1;
+  for (const ClipTintParamAdjustment& adjustment : adjustments.value()) {
+    auto dispatched = bridge.dispatchToolCall(agent::AgentToolDispatchRequest{
+      runId.value(),
+      snapshot.value().info.id,
+      latestRevision,
+      stewardClipTintParamToolCallIdForRun(runId.value(), toolCallIndex),
+      CanonicalUpdateEffectParamToolId,
+      effectParamValueArgumentsPayload(effectNodeId, adjustment.paramName, adjustment.value)
+    });
+    if (!dispatched) {
+      auto finished = finishRunWithError(runId.value(), dispatched.error());
+      if (!finished) {
+        return finished.error();
+      }
+      return dispatched.error();
+    }
+    latestRevision = dispatched.value().observedRevision;
+    ++toolCallIndex;
+  }
+  if (!packageResult.has_value()) {
+    const foundation::Error error{
+      "steward.clip_tint_update_result_missing",
+      "Steward Clip Tint update succeeded without a committed package result."
+    };
+    auto finished = finishRunWithError(runId.value(), error);
+    if (!finished) {
+      return finished.error();
+    }
+    return error;
+  }
+
+  auto runFinished = appendEvent(
+    runId.value(),
+    agent::AgentRunEventKind::RunFinished,
+    runFinishedPayload("succeeded", "Updated Clip Tint controls.")
   );
   if (!runFinished) {
     return runFinished.error();

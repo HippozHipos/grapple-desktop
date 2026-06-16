@@ -2,6 +2,7 @@
 
 #include <grapple/app/AppViewModel.hpp>
 #include <grapple/app/NativeWorkspaceSession.hpp>
+#include <grapple/effects/BuiltinEffects.hpp>
 #include <grapple/foundation/Geometry.hpp>
 #include <grapple/foundation/Hash.hpp>
 #include <grapple/graph/GraphEdge.hpp>
@@ -61,6 +62,7 @@
 #include <memory>
 #include <optional>
 #include <sstream>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -410,6 +412,24 @@ bool targetHasEditableEffects(
     }
     for (const grapple::app::AppEffectRow& effect : graph.effects) {
       if (!effect.params.empty()) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+bool targetHasEffectEntrypoint(
+  const grapple::app::AppViewModel& viewModel,
+  const grapple::foundation::NodeId& targetNodeId,
+  std::string_view entrypoint
+) {
+  for (const grapple::app::AppEffectGraphRow& graph : viewModel.timeline.effectGraphs) {
+    if (graph.targetNodeId != targetNodeId) {
+      continue;
+    }
+    for (const grapple::app::AppEffectRow& effect : graph.effects) {
+      if (effect.entrypoint == entrypoint) {
         return true;
       }
     }
@@ -2834,6 +2854,34 @@ public:
   ) {
     if (!workspace_.steward().clipTintIntentTargetsClip(intent)) {
       return false;
+    }
+
+    const auto viewModel = workspace_.project().buildViewModel();
+    if (!viewModel) {
+      appendError(viewModel.error());
+      refreshViewModel();
+      return true;
+    }
+    const bool hasClipTint = targetHasEffectEntrypoint(
+      viewModel.value(),
+      clipNodeId,
+      grapple::effects::builtin_effect::ClipTintEntrypoint
+    );
+
+    if (hasClipTint) {
+      const auto adjusted = workspace_.steward().adjustClipTintControls(clipNodeId, std::move(intent));
+      if (!adjusted) {
+        appendError(adjusted.error());
+        refreshViewModel();
+        return true;
+      }
+      selectedNodeId_ = clipNodeId;
+      selectedAssetId_ = std::nullopt;
+      showEffectControls();
+      refreshViewModelAndPreview();
+      steward_->setIntent({});
+      log_->append("Steward adjusted clip tint controls");
+      return true;
     }
 
     const auto created = workspace_.steward().createClipTintEffect(

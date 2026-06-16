@@ -659,11 +659,46 @@ double clipTintAmountForIntent(const std::string& normalized) {
     return 0.2;
   }
   if (containsAsciiWord(normalized, "strong") ||
+      containsAsciiWord(normalized, "stronger") ||
       containsAsciiWord(normalized, "heavy") ||
       containsText(normalized, "a lot")) {
     return 0.6;
   }
   return 0.35;
+}
+
+std::optional<timeline::ParamValue> effectParamValue(
+  const timeline::EffectPayload& payload,
+  const std::string& paramName
+) {
+  for (const timeline::Param& param : payload.params.values) {
+    if (param.name == paramName) {
+      return param.value;
+    }
+  }
+  return std::nullopt;
+}
+
+bool clipTintIntentRequestsColor(const std::string& normalized) {
+  return containsAsciiWord(normalized, "red") ||
+         containsAsciiWord(normalized, "blue") ||
+         containsAsciiWord(normalized, "green") ||
+         containsAsciiWord(normalized, "warm") ||
+         containsAsciiWord(normalized, "warmer") ||
+         containsAsciiWord(normalized, "cool") ||
+         containsAsciiWord(normalized, "cooler");
+}
+
+bool clipTintIntentRequestsAmount(const std::string& normalized) {
+  return containsAsciiWord(normalized, "subtle") ||
+         containsAsciiWord(normalized, "slight") ||
+         containsText(normalized, "a little") ||
+         containsAsciiWord(normalized, "strong") ||
+         containsAsciiWord(normalized, "stronger") ||
+         containsAsciiWord(normalized, "heavy") ||
+         containsText(normalized, "a lot") ||
+         containsAsciiWord(normalized, "amount") ||
+         containsAsciiWord(normalized, "intensity");
 }
 
 bool clipIntentRequestsMoveLater(const std::string& normalized) {
@@ -1059,6 +1094,53 @@ ClipTintIntentDefaults NativeStewardPlanner::clipTintDefaultsForIntent(const std
     clipTintColorForIntent(normalized),
     clipTintAmountForIntent(normalized)
   };
+}
+
+foundation::Result<std::vector<ClipTintParamAdjustment>> NativeStewardPlanner::clipTintParamAdjustmentsForIntent(
+  const timeline::EffectPayload& current,
+  const std::string& intent
+) const {
+  const std::string normalized = lowercaseAscii(intent);
+  std::vector<ClipTintParamAdjustment> adjustments;
+
+  if (clipTintIntentRequestsColor(normalized)) {
+    const timeline::ParamValue value{clipTintColorForIntent(normalized)};
+    const std::optional<timeline::ParamValue> currentValue =
+      effectParamValue(current, effects::builtin_effect::ClipTintColorParam);
+    if (!currentValue.has_value()) {
+      return foundation::Error{
+        "steward.clip_tint_param_missing",
+        "Clip Tint controls are missing the color parameter."
+      };
+    }
+    if (currentValue.value() != value) {
+      adjustments.push_back(ClipTintParamAdjustment{effects::builtin_effect::ClipTintColorParam, value});
+    }
+  }
+
+  if (clipTintIntentRequestsAmount(normalized)) {
+    const timeline::ParamValue value{clipTintAmountForIntent(normalized)};
+    const std::optional<timeline::ParamValue> currentValue =
+      effectParamValue(current, effects::builtin_effect::ClipTintAmountParam);
+    if (!currentValue.has_value()) {
+      return foundation::Error{
+        "steward.clip_tint_param_missing",
+        "Clip Tint controls are missing the amount parameter."
+      };
+    }
+    if (currentValue.value() != value) {
+      adjustments.push_back(ClipTintParamAdjustment{effects::builtin_effect::ClipTintAmountParam, value});
+    }
+  }
+
+  if (adjustments.empty()) {
+    return foundation::Error{
+      "steward.clip_tint_noop",
+      "Clip Tint controls already match the requested adjustment."
+    };
+  }
+
+  return adjustments;
 }
 
 bool NativeStewardPlanner::trackCreateIntentTargetsTrack(const std::string& intent) const {
