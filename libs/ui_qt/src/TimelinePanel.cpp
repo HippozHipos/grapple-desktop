@@ -5,6 +5,7 @@
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPaintEvent>
+#include <QPixmap>
 
 #include <algorithm>
 #include <utility>
@@ -27,6 +28,12 @@ TimelinePanel::TimelinePanel(QWidget* parent)
 
 void TimelinePanel::setViewModel(app::AppViewModel viewModel) {
   viewModel_ = std::move(viewModel);
+  thumbnailCache_.setAssets(viewModel_->assets);
+  update();
+}
+
+void TimelinePanel::setPackageRoot(foundation::FilePath packageRoot) {
+  thumbnailCache_.setPackageRoot(std::move(packageRoot));
   update();
 }
 
@@ -286,8 +293,25 @@ void TimelinePanel::drawLayerRow(
     painter.setPen(selected ? QPen{QColor{"#ffffff"}, 3} : QPen{QColor{"#b9c7f0"}, 1});
     painter.setBrush(clipColor);
     painter.drawRoundedRect(clipRect, 6, 6);
+    int textLeftInset = 10;
+    if (const QPixmap* thumbnail = thumbnailCache_.thumbnailFor(clip.assetId);
+        thumbnail != nullptr && !thumbnail->isNull() && clipRect.width() > 72) {
+      const int thumbnailWidth = std::min(52, std::max(24, clipRect.width() / 4));
+      const QRect thumbnailRect{
+        clipRect.left() + 4,
+        clipRect.top() + 4,
+        thumbnailWidth,
+        clipRect.height() - 8
+      };
+      painter.drawPixmap(thumbnailRect, *thumbnail, thumbnail->rect());
+      textLeftInset = thumbnailWidth + 12;
+    }
     painter.setPen(QColor{"#eef4ff"});
-    painter.drawText(clipRect.adjusted(10, 0, -8, 0), Qt::AlignVCenter | Qt::AlignLeft, elidedText(painter, qString(clip.assetName), clipRect.width() - 18));
+    painter.drawText(
+      clipRect.adjusted(textLeftInset, 0, -8, 0),
+      Qt::AlignVCenter | Qt::AlignLeft,
+      elidedText(painter, qString(clip.assetName), clipRect.width() - textLeftInset - 8)
+    );
   }
 }
 

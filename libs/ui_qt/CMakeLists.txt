@@ -1,6 +1,7 @@
 find_package(Qt5 REQUIRED COMPONENTS Widgets)
 
 add_library(grapple_ui_qt
+  src/AssetThumbnailCache.cpp
   src/CameraPropertyPanel.cpp
   src/ClipTransformPanel.cpp
   src/CompositionViewport.cpp

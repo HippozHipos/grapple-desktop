@@ -1,6 +1,7 @@
 #pragma once
 
 #include <grapple/app/AppViewModel.hpp>
+#include <grapple/ui_qt/AssetThumbnailCache.hpp>
 
 #include <QPoint>
 #include <QRect>
@@ -23,6 +24,7 @@ class TimelinePanel final : public QWidget {
 public:
   explicit TimelinePanel(QWidget* parent = nullptr);
 
+  void setPackageRoot(foundation::FilePath packageRoot);
   void setViewModel(app::AppViewModel viewModel);
   void setPlayhead(foundation::TimeSeconds playhead);
   void setSelectedNodeId(std::optional<foundation::NodeId> selectedNodeId);
@@ -61,6 +63,7 @@ private:
   void drawPlayhead(QPainter& painter, int left, int trackWidth, double duration) const;
 
   std::optional<app::AppViewModel> viewModel_;
+  AssetThumbnailCache thumbnailCache_;
   foundation::TimeSeconds playhead_;
   std::optional<foundation::NodeId> selectedNodeId_;
   std::function<void(foundation::TimeSeconds)> seekHandler_;

@@ -857,6 +857,7 @@ public:
     rebuildMediaBin(viewModel);
     previewSurface_->setAssetLabels(viewModel.assets);
     steward_->setViewModel(viewModel, workspace_.steward().conversationState(), selectedNodeId_, selectedAssetId_);
+    timeline_->setPackageRoot(workspace_.project().packageState().package.rootPath);
     timeline_->setViewModel(viewModel);
     timeline_->setPlayhead(workspace_.preview().state().playhead);
     timeline_->setSelectedNodeId(selectedNodeId_);
