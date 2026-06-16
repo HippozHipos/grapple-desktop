@@ -247,6 +247,22 @@ QString inspectorText(
     }
   }
 
+  for (const grapple::app::AppTextClipRow& clip : viewModel.timeline.textClips) {
+    if (clip.sourceNodeId == selectedNodeId.value()) {
+      return QString{"Inspector\nText Clip\nText: %1\nRange: %2s - %3s\nPosition: %4, %5\nScale: %6, %7\nRotation: %8\nFont Size: %9\n\n%10"}
+        .arg(qString(clip.text))
+        .arg(clip.timelineRange.start.value)
+        .arg(clip.timelineRange.end.value)
+        .arg(clip.transform.position.x, 0, 'f', 2)
+        .arg(clip.transform.position.y, 0, 'f', 2)
+        .arg(clip.transform.scale.x, 0, 'f', 2)
+        .arg(clip.transform.scale.y, 0, 'f', 2)
+        .arg(clip.transform.rotationDegrees, 0, 'f', 2)
+        .arg(clip.style.fontSize, 0, 'f', 1)
+        .arg(attachedEffectsText(clip.sourceNodeId));
+    }
+  }
+
   for (const grapple::app::AppCameraRow& camera : viewModel.timeline.cameras) {
     if (camera.sourceNodeId == selectedNodeId.value()) {
       return QString{"Inspector\nCamera\nName: %1\nFocal Length: %2\n\n%3"}
@@ -589,6 +605,7 @@ public:
     auto* saveAsPackageAction = moreMenu->addAction("Save As Package");
     auto* addTrackAction = moreMenu->addAction("Add Track");
     auto* addCameraAction = moreMenu->addAction("Add Camera");
+    auto* addTextAction = moreMenu->addAction("Add Text");
     renameCameraAction_ = moreMenu->addAction("Rename Camera");
     setCameraFocalLengthAction_ = moreMenu->addAction("Set Camera Focal Length");
     auto* addNoteAction = moreMenu->addAction("Add Note");
@@ -690,6 +707,7 @@ public:
     connect(saveAsPackageAction, &QAction::triggered, this, [this] { chooseAndSavePackageAs(); });
     connect(addTrackAction, &QAction::triggered, this, [this] { addTrack(); });
     connect(addCameraAction, &QAction::triggered, this, [this] { addCamera(); });
+    connect(addTextAction, &QAction::triggered, this, [this] { addTextClip(); });
     connect(renameCameraAction_, &QAction::triggered, this, [this] { renameSelectedCamera(); });
     connect(setCameraFocalLengthAction_, &QAction::triggered, this, [this] { editSelectedCameraFocalLength(); });
     connect(addNoteAction, &QAction::triggered, this, [this] { addNote(); });
@@ -1395,6 +1413,37 @@ public:
     return compositionNodeId;
   }
 
+  grapple::foundation::Result<grapple::foundation::NodeId> ensureVisualTrack() {
+    const auto viewModel = workspace_.project().buildViewModel();
+    if (!viewModel) {
+      return viewModel.error();
+    }
+    if (!viewModel.value().timeline.layers.empty()) {
+      return viewModel.value().timeline.layers.front().sourceNodeId;
+    }
+
+    auto compositionNodeId = ensureComposition();
+    if (!compositionNodeId) {
+      return compositionNodeId.error();
+    }
+
+    const grapple::foundation::NodeId trackNodeId = workspace_.commandWriter().nextNodeId("track");
+    const auto track = workspace_.commandWriter().apply(
+      grapple::project::CreateTrackCommand{
+        trackNodeId,
+        compositionNodeId.value(),
+        workspace_.commandWriter().nextEdgeId("contains_track"),
+        "Video 1",
+        grapple::timeline::TrackKind::Visual
+      },
+      userSource()
+    );
+    if (!track) {
+      return track.error();
+    }
+    return trackNodeId;
+  }
+
   void addTrack() {
     auto compositionNodeId = ensureComposition();
     if (!compositionNodeId) {
@@ -1467,6 +1516,46 @@ public:
     selectedAssetId_ = std::nullopt;
     refreshViewModelAndPreview();
     log_->append("Added camera");
+  }
+
+  void addTextClip() {
+    auto trackNodeId = ensureVisualTrack();
+    if (!trackNodeId) {
+      appendError(trackNodeId.error());
+      return;
+    }
+
+    const grapple::foundation::TimeSeconds start = workspace_.preview().state().playhead;
+    const grapple::foundation::TimeSeconds end{start.value + 3.0};
+    const grapple::foundation::NodeId textNodeId = workspace_.commandWriter().nextNodeId("text_clip");
+    const auto result = workspace_.commandWriter().apply(
+      grapple::project::CreateTextClipCommand{
+        textNodeId,
+        trackNodeId.value(),
+        workspace_.commandWriter().nextEdgeId("contains_text_clip"),
+        grapple::timeline::TextClipPayload{
+          "Text",
+          grapple::foundation::TimeRange{start, end},
+          grapple::timeline::Transform2D{
+            grapple::foundation::Vec2{0.0, 0.35},
+            grapple::foundation::Vec2{1.0, 1.0},
+            0.0,
+            1.0
+          },
+          grapple::timeline::TextClipStyle{48.0, grapple::foundation::Vec3{1.0, 1.0, 1.0}}
+        }
+      },
+      userSource()
+    );
+    if (!result) {
+      appendError(result.error());
+      return;
+    }
+
+    selectedNodeId_ = textNodeId;
+    selectedAssetId_ = std::nullopt;
+    refreshViewModelAndPreview();
+    log_->append("Added text");
   }
 
   void updateSelectedCameraName(std::string name) {

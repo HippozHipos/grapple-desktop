@@ -38,12 +38,23 @@ struct CompositionClipSummary {
   bool enabled = true;
 };
 
+struct CompositionTextClipSummary {
+  foundation::NodeId nodeId;
+  foundation::NodeId trackNodeId;
+  std::string text;
+  foundation::TimeRange timelineRange;
+  timeline::Transform2D transform;
+  timeline::TextClipStyle style;
+  bool enabled = true;
+};
+
 struct CompositionTrackSummary {
   foundation::NodeId nodeId;
   std::string name;
   timeline::TrackKind kind = timeline::TrackKind::Visual;
   bool enabled = true;
   std::vector<CompositionClipSummary> clips;
+  std::vector<CompositionTextClipSummary> textClips;
 };
 
 struct CompositionCameraSummary {
@@ -146,6 +157,13 @@ struct RenderPlanClipSummary {
   foundation::TimeRange timelineRange;
 };
 
+struct RenderPlanTextClipSummary {
+  foundation::NodeId nodeId;
+  foundation::NodeId trackNodeId;
+  std::string text;
+  foundation::TimeRange timelineRange;
+};
+
 struct RenderPlanCameraSummary {
   foundation::NodeId nodeId;
   std::string name;
@@ -166,6 +184,7 @@ struct RenderPlanInspectResult {
   std::vector<RenderPlanLayerSummary> layers;
   std::vector<RenderPlanLayerSummary> audioTracks;
   std::vector<RenderPlanClipSummary> clips;
+  std::vector<RenderPlanTextClipSummary> textClips;
   std::vector<RenderPlanClipSummary> audioClips;
   std::vector<RenderPlanCameraSummary> cameras;
   std::vector<RenderPlanEffectGraphSummary> effectGraphs;

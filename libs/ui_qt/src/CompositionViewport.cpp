@@ -22,6 +22,14 @@ double positiveScale(double value) {
   return std::max(0.05, std::abs(value));
 }
 
+QColor styleColor(const timeline::TextClipStyle& style) {
+  return QColor{
+    static_cast<int>(std::clamp(style.color.x, 0.0, 1.0) * 255.0),
+    static_cast<int>(std::clamp(style.color.y, 0.0, 1.0) * 255.0),
+    static_cast<int>(std::clamp(style.color.z, 0.0, 1.0) * 255.0)
+  };
+}
+
 } // namespace
 
 CompositionViewport::CompositionViewport(QWidget* parent)
@@ -81,6 +89,9 @@ void CompositionViewport::paintEvent(QPaintEvent* event) {
   if (frame_ != nullptr && frame_->time == playhead_) {
     for (const render::RenderedMediaFrame& mediaFrame : frame_->mediaFrames) {
       drawMediaFrame(painter, mediaFrame, world);
+    }
+    for (const render::RenderedTextFrame& textFrame : frame_->textFrames) {
+      drawTextFrame(painter, textFrame, world);
     }
     for (const render::RenderedCamera& camera : frame_->cameras) {
       drawCamera(painter, camera, world);
@@ -150,6 +161,29 @@ void CompositionViewport::drawMediaFrame(
     static_cast<int>(std::max(20.0, clipRect.width() - 16.0))
   );
   painter.drawText(clipRect.adjusted(8.0, 6.0, -8.0, -6.0), Qt::AlignTop | Qt::AlignLeft, label);
+  painter.restore();
+}
+
+void CompositionViewport::drawTextFrame(
+  QPainter& painter,
+  const render::RenderedTextFrame& textFrame,
+  const QRectF& world
+) const {
+  const double width = std::max(1.0, static_cast<double>(textFrame.text.size()) * 0.18);
+  QRectF textRect = worldRect(width, 0.45, textFrame.transform, world);
+  const bool isSelected = selected(textFrame.clipNodeId);
+
+  painter.save();
+  painter.translate(textRect.center());
+  painter.rotate(textFrame.transform.rotationDegrees);
+  textRect.moveCenter(QPointF{0.0, 0.0});
+
+  painter.setPen(isSelected ? QPen{QColor{"#f4fbff"}, 4} : QPen{QColor{"#f6d56f"}, 2});
+  painter.setBrush(QColor{0, 0, 0, 110});
+  painter.drawRoundedRect(textRect.adjusted(-6.0, -4.0, 6.0, 4.0), 7.0, 7.0);
+  painter.setPen(styleColor(textFrame.style));
+  painter.setFont(QFont{"DejaVu Sans", std::clamp(static_cast<int>(textFrame.style.fontSize / 4.0), 8, 28), QFont::Bold});
+  painter.drawText(textRect, Qt::AlignCenter, qString(textFrame.text));
   painter.restore();
 }
 

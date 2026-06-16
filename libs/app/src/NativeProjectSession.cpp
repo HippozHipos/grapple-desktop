@@ -779,6 +779,7 @@ project::RenderPlanInspectResult inspectRenderPlan(const projection::RenderPlan&
     {},
     {},
     {},
+    {},
     plan.diagnostics.size()
   };
 
@@ -802,6 +803,15 @@ project::RenderPlanInspectResult inspectRenderPlan(const projection::RenderPlan&
       clip.trackNodeId,
       clip.payload.assetId,
       clip.payload.kind,
+      clip.payload.timelineRange
+    });
+  }
+
+  for (const projection::RenderTextClip& clip : plan.textClips) {
+    result.textClips.push_back(project::RenderPlanTextClipSummary{
+      clip.sourceNodeId,
+      clip.trackNodeId,
+      clip.payload.text,
       clip.payload.timelineRange
     });
   }
@@ -1014,7 +1024,8 @@ foundation::Result<NativeProjectViewModelResult> NativeProjectSession::buildView
     viewModel.timeline.layers.push_back(AppLayerRow{
       layer.sourceNodeId,
       layer.name,
-      countClipsForLayer(plan.clips, layer.sourceNodeId)
+      countClipsForLayer(plan.clips, layer.sourceNodeId) +
+        countClipsForLayer(plan.textClips, layer.sourceNodeId)
     });
   }
 
@@ -1042,6 +1053,17 @@ foundation::Result<NativeProjectViewModelResult> NativeProjectSession::buildView
       clip.payload.sourceRange,
       clip.payload.playbackRate,
       clip.payload.transform
+    });
+  }
+
+  for (const projection::RenderTextClip& clip : plan.textClips) {
+    viewModel.timeline.textClips.push_back(AppTextClipRow{
+      clip.sourceNodeId,
+      clip.trackNodeId,
+      clip.payload.text,
+      clip.payload.timelineRange,
+      clip.payload.transform,
+      clip.payload.style
     });
   }
 

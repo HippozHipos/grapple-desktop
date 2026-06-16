@@ -30,6 +30,7 @@ protected:
 private:
   void drawGrid(QPainter& painter, const QRectF& world) const;
   void drawMediaFrame(QPainter& painter, const render::RenderedMediaFrame& mediaFrame, const QRectF& world) const;
+  void drawTextFrame(QPainter& painter, const render::RenderedTextFrame& textFrame, const QRectF& world) const;
   void drawCamera(QPainter& painter, const render::RenderedCamera& camera, const QRectF& world) const;
   [[nodiscard]] QRectF worldRect(
     double width,

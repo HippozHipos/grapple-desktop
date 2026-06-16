@@ -52,6 +52,14 @@ QRect scaledRect(const QSize& sourceSize, const QRect& bounds) {
   };
 }
 
+QColor styleColor(const timeline::TextClipStyle& style) {
+  return QColor{
+    static_cast<int>(std::clamp(style.color.x, 0.0, 1.0) * 255.0),
+    static_cast<int>(std::clamp(style.color.y, 0.0, 1.0) * 255.0),
+    static_cast<int>(std::clamp(style.color.z, 0.0, 1.0) * 255.0)
+  };
+}
+
 } // namespace
 
 PreviewSurface::PreviewSurface(QWidget* parent)
@@ -92,7 +100,7 @@ void PreviewSurface::paintEvent(QPaintEvent* event) {
     return;
   }
 
-  if (frame.mediaFrames.empty()) {
+  if (frame.mediaFrames.empty() && frame.textFrames.empty()) {
     drawCenteredText(painter, QString{"%1\nNo active media at playhead"}.arg(timeText(frame.time)));
     return;
   }
@@ -116,6 +124,10 @@ void PreviewSurface::paintEvent(QPaintEvent* event) {
     if (index == 3) {
       break;
     }
+  }
+
+  for (const render::RenderedTextFrame& textFrame : frame.textFrames) {
+    drawTextFrame(painter, textFrame, canvas.adjusted(28, 28, -28, -28));
   }
 
   painter.setPen(QColor{"#d8f3ff"});
@@ -159,6 +171,10 @@ void PreviewSurface::drawRenderedImage(QPainter& painter, const render::RenderFr
   const QRect target = scaledRect(qImage.size(), rect().adjusted(30, 30, -30, -30));
   painter.drawImage(target, qImage);
 
+  for (const render::RenderedTextFrame& textFrame : frame.textFrames) {
+    drawTextFrame(painter, textFrame, target);
+  }
+
   painter.setPen(QColor{"#d8f3ff"});
   painter.setFont(QFont{"DejaVu Sans", 13, QFont::Bold});
   painter.drawText(rect().adjusted(18, 10, -18, -10), Qt::AlignTop | Qt::AlignHCenter, timeText(frame.time));
@@ -200,6 +216,28 @@ void PreviewSurface::drawMediaFrame(
     painter.drawText(detailsRect.left(), y + 18, elidedText(painter, line, detailsRect.width()));
     y += 24;
   }
+}
+
+void PreviewSurface::drawTextFrame(
+  QPainter& painter,
+  const render::RenderedTextFrame& textFrame,
+  const QRect& bounds
+) const {
+  painter.save();
+  const QPoint center{
+    bounds.center().x() + static_cast<int>(textFrame.transform.position.x * static_cast<double>(bounds.width()) * 0.5),
+    bounds.center().y() - static_cast<int>(textFrame.transform.position.y * static_cast<double>(bounds.height()) * 0.5)
+  };
+  painter.translate(center);
+  painter.rotate(textFrame.transform.rotationDegrees);
+
+  const int fontSize = std::clamp(static_cast<int>(textFrame.style.fontSize), 8, 180);
+  painter.setFont(QFont{"DejaVu Sans", fontSize, QFont::Bold});
+  painter.setPen(styleColor(textFrame.style));
+  const int textWidth = std::max(80, bounds.width() - 48);
+  const QRect textRect{-textWidth / 2, -fontSize, textWidth, fontSize * 2};
+  painter.drawText(textRect, Qt::AlignCenter, qString(textFrame.text));
+  painter.restore();
 }
 
 QString PreviewSurface::assetLabel(const foundation::AssetId& assetId) const {

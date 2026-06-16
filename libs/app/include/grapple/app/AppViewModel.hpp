@@ -88,6 +88,15 @@ struct AppClipRow {
   foundation::Transform2D transform;
 };
 
+struct AppTextClipRow {
+  foundation::NodeId sourceNodeId;
+  foundation::NodeId trackNodeId;
+  std::string text;
+  foundation::TimeRange timelineRange;
+  foundation::Transform2D transform;
+  timeline::TextClipStyle style;
+};
+
 struct AppCameraRow {
   foundation::NodeId sourceNodeId;
   std::string name;
@@ -147,6 +156,7 @@ struct AppTimelineView {
   std::vector<AppLayerRow> layers;
   std::vector<AppLayerRow> audioTracks;
   std::vector<AppClipRow> clips;
+  std::vector<AppTextClipRow> textClips;
   std::vector<AppClipRow> audioClips;
   std::vector<AppCameraRow> cameras;
   std::vector<AppEffectGraphRow> effectGraphs;

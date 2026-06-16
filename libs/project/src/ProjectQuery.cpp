@@ -159,6 +159,26 @@ foundation::Result<CompositionClipSummary> inspectClip(
   };
 }
 
+foundation::Result<CompositionTextClipSummary> inspectTextClip(
+  const graph::GraphNode& node,
+  const foundation::NodeId& trackNodeId
+) {
+  const auto* payload = std::get_if<timeline::TextClipPayload>(&node.payload);
+  if (payload == nullptr) {
+    return foundation::Error{"project.text_clip_payload_invalid", "Text clip node must carry a text clip payload."};
+  }
+
+  return CompositionTextClipSummary{
+    node.id,
+    trackNodeId,
+    payload->text,
+    payload->timelineRange,
+    payload->transform,
+    payload->style,
+    node.enabled
+  };
+}
+
 foundation::Result<CompositionTrackSummary> inspectTrack(
   const graph::GraphDocument& graph,
   const graph::GraphNode& node
@@ -168,7 +188,7 @@ foundation::Result<CompositionTrackSummary> inspectTrack(
     return foundation::Error{"project.track_payload_invalid", "Track node must carry a track payload."};
   }
 
-  CompositionTrackSummary track{node.id, payload->name, payload->kind, node.enabled, {}};
+  CompositionTrackSummary track{node.id, payload->name, payload->kind, node.enabled, {}, {}};
   for (const graph::GraphEdge& edge : graph.edges()) {
     if (edge.kind != graph::EdgeKind::Contains || edge.sourceNodeId != node.id) {
       continue;
@@ -179,11 +199,19 @@ foundation::Result<CompositionTrackSummary> inspectTrack(
       continue;
     }
 
-    auto inspectedClip = inspectClip(*clip, node.id);
-    if (!inspectedClip) {
-      return inspectedClip.error();
+    if (std::holds_alternative<timeline::TextClipPayload>(clip->payload)) {
+      auto inspectedClip = inspectTextClip(*clip, node.id);
+      if (!inspectedClip) {
+        return inspectedClip.error();
+      }
+      track.textClips.push_back(inspectedClip.value());
+    } else {
+      auto inspectedClip = inspectClip(*clip, node.id);
+      if (!inspectedClip) {
+        return inspectedClip.error();
+      }
+      track.clips.push_back(inspectedClip.value());
     }
-    track.clips.push_back(inspectedClip.value());
   }
 
   return track;

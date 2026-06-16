@@ -110,6 +110,7 @@ void TimelinePanel::paintEvent(QPaintEvent* event) {
       painter,
       layer,
       viewModel.timeline.clips,
+      viewModel.timeline.textClips,
       QRect{0, y, width(), rowHeight},
       left,
       QColor{"#242936"},
@@ -124,6 +125,7 @@ void TimelinePanel::paintEvent(QPaintEvent* event) {
       painter,
       track,
       viewModel.timeline.audioClips,
+      {},
       QRect{0, y, width(), rowHeight},
       left,
       QColor{"#242d2b"},
@@ -209,6 +211,14 @@ std::optional<foundation::NodeId> TimelinePanel::nodeAt(const QPoint& point) con
         return clip.sourceNodeId;
       }
     }
+    for (const app::AppTextClipRow& clip : viewModel_->timeline.textClips) {
+      if (clip.trackNodeId != layer.sourceNodeId) {
+        continue;
+      }
+      if (textClipRectFor(row, clip).contains(point)) {
+        return clip.sourceNodeId;
+      }
+    }
     return layer.sourceNodeId;
   }
 
@@ -247,6 +257,15 @@ QRect TimelinePanel::clipRectFor(int row, const app::AppClipRow& clip) const {
   return QRect{x + 2, top + 8, std::max(18, endX - x - 4), rowHeight() - 16};
 }
 
+QRect TimelinePanel::textClipRectFor(int row, const app::AppTextClipRow& clip) const {
+  const int left = timelineLeft();
+  const int width = std::max(1, timelineRight() - left);
+  const int top = rulerHeight() + (row * rowHeight());
+  const int x = clipX(clip.timelineRange.start, left, width, duration());
+  const int endX = clipX(clip.timelineRange.end, left, width, duration());
+  return QRect{x + 2, top + 8, std::max(18, endX - x - 4), rowHeight() - 16};
+}
+
 QRect TimelinePanel::cameraRectFor(int row, std::size_t cameraIndex, std::size_t cameraCount) const {
   const int left = timelineLeft();
   const int width = std::max(1, timelineRight() - left);
@@ -272,6 +291,7 @@ void TimelinePanel::drawLayerRow(
   QPainter& painter,
   const app::AppLayerRow& layer,
   const std::vector<app::AppClipRow>& clips,
+  const std::vector<app::AppTextClipRow>& textClips,
   const QRect& row,
   int left,
   const QColor& rowColor,
@@ -311,6 +331,23 @@ void TimelinePanel::drawLayerRow(
       clipRect.adjusted(textLeftInset, 0, -8, 0),
       Qt::AlignVCenter | Qt::AlignLeft,
       elidedText(painter, qString(clip.assetName), clipRect.width() - textLeftInset - 8)
+    );
+  }
+
+  for (const app::AppTextClipRow& clip : textClips) {
+    if (clip.trackNodeId != layer.sourceNodeId) {
+      continue;
+    }
+    const QRect clipRect = textClipRectFor((row.top() - rulerHeight()) / rowHeight(), clip);
+    const bool selected = selectedNodeId_.has_value() && clip.sourceNodeId == selectedNodeId_.value();
+    painter.setPen(selected ? QPen{QColor{"#ffffff"}, 3} : QPen{QColor{"#f6d56f"}, 1});
+    painter.setBrush(QColor{"#5a4721"});
+    painter.drawRoundedRect(clipRect, 6, 6);
+    painter.setPen(QColor{"#fff7cf"});
+    painter.drawText(
+      clipRect.adjusted(10, 0, -8, 0),
+      Qt::AlignVCenter | Qt::AlignLeft,
+      elidedText(painter, qString(clip.text), clipRect.width() - 18)
     );
   }
 }

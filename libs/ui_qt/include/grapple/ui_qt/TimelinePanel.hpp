@@ -44,6 +44,7 @@ private:
   [[nodiscard]] foundation::TimeSeconds timeAtX(int x) const noexcept;
   [[nodiscard]] std::optional<foundation::NodeId> nodeAt(const QPoint& point) const;
   [[nodiscard]] QRect clipRectFor(int row, const app::AppClipRow& clip) const;
+  [[nodiscard]] QRect textClipRectFor(int row, const app::AppTextClipRow& clip) const;
   [[nodiscard]] QRect cameraRectFor(int row, std::size_t cameraIndex, std::size_t cameraCount) const;
 
   static int clipX(foundation::TimeSeconds time, int left, int trackWidth, double duration);
@@ -52,6 +53,7 @@ private:
     QPainter& painter,
     const app::AppLayerRow& layer,
     const std::vector<app::AppClipRow>& clips,
+    const std::vector<app::AppTextClipRow>& textClips,
     const QRect& row,
     int left,
     const QColor& rowColor,

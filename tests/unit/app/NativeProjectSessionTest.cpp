@@ -711,6 +711,47 @@ int main() {
   GRAPPLE_REQUIRE(assetClipViewModel.value().timeline.clips[0].sourceNodeId == assetClipNodeId);
   GRAPPLE_REQUIRE(assetClipViewModel.value().timeline.clips[0].assetName == "Clip");
   GRAPPLE_REQUIRE(assetClipViewModel.value().timeline.clips[0].transform == clipTransform);
+  const foundation::NodeId textClipNodeId = assetWriter.nextNodeId("text_clip");
+  const auto textClip = assetWriter.apply(
+    project::CreateTextClipCommand{
+      textClipNodeId,
+      assetTrackNodeId,
+      assetWriter.nextEdgeId("contains text clip"),
+      timeline::TextClipPayload{
+        "Native Text",
+        foundation::TimeRange{foundation::TimeSeconds{3.0}, foundation::TimeSeconds{6.0}},
+        timeline::Transform2D{
+          foundation::Vec2{0.0, 0.4},
+          foundation::Vec2{1.0, 1.0},
+          0.0,
+          1.0
+        },
+        timeline::TextClipStyle{52.0, foundation::Vec3{1.0, 0.9, 0.2}}
+      },
+      1
+    },
+    userSource()
+  );
+  GRAPPLE_REQUIRE(textClip);
+  const auto textClipViewModel = assetSession.buildViewModel();
+  GRAPPLE_REQUIRE(textClipViewModel);
+  GRAPPLE_REQUIRE(textClipViewModel.value().timeline.layers[0].clipCount == 2);
+  GRAPPLE_REQUIRE(textClipViewModel.value().timeline.textClips.size() == 1);
+  GRAPPLE_REQUIRE(textClipViewModel.value().timeline.textClips[0].sourceNodeId == textClipNodeId);
+  GRAPPLE_REQUIRE(textClipViewModel.value().timeline.textClips[0].text == "Native Text");
+  GRAPPLE_REQUIRE(textClipViewModel.value().timeline.textClips[0].style.fontSize == 52.0);
+  auto textWorkspace = app::NativeWorkspaceSession::fromProject(std::move(assetSession));
+  GRAPPLE_REQUIRE(textWorkspace);
+  const auto textRefresh = textWorkspace.value().preview().refreshFromProject();
+  GRAPPLE_REQUIRE(textRefresh);
+  const auto textFrame = textWorkspace.value().preview().renderFrame(render::RenderFrameRequest{
+    foundation::TimeSeconds{4.0},
+    render::RenderQuality::Draft
+  });
+  GRAPPLE_REQUIRE(textFrame);
+  GRAPPLE_REQUIRE(textFrame.value().frame.mediaFrames.empty());
+  GRAPPLE_REQUIRE(textFrame.value().frame.textFrames.size() == 1);
+  GRAPPLE_REQUIRE(textFrame.value().frame.textFrames[0].text == "Native Text");
 
   const std::filesystem::path cacheImagePath = writeTinyPpm("grapple_native_cache_image");
   app::NativeProjectSession cacheProject{

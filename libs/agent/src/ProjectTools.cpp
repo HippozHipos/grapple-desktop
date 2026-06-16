@@ -1154,6 +1154,27 @@ void writeCompositionClipJson(std::ostream& stream, const project::CompositionCl
          << '}';
 }
 
+void writeCompositionTextClipJson(std::ostream& stream, const project::CompositionTextClipSummary& clip) {
+  stream << '{'
+         << "\"nodeId\":" << foundation::jsonQuoted(clip.nodeId.value())
+         << ",\"trackNodeId\":" << foundation::jsonQuoted(clip.trackNodeId.value())
+         << ",\"text\":" << foundation::jsonQuoted(clip.text)
+         << ",\"timelineRange\":{\"start\":" << clip.timelineRange.start.value
+         << ",\"end\":" << clip.timelineRange.end.value
+         << "},\"transform\":";
+  writeTransformJson(stream, clip.transform);
+  stream << ",\"style\":{\"fontSize\":";
+  writeNumber(stream, clip.style.fontSize);
+  stream << ",\"color\":{\"x\":";
+  writeNumber(stream, clip.style.color.x);
+  stream << ",\"y\":";
+  writeNumber(stream, clip.style.color.y);
+  stream << ",\"z\":";
+  writeNumber(stream, clip.style.color.z);
+  stream << "}},\"enabled\":" << (clip.enabled ? "true" : "false")
+         << '}';
+}
+
 void writeCompositionTrackJson(std::ostream& stream, const project::CompositionTrackSummary& track) {
   stream << '{'
          << "\"nodeId\":" << foundation::jsonQuoted(track.nodeId.value())
@@ -1166,6 +1187,13 @@ void writeCompositionTrackJson(std::ostream& stream, const project::CompositionT
       stream << ',';
     }
     writeCompositionClipJson(stream, track.clips[index]);
+  }
+  stream << "],\"textClips\":[";
+  for (std::size_t index = 0; index < track.textClips.size(); ++index) {
+    if (index != 0) {
+      stream << ',';
+    }
+    writeCompositionTextClipJson(stream, track.textClips[index]);
   }
   stream << "]}";
 }
@@ -1370,6 +1398,16 @@ void writeRenderPlanClipJson(std::ostream& stream, const project::RenderPlanClip
          << "}}";
 }
 
+void writeRenderPlanTextClipJson(std::ostream& stream, const project::RenderPlanTextClipSummary& clip) {
+  stream << '{'
+         << "\"nodeId\":" << foundation::jsonQuoted(clip.nodeId.value())
+         << ",\"trackNodeId\":" << foundation::jsonQuoted(clip.trackNodeId.value())
+         << ",\"text\":" << foundation::jsonQuoted(clip.text)
+         << ",\"timelineRange\":{\"start\":" << clip.timelineRange.start.value
+         << ",\"end\":" << clip.timelineRange.end.value
+         << "}}";
+}
+
 void writeRenderPlanCameraJson(std::ostream& stream, const project::RenderPlanCameraSummary& camera) {
   stream << '{'
          << "\"nodeId\":" << foundation::jsonQuoted(camera.nodeId.value())
@@ -1412,6 +1450,13 @@ void writeRenderPlanInspectJson(std::ostream& stream, const project::RenderPlanI
       stream << ',';
     }
     writeRenderPlanClipJson(stream, result.clips[index]);
+  }
+  stream << "],\"textClips\":[";
+  for (std::size_t index = 0; index < result.textClips.size(); ++index) {
+    if (index != 0) {
+      stream << ',';
+    }
+    writeRenderPlanTextClipJson(stream, result.textClips[index]);
   }
   stream << "],\"audioClips\":[";
   for (std::size_t index = 0; index < result.audioClips.size(); ++index) {
