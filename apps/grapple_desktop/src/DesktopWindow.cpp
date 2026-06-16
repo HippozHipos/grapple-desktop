@@ -3524,9 +3524,12 @@ private:
     const bool saved =
       lastSavedRevision_.has_value() &&
       lastSavedRevision_.value() == viewModel.project.revision;
-    productTitle_->setText(QString{"%1  [%2]  %3"}
-      .arg(projectName, qString(viewModel.project.revision.value()), saved ? "Saved" : "Unsaved"));
-    productSubtitle_->setText(QString{"%1  |  %2"}.arg(packageRootName(package.rootPath), qString(package.rootPath.value)));
+    productTitle_->setText(QString{"Grapple  |  %1"}.arg(projectName));
+    productSubtitle_->setText(QString{"%1  |  %2  |  %3"}
+      .arg(saved ? "Saved" : "Unsaved")
+      .arg(qString(viewModel.project.revision.value()))
+      .arg(packageRootName(package.rootPath)));
+    productSubtitle_->setToolTip(qString(package.rootPath.value));
     setWindowTitle(QString{"%1 - Grapple"}.arg(projectName));
   }
 

@@ -3301,7 +3301,6 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       dirtySaveActionEnabled &&
       saveAsHeader.find("Desktop Demo") != std::string::npos &&
       saveAsHeader.find("desktop-save-as-package") != std::string::npos &&
-      saveAsHeader.find(saveAsRoot.string()) != std::string::npos &&
       saveAsHeader.find("Saved") != std::string::npos &&
       saveAsHeader.find("Unsaved") == std::string::npos &&
       !savedSaveActionEnabled &&
