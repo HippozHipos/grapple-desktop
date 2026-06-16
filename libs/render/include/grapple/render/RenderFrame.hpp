@@ -30,6 +30,8 @@ struct RenderedMediaFrame {
   RenderedMediaKind kind = RenderedMediaKind::Video;
   foundation::TimeSeconds sourceTime;
   timeline::Transform2D transform;
+  std::optional<foundation::Vec3> tintColor;
+  double tintAmount = 0.0;
 };
 
 struct RenderedAudioClip {

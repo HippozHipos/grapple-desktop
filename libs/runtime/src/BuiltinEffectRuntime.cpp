@@ -24,7 +24,20 @@ std::optional<double> numericParam(const RuntimeParamSet& params, const std::str
   return std::nullopt;
 }
 
-RuntimeDiagnostic makeParamDiagnostic(
+std::optional<foundation::Vec3> vec3Param(const RuntimeParamSet& params, const std::string& name) {
+  for (const RuntimeParam& param : params) {
+    if (param.name == name) {
+      const auto* value = std::get_if<foundation::Vec3>(&param.value);
+      if (value != nullptr) {
+        return *value;
+      }
+      return std::nullopt;
+    }
+  }
+  return std::nullopt;
+}
+
+RuntimeDiagnostic makeCameraTransformParamDiagnostic(
   const EffectPrepareRequest& request,
   const std::string& paramName
 ) {
@@ -40,14 +53,33 @@ RuntimeDiagnostic makeParamDiagnostic(
   };
 }
 
-} // namespace
+RuntimeDiagnostic makeClipTintParamDiagnostic(
+  const EffectPrepareRequest& request,
+  const std::string& paramName
+) {
+  return RuntimeDiagnostic{
+    "runtime.builtin_clip_tint_param_invalid",
+    DiagnosticSeverity::Error,
+    DiagnosticLocation{
+      request.projectId,
+      request.revision,
+      request.node.sourceNodeId
+    },
+    "Builtin clip_tint effect requires parameter " + paramName + "."
+  };
+}
 
-bool BuiltinEffectRuntime::supports(const projection::RenderEffectNode& node) const {
+bool isCameraTransform(const projection::RenderEffectNode& node) {
   return node.payload.implementation.kind == timeline::EffectImplementationKind::Builtin &&
          node.payload.implementation.entrypoint == effects::builtin_effect::CameraTransformEntrypoint;
 }
 
-foundation::Result<EffectPrepareResult> BuiltinEffectRuntime::prepare(const EffectPrepareRequest& request) {
+bool isClipTint(const projection::RenderEffectNode& node) {
+  return node.payload.implementation.kind == timeline::EffectImplementationKind::Builtin &&
+         node.payload.implementation.entrypoint == effects::builtin_effect::ClipTintEntrypoint;
+}
+
+foundation::Result<EffectPrepareResult> prepareCameraTransform(const EffectPrepareRequest& request) {
   std::vector<RuntimeDiagnostic> diagnostics;
   const RuntimeParamSet params = runtimeParamsFromEffectNode(request.node);
   const std::optional<double> positionX = numericParam(params, effects::builtin_effect::PositionXParam);
@@ -55,13 +87,13 @@ foundation::Result<EffectPrepareResult> BuiltinEffectRuntime::prepare(const Effe
   const std::optional<double> zoom = numericParam(params, effects::builtin_effect::ZoomParam);
 
   if (!positionX.has_value()) {
-    diagnostics.push_back(makeParamDiagnostic(request, effects::builtin_effect::PositionXParam));
+    diagnostics.push_back(makeCameraTransformParamDiagnostic(request, effects::builtin_effect::PositionXParam));
   }
   if (!positionY.has_value()) {
-    diagnostics.push_back(makeParamDiagnostic(request, effects::builtin_effect::PositionYParam));
+    diagnostics.push_back(makeCameraTransformParamDiagnostic(request, effects::builtin_effect::PositionYParam));
   }
   if (!zoom.has_value()) {
-    diagnostics.push_back(makeParamDiagnostic(request, effects::builtin_effect::ZoomParam));
+    diagnostics.push_back(makeCameraTransformParamDiagnostic(request, effects::builtin_effect::ZoomParam));
   }
 
   RuntimeValueMap preparedValues;
@@ -79,13 +111,104 @@ foundation::Result<EffectPrepareResult> BuiltinEffectRuntime::prepare(const Effe
       request.node.payload.activeRange,
       nullptr,
       params,
-      std::move(preparedValues)
+      std::move(preparedValues),
+      effects::builtin_effect::CameraTransformEntrypoint
     },
     diagnostics
   };
 }
 
+foundation::Result<EffectPrepareResult> prepareClipTint(const EffectPrepareRequest& request) {
+  std::vector<RuntimeDiagnostic> diagnostics;
+  const RuntimeParamSet params = runtimeParamsFromEffectNode(request.node);
+  const std::optional<foundation::Vec3> color = vec3Param(params, effects::builtin_effect::ClipTintColorParam);
+  const std::optional<double> amount = numericParam(params, effects::builtin_effect::ClipTintAmountParam);
+
+  if (!color.has_value()) {
+    diagnostics.push_back(makeClipTintParamDiagnostic(request, effects::builtin_effect::ClipTintColorParam));
+  }
+  if (!amount.has_value()) {
+    diagnostics.push_back(makeClipTintParamDiagnostic(request, effects::builtin_effect::ClipTintAmountParam));
+  }
+
+  RuntimeValueMap preparedValues;
+  if (color.has_value() && amount.has_value()) {
+    preparedValues.push_back(RuntimeNamedValue{effects::builtin_effect::ClipTintColorParam, RuntimeValue{*color}});
+    preparedValues.push_back(RuntimeNamedValue{effects::builtin_effect::ClipTintAmountParam, RuntimeValue{*amount}});
+  }
+
+  return EffectPrepareResult{
+    PreparedEffectNode{
+      request.graph.id,
+      request.graph.targetNodeId,
+      request.node.sourceNodeId,
+      request.node.payload.activeRange,
+      nullptr,
+      params,
+      std::move(preparedValues),
+      effects::builtin_effect::ClipTintEntrypoint
+    },
+    diagnostics
+  };
+}
+
+} // namespace
+
+bool BuiltinEffectRuntime::supports(const projection::RenderEffectNode& node) const {
+  return isCameraTransform(node) || isClipTint(node);
+}
+
+foundation::Result<EffectPrepareResult> BuiltinEffectRuntime::prepare(const EffectPrepareRequest& request) {
+  if (isCameraTransform(request.node)) {
+    return prepareCameraTransform(request);
+  }
+  return prepareClipTint(request);
+}
+
 foundation::Result<EffectProcessResult> BuiltinEffectRuntime::process(const EffectProcessRequest& request) {
+  if (request.prepared.preparedValues.empty()) {
+    return EffectProcessResult{
+      RuntimeEffectOutput{
+        request.prepared.effectGraphId,
+        request.prepared.targetNodeId,
+        request.prepared.sourceNodeId,
+        {}
+      },
+      {}
+    };
+  }
+
+  if (request.prepared.entrypoint == effects::builtin_effect::ClipTintEntrypoint) {
+    std::optional<foundation::Vec3> color;
+    std::optional<double> amount;
+    for (const RuntimeNamedValue& value : request.params) {
+      if (value.name == effects::builtin_effect::ClipTintColorParam) {
+        if (const auto* vector = std::get_if<foundation::Vec3>(&value.value)) {
+          color = *vector;
+        }
+      } else if (value.name == effects::builtin_effect::ClipTintAmountParam) {
+        if (const auto* numeric = std::get_if<double>(&value.value)) {
+          amount = *numeric;
+        }
+      }
+    }
+
+    RuntimeValueMap outputValues;
+    if (color.has_value() && amount.has_value()) {
+      outputValues.push_back(RuntimeNamedValue{effects::output_name::ClipTint, RuntimeValue{*color}});
+      outputValues.push_back(RuntimeNamedValue{effects::output_name::ClipTintAmount, RuntimeValue{*amount}});
+    }
+    return EffectProcessResult{
+      RuntimeEffectOutput{
+        request.prepared.effectGraphId,
+        request.prepared.targetNodeId,
+        request.prepared.sourceNodeId,
+        std::move(outputValues)
+      },
+      {}
+    };
+  }
+
   std::optional<double> positionX;
   std::optional<double> positionY;
   std::optional<double> zoom;

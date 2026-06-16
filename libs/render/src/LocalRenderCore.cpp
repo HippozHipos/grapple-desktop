@@ -10,6 +10,7 @@
 #include <cmath>
 #include <sstream>
 #include <utility>
+#include <variant>
 
 namespace grapple::render {
 
@@ -37,6 +38,11 @@ RenderedMediaKind renderedMediaKindFor(timeline::ClipKind kind) {
     ? RenderedMediaKind::Image
     : RenderedMediaKind::Video;
 }
+
+struct ClipTint {
+  foundation::Vec3 color;
+  double amount = 0.0;
+};
 
 std::uint8_t opacityAdjustedAlpha(std::uint8_t alpha, double opacity) {
   const double clampedOpacity = std::clamp(opacity, 0.0, 1.0);
@@ -68,12 +74,75 @@ foundation::Result<RenderedImage> renderedImageFromSourceFrame(SourceFrame frame
   };
 }
 
-std::vector<RenderedMediaFrame> buildMediaFrames(const runtime::RuntimeSample& sample) {
+std::vector<ClipTint> clipTintsFor(
+  runtime::RuntimeSample& sample,
+  const foundation::NodeId& clipNodeId,
+  const foundation::ProjectId& projectId,
+  const foundation::RevisionId& revision
+) {
+  std::vector<ClipTint> tints;
+  for (const runtime::RuntimeEffectOutput& output : sample.effectOutputs) {
+    if (output.targetNodeId != clipNodeId) {
+      continue;
+    }
+
+    std::optional<foundation::Vec3> color;
+    std::optional<double> amount;
+    for (const runtime::RuntimeNamedValue& value : output.values) {
+      if (value.name == effects::output_name::ClipTint) {
+        if (const auto* vector = std::get_if<foundation::Vec3>(&value.value)) {
+          color = *vector;
+        }
+      } else if (value.name == effects::output_name::ClipTintAmount) {
+        if (const auto* numeric = std::get_if<double>(&value.value)) {
+          amount = *numeric;
+        }
+      }
+    }
+    if (color.has_value() && amount.has_value()) {
+      tints.push_back(ClipTint{color.value(), amount.value()});
+      continue;
+    }
+
+    const bool hadTintOutput =
+      std::any_of(output.values.begin(), output.values.end(), [](const runtime::RuntimeNamedValue& value) {
+        return value.name == effects::output_name::ClipTint ||
+               value.name == effects::output_name::ClipTintAmount;
+      });
+    if (hadTintOutput) {
+      sample.diagnostics.push_back(runtime::RuntimeDiagnostic{
+        "runtime.clip_tint_output_invalid",
+        runtime::DiagnosticSeverity::Error,
+        runtime::DiagnosticLocation{
+          projectId,
+          revision,
+          output.sourceNodeId
+        },
+        "Runtime clip tint output requires clip_tint Vec3 and clip_tint_amount numeric values."
+      });
+    }
+  }
+  return tints;
+}
+
+std::vector<RenderedMediaFrame> buildMediaFrames(
+  runtime::RuntimeSample& sample,
+  const foundation::ProjectId& projectId,
+  const foundation::RevisionId& revision
+) {
   std::vector<RenderedMediaFrame> frames;
   frames.reserve(sample.clips.size());
 
   for (const projection::RenderClip& clip : sample.clips) {
     const timeline::ClipPayload& payload = clip.payload;
+    const std::vector<ClipTint> tints = clipTintsFor(sample, clip.sourceNodeId, projectId, revision);
+    std::optional<foundation::Vec3> tintColor;
+    double tintAmount = 0.0;
+    for (const ClipTint& tint : tints) {
+      tintColor = tint.color;
+      tintAmount = std::clamp(tintAmount + tint.amount, 0.0, 1.0);
+    }
+
     frames.push_back(RenderedMediaFrame{
       clip.sourceNodeId,
       clip.trackNodeId,
@@ -82,7 +151,9 @@ std::vector<RenderedMediaFrame> buildMediaFrames(const runtime::RuntimeSample& s
       foundation::TimeSeconds{
         payload.sourceRange.start.value + ((sample.time.value - payload.timelineRange.start.value) * payload.playbackRate)
       },
-      payload.transform
+      payload.transform,
+      tintColor,
+      tintAmount
     });
   }
 
@@ -339,6 +410,32 @@ RenderedImage transformedMediaImage(
   );
 }
 
+RenderedImage tintedImage(RenderedImage image, const RenderedMediaFrame& mediaFrame) {
+  if (!mediaFrame.tintColor.has_value() || mediaFrame.tintAmount <= 0.0) {
+    return image;
+  }
+
+  const double amount = std::clamp(mediaFrame.tintAmount, 0.0, 1.0);
+  const foundation::Vec3 color{
+    std::clamp(mediaFrame.tintColor->x, 0.0, 1.0) * 255.0,
+    std::clamp(mediaFrame.tintColor->y, 0.0, 1.0) * 255.0,
+    std::clamp(mediaFrame.tintColor->z, 0.0, 1.0) * 255.0
+  };
+  const std::size_t pixelCount =
+    static_cast<std::size_t>(image.resolution.width * image.resolution.height);
+  for (std::size_t pixel = 0; pixel < pixelCount; ++pixel) {
+    const std::size_t index = pixel * 4;
+    for (std::size_t channel = 0; channel < 3; ++channel) {
+      const double target =
+        channel == 0 ? color.x : channel == 1 ? color.y : color.z;
+      const double source = static_cast<double>(image.rgbaPixels[index + channel]);
+      image.rgbaPixels[index + channel] =
+        static_cast<std::uint8_t>(std::lround(std::clamp((source * (1.0 - amount)) + (target * amount), 0.0, 255.0)));
+    }
+  }
+  return image;
+}
+
 RenderedImage rasterizeTextFrame(const RenderedTextFrame& textFrame) {
   const double scaleMultiplier =
     std::max(0.01, (std::abs(textFrame.transform.scale.x) + std::abs(textFrame.transform.scale.y)) * 0.5);
@@ -481,7 +578,8 @@ foundation::Result<std::optional<RenderedImage>> buildRenderedImage(
       };
     }
 
-    RenderedImage transformed = transformedMediaImage(image.value(), mediaFrame, canvas->resolution);
+    RenderedImage tinted = tintedImage(std::move(image.value()), mediaFrame);
+    RenderedImage transformed = transformedMediaImage(tinted, mediaFrame, canvas->resolution);
     compositeImageOver(canvas.value(), transformed);
   }
 
@@ -569,7 +667,11 @@ foundation::Result<RenderFrameResult> renderSampleFrame(
     prepared.sourceRevision
   );
 
-  const std::vector<RenderedMediaFrame> mediaFrames = buildMediaFrames(sample);
+  const std::vector<RenderedMediaFrame> mediaFrames = buildMediaFrames(
+    sample,
+    prepared.dependencyGraph.projectId,
+    prepared.sourceRevision
+  );
   const std::vector<RenderedTextFrame> textFrames = buildTextFrames(sample);
   const std::vector<RenderedAudioClip> audioClips = buildAudioClips(sample);
   const std::vector<RenderedCamera> cameras = buildRenderedCameras(sample);

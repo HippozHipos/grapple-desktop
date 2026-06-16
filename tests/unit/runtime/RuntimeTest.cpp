@@ -410,6 +410,63 @@ grapple::projection::RenderPlan makeKeyframedBuiltinCameraTransformPlan() {
   return plan;
 }
 
+grapple::projection::RenderPlan makeBuiltinClipTintPlan(bool includeAmount = true) {
+  grapple::projection::RenderPlan plan = makePlan("Video");
+  grapple::timeline::ParamSet params{
+    {grapple::timeline::Param{
+      grapple::effects::builtin_effect::ClipTintColorParam,
+      grapple::foundation::Vec3{1.0, 0.2, 0.1}
+    }}
+  };
+  if (includeAmount) {
+    params.values.push_back(grapple::timeline::Param{grapple::effects::builtin_effect::ClipTintAmountParam, 0.4});
+  }
+  grapple::timeline::EffectPayload payload{
+    grapple::effects::builtin_effect::ClipTintDisplayName,
+    grapple::timeline::EffectImplementation{
+      grapple::timeline::EffectImplementationKind::Builtin,
+      grapple::effects::builtin_effect::ClipTintEntrypoint,
+      grapple::timeline::EffectSource{
+        grapple::timeline::EffectSourceKind::InlineSource,
+        "builtin",
+        grapple::effects::builtin_effect::ClipTintSource,
+        std::nullopt,
+        grapple::foundation::stableHash(grapple::effects::builtin_effect::ClipTintSource)
+      }
+    },
+    grapple::timeline::EffectPortSet{
+      {grapple::timeline::EffectPort{"frame"}},
+      {
+        grapple::timeline::EffectPort{grapple::effects::output_name::ClipTint},
+        grapple::timeline::EffectPort{grapple::effects::output_name::ClipTintAmount}
+      }
+    },
+    std::move(params),
+    grapple::foundation::TimeRange{grapple::foundation::TimeSeconds{0.0}, grapple::foundation::TimeSeconds{10.0}}
+  };
+  plan.effectGraphs.push_back(grapple::projection::RenderEffectGraph{
+    grapple::foundation::GraphId{"effect_graph_node_clip"},
+    grapple::foundation::NodeId{"node_clip"},
+    {
+      grapple::projection::RenderEffectNode{
+        grapple::foundation::NodeId{"node_builtin_clip_tint"},
+        std::move(payload)
+      }
+    },
+    {
+      grapple::projection::RenderEffectEdge{
+        grapple::foundation::EdgeId{"edge_builtin_clip_tint_targets_clip"},
+        grapple::foundation::NodeId{"node_builtin_clip_tint"},
+        grapple::graph::PortName{grapple::effects::output_name::ClipTint},
+        grapple::foundation::NodeId{"node_clip"},
+        grapple::graph::PortName{"input"},
+        0
+      }
+    }
+  });
+  return plan;
+}
+
 grapple::projection::RenderPlan makeEffectPlanWithCameraX(double cameraX) {
   grapple::projection::RenderPlan plan = makeEffectPlan("def prepare(): pass");
   plan.cameras[0].state.transform.position.x = cameraX;
@@ -1138,6 +1195,29 @@ int main() {
   GRAPPLE_REQUIRE(transform->scale.x == 1.75);
   GRAPPLE_REQUIRE(transform->scale.y == 1.75);
 
+  const auto preparedBuiltinClipTintPlan = evaluatorWithBuiltinRuntime.prepare(runtime::PrepareRuntimePlanRequest{
+    makeBuiltinClipTintPlan()
+  });
+  GRAPPLE_REQUIRE(preparedBuiltinClipTintPlan);
+  GRAPPLE_REQUIRE(preparedBuiltinClipTintPlan.value().diagnostics.empty());
+  GRAPPLE_REQUIRE(preparedBuiltinClipTintPlan.value().prepared.preparedEffects.size() == 1);
+  const auto builtinClipTintSample = evaluatorWithBuiltinRuntime.sample(runtime::RuntimeSampleRequest{
+    preparedBuiltinClipTintPlan.value().prepared,
+    foundation::TimeSeconds{1.0},
+    runtime::RuntimeQuality::Interactive
+  });
+  GRAPPLE_REQUIRE(builtinClipTintSample);
+  GRAPPLE_REQUIRE(builtinClipTintSample.value().diagnostics.empty());
+  GRAPPLE_REQUIRE(builtinClipTintSample.value().sample.effectOutputs.size() == 1);
+  GRAPPLE_REQUIRE(builtinClipTintSample.value().sample.effectOutputs[0].targetNodeId == foundation::NodeId{"node_clip"});
+  GRAPPLE_REQUIRE(builtinClipTintSample.value().sample.effectOutputs[0].values.size() == 2);
+  GRAPPLE_REQUIRE(builtinClipTintSample.value().sample.effectOutputs[0].values[0].name == effects::output_name::ClipTint);
+  GRAPPLE_REQUIRE(builtinClipTintSample.value().sample.effectOutputs[0].values[1].name == effects::output_name::ClipTintAmount);
+  const auto* tintColor = std::get_if<foundation::Vec3>(&builtinClipTintSample.value().sample.effectOutputs[0].values[0].value);
+  GRAPPLE_REQUIRE(tintColor != nullptr);
+  GRAPPLE_REQUIRE(tintColor->x == 1.0);
+  GRAPPLE_REQUIRE(std::get<double>(builtinClipTintSample.value().sample.effectOutputs[0].values[1].value) == 0.4);
+
   const auto preparedKeyframedBuiltinEffectPlan = evaluatorWithBuiltinRuntime.prepare(runtime::PrepareRuntimePlanRequest{
     makeKeyframedBuiltinCameraTransformPlan()
   });
@@ -1172,6 +1252,14 @@ int main() {
   GRAPPLE_REQUIRE(preparedInvalidBuiltinEffectPlan.value().diagnostics[0].location.revision == foundation::RevisionId{"rev_4"});
   GRAPPLE_REQUIRE(preparedInvalidBuiltinEffectPlan.value().diagnostics[0].location.nodeId == foundation::NodeId{"node_builtin_effect"});
   GRAPPLE_REQUIRE(preparedInvalidBuiltinEffectPlan.value().prepared.preparedEffects.size() == 1);
+
+  const auto preparedInvalidBuiltinClipTintPlan = evaluatorWithBuiltinRuntime.prepare(runtime::PrepareRuntimePlanRequest{
+    makeBuiltinClipTintPlan(false)
+  });
+  GRAPPLE_REQUIRE(preparedInvalidBuiltinClipTintPlan);
+  GRAPPLE_REQUIRE(preparedInvalidBuiltinClipTintPlan.value().diagnostics.size() == 1);
+  GRAPPLE_REQUIRE(preparedInvalidBuiltinClipTintPlan.value().diagnostics[0].code == "runtime.builtin_clip_tint_param_invalid");
+  GRAPPLE_REQUIRE(preparedInvalidBuiltinClipTintPlan.value().diagnostics[0].location.nodeId == foundation::NodeId{"node_builtin_clip_tint"});
 
   const auto preparedMissingZoomBuiltinEffectPlan = evaluatorWithBuiltinRuntime.prepare(runtime::PrepareRuntimePlanRequest{
     makeBuiltinCameraTransformPlan(true, false)

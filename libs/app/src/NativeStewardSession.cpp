@@ -267,6 +267,10 @@ foundation::ToolId stewardClipPlaybackRateToolCallIdForRun(const foundation::Run
   return foundation::ToolId{"tool_steward_clip_playback_rate_" + std::to_string(stewardRunNumber(runId))};
 }
 
+foundation::ToolId stewardClipTintToolCallIdForRun(const foundation::RunId& runId) {
+  return foundation::ToolId{"tool_steward_clip_tint_" + std::to_string(stewardRunNumber(runId))};
+}
+
 foundation::ToolId stewardCameraTransformParamToolCallIdForRun(const foundation::RunId& runId, std::int64_t index) {
   return foundation::ToolId{
     "tool_steward_camera_transform_param_" +
@@ -274,6 +278,59 @@ foundation::ToolId stewardCameraTransformParamToolCallIdForRun(const foundation:
     "_" +
     std::to_string(index)
   };
+}
+
+std::string clipTintEffectCreateArgumentsPayload(
+  const foundation::NodeId& clipNodeId,
+  foundation::TimeRange activeRange,
+  ClipTintIntentDefaults defaults
+) {
+  std::ostringstream arguments;
+  arguments << '{';
+  foundation::writeJsonStringProperty(arguments, "targetNodeId", clipNodeId.value());
+  arguments << ',';
+  foundation::writeJsonStringProperty(arguments, "displayName", effects::builtin_effect::ClipTintDisplayName);
+  arguments << ',';
+  foundation::writeJsonStringProperty(arguments, "implementationKind", "builtin");
+  arguments << ',';
+  foundation::writeJsonStringProperty(arguments, "language", "builtin");
+  arguments << ',';
+  foundation::writeJsonStringProperty(arguments, "entrypoint", effects::builtin_effect::ClipTintEntrypoint);
+  arguments << ',';
+  foundation::writeJsonStringProperty(arguments, "source", effects::builtin_effect::ClipTintSource);
+  arguments << ',';
+  foundation::writeJsonStringProperty(arguments, "sourcePort", effects::output_name::ClipTint);
+  arguments << ',';
+  foundation::writeJsonStringProperty(arguments, "targetPort", "input");
+  arguments << ",\"inputPorts\":[\"frame\"]";
+  arguments << ",\"outputPorts\":[";
+  arguments << foundation::jsonQuoted(effects::output_name::ClipTint);
+  arguments << ',';
+  arguments << foundation::jsonQuoted(effects::output_name::ClipTintAmount);
+  arguments << "]";
+  arguments << ",\"activeRange\":{";
+  arguments << "\"start\":" << activeRange.start.value;
+  arguments << ",\"end\":" << activeRange.end.value;
+  arguments << "}";
+  arguments << ",\"params\":[";
+  arguments << "{\"name\":";
+  arguments << foundation::jsonQuoted(effects::builtin_effect::ClipTintColorParam);
+  arguments << ",\"label\":";
+  arguments << foundation::jsonQuoted(effects::builtin_effect::ClipTintColorLabel);
+  arguments << ",\"value\":{";
+  arguments << "\"x\":" << defaults.color.x;
+  arguments << ",\"y\":" << defaults.color.y;
+  arguments << ",\"z\":" << defaults.color.z;
+  arguments << "}}";
+  arguments << ",{\"name\":";
+  arguments << foundation::jsonQuoted(effects::builtin_effect::ClipTintAmountParam);
+  arguments << ",\"label\":";
+  arguments << foundation::jsonQuoted(effects::builtin_effect::ClipTintAmountLabel);
+  arguments << ",\"value\":" << defaults.amount;
+  arguments << ",\"numeric\":{\"min\":0,\"max\":1,\"step\":0.01}}";
+  arguments << "]";
+  arguments << '}';
+  return arguments.str();
 }
 
 std::string placeAssetArgumentsPayload(
@@ -490,6 +547,31 @@ std::optional<foundation::NodeId> firstVisualTrackNodeId(const project::ProjectS
     }
   }
   return std::nullopt;
+}
+
+bool targetHasBuiltinEffect(
+  const project::ProjectSnapshot& snapshot,
+  const foundation::NodeId& targetNodeId,
+  std::string_view entrypoint
+) {
+  for (const graph::GraphEdge& edge : snapshot.graph.edges()) {
+    if (!edge.enabled ||
+        edge.kind != graph::EdgeKind::Targets ||
+        edge.targetNodeId != targetNodeId) {
+      continue;
+    }
+    const graph::GraphNode* effectNode = snapshot.graph.findNode(edge.sourceNodeId);
+    if (effectNode == nullptr || effectNode->kind != graph::NodeKind::Effect) {
+      continue;
+    }
+    const auto* payload = std::get_if<timeline::EffectPayload>(&effectNode->payload);
+    if (payload != nullptr &&
+        payload->implementation.kind == timeline::EffectImplementationKind::Builtin &&
+        payload->implementation.entrypoint == entrypoint) {
+      return true;
+    }
+  }
+  return false;
 }
 
 std::string clipMoveArgumentsPayload(
@@ -1555,6 +1637,103 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::e
   return packageResult.value();
 }
 
+foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::createClipTintEffect(
+  foundation::NodeId clipNodeId,
+  std::string intent,
+  foundation::TimeRange activeRange
+) {
+  auto snapshot = project_.snapshot();
+  if (!snapshot) {
+    return snapshot.error();
+  }
+
+  if (!planner_.clipTintIntentTargetsClip(intent)) {
+    return foundation::Error{
+      "steward.clip_tint_intent_mismatch",
+      "Clip Tint creation requires an explicit color or tint request for a selected clip."
+    };
+  }
+
+  const graph::GraphNode* clipNode = snapshot.value().graph.findNode(clipNodeId);
+  if (clipNode == nullptr || clipNode->kind != graph::NodeKind::Clip) {
+    return foundation::Error{"steward.clip_missing", "Steward Clip Tint creation requires an existing clip node."};
+  }
+  if (targetHasBuiltinEffect(snapshot.value(), clipNodeId, effects::builtin_effect::ClipTintEntrypoint)) {
+    return foundation::Error{
+      "steward.clip_tint_exists",
+      "Selected clip already has Clip Tint controls."
+    };
+  }
+
+  auto runId = startRun(snapshot.value(), intent);
+  if (!runId) {
+    return runId.error();
+  }
+
+  auto message = appendEvent(
+    runId.value(),
+    agent::AgentRunEventKind::ModelMessage,
+    modelMessagePayload("assistant", "Creating editable Clip Tint controls for the selected clip.")
+  );
+  if (!message) {
+    return message.error();
+  }
+
+  std::optional<storage::ProjectPackageSessionResult> packageResult;
+  CommittingAgentCommandService stewardCommands{project_, commandWriter_, intent, packageResult};
+  agent::AgentToolRegistry registry;
+  auto registered = agent::registerProjectTools(registry);
+  if (!registered) {
+    auto finished = finishRunWithError(runId.value(), registered.error());
+    if (!finished) {
+      return finished.error();
+    }
+    return registered.error();
+  }
+
+  agent::AgentToolContext toolContext{stewardCommands, project_, commandWriter_};
+  agent::AgentBridge bridge{registry, toolContext, events_, nextSequence_};
+  const ClipTintIntentDefaults defaults = planner_.clipTintDefaultsForIntent(intent);
+  auto dispatched = bridge.dispatchToolCall(agent::AgentToolDispatchRequest{
+    runId.value(),
+    snapshot.value().info.id,
+    snapshot.value().revision,
+    stewardClipTintToolCallIdForRun(runId.value()),
+    CanonicalEffectCreateNodeToolId,
+    clipTintEffectCreateArgumentsPayload(clipNodeId, activeRange, defaults)
+  });
+  if (!dispatched) {
+    auto finished = finishRunWithError(runId.value(), dispatched.error());
+    if (!finished) {
+      return finished.error();
+    }
+    return dispatched.error();
+  }
+  if (!packageResult.has_value()) {
+    const foundation::Error error{
+      "steward.clip_tint_result_missing",
+      "Steward Clip Tint creation succeeded without a committed package result."
+    };
+    auto finished = finishRunWithError(runId.value(), error);
+    if (!finished) {
+      return finished.error();
+    }
+    return error;
+  }
+
+  auto runFinished = appendEvent(
+    runId.value(),
+    agent::AgentRunEventKind::RunFinished,
+    runFinishedPayload("succeeded", "Created editable Clip Tint parameters.")
+  );
+  if (!runFinished) {
+    return runFinished.error();
+  }
+
+  markRunStatus(runId.value(), agent::AgentRunStatus::Succeeded);
+  return packageResult.value();
+}
+
 foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::deleteClip(
   foundation::NodeId clipNodeId,
   std::string intent
@@ -1953,6 +2132,10 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::e
 
 bool NativeStewardSession::clipEditIntentTargetsClip(const std::string& intent) const {
   return planner_.clipEditIntentTargetsClip(intent);
+}
+
+bool NativeStewardSession::clipTintIntentTargetsClip(const std::string& intent) const {
+  return planner_.clipTintIntentTargetsClip(intent);
 }
 
 bool NativeStewardSession::clipDeleteIntentTargetsClip(const std::string& intent) const {

@@ -319,6 +319,9 @@ StewardPanel::StewardPanel(QWidget* parent)
     if (tryDeleteSelectedTrackFromPrimaryAction()) {
       return;
     }
+    if (tryCreateClipTintFromPrimaryAction()) {
+      return;
+    }
     if (tryEditSelectedClipFromPrimaryAction()) {
       return;
     }
@@ -402,6 +405,10 @@ StewardPanel::StewardPanel(QWidget* parent)
     }
     if (tryDeleteSelectedTrackHandler_ && selectedTrackTargetNodeId_.has_value() &&
         tryDeleteSelectedTrackHandler_(selectedTrackTargetNodeId_.value(), intent())) {
+      return;
+    }
+    if (tryCreateClipTintHandler_ && selectedClipTargetNodeId_.has_value() &&
+        tryCreateClipTintHandler_(selectedClipTargetNodeId_.value(), intent())) {
       return;
     }
     if (editSelectedClipHandler_ && selectedClipTargetNodeId_.has_value()) {
@@ -497,6 +504,10 @@ void StewardPanel::setTryDeleteSelectedClipHandler(TryDeleteSelectedClipHandler 
 
 void StewardPanel::setTryDeleteSelectedTrackHandler(TryDeleteSelectedTrackHandler handler) {
   tryDeleteSelectedTrackHandler_ = std::move(handler);
+}
+
+void StewardPanel::setTryCreateClipTintHandler(TryCreateClipTintHandler handler) {
+  tryCreateClipTintHandler_ = std::move(handler);
 }
 
 void StewardPanel::setTryEditSelectedClipHandler(TryEditSelectedClipHandler handler) {
@@ -663,7 +674,7 @@ void StewardPanel::setViewModel(
   }
   if (selectedClipTargetNodeId_.has_value()) {
     lines << QString{"Clip target: %1"}.arg(clipName(viewModel, selectedClipTargetNodeId_.value()));
-    lines << "Clip route: mention clip/video to update clip parameters, or delete/remove to delete it.";
+    lines << "Clip route: mention tint/color for editable Clip Tint, clip/video to update clip parameters, or delete/remove to delete it.";
   }
   if (selectedTextClipTargetNodeId_.has_value()) {
     lines << QString{"Text target: %1"}.arg(textClipName(viewModel, selectedTextClipTargetNodeId_.value()));
@@ -943,6 +954,16 @@ bool StewardPanel::tryDeleteSelectedTrackFromPrimaryAction() {
   return tryDeleteSelectedTrackHandler_(selectedTrackTargetNodeId_.value(), intent());
 }
 
+bool StewardPanel::tryCreateClipTintFromPrimaryAction() {
+  if (!selectedClipTargetNodeId_.has_value() ||
+      !intentHasText() ||
+      !tryCreateClipTintHandler_) {
+    return false;
+  }
+
+  return tryCreateClipTintHandler_(selectedClipTargetNodeId_.value(), intent());
+}
+
 bool StewardPanel::tryApplyHistoryIntentFromPrimaryAction() {
   if (!intentHasText() || !tryApplyHistoryIntentHandler_) {
     return false;
@@ -1088,6 +1109,7 @@ bool StewardPanel::selectedTargetActionCanRun() const {
   }
   if (selectedClipTargetNodeId_.has_value()) {
     return static_cast<bool>(editSelectedClipHandler_) ||
+           static_cast<bool>(tryCreateClipTintHandler_) ||
            static_cast<bool>(tryDeleteSelectedClipHandler_);
   }
   if (selectedTextClipTargetNodeId_.has_value()) {

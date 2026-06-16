@@ -138,6 +138,7 @@ foundation::Result<PrepareRuntimePlanResult> RuntimeEvaluator::prepare(
       preparedEffect.activeRange = effectNode.payload.activeRange;
       preparedEffect.runtime = selectedRuntime;
       preparedEffect.params = runtimeParamsFromEffectNode(effectNode);
+      preparedEffect.entrypoint = effectNode.payload.implementation.entrypoint;
       prepared.preparedEffects.push_back(std::move(preparedEffect));
       prepared.diagnostics.insert(
         prepared.diagnostics.end(),

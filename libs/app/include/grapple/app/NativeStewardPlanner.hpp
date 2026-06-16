@@ -57,6 +57,11 @@ struct ClipEditIntent {
   bool playbackRateChanged = false;
 };
 
+struct ClipTintIntentDefaults {
+  foundation::Vec3 color{1.0, 0.25, 0.15};
+  double amount = 0.35;
+};
+
 struct TextClipIntentDefaults {
   std::string text;
   foundation::TimeSeconds duration{3.0};
@@ -109,6 +114,8 @@ public:
     const std::string& intent
   ) const;
   [[nodiscard]] bool clipEditIntentTargetsClip(const std::string& intent) const;
+  [[nodiscard]] bool clipTintIntentTargetsClip(const std::string& intent) const;
+  [[nodiscard]] ClipTintIntentDefaults clipTintDefaultsForIntent(const std::string& intent) const;
   [[nodiscard]] bool clipDeleteIntentTargetsClip(const std::string& intent) const;
   [[nodiscard]] bool trackCreateIntentTargetsTrack(const std::string& intent) const;
   [[nodiscard]] TrackIntentDefaults trackDefaultsForIntent(const std::string& intent) const;

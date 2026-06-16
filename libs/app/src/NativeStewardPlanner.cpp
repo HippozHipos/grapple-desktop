@@ -625,6 +625,47 @@ bool clipDeleteIntentRequestsClip(const std::string& normalized) {
          containsAsciiWord(normalized, "caption");
 }
 
+bool clipTintIntentRequestsClip(const std::string& normalized) {
+  if (!clipIntentMentionsClipTarget(normalized)) {
+    return false;
+  }
+  return containsAsciiWord(normalized, "tint") ||
+         containsAsciiWord(normalized, "color") ||
+         containsAsciiWord(normalized, "colour") ||
+         containsAsciiWord(normalized, "warmer") ||
+         containsAsciiWord(normalized, "cooler") ||
+         containsAsciiWord(normalized, "red") ||
+         containsAsciiWord(normalized, "blue") ||
+         containsAsciiWord(normalized, "green");
+}
+
+foundation::Vec3 clipTintColorForIntent(const std::string& normalized) {
+  if (containsAsciiWord(normalized, "blue") || containsAsciiWord(normalized, "cooler")) {
+    return foundation::Vec3{0.2, 0.45, 1.0};
+  }
+  if (containsAsciiWord(normalized, "green")) {
+    return foundation::Vec3{0.2, 1.0, 0.35};
+  }
+  if (containsAsciiWord(normalized, "warm") || containsAsciiWord(normalized, "warmer")) {
+    return foundation::Vec3{1.0, 0.55, 0.25};
+  }
+  return foundation::Vec3{1.0, 0.2, 0.15};
+}
+
+double clipTintAmountForIntent(const std::string& normalized) {
+  if (containsAsciiWord(normalized, "subtle") ||
+      containsAsciiWord(normalized, "slight") ||
+      containsText(normalized, "a little")) {
+    return 0.2;
+  }
+  if (containsAsciiWord(normalized, "strong") ||
+      containsAsciiWord(normalized, "heavy") ||
+      containsText(normalized, "a lot")) {
+    return 0.6;
+  }
+  return 0.35;
+}
+
 bool clipIntentRequestsMoveLater(const std::string& normalized) {
   return containsAsciiWord(normalized, "later") ||
          containsText(normalized, "move forward");
@@ -1004,6 +1045,20 @@ bool NativeStewardPlanner::clipEditIntentTargetsClip(const std::string& intent) 
 
 bool NativeStewardPlanner::clipDeleteIntentTargetsClip(const std::string& intent) const {
   return clipDeleteIntentRequestsClip(lowercaseAscii(intent));
+}
+
+bool NativeStewardPlanner::clipTintIntentTargetsClip(const std::string& intent) const {
+  const std::string normalized = lowercaseAscii(intent);
+  return !clipDeleteIntentRequestsClip(normalized) &&
+         clipTintIntentRequestsClip(normalized);
+}
+
+ClipTintIntentDefaults NativeStewardPlanner::clipTintDefaultsForIntent(const std::string& intent) const {
+  const std::string normalized = lowercaseAscii(intent);
+  return ClipTintIntentDefaults{
+    clipTintColorForIntent(normalized),
+    clipTintAmountForIntent(normalized)
+  };
 }
 
 bool NativeStewardPlanner::trackCreateIntentTargetsTrack(const std::string& intent) const {

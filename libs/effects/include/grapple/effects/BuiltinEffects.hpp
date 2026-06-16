@@ -14,4 +14,12 @@ inline constexpr char PositionXLabel[] = "Position X";
 inline constexpr char PositionYLabel[] = "Position Y";
 inline constexpr char ZoomLabel[] = "Zoom";
 
+inline constexpr char ClipTintDisplayName[] = "Clip Tint";
+inline constexpr char ClipTintEntrypoint[] = "clip_tint";
+inline constexpr char ClipTintSource[] = "builtin:clip_tint";
+inline constexpr char ClipTintColorParam[] = "color";
+inline constexpr char ClipTintAmountParam[] = "amount";
+inline constexpr char ClipTintColorLabel[] = "Tint Color";
+inline constexpr char ClipTintAmountLabel[] = "Tint Amount";
+
 } // namespace grapple::effects::builtin_effect

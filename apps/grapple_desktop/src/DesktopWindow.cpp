@@ -817,6 +817,12 @@ public:
     ) {
       return deleteSelectedTrackWithPrimaryIntent(std::move(trackNodeId), std::move(intent));
     });
+    steward_->setTryCreateClipTintHandler([this](
+      grapple::foundation::NodeId clipNodeId,
+      std::string intent
+    ) {
+      return createClipTintWithPrimaryIntent(std::move(clipNodeId), std::move(intent));
+    });
     steward_->setTryEditSelectedClipHandler([this](
       grapple::foundation::NodeId clipNodeId,
       std::string intent
@@ -2819,6 +2825,34 @@ public:
     }
 
     deleteSelectedTrackWithSteward(std::move(trackNodeId), std::move(intent));
+    return true;
+  }
+
+  bool createClipTintWithPrimaryIntent(
+    grapple::foundation::NodeId clipNodeId,
+    std::string intent
+  ) {
+    if (!workspace_.steward().clipTintIntentTargetsClip(intent)) {
+      return false;
+    }
+
+    const auto created = workspace_.steward().createClipTintEffect(
+      clipNodeId,
+      std::move(intent),
+      grapple::foundation::TimeRange{grapple::foundation::TimeSeconds{0.0}, timelineDuration_}
+    );
+    if (!created) {
+      appendError(created.error());
+      refreshViewModel();
+      return true;
+    }
+
+    selectedNodeId_ = clipNodeId;
+    selectedAssetId_ = std::nullopt;
+    showEffectControls();
+    refreshViewModelAndPreview();
+    steward_->setIntent({});
+    log_->append("Steward created clip tint controls");
     return true;
   }
 

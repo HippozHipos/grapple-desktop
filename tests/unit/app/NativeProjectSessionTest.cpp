@@ -3511,6 +3511,72 @@ int main() {
   GRAPPLE_REQUIRE(stewardCameraUpdateConversation.runs[1].toolCalls[0].toolCallId == foundation::ToolId{"tool_steward_update_camera_2"});
   GRAPPLE_REQUIRE(stewardCameraUpdateConversation.runs[1].toolCalls[0].observedRevision == foundation::RevisionId{"rev_3"});
 
+  const std::string tintPackageStem =
+    "grapple_clip_tint_" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count());
+  const std::filesystem::path tintPackageRoot = std::filesystem::temp_directory_path() / tintPackageStem;
+  std::filesystem::remove_all(tintPackageRoot);
+  auto tintWorkspace = app::NativeWorkspaceSession::createPackageRoot(
+    foundation::FilePath{tintPackageRoot.string()},
+    "Clip Tint Project"
+  );
+  GRAPPLE_REQUIRE(tintWorkspace);
+  const std::filesystem::path tintImportSource = writeTinyPpm("grapple_clip_tint_import");
+  const auto tintAssetId = tintWorkspace.value().importMediaFile(foundation::FilePath{tintImportSource.string()});
+  GRAPPLE_REQUIRE(tintAssetId);
+  const auto tintPlacement = tintWorkspace.value().steward().placeAssetOnTimeline(tintAssetId.value());
+  GRAPPLE_REQUIRE(tintPlacement);
+  const auto untintedRefresh = tintWorkspace.value().preview().refreshFromProject();
+  GRAPPLE_REQUIRE(untintedRefresh);
+  const auto untintedFrame = tintWorkspace.value().preview().renderFrame(render::RenderFrameRequest{
+    foundation::TimeSeconds{0.0},
+    render::RenderQuality::Draft
+  });
+  GRAPPLE_REQUIRE(untintedFrame);
+  GRAPPLE_REQUIRE(untintedFrame.value().frame.image.has_value());
+  const auto tintCreated = tintWorkspace.value().steward().createClipTintEffect(
+    tintPlacement.value().clipNodeId,
+    "Tint selected clip red.",
+    foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{5.0}}
+  );
+  GRAPPLE_REQUIRE(tintCreated);
+  const auto tintedRefresh = tintWorkspace.value().preview().refreshFromProject();
+  GRAPPLE_REQUIRE(tintedRefresh);
+  const auto tintedFrame = tintWorkspace.value().preview().renderFrame(render::RenderFrameRequest{
+    foundation::TimeSeconds{0.0},
+    render::RenderQuality::Draft
+  });
+  GRAPPLE_REQUIRE(tintedFrame);
+  GRAPPLE_REQUIRE(tintedFrame.value().frame.image.has_value());
+  GRAPPLE_REQUIRE(tintedFrame.value().frame.image->rgbaPixels != untintedFrame.value().frame.image->rgbaPixels);
+  GRAPPLE_REQUIRE(tintedFrame.value().frame.mediaFrames.size() == 1);
+  GRAPPLE_REQUIRE(tintedFrame.value().frame.mediaFrames[0].tintColor.has_value());
+  GRAPPLE_REQUIRE(tintedFrame.value().frame.mediaFrames[0].tintAmount == 0.35);
+  const auto tintViewModel = tintWorkspace.value().project().buildViewModel();
+  GRAPPLE_REQUIRE(tintViewModel);
+  GRAPPLE_REQUIRE(tintViewModel.value().timeline.effectGraphs.size() == 1);
+  GRAPPLE_REQUIRE(tintViewModel.value().timeline.effectGraphs[0].targetNodeId == tintPlacement.value().clipNodeId);
+  GRAPPLE_REQUIRE(tintViewModel.value().timeline.effectGraphs[0].effects.size() == 1);
+  GRAPPLE_REQUIRE(tintViewModel.value().timeline.effectGraphs[0].effects[0].displayName == effects::builtin_effect::ClipTintDisplayName);
+  GRAPPLE_REQUIRE(tintViewModel.value().timeline.effectGraphs[0].effects[0].params.size() == 2);
+  GRAPPLE_REQUIRE(tintViewModel.value().timeline.effectGraphs[0].effects[0].params[0].name == effects::builtin_effect::ClipTintColorParam);
+  GRAPPLE_REQUIRE(tintViewModel.value().timeline.effectGraphs[0].effects[0].params[1].name == effects::builtin_effect::ClipTintAmountParam);
+  GRAPPLE_REQUIRE(tintViewModel.value().timeline.effectGraphs[0].effects[0].createdSourceKind == "agent");
+  GRAPPLE_REQUIRE(tintViewModel.value().timeline.effectGraphs[0].effects[0].createdActorName == "steward");
+  GRAPPLE_REQUIRE(tintViewModel.value().steward.edits.size() == 2);
+  GRAPPLE_REQUIRE(tintViewModel.value().steward.edits[1].editName == effects::builtin_effect::ClipTintDisplayName);
+  GRAPPLE_REQUIRE(tintViewModel.value().steward.edits[1].targetNodeId == tintPlacement.value().clipNodeId);
+  GRAPPLE_REQUIRE(tintViewModel.value().steward.edits[1].intent == "Tint selected clip red.");
+  const agent::AgentConversationState tintConversation = tintWorkspace.value().steward().conversationState();
+  GRAPPLE_REQUIRE(tintConversation.diagnostics.empty());
+  GRAPPLE_REQUIRE(tintConversation.runs.size() == 2);
+  GRAPPLE_REQUIRE(tintConversation.runs[1].status == agent::AgentRunStatus::Succeeded);
+  GRAPPLE_REQUIRE(tintConversation.runs[1].toolCalls.size() == 1);
+  GRAPPLE_REQUIRE(tintConversation.runs[1].toolCalls[0].toolSerializedId == "effect.create_node");
+  GRAPPLE_REQUIRE(tintConversation.runs[1].toolCalls[0].toolDisplayName == "Create Effect Node");
+  GRAPPLE_REQUIRE(tintConversation.runs[1].toolCalls[0].toolCallId == foundation::ToolId{"tool_steward_clip_tint_2"});
+  std::filesystem::remove(tintImportSource);
+  std::filesystem::remove_all(tintPackageRoot);
+
   const std::string workspacePackageStem =
     "grapple_workspace_package_" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count());
   const std::filesystem::path workspacePackageRoot = std::filesystem::temp_directory_path() / workspacePackageStem;

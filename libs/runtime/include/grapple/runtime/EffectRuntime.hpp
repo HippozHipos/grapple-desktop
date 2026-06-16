@@ -8,6 +8,7 @@
 #include <grapple/runtime/RuntimeParamEvaluator.hpp>
 #include <grapple/runtime/RuntimeQuality.hpp>
 
+#include <string>
 #include <vector>
 
 namespace grapple::runtime {
@@ -22,6 +23,7 @@ struct PreparedEffectNode {
   IEffectRuntime* runtime = nullptr;
   RuntimeParamSet params;
   RuntimeValueMap preparedValues;
+  std::string entrypoint;
 };
 
 struct EffectPrepareRequest {
