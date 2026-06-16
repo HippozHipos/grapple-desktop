@@ -261,6 +261,10 @@ int main() {
   GRAPPLE_REQUIRE(rotateWithoutCommaClipTransform);
   GRAPPLE_REQUIRE(rotateWithoutCommaClipTransform.value().position.x == 0.25);
   GRAPPLE_REQUIRE(rotateWithoutCommaClipTransform.value().rotationDegrees == -15.0);
+  GRAPPLE_REQUIRE(stewardPlanner.clipTransformIntentTargetsClip("rotate selected clip slightly left"));
+  GRAPPLE_REQUIRE(stewardPlanner.clipTransformIntentTargetsClip("make video invisible"));
+  GRAPPLE_REQUIRE(!stewardPlanner.clipTransformIntentTargetsClip("slowly pan right"));
+  GRAPPLE_REQUIRE(!stewardPlanner.clipTransformIntentTargetsClip("make clip cinematic"));
   const auto mixedClipTransform =
     stewardPlanner.clipTransformForIntent(
       plannedClipInputTransform,

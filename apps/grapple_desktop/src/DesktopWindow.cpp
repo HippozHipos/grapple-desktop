@@ -727,6 +727,12 @@ public:
     ) {
       transformSelectedClipWithSteward(std::move(clipNodeId), std::move(intent));
     });
+    steward_->setTryTransformSelectedClipHandler([this](
+      grapple::foundation::NodeId clipNodeId,
+      std::string intent
+    ) {
+      return transformSelectedClipWithPrimaryIntent(std::move(clipNodeId), std::move(intent));
+    });
     steward_->setSelectEditTargetHandler([this](grapple::foundation::NodeId targetNodeId) {
       selectNode(std::move(targetNodeId));
     });
@@ -2375,6 +2381,18 @@ public:
     refreshViewModelAndPreview();
     steward_->setIntent({});
     log_->append("Steward transformed selected clip");
+  }
+
+  bool transformSelectedClipWithPrimaryIntent(
+    grapple::foundation::NodeId clipNodeId,
+    std::string intent
+  ) {
+    if (!workspace_.steward().clipTransformIntentTargetsClip(intent)) {
+      return false;
+    }
+
+    transformSelectedClipWithSteward(std::move(clipNodeId), std::move(intent));
+    return true;
   }
 
   void adjustCameraControlsWithSteward(

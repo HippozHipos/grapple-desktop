@@ -573,6 +573,10 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::t
   return packageResult.value();
 }
 
+bool NativeStewardSession::clipTransformIntentTargetsClip(const std::string& intent) const {
+  return planner_.clipTransformIntentTargetsClip(intent);
+}
+
 foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::adjustCameraTransformControls(
   foundation::NodeId cameraNodeId,
   std::string intent,

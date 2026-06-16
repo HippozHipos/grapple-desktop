@@ -216,6 +216,12 @@ bool clipIntentRequestsOpacity(const std::string& normalized) {
          containsText(normalized, "half opacity");
 }
 
+bool clipIntentMentionsClipTarget(const std::string& normalized) {
+  return containsAsciiWord(normalized, "clip") ||
+         containsAsciiWord(normalized, "video") ||
+         containsAsciiWord(normalized, "layer");
+}
+
 double intentStrengthMultiplier(const std::string& normalized) {
   if (containsText(normalized, "a little") ||
       containsAsciiWord(normalized, "slight") ||
@@ -490,6 +496,14 @@ std::optional<CameraTransformMotionKeyframes> NativeStewardPlanner::cameraMotion
 
 bool NativeStewardPlanner::cameraIntentRequestsExplicitMotion(const std::string& intent) const {
   return cameraIntentRequestsTemporalMotion(lowercaseAscii(intent));
+}
+
+bool NativeStewardPlanner::clipTransformIntentTargetsClip(const std::string& intent) const {
+  const std::string normalized = lowercaseAscii(intent);
+  if (!clipIntentMentionsClipTarget(normalized)) {
+    return false;
+  }
+  return static_cast<bool>(clipTransformForIntent(timeline::Transform2D{}, intent));
 }
 
 foundation::Result<timeline::Transform2D> NativeStewardPlanner::clipTransformForIntent(

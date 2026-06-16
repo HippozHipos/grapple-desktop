@@ -191,6 +191,10 @@ StewardPanel::StewardPanel(QWidget* parent)
   primaryActionButton_->setObjectName("stewardPrimaryAction");
   layout->addWidget(primaryActionButton_);
   connect(primaryActionButton_, &QPushButton::clicked, this, [this] {
+    if (tryTransformSelectedClipFromPrimaryAction()) {
+      return;
+    }
+
     switch (primaryAction_) {
       case PrimaryAction::AddCamera:
         if (addCameraHandler_) {
@@ -303,6 +307,10 @@ void StewardPanel::setAdjustCameraControlsHandler(AdjustCameraControlsHandler ha
 
 void StewardPanel::setTransformSelectedClipHandler(TransformSelectedClipHandler handler) {
   transformSelectedClipHandler_ = std::move(handler);
+}
+
+void StewardPanel::setTryTransformSelectedClipHandler(TryTransformSelectedClipHandler handler) {
+  tryTransformSelectedClipHandler_ = std::move(handler);
 }
 
 void StewardPanel::setSelectEditTargetHandler(SelectEditTargetHandler handler) {
@@ -624,6 +632,16 @@ void StewardPanel::updateIntentPlaceholder() {
       intent_->setPlaceholderText("Select media, a clip, or a camera to make an editable request.");
       return;
   }
+}
+
+bool StewardPanel::tryTransformSelectedClipFromPrimaryAction() {
+  if (!selectedClipTargetNodeId_.has_value() ||
+      !intentHasText() ||
+      !tryTransformSelectedClipHandler_) {
+    return false;
+  }
+
+  return tryTransformSelectedClipHandler_(selectedClipTargetNodeId_.value(), intent());
 }
 
 bool StewardPanel::intentHasText() const {

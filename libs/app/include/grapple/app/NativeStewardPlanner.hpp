@@ -55,6 +55,7 @@ public:
     foundation::TimeRange activeRange
   ) const;
   [[nodiscard]] bool cameraIntentRequestsExplicitMotion(const std::string& intent) const;
+  [[nodiscard]] bool clipTransformIntentTargetsClip(const std::string& intent) const;
   [[nodiscard]] foundation::Result<timeline::Transform2D> clipTransformForIntent(
     const timeline::Transform2D& current,
     const std::string& intent

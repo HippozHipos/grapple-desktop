@@ -2483,7 +2483,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     const bool selectedClipActionEnabledBeforeIntent = window.stewardSelectedClipActionEnabled();
     window.setStewardIntent("Move selected clip right, rotate slightly left, make it smaller, and make it invisible.");
     const bool selectedClipActionEnabledAfterIntent = window.stewardSelectedClipActionEnabled();
-    window.clickStewardSelectedClipAction();
+    window.clickStewardPrimaryAction();
     const auto viewModel = workspace.value().project().buildViewModel();
     if (!viewModel) {
       printError(viewModel.error());
