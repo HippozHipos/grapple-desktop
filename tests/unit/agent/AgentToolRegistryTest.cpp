@@ -255,7 +255,7 @@ int main() {
   agent::AgentToolRegistry registry;
   const auto registered = agent::registerProjectTools(registry);
   GRAPPLE_REQUIRE(registered);
-  GRAPPLE_REQUIRE(registry.tools().size() == 29);
+  GRAPPLE_REQUIRE(registry.tools().size() == 31);
   std::vector<std::string> serializedToolIds;
   serializedToolIds.reserve(registry.tools().size());
   for (const agent::AgentTool& tool : registry.tools()) {
@@ -274,6 +274,8 @@ int main() {
   GRAPPLE_REQUIRE(registry.findBySerializedId("timeline.create_track") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("timeline.delete_track") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("timeline.create_clip") != nullptr);
+  GRAPPLE_REQUIRE(registry.findBySerializedId("timeline.create_text_clip") != nullptr);
+  GRAPPLE_REQUIRE(registry.findBySerializedId("timeline.update_text_clip") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("timeline.delete_clip") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("timeline.move_clip") != nullptr);
   GRAPPLE_REQUIRE(registry.findBySerializedId("timeline.trim_clip") != nullptr);
@@ -2054,6 +2056,133 @@ int main() {
   GRAPPLE_REQUIRE(placedClipPayload->timelineRange.end == foundation::TimeSeconds{10.0});
   GRAPPLE_REQUIRE(placedClipPayload->sourceRange.start == foundation::TimeSeconds{0.0});
   GRAPPLE_REQUIRE(placedClipPayload->sourceRange.end == foundation::TimeSeconds{10.0});
+
+  project::ProjectController textToolProject{
+    project::createEmptyProject(foundation::ProjectId{"proj_agent_text_clip"}, "Agent Text Clip Project")
+  };
+  const auto textToolInitial = textToolProject.snapshot();
+  GRAPPLE_REQUIRE(textToolInitial);
+  const auto textComposition = textToolProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_text_composition"},
+    foundation::ProjectId{"proj_agent_text_clip"},
+    textToolInitial.value().revision,
+    project::CommandSource{project::CommandSourceKind::Agent, foundation::RunId{"run_text_clip"}, "agent"},
+    project::CreateCompositionCommand{foundation::NodeId{"node_text_composition"}, "Text Composition"}
+  });
+  GRAPPLE_REQUIRE(textComposition);
+  const auto textTrack = textToolProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_text_track"},
+    foundation::ProjectId{"proj_agent_text_clip"},
+    textComposition.value().afterRevision,
+    project::CommandSource{project::CommandSourceKind::Agent, foundation::RunId{"run_text_clip"}, "agent"},
+    project::CreateTrackCommand{
+      foundation::NodeId{"node_text_track"},
+      foundation::NodeId{"node_text_composition"},
+      foundation::EdgeId{"edge_text_track"},
+      "Text Track",
+      timeline::TrackKind::Visual
+    }
+  });
+  GRAPPLE_REQUIRE(textTrack);
+
+  TestAgentCommandService textToolCommands{textToolProject};
+  TestAgentQueryService textToolQueries{textToolProject};
+  TestProjectIdAllocator textToolIds;
+  agent::AgentToolContext textToolContext{textToolCommands, textToolQueries, textToolIds};
+
+  const agent::AgentTool* createTextClip = registry.findBySerializedId("timeline.create_text_clip");
+  GRAPPLE_REQUIRE(createTextClip != nullptr);
+  const auto createTextClipResult = createTextClip->handler(
+    agent::ToolCall{
+      foundation::ToolId{"tool_timeline_create_text_clip"},
+      foundation::RunId{"run_text_clip"},
+      foundation::ProjectId{"proj_agent_text_clip"},
+      textTrack.value().afterRevision,
+      R"({
+        "trackNodeId": "node_text_track",
+        "text": "Opening Title",
+        "timelineRange": {"start": 0, "end": 3},
+        "transform": {
+          "position": {"x": 0, "y": 0.3},
+          "scale": {"x": 1, "y": 1},
+          "rotationDegrees": 0,
+          "opacity": 1
+        },
+        "style": {
+          "fontSize": 64,
+          "color": {"x": 1, "y": 0.9, "z": 0.2}
+        }
+      })"
+    },
+    textToolContext
+  );
+  GRAPPLE_REQUIRE(createTextClipResult);
+  GRAPPLE_REQUIRE(createTextClipResult.value().status == agent::ToolResultStatus::Succeeded);
+  GRAPPLE_REQUIRE(createTextClipResult.value().observedRevision == foundation::RevisionId{"rev_3"});
+  GRAPPLE_REQUIRE(
+    createTextClipResult.value().payload ==
+    "{\"commandId\":\"cmd_agent_1\",\"clipNodeId\":\"node_agent_text_clip_1\",\"containmentEdgeId\":\"edge_agent_contains_text_clip_1\",\"trackNodeId\":\"node_text_track\",\"revision\":\"rev_3\"}"
+  );
+
+  const auto afterCreateTextToolSnapshot = textToolProject.snapshot();
+  GRAPPLE_REQUIRE(afterCreateTextToolSnapshot);
+  const graph::GraphNode* textClipNode = afterCreateTextToolSnapshot.value().graph.findNode(foundation::NodeId{"node_agent_text_clip_1"});
+  GRAPPLE_REQUIRE(textClipNode != nullptr);
+  const auto* createdTextPayload = std::get_if<timeline::TextClipPayload>(&textClipNode->payload);
+  GRAPPLE_REQUIRE(createdTextPayload != nullptr);
+  GRAPPLE_REQUIRE(createdTextPayload->text == "Opening Title");
+  GRAPPLE_REQUIRE(createdTextPayload->timelineRange.end == foundation::TimeSeconds{3.0});
+  GRAPPLE_REQUIRE(createdTextPayload->transform.position.y == 0.3);
+  GRAPPLE_REQUIRE(createdTextPayload->style.fontSize == 64.0);
+
+  const agent::AgentTool* updateTextClip = registry.findBySerializedId("timeline.update_text_clip");
+  GRAPPLE_REQUIRE(updateTextClip != nullptr);
+  const auto updateTextClipResult = updateTextClip->handler(
+    agent::ToolCall{
+      foundation::ToolId{"tool_timeline_update_text_clip"},
+      foundation::RunId{"run_text_clip"},
+      foundation::ProjectId{"proj_agent_text_clip"},
+      createTextClipResult.value().observedRevision,
+      R"({
+        "clipNodeId": "node_agent_text_clip_1",
+        "text": "Final Title",
+        "timelineRange": {"start": 1, "end": 4},
+        "transform": {
+          "position": {"x": 0.1, "y": -0.2},
+          "scale": {"x": 1.2, "y": 1.2},
+          "rotationDegrees": 5,
+          "opacity": 0.75
+        },
+        "style": {
+          "fontSize": 48,
+          "color": {"x": 0.8, "y": 0.9, "z": 1}
+        }
+      })"
+    },
+    textToolContext
+  );
+  GRAPPLE_REQUIRE(updateTextClipResult);
+  GRAPPLE_REQUIRE(updateTextClipResult.value().status == agent::ToolResultStatus::Succeeded);
+  GRAPPLE_REQUIRE(updateTextClipResult.value().observedRevision == foundation::RevisionId{"rev_4"});
+  GRAPPLE_REQUIRE(
+    updateTextClipResult.value().payload ==
+    "{\"commandId\":\"cmd_agent_2\",\"clipNodeId\":\"node_agent_text_clip_1\",\"revision\":\"rev_4\"}"
+  );
+  GRAPPLE_REQUIRE(textToolCommands.applyCount() == 2);
+
+  const auto afterUpdateTextToolSnapshot = textToolProject.snapshot();
+  GRAPPLE_REQUIRE(afterUpdateTextToolSnapshot);
+  const graph::GraphNode* updatedTextClipNode = afterUpdateTextToolSnapshot.value().graph.findNode(foundation::NodeId{"node_agent_text_clip_1"});
+  GRAPPLE_REQUIRE(updatedTextClipNode != nullptr);
+  const auto* updatedTextPayload = std::get_if<timeline::TextClipPayload>(&updatedTextClipNode->payload);
+  GRAPPLE_REQUIRE(updatedTextPayload != nullptr);
+  GRAPPLE_REQUIRE(updatedTextPayload->text == "Final Title");
+  GRAPPLE_REQUIRE(updatedTextPayload->timelineRange.start == foundation::TimeSeconds{1.0});
+  GRAPPLE_REQUIRE(updatedTextPayload->timelineRange.end == foundation::TimeSeconds{4.0});
+  GRAPPLE_REQUIRE(updatedTextPayload->transform.position.x == 0.1);
+  GRAPPLE_REQUIRE(updatedTextPayload->transform.position.y == -0.2);
+  GRAPPLE_REQUIRE(updatedTextPayload->transform.opacity == 0.75);
+  GRAPPLE_REQUIRE(updatedTextPayload->style.fontSize == 48.0);
 
   return 0;
 }

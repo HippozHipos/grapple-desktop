@@ -165,6 +165,134 @@ constexpr const char TimelineCreateClipSchema[] = R"json({
     },
     "playbackRate": {"type": "number"}
   }
+	})json";
+
+constexpr const char TimelineCreateTextClipSchema[] = R"json({
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["trackNodeId", "text", "timelineRange", "transform", "style"],
+  "properties": {
+    "trackNodeId": {"type": "string", "minLength": 1},
+    "text": {"type": "string", "minLength": 1},
+    "timelineRange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start", "end"],
+      "properties": {
+        "start": {"type": "number"},
+        "end": {"type": "number"}
+      }
+    },
+    "transform": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["position", "scale", "rotationDegrees", "opacity"],
+      "properties": {
+        "position": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["x", "y"],
+          "properties": {
+            "x": {"type": "number"},
+            "y": {"type": "number"}
+          }
+        },
+        "scale": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["x", "y"],
+          "properties": {
+            "x": {"type": "number"},
+            "y": {"type": "number"}
+          }
+        },
+        "rotationDegrees": {"type": "number"},
+        "opacity": {"type": "number"}
+      }
+    },
+    "style": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fontSize", "color"],
+      "properties": {
+        "fontSize": {"type": "number"},
+        "color": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["x", "y", "z"],
+          "properties": {
+            "x": {"type": "number"},
+            "y": {"type": "number"},
+            "z": {"type": "number"}
+          }
+        }
+      }
+    }
+  }
+})json";
+
+constexpr const char TimelineUpdateTextClipSchema[] = R"json({
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["clipNodeId", "text", "timelineRange", "transform", "style"],
+  "properties": {
+    "clipNodeId": {"type": "string", "minLength": 1},
+    "text": {"type": "string", "minLength": 1},
+    "timelineRange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start", "end"],
+      "properties": {
+        "start": {"type": "number"},
+        "end": {"type": "number"}
+      }
+    },
+    "transform": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["position", "scale", "rotationDegrees", "opacity"],
+      "properties": {
+        "position": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["x", "y"],
+          "properties": {
+            "x": {"type": "number"},
+            "y": {"type": "number"}
+          }
+        },
+        "scale": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["x", "y"],
+          "properties": {
+            "x": {"type": "number"},
+            "y": {"type": "number"}
+          }
+        },
+        "rotationDegrees": {"type": "number"},
+        "opacity": {"type": "number"}
+      }
+    },
+    "style": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fontSize", "color"],
+      "properties": {
+        "fontSize": {"type": "number"},
+        "color": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["x", "y", "z"],
+          "properties": {
+            "x": {"type": "number"},
+            "y": {"type": "number"},
+            "z": {"type": "number"}
+          }
+        }
+      }
+    }
+  }
 })json";
 
 constexpr const char TimelineDeleteClipSchema[] = R"json({
@@ -702,6 +830,132 @@ foundation::Result<foundation::Vec2> parseVec2(const Json::Value& object, const 
     return y.error();
   }
   return foundation::Vec2{x.value(), y.value()};
+}
+
+foundation::Result<foundation::Vec3> parseVec3(const Json::Value& object, const std::string& path) {
+  if (!object.isObject()) {
+    return argumentError(path, "Expected vector object.");
+  }
+  auto members = requireOnlyMembers(object, {"x", "y", "z"}, path);
+  if (!members) {
+    return members.error();
+  }
+  auto x = requiredDoubleMember(object, "x", path);
+  if (!x) {
+    return x.error();
+  }
+  auto y = requiredDoubleMember(object, "y", path);
+  if (!y) {
+    return y.error();
+  }
+  auto z = requiredDoubleMember(object, "z", path);
+  if (!z) {
+    return z.error();
+  }
+  return foundation::Vec3{x.value(), y.value(), z.value()};
+}
+
+foundation::Result<timeline::Transform2D> parseTransform2D(const Json::Value& object, const std::string& path) {
+  if (!object.isObject()) {
+    return argumentError(path, "Expected transform object.");
+  }
+  auto members = requireOnlyMembers(object, {"position", "scale", "rotationDegrees", "opacity"}, path);
+  if (!members) {
+    return members.error();
+  }
+  auto positionObject = requiredMember(object, "position", path);
+  if (!positionObject) {
+    return positionObject.error();
+  }
+  auto position = parseVec2(positionObject.value(), path + ".position");
+  if (!position) {
+    return position.error();
+  }
+  auto scaleObject = requiredMember(object, "scale", path);
+  if (!scaleObject) {
+    return scaleObject.error();
+  }
+  auto scale = parseVec2(scaleObject.value(), path + ".scale");
+  if (!scale) {
+    return scale.error();
+  }
+  auto rotationDegrees = requiredDoubleMember(object, "rotationDegrees", path);
+  if (!rotationDegrees) {
+    return rotationDegrees.error();
+  }
+  auto opacity = requiredDoubleMember(object, "opacity", path);
+  if (!opacity) {
+    return opacity.error();
+  }
+  return timeline::Transform2D{
+    position.value(),
+    scale.value(),
+    rotationDegrees.value(),
+    opacity.value()
+  };
+}
+
+foundation::Result<timeline::TextClipStyle> parseTextClipStyle(const Json::Value& object, const std::string& path) {
+  if (!object.isObject()) {
+    return argumentError(path, "Expected text style object.");
+  }
+  auto members = requireOnlyMembers(object, {"fontSize", "color"}, path);
+  if (!members) {
+    return members.error();
+  }
+  auto fontSize = requiredDoubleMember(object, "fontSize", path);
+  if (!fontSize) {
+    return fontSize.error();
+  }
+  auto colorObject = requiredMember(object, "color", path);
+  if (!colorObject) {
+    return colorObject.error();
+  }
+  auto color = parseVec3(colorObject.value(), path + ".color");
+  if (!color) {
+    return color.error();
+  }
+  return timeline::TextClipStyle{fontSize.value(), color.value()};
+}
+
+foundation::Result<timeline::TextClipPayload> parseTextClipPayload(
+  const Json::Value& object,
+  const std::string& path
+) {
+  auto text = requiredStringMember(object, "text", path);
+  if (!text) {
+    return text.error();
+  }
+  auto timelineRangeObject = requiredMember(object, "timelineRange", path);
+  if (!timelineRangeObject) {
+    return timelineRangeObject.error();
+  }
+  auto timelineRange = parseTimeRange(timelineRangeObject.value(), path + ".timelineRange");
+  if (!timelineRange) {
+    return timelineRange.error();
+  }
+  auto transformObject = requiredMember(object, "transform", path);
+  if (!transformObject) {
+    return transformObject.error();
+  }
+  auto transform = parseTransform2D(transformObject.value(), path + ".transform");
+  if (!transform) {
+    return transform.error();
+  }
+  auto styleObject = requiredMember(object, "style", path);
+  if (!styleObject) {
+    return styleObject.error();
+  }
+  auto style = parseTextClipStyle(styleObject.value(), path + ".style");
+  if (!style) {
+    return style.error();
+  }
+  return timeline::TextClipPayload{
+    text.value(),
+    timelineRange.value(),
+    transform.value(),
+    style.value()
+  };
 }
 
 foundation::Result<timeline::EffectImplementationKind> parseImplementationKind(const std::string& value, const std::string& path) {
@@ -1590,6 +1844,14 @@ foundation::Result<void> registerProjectTools(AgentToolRegistry& registry) {
   if (!registered) {
     return registered.error();
   }
+  registered = registry.registerTool(makeTimelineCreateTextClipTool());
+  if (!registered) {
+    return registered.error();
+  }
+  registered = registry.registerTool(makeTimelineUpdateTextClipTool());
+  if (!registered) {
+    return registered.error();
+  }
   registered = registry.registerTool(makeTimelineDeleteClipTool());
   if (!registered) {
     return registered.error();
@@ -2386,6 +2648,135 @@ AgentTool makeTimelineCreateClipTool() {
         ToolResultStatus::Succeeded,
         command.value().afterRevision,
         payload.str(),
+        {}
+      };
+    }
+  };
+}
+
+AgentTool makeTimelineCreateTextClipTool() {
+  return AgentTool{
+    foundation::ToolId{"tool_timeline_create_text_clip"},
+    "timeline.create_text_clip",
+    "Create Text Clip",
+    "Creates an authored text clip with explicit timing, transform, and style through Project Core.",
+    TimelineCreateTextClipSchema,
+    [](const ToolCall& call, AgentToolContext& context) -> foundation::Result<ToolResult> {
+      auto arguments = parseArguments(call.arguments);
+      if (!arguments) {
+        return arguments.error();
+      }
+      auto members = requireOnlyMembers(
+        arguments.value(),
+        {"trackNodeId", "text", "timelineRange", "transform", "style"},
+        "$"
+      );
+      if (!members) {
+        return members.error();
+      }
+      auto trackNodeId = requiredStringMember(arguments.value(), "trackNodeId", "$");
+      if (!trackNodeId) {
+        return trackNodeId.error();
+      }
+      auto payload = parseTextClipPayload(arguments.value(), "$");
+      if (!payload) {
+        return payload.error();
+      }
+
+      const foundation::CommandId commandId = context.ids.nextCommandId();
+      const foundation::NodeId clipNodeId = context.ids.nextNodeId("text_clip");
+      const foundation::EdgeId containmentEdgeId = context.ids.nextEdgeId("contains_text_clip");
+      auto command = context.commands.apply(project::ProjectCommandEnvelope{
+        commandId,
+        call.projectId,
+        call.expectedRevision,
+        project::CommandSource{project::CommandSourceKind::Agent, call.runId, "agent"},
+        project::CreateTextClipCommand{
+          clipNodeId,
+          foundation::NodeId{trackNodeId.value()},
+          containmentEdgeId,
+          payload.value(),
+          0
+        }
+      });
+      if (!command) {
+        return command.error();
+      }
+
+      std::ostringstream result;
+      result << '{'
+             << "\"commandId\":" << foundation::jsonQuoted(commandId.value())
+             << ",\"clipNodeId\":" << foundation::jsonQuoted(clipNodeId.value())
+             << ",\"containmentEdgeId\":" << foundation::jsonQuoted(containmentEdgeId.value())
+             << ",\"trackNodeId\":" << foundation::jsonQuoted(trackNodeId.value())
+             << ",\"revision\":" << foundation::jsonQuoted(command.value().afterRevision.value())
+             << '}';
+      return ToolResult{
+        call.toolId,
+        ToolResultStatus::Succeeded,
+        command.value().afterRevision,
+        result.str(),
+        {}
+      };
+    }
+  };
+}
+
+AgentTool makeTimelineUpdateTextClipTool() {
+  return AgentTool{
+    foundation::ToolId{"tool_timeline_update_text_clip"},
+    "timeline.update_text_clip",
+    "Update Text Clip",
+    "Updates an authored text clip's text, timing, transform, and style through Project Core.",
+    TimelineUpdateTextClipSchema,
+    [](const ToolCall& call, AgentToolContext& context) -> foundation::Result<ToolResult> {
+      auto arguments = parseArguments(call.arguments);
+      if (!arguments) {
+        return arguments.error();
+      }
+      auto members = requireOnlyMembers(
+        arguments.value(),
+        {"clipNodeId", "text", "timelineRange", "transform", "style"},
+        "$"
+      );
+      if (!members) {
+        return members.error();
+      }
+      auto clipNodeId = requiredStringMember(arguments.value(), "clipNodeId", "$");
+      if (!clipNodeId) {
+        return clipNodeId.error();
+      }
+      auto payload = parseTextClipPayload(arguments.value(), "$");
+      if (!payload) {
+        return payload.error();
+      }
+
+      const foundation::CommandId commandId = context.ids.nextCommandId();
+      auto command = context.commands.apply(project::ProjectCommandEnvelope{
+        commandId,
+        call.projectId,
+        call.expectedRevision,
+        project::CommandSource{project::CommandSourceKind::Agent, call.runId, "agent"},
+        project::UpdateTextClipCommand{
+          foundation::NodeId{clipNodeId.value()},
+          payload.value()
+        }
+      });
+      if (!command) {
+        return command.error();
+      }
+
+      std::ostringstream result;
+      result << '{'
+             << "\"commandId\":" << foundation::jsonQuoted(commandId.value())
+             << ",\"clipNodeId\":" << foundation::jsonQuoted(clipNodeId.value())
+             << ",\"revision\":" << foundation::jsonQuoted(command.value().afterRevision.value())
+             << '}';
+      return ToolResult{
+        call.toolId,
+        ToolResultStatus::Succeeded,
+        command.value().afterRevision,
+        result.str(),
         {}
       };
     }

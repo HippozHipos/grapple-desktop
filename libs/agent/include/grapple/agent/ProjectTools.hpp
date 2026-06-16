@@ -19,6 +19,8 @@ AgentTool makeTimelinePlaceAssetTool();
 AgentTool makeTimelineCreateTrackTool();
 AgentTool makeTimelineDeleteTrackTool();
 AgentTool makeTimelineCreateClipTool();
+AgentTool makeTimelineCreateTextClipTool();
+AgentTool makeTimelineUpdateTextClipTool();
 AgentTool makeTimelineDeleteClipTool();
 AgentTool makeTimelineMoveClipTool();
 AgentTool makeTimelineTrimClipTool();
