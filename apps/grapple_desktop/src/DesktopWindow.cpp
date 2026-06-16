@@ -718,7 +718,7 @@ public:
 
     auto* sidePanel = new QWidget;
     sidePanel->setObjectName("sidePanel");
-    sidePanel->setMinimumWidth(400);
+    sidePanel->setMinimumWidth(460);
     auto* sideLayout = new QVBoxLayout{sidePanel};
     sideLayout->setContentsMargins(0, 0, 0, 0);
     sideLayout->setSpacing(12);

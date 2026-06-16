@@ -326,8 +326,8 @@ StewardPanel::StewardPanel(QWidget* parent)
   intent_->setLineWrapMode(QTextEdit::WidgetWidth);
   intent_->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
   intent_->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-  intent_->setMinimumHeight(48);
-  intent_->setMaximumHeight(64);
+  intent_->setMinimumHeight(72);
+  intent_->setMaximumHeight(84);
   layout->addWidget(intent_);
   connect(intent_, &QTextEdit::textChanged, this, [this] {
     updateActionLabels();
@@ -434,8 +434,8 @@ StewardPanel::StewardPanel(QWidget* parent)
   suggestedRequests_->setSelectionMode(QAbstractItemView::SingleSelection);
   suggestedRequests_->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
   suggestedRequests_->setTextElideMode(Qt::ElideRight);
-  suggestedRequests_->setMinimumHeight(52);
-  suggestedRequests_->setMaximumHeight(88);
+  suggestedRequests_->setMinimumHeight(68);
+  suggestedRequests_->setMaximumHeight(104);
   layout->addWidget(suggestedRequests_);
   connect(suggestedRequests_, &QListWidget::itemClicked, this, [this](QListWidgetItem* item) {
     draftSuggestedRequest(item);
@@ -464,8 +464,8 @@ StewardPanel::StewardPanel(QWidget* parent)
   recentEdits_->setSelectionMode(QAbstractItemView::SingleSelection);
   recentEdits_->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
   recentEdits_->setTextElideMode(Qt::ElideRight);
-  recentEdits_->setMinimumHeight(52);
-  recentEdits_->setMaximumHeight(72);
+  recentEdits_->setMinimumHeight(60);
+  recentEdits_->setMaximumHeight(84);
   layout->addWidget(recentEdits_);
   connect(recentEdits_, &QListWidget::itemActivated, this, [this](QListWidgetItem* item) {
     if (item == nullptr || !selectEditTargetHandler_) {
@@ -483,8 +483,8 @@ StewardPanel::StewardPanel(QWidget* parent)
   text_ = new QTextEdit;
   text_->setObjectName("stewardText");
   text_->setReadOnly(true);
-  text_->setMinimumHeight(120);
-  text_->setMaximumHeight(180);
+  text_->setMinimumHeight(108);
+  text_->setMaximumHeight(140);
   text_->setLineWrapMode(QTextEdit::WidgetWidth);
   layout->addWidget(text_);
 }
