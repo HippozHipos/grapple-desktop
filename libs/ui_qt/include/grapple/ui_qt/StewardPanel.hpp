@@ -23,6 +23,8 @@ public:
   using AddSelectedMediaHandler = std::function<void()>;
   using ShowCameraControlsHandler = std::function<void(foundation::NodeId)>;
   using CreateCameraEffectHandler = std::function<void(std::string)>;
+  using UndoIntentTargetsLastEditHandler = std::function<bool(std::string)>;
+  using TryUndoLastEditHandler = std::function<bool(std::string)>;
   using TryDeleteCameraControlsHandler = std::function<bool(foundation::NodeId, std::string)>;
   using AdjustCameraControlsHandler = std::function<void(foundation::NodeId, std::string)>;
   using EditSelectedClipHandler = std::function<void(foundation::NodeId, std::string)>;
@@ -43,6 +45,8 @@ public:
   void setAddSelectedMediaHandler(AddSelectedMediaHandler handler);
   void setShowCameraControlsHandler(ShowCameraControlsHandler handler);
   void setCreateCameraEffectHandler(CreateCameraEffectHandler handler);
+  void setUndoIntentTargetsLastEditHandler(UndoIntentTargetsLastEditHandler handler);
+  void setTryUndoLastEditHandler(TryUndoLastEditHandler handler);
   void setTryDeleteCameraControlsHandler(TryDeleteCameraControlsHandler handler);
   void setAdjustCameraControlsHandler(AdjustCameraControlsHandler handler);
   void setEditSelectedClipHandler(EditSelectedClipHandler handler);
@@ -90,6 +94,7 @@ private:
   void updateActionButtons();
   void updateActionLabels();
   void updateIntentPlaceholder();
+  [[nodiscard]] bool tryUndoLastEditFromPrimaryAction();
   [[nodiscard]] bool tryDeleteCameraControlsFromPrimaryAction();
   [[nodiscard]] bool tryDeleteSelectedClipFromPrimaryAction();
   [[nodiscard]] bool tryEditSelectedClipFromPrimaryAction();
@@ -106,6 +111,8 @@ private:
   AddSelectedMediaHandler addSelectedMediaHandler_;
   ShowCameraControlsHandler showCameraControlsHandler_;
   CreateCameraEffectHandler createCameraEffectHandler_;
+  UndoIntentTargetsLastEditHandler undoIntentTargetsLastEditHandler_;
+  TryUndoLastEditHandler tryUndoLastEditHandler_;
   TryDeleteCameraControlsHandler tryDeleteCameraControlsHandler_;
   AdjustCameraControlsHandler adjustCameraControlsHandler_;
   EditSelectedClipHandler editSelectedClipHandler_;

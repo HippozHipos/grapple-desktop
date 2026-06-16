@@ -257,6 +257,9 @@ StewardPanel::StewardPanel(QWidget* parent)
   primaryActionButton_->setObjectName("stewardPrimaryAction");
   layout->addWidget(primaryActionButton_);
   connect(primaryActionButton_, &QPushButton::clicked, this, [this] {
+    if (tryUndoLastEditFromPrimaryAction()) {
+      return;
+    }
     if (tryDeleteSelectedClipFromPrimaryAction()) {
       return;
     }
@@ -395,6 +398,14 @@ void StewardPanel::setShowCameraControlsHandler(ShowCameraControlsHandler handle
 
 void StewardPanel::setCreateCameraEffectHandler(CreateCameraEffectHandler handler) {
   createCameraEffectHandler_ = std::move(handler);
+}
+
+void StewardPanel::setUndoIntentTargetsLastEditHandler(UndoIntentTargetsLastEditHandler handler) {
+  undoIntentTargetsLastEditHandler_ = std::move(handler);
+}
+
+void StewardPanel::setTryUndoLastEditHandler(TryUndoLastEditHandler handler) {
+  tryUndoLastEditHandler_ = std::move(handler);
 }
 
 void StewardPanel::setTryDeleteCameraControlsHandler(TryDeleteCameraControlsHandler handler) {
@@ -803,6 +814,13 @@ bool StewardPanel::tryDeleteSelectedClipFromPrimaryAction() {
   return false;
 }
 
+bool StewardPanel::tryUndoLastEditFromPrimaryAction() {
+  if (!intentHasText() || !tryUndoLastEditHandler_) {
+    return false;
+  }
+  return tryUndoLastEditHandler_(intent());
+}
+
 bool StewardPanel::tryDeleteCameraControlsFromPrimaryAction() {
   if (!intentHasText() ||
       !tryDeleteCameraControlsHandler_ ||
@@ -873,6 +891,12 @@ bool StewardPanel::intentHasText() const {
 }
 
 bool StewardPanel::primaryActionCanRun() const {
+  if (intentHasText() &&
+      undoIntentTargetsLastEditHandler_ &&
+      undoIntentTargetsLastEditHandler_(intent())) {
+    return true;
+  }
+
   switch (primaryAction_) {
     case PrimaryAction::ImportMedia:
       return static_cast<bool>(importMediaHandler_);

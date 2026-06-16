@@ -586,6 +586,62 @@ foundation::Result<void> NativeStewardSession::finishRunWithError(
   return {};
 }
 
+foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::undoLastEdit(std::string intent) {
+  auto snapshot = project_.snapshot();
+  if (!snapshot) {
+    return snapshot.error();
+  }
+
+  if (!planner_.undoIntentTargetsLastEdit(intent)) {
+    return foundation::Error{
+      "steward.undo_intent_mismatch",
+      "Steward undo requires an explicit undo or revert-last-edit request."
+    };
+  }
+
+  auto runId = startRun(snapshot.value(), intent);
+  if (!runId) {
+    return runId.error();
+  }
+
+  auto message = appendEvent(
+    runId.value(),
+    agent::AgentRunEventKind::ModelMessage,
+    modelMessagePayload("assistant", "Undoing the last committed project edit.")
+  );
+  if (!message) {
+    return message.error();
+  }
+
+  auto undone = commandWriter_.undoLastCommittedCommand(
+    project::CommandSource{
+      project::CommandSourceKind::Agent,
+      runId.value(),
+      "steward"
+    },
+    std::optional<std::string>{intent}
+  );
+  if (!undone) {
+    auto finished = finishRunWithError(runId.value(), undone.error());
+    if (!finished) {
+      return finished.error();
+    }
+    return undone.error();
+  }
+
+  auto runFinished = appendEvent(
+    runId.value(),
+    agent::AgentRunEventKind::RunFinished,
+    runFinishedPayload("succeeded", "Undid the last committed project edit.")
+  );
+  if (!runFinished) {
+    return runFinished.error();
+  }
+
+  markRunStatus(runId.value(), agent::AgentRunStatus::Succeeded);
+  return undone.value();
+}
+
 foundation::Result<NativeStewardMediaPlacementResult> NativeStewardSession::placeAssetOnTimeline(
   foundation::AssetId assetId,
   std::optional<foundation::TimeSeconds> duration
@@ -1369,6 +1425,10 @@ bool NativeStewardSession::noteIntentTargetsNote(const std::string& intent) cons
 
 bool NativeStewardSession::noteEditIntentTargetsNote(const std::string& intent) const {
   return planner_.noteEditIntentTargetsNote(intent);
+}
+
+bool NativeStewardSession::undoIntentTargetsLastEdit(const std::string& intent) const {
+  return planner_.undoIntentTargetsLastEdit(intent);
 }
 
 bool NativeStewardSession::cameraTransformDeleteIntentTargetsCameraControls(const std::string& intent) const {

@@ -772,6 +772,12 @@ public:
       showEffectControls();
     });
     steward_->setCreateCameraEffectHandler([this](std::string intent) { addEffectToSelectedTarget(std::move(intent)); });
+    steward_->setUndoIntentTargetsLastEditHandler([this](std::string intent) {
+      return workspace_.steward().undoIntentTargetsLastEdit(intent);
+    });
+    steward_->setTryUndoLastEditHandler([this](std::string intent) {
+      return undoLastEditWithPrimaryIntent(std::move(intent));
+    });
     steward_->setTryDeleteCameraControlsHandler([this](
       grapple::foundation::NodeId cameraNodeId,
       std::string intent
@@ -2391,6 +2397,30 @@ public:
     selectedAssetId_ = std::nullopt;
     refreshViewModelAndPreview();
     log_->append("Undo complete");
+  }
+
+  void undoLastEditWithSteward(std::string intent) {
+    const auto undone = workspace_.steward().undoLastEdit(std::move(intent));
+    if (!undone) {
+      appendError(undone.error());
+      refreshViewModel();
+      return;
+    }
+
+    selectedNodeId_ = std::nullopt;
+    selectedAssetId_ = std::nullopt;
+    refreshViewModelAndPreview();
+    steward_->setIntent({});
+    log_->append("Steward undid last edit");
+  }
+
+  bool undoLastEditWithPrimaryIntent(std::string intent) {
+    if (!workspace_.steward().undoIntentTargetsLastEdit(intent)) {
+      return false;
+    }
+
+    undoLastEditWithSteward(std::move(intent));
+    return true;
   }
 
   void redoLastEdit() {

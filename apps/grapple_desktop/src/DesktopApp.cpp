@@ -186,6 +186,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   bool stewardMotionSmoke = false;
   bool stewardZoomMotionSmoke = false;
   bool stewardClipTransformSmoke = false;
+  bool stewardUndoSmoke = false;
   bool stewardDeleteClipSmoke = false;
   bool stewardDeleteCameraControlsSmoke = false;
   bool deleteEffectSmoke = false;
@@ -277,6 +278,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       stewardZoomMotionSmoke = true;
     } else if (argument == "--steward-clip-transform-smoke") {
       stewardClipTransformSmoke = true;
+    } else if (argument == "--steward-undo-smoke") {
+      stewardUndoSmoke = true;
     } else if (argument == "--steward-delete-clip-smoke") {
       stewardDeleteClipSmoke = true;
     } else if (argument == "--steward-delete-camera-controls-smoke") {
@@ -312,7 +315,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     } else if (argument == "--effect-screenshot" && index + 1 < argc) {
       effectScreenshotPath = argv[++index];
     } else {
-      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --select-audio-clip-smoke, --select-audio-track-smoke, --select-camera-smoke, --select-second-camera-smoke, --steward-smoke, --import-smoke, --import-media-types-smoke, --add-video-smoke, --empty-add-video-smoke, --empty-add-video-undo-smoke, --empty-add-text-smoke, --empty-add-track-smoke, --empty-add-camera-smoke, --update-camera-smoke, --add-note-smoke, --update-note-smoke, --move-clip-smoke, --trim-clip-smoke, --clip-timing-panel-smoke, --nudge-clip-smoke, --undo-redo-smoke, --add-effect-smoke, --clip-effect-controls-smoke, --steward-submit-shortcut-smoke, --steward-text-clip-smoke, --steward-note-smoke, --set-effect-param-smoke, --effect-keyframe-smoke, --steward-motion-smoke, --steward-zoom-motion-smoke, --steward-clip-transform-smoke, --steward-delete-clip-smoke, --steward-delete-camera-controls-smoke, --delete-effect-smoke, --delete-smoke, --delete-track-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, --new-package-smoke, --export-settings-smoke, --product-loop-smoke, --empty-launch-smoke, --empty-save-smoke, --open-package <path>, --new-package <path>, --screenshot <path>, or --effect-screenshot <path>.\n";
+      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --select-audio-clip-smoke, --select-audio-track-smoke, --select-camera-smoke, --select-second-camera-smoke, --steward-smoke, --import-smoke, --import-media-types-smoke, --add-video-smoke, --empty-add-video-smoke, --empty-add-video-undo-smoke, --empty-add-text-smoke, --empty-add-track-smoke, --empty-add-camera-smoke, --update-camera-smoke, --add-note-smoke, --update-note-smoke, --move-clip-smoke, --trim-clip-smoke, --clip-timing-panel-smoke, --nudge-clip-smoke, --undo-redo-smoke, --add-effect-smoke, --clip-effect-controls-smoke, --steward-submit-shortcut-smoke, --steward-text-clip-smoke, --steward-note-smoke, --set-effect-param-smoke, --effect-keyframe-smoke, --steward-motion-smoke, --steward-zoom-motion-smoke, --steward-clip-transform-smoke, --steward-undo-smoke, --steward-delete-clip-smoke, --steward-delete-camera-controls-smoke, --delete-effect-smoke, --delete-smoke, --delete-track-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, --new-package-smoke, --export-settings-smoke, --product-loop-smoke, --empty-launch-smoke, --empty-save-smoke, --open-package <path>, --new-package <path>, --screenshot <path>, or --effect-screenshot <path>.\n";
       return 1;
     }
   }
@@ -361,6 +364,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     effectKeyframeSmoke ||
     stewardMotionSmoke ||
     stewardZoomMotionSmoke ||
+    stewardUndoSmoke ||
     deleteEffectSmoke ||
     deleteSmoke ||
     deleteTrackSmoke ||
@@ -376,6 +380,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     productLoopSmoke ||
     stewardDeleteClipSmoke ||
     stewardDeleteCameraControlsSmoke ||
+    stewardUndoSmoke ||
     stewardClipTransformSmoke;
 
   if (needsStarterDemoVideo) {
@@ -2772,6 +2777,70 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            steward.find("Delete Timeline Clip -> succeeded") != std::string::npos &&
            log.find("Steward added selected media to timeline") != std::string::npos &&
            log.find("Steward deleted selected clip") != std::string::npos
+      ? 0
+      : 1;
+  }
+
+  if (stewardUndoSmoke) {
+    window.show();
+    app.processEvents();
+    window.clickFirstTimelineCamera();
+    window.setStewardIntent("Create editable camera controls.");
+    window.clickStewardPrimaryAction();
+    const auto afterCreate = workspace.value().project().buildViewModel();
+    if (!afterCreate) {
+      printError(afterCreate.error());
+      return 1;
+    }
+
+    window.setStewardIntent("Undo last edit.");
+    const bool undoActionEnabled = window.stewardPrimaryActionEnabled();
+    window.clickStewardPrimaryAction();
+    const auto afterUndo = workspace.value().project().buildViewModel();
+    if (!afterUndo) {
+      printError(afterUndo.error());
+      return 1;
+    }
+
+    const auto conversation = workspace.value().steward().conversationState();
+    const std::string steward = window.stewardContents();
+    const std::string inspector = window.inspectorContents();
+    const std::string log = window.logContents();
+    const auto& commands = workspace.value().project().packageState().commandLog.records();
+    std::cout << "afterCreateRevision=" << afterCreate.value().project.revision.value() << '\n';
+    std::cout << "afterCreateEffectGraphs=" << afterCreate.value().timeline.effectGraphs.size() << '\n';
+    std::cout << "undoActionEnabled=" << (undoActionEnabled ? "true" : "false") << '\n';
+    std::cout << "afterUndoRevision=" << afterUndo.value().project.revision.value() << '\n';
+    std::cout << "afterUndoEffectGraphs=" << afterUndo.value().timeline.effectGraphs.size() << '\n';
+    std::cout << "afterUndoStewardEdits=" << afterUndo.value().steward.edits.size() << '\n';
+    std::cout << "runs=" << conversation.runs.size() << '\n';
+    if (!commands.empty()) {
+      std::cout << "lastCommand=" << commands.back().serializedName << '\n';
+      std::cout << "lastCommandSource=" << commands.back().sourceKind << ':' << commands.back().sourceActorName << '\n';
+    }
+    std::cout << "steward=" << steward << '\n';
+    std::cout << "inspector=" << inspector << '\n';
+    std::cout << "log=" << log << '\n';
+    return afterCreate.value().project.revision == grapple::foundation::RevisionId{"rev_6"} &&
+           afterCreate.value().timeline.effectGraphs.size() == 1 &&
+           undoActionEnabled &&
+           afterUndo.value().project.revision == grapple::foundation::RevisionId{"rev_7"} &&
+           afterUndo.value().timeline.effectGraphs.empty() &&
+           afterUndo.value().steward.edits.empty() &&
+           window.stewardIntent().empty() &&
+           conversation.runs.size() == 2 &&
+           conversation.runs[0].toolCalls.size() == 1 &&
+           conversation.runs[0].toolCalls[0].toolSerializedId == "effect.create_node" &&
+           conversation.runs[1].toolCalls.empty() &&
+           !commands.empty() &&
+           commands.back().serializedName == "project.restore_snapshot" &&
+           commands.back().sourceKind == "agent" &&
+           commands.back().sourceActorName == "steward" &&
+           commands.back().sourceRunId == grapple::foundation::RunId{"run_steward_2"} &&
+           steward.find("- Undo last edit. [succeeded]") != std::string::npos &&
+           steward.find("Undid the last committed project edit.") != std::string::npos &&
+           inspector.find("No selection") != std::string::npos &&
+           log.find("Steward undid last edit") != std::string::npos
       ? 0
       : 1;
   }

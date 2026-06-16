@@ -228,6 +228,10 @@ int main() {
   GRAPPLE_REQUIRE(stewardPlanner.cameraTransformDeleteIntentTargetsCameraControls("delete framing effect"));
   GRAPPLE_REQUIRE(!stewardPlanner.cameraTransformDeleteIntentTargetsCameraControls("reset camera"));
   GRAPPLE_REQUIRE(!stewardPlanner.cameraTransformDeleteIntentTargetsCameraControls("move camera right"));
+  GRAPPLE_REQUIRE(stewardPlanner.undoIntentTargetsLastEdit("undo last edit"));
+  GRAPPLE_REQUIRE(stewardPlanner.undoIntentTargetsLastEdit("revert the previous change"));
+  GRAPPLE_REQUIRE(!stewardPlanner.undoIntentTargetsLastEdit("remove selected clip"));
+  GRAPPLE_REQUIRE(!stewardPlanner.undoIntentTargetsLastEdit("reset camera"));
   timeline::Transform2D plannedClipInputTransform;
   const timeline::ClipPayload plannedClipInput{
     timeline::ClipKind::Video,
@@ -3245,6 +3249,28 @@ int main() {
   GRAPPLE_REQUIRE(stewardNoteConversation.runs[0].toolCalls[0].toolSerializedId == "note.create");
   GRAPPLE_REQUIRE(stewardNoteConversation.runs[1].toolCalls.size() == 1);
   GRAPPLE_REQUIRE(stewardNoteConversation.runs[1].toolCalls[0].toolSerializedId == "note.update");
+  auto stewardUndo = noteSteward.undoLastEdit("Undo last edit.");
+  GRAPPLE_REQUIRE(stewardUndo);
+  const auto stewardUndoViewModel = noteSession.buildViewModel();
+  GRAPPLE_REQUIRE(stewardUndoViewModel);
+  GRAPPLE_REQUIRE(stewardUndoViewModel.value().notes.rows.size() == 2);
+  GRAPPLE_REQUIRE(stewardUndoViewModel.value().notes.rows[1].sourceNodeId == foundation::NodeId{"node_note_2"});
+  GRAPPLE_REQUIRE(stewardUndoViewModel.value().notes.rows[1].title == "Edit rationale");
+  GRAPPLE_REQUIRE(stewardUndoViewModel.value().notes.rows[1].markdown == "Keep the crop user-editable");
+  GRAPPLE_REQUIRE(stewardUndoViewModel.value().steward.edits.size() == 1);
+  GRAPPLE_REQUIRE(stewardUndo.value().commandResult.beforeRevision == stewardNoteEdit.value().snapshot.revision);
+  GRAPPLE_REQUIRE(stewardUndo.value().snapshot.revision == foundation::RevisionId{"rev_4"});
+  const history::CommandRecord& undoCommand = noteSession.packageState().commandLog.records().back();
+  GRAPPLE_REQUIRE(undoCommand.serializedName == "project.restore_snapshot");
+  GRAPPLE_REQUIRE(undoCommand.sourceKind == "agent");
+  GRAPPLE_REQUIRE(undoCommand.sourceActorName == "steward");
+  GRAPPLE_REQUIRE(undoCommand.sourceRunId == foundation::RunId{"run_steward_3"});
+  const auto stewardUndoConversation = noteSteward.conversationState();
+  GRAPPLE_REQUIRE(stewardUndoConversation.runs.size() == 3);
+  GRAPPLE_REQUIRE(stewardUndoConversation.runs[2].status == agent::AgentRunStatus::Succeeded);
+  GRAPPLE_REQUIRE(stewardUndoConversation.runs[2].toolCalls.empty());
+  GRAPPLE_REQUIRE(stewardUndoConversation.runs[2].messages.size() == 1);
+  GRAPPLE_REQUIRE(stewardUndoConversation.runs[2].messages[0].content == "Undoing the last committed project edit.");
 
   const std::string workspacePackageStem =
     "grapple_workspace_package_" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count());
