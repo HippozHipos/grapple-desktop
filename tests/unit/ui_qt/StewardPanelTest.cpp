@@ -1,0 +1,88 @@
+#include <grapple/ui_qt/StewardPanel.hpp>
+
+#include <grapple/agent/AgentConversationState.hpp>
+#include <grapple/app/AppViewModel.hpp>
+#include <grapple/foundation/StrongId.hpp>
+#include <grapple/timeline/Payloads.hpp>
+
+#include "TestAssert.hpp"
+
+#include <QApplication>
+
+#include <string>
+
+namespace {
+
+grapple::app::AppViewModel viewModelWithCamera() {
+  grapple::app::AppViewModel viewModel;
+  viewModel.project.projectId = grapple::foundation::ProjectId{"project"};
+  viewModel.project.name = "Panel Route Test";
+  viewModel.project.revision = grapple::foundation::RevisionId{"rev_1"};
+  viewModel.timeline.duration = grapple::foundation::TimeSeconds{10.0};
+  viewModel.timeline.cameras.push_back(grapple::app::AppCameraRow{
+    grapple::foundation::NodeId{"camera_1"},
+    "Camera",
+    grapple::timeline::CameraState{
+      grapple::timeline::Transform2D{},
+      grapple::timeline::CameraLens{35.0}
+    }
+  });
+  return viewModel;
+}
+
+bool containsText(const std::string& value, const std::string& text) {
+  return value.find(text) != std::string::npos;
+}
+
+} // namespace
+
+int main(int argc, char** argv) {
+  QApplication app{argc, argv};
+
+  grapple::ui::StewardPanel panel;
+  bool cameraRouteCalled = false;
+  bool textRouteCalled = false;
+  bool noteRouteCalled = false;
+
+  panel.setTextClipIntentTargetsTextHandler([](std::string intent) {
+    return containsText(intent, "title") || containsText(intent, "caption") || containsText(intent, "text");
+  });
+  panel.setNoteIntentTargetsNoteHandler([](std::string intent) {
+    return containsText(intent, "note") || containsText(intent, "rationale");
+  });
+  panel.setCreateCameraEffectHandler([&](std::string) {
+    cameraRouteCalled = true;
+  });
+  panel.setTryCreateTextClipHandler([&](std::string) {
+    textRouteCalled = true;
+    return true;
+  });
+  panel.setTryCreateNoteHandler([&](std::string) {
+    noteRouteCalled = true;
+    return true;
+  });
+
+  panel.setViewModel(
+    viewModelWithCamera(),
+    grapple::agent::AgentConversationState{},
+    std::nullopt,
+    std::nullopt
+  );
+
+  panel.setIntent("zoom in a little");
+  panel.triggerPrimaryAction();
+  GRAPPLE_REQUIRE(cameraRouteCalled);
+  GRAPPLE_REQUIRE(!textRouteCalled);
+  GRAPPLE_REQUIRE(!noteRouteCalled);
+
+  cameraRouteCalled = false;
+  textRouteCalled = false;
+  noteRouteCalled = false;
+  panel.setIntent("add title \"Opening\"");
+  panel.triggerPrimaryAction();
+  GRAPPLE_REQUIRE(!cameraRouteCalled);
+  GRAPPLE_REQUIRE(textRouteCalled);
+  GRAPPLE_REQUIRE(!noteRouteCalled);
+
+  return 0;
+}

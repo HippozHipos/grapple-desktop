@@ -1011,7 +1011,10 @@ bool StewardPanel::tryCreateTrackFromPrimaryAction() {
 }
 
 bool StewardPanel::tryCreateTextClipFromPrimaryAction() {
-  if (!intentHasText() || !tryCreateTextClipHandler_) {
+  if (!intentHasText() ||
+      !textClipIntentTargetsTextHandler_ ||
+      !tryCreateTextClipHandler_ ||
+      !textClipIntentTargetsTextHandler_(intent())) {
     return false;
   }
   if (primaryAction_ == PrimaryAction::ImportMedia ||
@@ -1024,7 +1027,10 @@ bool StewardPanel::tryCreateTextClipFromPrimaryAction() {
 }
 
 bool StewardPanel::tryCreateNoteFromPrimaryAction() {
-  if (!intentHasText() || !tryCreateNoteHandler_) {
+  if (!intentHasText() ||
+      !noteIntentTargetsNoteHandler_ ||
+      !tryCreateNoteHandler_ ||
+      !noteIntentTargetsNoteHandler_(intent())) {
     return false;
   }
 
