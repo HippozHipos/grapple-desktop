@@ -2732,7 +2732,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     const std::filesystem::path outputPath = smokeRoot / "product-loop.avi";
     std::filesystem::remove(outputPath);
 
-    window.importMediaFile(grapple::foundation::FilePath{starterVideoPath.string()});
+    window.importStarterSampleMedia();
     const std::string stewardActionAfterImport = window.stewardPrimaryActionText();
     const bool stewardActionEnabledAfterImport = window.stewardPrimaryActionEnabled();
     const bool addMediaActionEnabledAfterImport = window.addSelectedMediaActionEnabled();
