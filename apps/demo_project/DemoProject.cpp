@@ -1,5 +1,6 @@
 #include <DemoProject.hpp>
 
+#include <grapple/app/NativeMediaImport.hpp>
 #include <grapple/app/NativeProjectCommandWriter.hpp>
 #include <grapple/asset/Asset.hpp>
 #include <grapple/timeline/Payloads.hpp>
@@ -31,17 +32,41 @@ project::CommandSource userSource() {
   };
 }
 
+foundation::FilePath starterDemoVideoPath() {
+  return foundation::FilePath{"/tmp/grapple-native-demo/starter-gradient.avi"};
+}
+
+foundation::FilePath starterDemoThumbnailPath() {
+  return foundation::FilePath{"/tmp/grapple-native-demo/starter-gradient.jpg"};
+}
+
+foundation::Result<void> ensureStarterDemoThumbnail() {
+  const foundation::FilePath videoPath = starterDemoVideoPath();
+  const foundation::FilePath thumbnailPath = starterDemoThumbnailPath();
+  const std::filesystem::path thumbnailFilesystemPath{thumbnailPath.value};
+  std::filesystem::create_directories(thumbnailFilesystemPath.parent_path());
+  if (std::filesystem::exists(thumbnailFilesystemPath) &&
+      std::filesystem::file_size(thumbnailFilesystemPath) > 0U) {
+    return {};
+  }
+  return app::writeNativeMediaThumbnail(
+    asset::AssetMediaType::Video,
+    videoPath,
+    thumbnailPath
+  );
+}
+
 } // namespace
 
 foundation::Result<void> ensureStarterDemoVideo() {
   constexpr int width = 320;
   constexpr int height = 180;
   constexpr int frameCount = 300;
-  const foundation::FilePath path{"/tmp/grapple-native-demo/starter-gradient.avi"};
+  const foundation::FilePath path = starterDemoVideoPath();
   const std::filesystem::path videoPath{path.value};
   std::filesystem::create_directories(videoPath.parent_path());
   if (std::filesystem::exists(videoPath) && std::filesystem::file_size(videoPath) > 0U) {
-    return {};
+    return ensureStarterDemoThumbnail();
   }
 
   const auto uniqueSuffix = std::chrono::steady_clock::now().time_since_epoch().count();
@@ -84,7 +109,7 @@ foundation::Result<void> ensureStarterDemoVideo() {
     return foundation::Error{"demo.video_rename_failed", "Could not install demo video " + path.value + "."};
   }
 
-  return {};
+  return ensureStarterDemoThumbnail();
 }
 
 foundation::Result<void> populateStarterDemo(
@@ -100,8 +125,8 @@ foundation::Result<void> populateStarterDemo(
         "Starter Gradient",
         asset::AssetMetadata{
           asset::AssetMediaType::Video,
-          foundation::FilePath{"/tmp/grapple-native-demo/starter-gradient.avi"},
-          std::nullopt,
+          starterDemoVideoPath(),
+          starterDemoThumbnailPath(),
           foundation::TimeSeconds{10.0},
           foundation::Resolution{320, 180},
           foundation::FrameRate{30, 1}

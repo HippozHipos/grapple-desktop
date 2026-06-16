@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <filesystem>
 #include <utility>
 
 namespace grapple::ui {
@@ -32,6 +33,13 @@ CompositionViewport::CompositionViewport(QWidget* parent)
 
 void CompositionViewport::setViewModel(app::AppViewModel viewModel) {
   viewModel_ = std::move(viewModel);
+  rebuildThumbnailImages();
+  update();
+}
+
+void CompositionViewport::setPackageRoot(foundation::FilePath packageRoot) {
+  packageRoot_ = std::move(packageRoot);
+  rebuildThumbnailImages();
   update();
 }
 
@@ -128,6 +136,14 @@ void CompositionViewport::drawMediaFrame(
   painter.setBrush(QColor{isSelected ? "#29446e" : "#213354"});
   painter.drawRoundedRect(clipRect, 8.0, 8.0);
 
+  if (const QPixmap* thumbnail = thumbnailFor(mediaFrame.assetId); thumbnail != nullptr && !thumbnail->isNull()) {
+    const QRectF imageRect = clipRect.adjusted(4.0, 4.0, -4.0, -4.0);
+    painter.drawPixmap(imageRect, *thumbnail, QRectF{thumbnail->rect()});
+    painter.setBrush(QColor{0, 0, 0, 96});
+    painter.setPen(Qt::NoPen);
+    painter.drawRoundedRect(clipRect.adjusted(5.0, 5.0, -5.0, -clipRect.height() + 30.0), 5.0, 5.0);
+  }
+
   painter.setPen(QColor{"#eaf3ff"});
   painter.setFont(QFont{"DejaVu Sans", 9, QFont::Bold});
   const QString label = QFontMetrics{painter.font()}.elidedText(
@@ -193,6 +209,40 @@ QRectF CompositionViewport::worldRect(
     pixelWidth,
     pixelHeight
   };
+}
+
+void CompositionViewport::rebuildThumbnailImages() {
+  thumbnailImages_.clear();
+  if (!viewModel_.has_value()) {
+    return;
+  }
+  thumbnailImages_.reserve(viewModel_->assets.rows.size());
+  for (const app::AppAssetRow& asset : viewModel_->assets.rows) {
+    if (!asset.thumbnailPath.has_value()) {
+      continue;
+    }
+    QPixmap thumbnail{resolvedAssetPath(asset.thumbnailPath.value())};
+    if (!thumbnail.isNull()) {
+      thumbnailImages_.push_back({asset.assetId, std::move(thumbnail)});
+    }
+  }
+}
+
+QString CompositionViewport::resolvedAssetPath(const foundation::FilePath& path) const {
+  const std::filesystem::path filesystemPath{path.value};
+  if (filesystemPath.is_absolute()) {
+    return qString(filesystemPath.string());
+  }
+  return qString((std::filesystem::path{packageRoot_.value} / filesystemPath).lexically_normal().string());
+}
+
+const QPixmap* CompositionViewport::thumbnailFor(const foundation::AssetId& assetId) const {
+  for (const auto& thumbnail : thumbnailImages_) {
+    if (thumbnail.first == assetId) {
+      return &thumbnail.second;
+    }
+  }
+  return nullptr;
 }
 
 std::optional<foundation::Resolution> CompositionViewport::dimensionsFor(const foundation::AssetId& assetId) const {

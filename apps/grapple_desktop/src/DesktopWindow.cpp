@@ -860,6 +860,7 @@ public:
     timeline_->setViewModel(viewModel);
     timeline_->setPlayhead(workspace_.preview().state().playhead);
     timeline_->setSelectedNodeId(selectedNodeId_);
+    compositionViewport_->setPackageRoot(workspace_.project().packageState().package.rootPath);
     compositionViewport_->setViewModel(viewModel);
     compositionViewport_->setPlayhead(workspace_.preview().state().playhead);
     compositionViewport_->setSelectedNodeId(selectedNodeId_);
