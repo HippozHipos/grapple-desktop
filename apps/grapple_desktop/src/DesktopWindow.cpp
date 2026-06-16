@@ -1310,14 +1310,6 @@ public:
     return steward_->primaryActionEnabled();
   }
 
-  std::string stewardSelectedTargetActionText() const {
-    return steward_->selectedTargetActionText();
-  }
-
-  bool stewardSelectedTargetActionEnabled() const {
-    return steward_->selectedTargetActionEnabled();
-  }
-
   bool addSelectedMediaActionEnabled() const {
     return addSelectedMediaButton_->isEnabled();
   }
@@ -1476,10 +1468,6 @@ public:
 
   void clickStewardPrimaryAction() {
     steward_->triggerPrimaryAction();
-  }
-
-  void clickStewardSelectedTargetAction() {
-    steward_->triggerSelectedTargetAction();
   }
 
   void clickStewardRecentEdit(int row) {
@@ -3982,14 +3970,6 @@ bool DesktopWindow::stewardPrimaryActionEnabled() const {
   return impl_->stewardPrimaryActionEnabled();
 }
 
-std::string DesktopWindow::stewardSelectedTargetActionText() const {
-  return impl_->stewardSelectedTargetActionText();
-}
-
-bool DesktopWindow::stewardSelectedTargetActionEnabled() const {
-  return impl_->stewardSelectedTargetActionEnabled();
-}
-
 bool DesktopWindow::addSelectedMediaActionEnabled() const {
   return impl_->addSelectedMediaActionEnabled();
 }
@@ -4044,10 +4024,6 @@ void DesktopWindow::pressStewardSubmitShortcut() {
 
 void DesktopWindow::clickStewardPrimaryAction() {
   impl_->clickStewardPrimaryAction();
-}
-
-void DesktopWindow::clickStewardSelectedTargetAction() {
-  impl_->clickStewardSelectedTargetAction();
 }
 
 void DesktopWindow::clickStewardRecentEdit(int row) {

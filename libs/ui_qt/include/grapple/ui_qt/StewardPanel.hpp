@@ -97,9 +97,6 @@ public:
   [[nodiscard]] std::string intentPlaceholder() const;
   [[nodiscard]] std::string primaryActionText() const;
   [[nodiscard]] bool primaryActionEnabled() const;
-  void triggerSelectedTargetAction();
-  [[nodiscard]] std::string selectedTargetActionText() const;
-  [[nodiscard]] bool selectedTargetActionEnabled() const;
   void triggerRecentEdit(int row);
   [[nodiscard]] int recentEditCount() const;
   [[nodiscard]] int currentRecentEditRow() const;
@@ -134,7 +131,6 @@ private:
   [[nodiscard]] bool intentHasText() const;
   [[nodiscard]] bool selectedTargetIntentTargetsSelection() const;
   [[nodiscard]] bool primaryActionCanRun() const;
-  [[nodiscard]] bool selectedTargetActionCanRun() const;
 
   ImportMediaHandler importMediaHandler_;
   AddCameraHandler addCameraHandler_;
@@ -172,7 +168,6 @@ private:
   std::optional<foundation::NodeId> selectedNoteTargetNodeId_;
   QTextEdit* intent_ = nullptr;
   QPushButton* primaryActionButton_ = nullptr;
-  QPushButton* selectedTargetActionButton_ = nullptr;
   QListWidget* recentEdits_ = nullptr;
   QTextEdit* text_ = nullptr;
 };

@@ -391,35 +391,6 @@ StewardPanel::StewardPanel(QWidget* parent)
     triggerPrimaryAction();
   });
 
-  selectedTargetActionButton_ = new QPushButton{"Apply Request To Clip"};
-  selectedTargetActionButton_->setObjectName("stewardSelectedTargetAction");
-  layout->addWidget(selectedTargetActionButton_);
-  connect(selectedTargetActionButton_, &QPushButton::clicked, this, [this] {
-    if (tryDeleteSelectedClipHandler_ && selectedClipTargetNodeId_.has_value() &&
-        tryDeleteSelectedClipHandler_(selectedClipTargetNodeId_.value(), intent())) {
-      return;
-    }
-    if (tryDeleteSelectedClipHandler_ && selectedTextClipTargetNodeId_.has_value() &&
-        tryDeleteSelectedClipHandler_(selectedTextClipTargetNodeId_.value(), intent())) {
-      return;
-    }
-    if (tryDeleteSelectedTrackHandler_ && selectedTrackTargetNodeId_.has_value() &&
-        tryDeleteSelectedTrackHandler_(selectedTrackTargetNodeId_.value(), intent())) {
-      return;
-    }
-    if (tryCreateClipTintHandler_ && selectedClipTargetNodeId_.has_value() &&
-        tryCreateClipTintHandler_(selectedClipTargetNodeId_.value(), intent())) {
-      return;
-    }
-    if (editSelectedClipHandler_ && selectedClipTargetNodeId_.has_value()) {
-      editSelectedClipHandler_(selectedClipTargetNodeId_.value(), intent());
-    } else if (editSelectedTextClipHandler_ && selectedTextClipTargetNodeId_.has_value()) {
-      editSelectedTextClipHandler_(selectedTextClipTargetNodeId_.value(), intent());
-    } else if (editSelectedNoteHandler_ && selectedNoteTargetNodeId_.has_value()) {
-      editSelectedNoteHandler_(selectedNoteTargetNodeId_.value(), intent());
-    }
-  });
-
   recentEdits_ = new QListWidget;
   recentEdits_->setObjectName("stewardRecentEdits");
   recentEdits_->setSelectionMode(QAbstractItemView::SingleSelection);
@@ -573,12 +544,6 @@ void StewardPanel::setViewModel(
   selectedTextClipTargetNodeId_ = selectedTextClipNodeId(viewModel, selectedNodeId);
   selectedTrackTargetNodeId_ = selectedTrackNodeId(viewModel, selectedNodeId);
   selectedNoteTargetNodeId_ = selectedNoteNodeId(viewModel, selectedNodeId);
-  selectedTargetActionButton_->setVisible(
-    selectedClipTargetNodeId_.has_value() ||
-    selectedTextClipTargetNodeId_.has_value() ||
-    selectedTrackTargetNodeId_.has_value() ||
-    selectedNoteTargetNodeId_.has_value()
-  );
   primaryTargetCameraNodeId_ = cameraTargetId;
   if (!cameraTargetId.has_value()) {
     primaryTargetCameraNodeId_ = std::nullopt;
@@ -614,18 +579,18 @@ void StewardPanel::setViewModel(
   }
 
   QString nextStep;
-  const bool selectedTargetActionAvailable =
+  const bool hasSelectedTarget =
     selectedClipTargetNodeId_.has_value() ||
     selectedTextClipTargetNodeId_.has_value() ||
     selectedTrackTargetNodeId_.has_value() ||
     selectedNoteTargetNodeId_.has_value();
   const QString targetChoiceStep = selectedTextClipTargetNodeId_.has_value()
-    ? "Next: type a camera request, or use the text action to edit the selected text clip."
+    ? "Next: type a selected text request, or type a camera request."
     : selectedNoteTargetNodeId_.has_value()
-      ? "Next: type a camera request, or use the note action to edit the selected note."
+      ? "Next: type a selected note request, or type a camera request."
       : selectedTrackTargetNodeId_.has_value()
-        ? "Next: type a camera request, or use the track action to delete the selected track."
-        : "Next: type a camera request, or mention clip/video to edit the selected clip.";
+        ? "Next: type a selected track delete request, or type a camera request."
+        : "Next: type a selected clip request, or type a camera request.";
   switch (primaryAction_) {
     case PrimaryAction::ImportMedia:
       nextStep = "Next: import media to start the timeline.";
@@ -637,17 +602,17 @@ void StewardPanel::setViewModel(
       nextStep = "Next: add a camera for editable framing.";
       break;
     case PrimaryAction::ShowCameraControls:
-      nextStep = selectedTargetActionAvailable
+      nextStep = hasSelectedTarget
         ? targetChoiceStep
         : "Next: show the camera effect controls.";
       break;
     case PrimaryAction::CreateCameraEffect:
-      nextStep = selectedTargetActionAvailable
+      nextStep = hasSelectedTarget
         ? targetChoiceStep
         : "Next: type the camera edit request, then create editable camera controls.";
       break;
     case PrimaryAction::AdjustCameraControls:
-      nextStep = selectedTargetActionAvailable
+      nextStep = hasSelectedTarget
         ? targetChoiceStep
         : "Next: type the camera edit request, then apply it to the exposed controls.";
       break;
@@ -788,10 +753,6 @@ void StewardPanel::triggerPrimaryAction() {
   primaryActionButton_->click();
 }
 
-void StewardPanel::triggerSelectedTargetAction() {
-  selectedTargetActionButton_->click();
-}
-
 std::string StewardPanel::contents() const {
   return text_->toPlainText().toStdString();
 }
@@ -810,14 +771,6 @@ std::string StewardPanel::primaryActionText() const {
 
 bool StewardPanel::primaryActionEnabled() const {
   return primaryActionButton_->isEnabled();
-}
-
-std::string StewardPanel::selectedTargetActionText() const {
-  return selectedTargetActionButton_->text().toStdString();
-}
-
-bool StewardPanel::selectedTargetActionEnabled() const {
-  return selectedTargetActionButton_->isVisible() && selectedTargetActionButton_->isEnabled();
 }
 
 void StewardPanel::triggerRecentEdit(int row) {
@@ -849,7 +802,6 @@ std::string StewardPanel::recentEditText(int row) const {
 
 void StewardPanel::updateActionButtons() {
   primaryActionButton_->setEnabled(primaryActionCanRun());
-  selectedTargetActionButton_->setEnabled(selectedTargetActionCanRun());
 }
 
 void StewardPanel::updateActionLabels() {
@@ -906,20 +858,10 @@ void StewardPanel::updateActionLabels() {
         break;
     }
   }
-
-  selectedTargetActionButton_->setText(
-    selectedTextClipTargetNodeId_.has_value()
-      ? (hasIntent ? "Apply Request To Text" : "Type Request To Edit Text")
-      : selectedNoteTargetNodeId_.has_value()
-        ? (hasIntent ? "Apply Request To Note" : "Type Request To Edit Note")
-        : selectedTrackTargetNodeId_.has_value()
-          ? (hasIntent ? "Apply Request To Track" : "Type Request To Delete Track")
-          : (hasIntent ? "Apply Request To Clip" : "Type Request To Edit Clip")
-  );
 }
 
 void StewardPanel::updateIntentPlaceholder() {
-  const bool selectedTargetActionAvailable =
+  const bool hasSelectedTarget =
     selectedClipTargetNodeId_.has_value() ||
     selectedTextClipTargetNodeId_.has_value() ||
     selectedTrackTargetNodeId_.has_value() ||
@@ -936,22 +878,22 @@ void StewardPanel::updateIntentPlaceholder() {
       return;
     case PrimaryAction::ShowCameraControls:
       intent_->setPlaceholderText(
-        selectedTargetActionAvailable
-          ? "Try: \"rename camera to \\\"Closeup\\\"\", \"add title \\\"Opening\\\"\", \"zoom in a little\", or use the clip action for \"rotate clip slightly left\"."
+        hasSelectedTarget
+          ? "Try: \"rotate clip slightly left\", \"rename camera to \\\"Closeup\\\"\", \"add title \\\"Opening\\\"\", or \"zoom in a little\"."
           : "Try: \"rename camera to \\\"Closeup\\\"\", \"add title \\\"Opening\\\"\", or show camera controls for \"zoom in a little\"."
       );
       return;
     case PrimaryAction::CreateCameraEffect:
       intent_->setPlaceholderText(
-        selectedTargetActionAvailable
-          ? "Try: \"rename camera to \\\"Closeup\\\"\", \"add title \\\"Opening\\\"\", \"center the subject\", or use the clip action for \"speed up clip\"."
+        hasSelectedTarget
+          ? "Try: \"speed up clip\", \"rename camera to \\\"Closeup\\\"\", \"add title \\\"Opening\\\"\", or \"center the subject\"."
           : "Try: \"rename camera to \\\"Closeup\\\"\", \"add title \\\"Opening\\\"\", \"center the subject\", or \"slowly pan right\"."
       );
       return;
     case PrimaryAction::AdjustCameraControls:
       intent_->setPlaceholderText(
-        selectedTargetActionAvailable
-          ? "Try: \"rename camera to \\\"Closeup\\\"\", \"set camera focal length to 50\", \"zoom in a little\", or use the clip action for \"move clip later\"."
+        hasSelectedTarget
+          ? "Try: \"move clip later\", \"rename camera to \\\"Closeup\\\"\", \"set camera focal length to 50\", or \"zoom in a little\"."
           : "Try: \"rename camera to \\\"Closeup\\\"\", \"set camera focal length to 50\", \"zoom in a little\", \"reset camera\", or \"slowly pan left\"."
       );
       return;
@@ -1168,10 +1110,6 @@ bool StewardPanel::primaryActionCanRun() const {
   }
 
   return false;
-}
-
-bool StewardPanel::selectedTargetActionCanRun() const {
-  return selectedTargetIntentTargetsSelection();
 }
 
 } // namespace grapple::ui

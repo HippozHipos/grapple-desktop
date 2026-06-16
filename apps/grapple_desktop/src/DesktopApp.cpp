@@ -2397,10 +2397,10 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     window.show();
     app.processEvents();
     window.clickFirstTimelineTrack();
-    const std::string selectedTargetActionText = window.stewardSelectedTargetActionText();
     window.setStewardIntent("Delete selected track.");
-    const bool selectedTargetActionEnabled = window.stewardSelectedTargetActionEnabled();
-    window.clickStewardSelectedTargetAction();
+    const std::string primaryActionText = window.stewardPrimaryActionText();
+    const bool primaryActionEnabled = window.stewardPrimaryActionEnabled();
+    window.clickStewardPrimaryAction();
     const auto viewModel = workspace.value().project().buildViewModel();
     if (!viewModel) {
       printError(viewModel.error());
@@ -2413,8 +2413,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "layers=" << viewModel.value().timeline.layers.size() << '\n';
     std::cout << "clips=" << viewModel.value().timeline.clips.size() << '\n';
     std::cout << "cameras=" << viewModel.value().timeline.cameras.size() << '\n';
-    std::cout << "selectedTargetActionText=" << selectedTargetActionText << '\n';
-    std::cout << "selectedTargetActionEnabled=" << (selectedTargetActionEnabled ? "true" : "false") << '\n';
+    std::cout << "primaryActionText=" << primaryActionText << '\n';
+    std::cout << "primaryActionEnabled=" << (primaryActionEnabled ? "true" : "false") << '\n';
     std::cout << "runs=" << conversation.runs.size() << '\n';
     std::cout << "steward=" << steward << '\n';
     std::cout << "log=" << log << '\n';
@@ -2424,8 +2424,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            viewModel.value().timeline.cameras.size() == 1 &&
            !window.selectedNodeId().has_value() &&
            window.stewardIntent().empty() &&
-           selectedTargetActionText == "Type Request To Delete Track" &&
-           selectedTargetActionEnabled &&
+           primaryActionText == "Apply Request To Track" &&
+           primaryActionEnabled &&
            conversation.runs.size() == 1 &&
            conversation.runs[0].toolCalls.size() == 1 &&
            conversation.runs[0].toolCalls[0].toolSerializedId == "timeline.delete_track" &&
@@ -2917,21 +2917,24 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       return 1;
     }
     const auto clipBeforeTransform = beforeTransformViewModel.value().timeline.clips.front().transform;
-    const std::string selectedTargetActionText = window.stewardSelectedTargetActionText();
+    const std::string primaryActionTextBeforeIntent = window.stewardPrimaryActionText();
     const std::string stewardIntentPlaceholderBeforeIntent = window.stewardIntentPlaceholder();
-    const bool selectedTargetActionEnabledBeforeIntent = window.stewardSelectedTargetActionEnabled();
+    const bool primaryActionEnabledBeforeIntent = window.stewardPrimaryActionEnabled();
     window.setStewardIntent("Tint selected clip red.");
-    const bool selectedTargetActionEnabledForTint = window.stewardSelectedTargetActionEnabled();
-    window.clickStewardSelectedTargetAction();
+    const std::string primaryActionTextForTint = window.stewardPrimaryActionText();
+    const bool primaryActionEnabledForTint = window.stewardPrimaryActionEnabled();
+    window.clickStewardPrimaryAction();
     window.setStewardIntent("Make clip tint stronger and blue.");
-    const bool selectedTargetActionEnabledForTintUpdate = window.stewardSelectedTargetActionEnabled();
-    window.clickStewardSelectedTargetAction();
+    const std::string primaryActionTextForTintUpdate = window.stewardPrimaryActionText();
+    const bool primaryActionEnabledForTintUpdate = window.stewardPrimaryActionEnabled();
+    window.clickStewardPrimaryAction();
     window.setEffectParamVec3ControlValue(
       grapple::effects::builtin_effect::ClipTintColorParam,
       grapple::foundation::Vec3{0.2, 1.0, 0.35}
     );
     window.setStewardIntent("Move selected clip right, rotate slightly left, make it smaller, make it faster, and make it invisible.");
-    const bool selectedTargetActionEnabledAfterIntent = window.stewardSelectedTargetActionEnabled();
+    const std::string primaryActionTextAfterIntent = window.stewardPrimaryActionText();
+    const bool primaryActionEnabledAfterIntent = window.stewardPrimaryActionEnabled();
     window.clickStewardPrimaryAction();
     const auto viewModel = workspace.value().project().buildViewModel();
     if (!viewModel) {
@@ -3008,13 +3011,15 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "clipOpacity=" << clip.transform.opacity << '\n';
     std::cout << "clipPlaybackRate=" << clip.playbackRate << '\n';
     std::cout << "renderedMediaFrames=" << renderedFrame.value().frame.mediaFrames.size() << '\n';
-    std::cout << "selectedTargetActionText=" << selectedTargetActionText << '\n';
+    std::cout << "primaryActionTextBeforeIntent=" << primaryActionTextBeforeIntent << '\n';
     std::cout << "stewardIntentPlaceholderBeforeIntent=" << stewardIntentPlaceholderBeforeIntent << '\n';
-    std::cout << "selectedTargetActionEnabledBeforeIntent=" << (selectedTargetActionEnabledBeforeIntent ? "true" : "false") << '\n';
-    std::cout << "selectedTargetActionEnabledForTint=" << (selectedTargetActionEnabledForTint ? "true" : "false") << '\n';
-    std::cout << "selectedTargetActionEnabledForTintUpdate=" << (selectedTargetActionEnabledForTintUpdate ? "true" : "false") << '\n';
-    std::cout << "selectedTargetActionEnabledAfterIntent=" << (selectedTargetActionEnabledAfterIntent ? "true" : "false") << '\n';
-    std::cout << "selectedTargetActionEnabledAfterAction=" << (window.stewardSelectedTargetActionEnabled() ? "true" : "false") << '\n';
+    std::cout << "primaryActionEnabledBeforeIntent=" << (primaryActionEnabledBeforeIntent ? "true" : "false") << '\n';
+    std::cout << "primaryActionTextForTint=" << primaryActionTextForTint << '\n';
+    std::cout << "primaryActionEnabledForTint=" << (primaryActionEnabledForTint ? "true" : "false") << '\n';
+    std::cout << "primaryActionTextForTintUpdate=" << primaryActionTextForTintUpdate << '\n';
+    std::cout << "primaryActionEnabledForTintUpdate=" << (primaryActionEnabledForTintUpdate ? "true" : "false") << '\n';
+    std::cout << "primaryActionTextAfterIntent=" << primaryActionTextAfterIntent << '\n';
+    std::cout << "primaryActionEnabledAfterIntent=" << (primaryActionEnabledAfterIntent ? "true" : "false") << '\n';
     std::cout << "effectParamTitle=" << effectParamTitle << '\n';
     std::cout << "effectParamPanel=" << effectParamPanel << '\n';
     std::cout << "steward=" << steward << '\n';
@@ -3039,15 +3044,17 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            clip.transform.rotationDegrees == clipBeforeTransform.rotationDegrees - 7.5 &&
            clip.transform.opacity == 0.0 &&
            clip.playbackRate == 1.25 &&
-           selectedTargetActionText == "Type Request To Edit Clip" &&
+           primaryActionTextBeforeIntent == "Type Request To Create Camera Controls" &&
            stewardIntentPlaceholderBeforeIntent.find("speed up clip") != std::string::npos &&
-           !selectedTargetActionEnabledBeforeIntent &&
-           selectedTargetActionEnabledForTint &&
-           selectedTargetActionEnabledForTintUpdate &&
-           selectedTargetActionEnabledAfterIntent &&
-           !window.stewardSelectedTargetActionEnabled() &&
-	           stewardIntent.empty() &&
-	           steward.find("Next: type a camera request, or mention clip/video to edit the selected clip.") != std::string::npos &&
+           !primaryActionEnabledBeforeIntent &&
+           primaryActionTextForTint == "Apply Request To Clip" &&
+           primaryActionEnabledForTint &&
+           primaryActionTextForTintUpdate == "Apply Request To Clip" &&
+           primaryActionEnabledForTintUpdate &&
+           primaryActionTextAfterIntent == "Apply Request To Clip" &&
+           primaryActionEnabledAfterIntent &&
+           stewardIntent.empty() &&
+           steward.find("Next: type a selected clip request, or type a camera request.") != std::string::npos &&
            steward.find("Clip target: starter-gradient") != std::string::npos &&
            steward.find("Clip route: mention tint/color for editable Clip Tint") != std::string::npos &&
            steward.find("Tint selected clip red.") != std::string::npos &&
@@ -3080,7 +3087,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     window.importMediaFile(grapple::foundation::FilePath{starterVideoPath.string()});
     window.clickStewardPrimaryAction();
     window.setStewardIntent("Delete selected clip.");
-    window.clickStewardSelectedTargetAction();
+    window.clickStewardPrimaryAction();
     const auto viewModel = workspace.value().project().buildViewModel();
     if (!viewModel) {
       printError(viewModel.error());
