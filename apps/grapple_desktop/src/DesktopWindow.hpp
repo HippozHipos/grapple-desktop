@@ -91,6 +91,7 @@ public:
   void updateSelectedNote(std::string title, std::string markdown);
   void importMediaFile(const foundation::FilePath& path);
   void startStarterSample();
+  void addMediaAssetAtRowToTimeline(int row);
   void addSelectedMediaToTimeline();
   void deleteSelectedClip();
   void deleteSelectedTrack();

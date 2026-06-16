@@ -492,6 +492,7 @@ public:
     mediaBin_->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     mediaBin_->setIconSize(QSize{64, 48});
     mediaBin_->setMaximumHeight(82);
+    mediaBin_->setToolTip("Select an asset, or double-click to add it to the timeline");
 
     previewFrame_ = new QFrame;
     previewFrame_->setObjectName("previewFrame");
@@ -619,6 +620,7 @@ public:
     auto* sampleMediaButton = new QPushButton{"Sample"};
     sampleMediaButton->setToolTip("Start with a playable starter sample");
     addSelectedMediaButton_ = new QPushButton{"Add To Timeline"};
+    addSelectedMediaButton_->setToolTip("Add selected asset to the timeline");
     addSelectedMediaButton_->setEnabled(false);
     undoButton_ = new QPushButton{"Undo"};
     redoButton_ = new QPushButton{"Redo"};
@@ -894,6 +896,9 @@ public:
       selectNode(std::move(targetNodeId));
     });
     connect(mediaBin_, &QListWidget::currentRowChanged, this, [this](int row) { selectMediaAssetAtRow(row); });
+    connect(mediaBin_, &QListWidget::itemDoubleClicked, this, [this](QListWidgetItem* item) {
+      addMediaAssetAtRowToTimeline(mediaBin_->row(item));
+    });
     timeline_->setSeekHandler([this](grapple::foundation::TimeSeconds time) { seekTo(time); });
     timeline_->setSelectionHandler([this](grapple::foundation::NodeId nodeId) { selectNode(std::move(nodeId)); });
 
@@ -1967,6 +1972,14 @@ public:
     selectedAssetId_ = std::nullopt;
     refreshViewModelAndPreview();
     log_->append("Added selected media to timeline");
+  }
+
+  void addMediaAssetAtRowToTimeline(int row) {
+    if (mediaBin_->item(row) == nullptr) {
+      return;
+    }
+    selectMediaAssetAtRow(row);
+    addSelectedMediaToTimeline();
   }
 
   void placeSelectedMediaWithSteward() {
@@ -4051,6 +4064,10 @@ void DesktopWindow::importMediaFile(const foundation::FilePath& path) {
 
 void DesktopWindow::startStarterSample() {
   impl_->startStarterSample();
+}
+
+void DesktopWindow::addMediaAssetAtRowToTimeline(int row) {
+  impl_->addMediaAssetAtRowToTimeline(row);
 }
 
 void DesktopWindow::addSelectedMediaToTimeline() {

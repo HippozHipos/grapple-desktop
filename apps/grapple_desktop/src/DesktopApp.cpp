@@ -1190,7 +1190,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
 
   if (addVideoSmoke) {
     window.importMediaFile(grapple::foundation::FilePath{starterVideoPath.string()});
-    window.addSelectedMediaToTimeline();
+    window.addMediaAssetAtRowToTimeline(1);
     const auto viewModel = workspace.value().project().buildViewModel();
     if (!viewModel) {
       printError(viewModel.error());
