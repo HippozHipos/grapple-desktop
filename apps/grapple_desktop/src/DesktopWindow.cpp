@@ -2544,6 +2544,25 @@ public:
     QApplication::processEvents();
   }
 
+  void setEffectParamVec3ControlValue(const std::string& paramName, grapple::foundation::Vec3 value) {
+    auto* xEditor = uniqueEffectParamWidget<QDoubleSpinBox>(this, paramName, "effectParamVecX_");
+    auto* yEditor = uniqueEffectParamWidget<QDoubleSpinBox>(this, paramName, "effectParamVecY_");
+    auto* zEditor = uniqueEffectParamWidget<QDoubleSpinBox>(this, paramName, "effectParamVecZ_");
+    if (xEditor == nullptr || yEditor == nullptr || zEditor == nullptr) {
+      appendError(grapple::foundation::Error{
+        "desktop.effect_param_vec3_control_missing",
+        "Effect parameter Vec3 control not found or ambiguous."
+      });
+      return;
+    }
+
+    xEditor->setValue(value.x);
+    yEditor->setValue(value.y);
+    zEditor->setValue(value.z);
+    Q_EMIT zEditor->editingFinished();
+    QApplication::processEvents();
+  }
+
   void setEffectParamSliderRatio(const std::string& paramName, double ratio) {
     auto* slider = uniqueEffectParamWidget<QSlider>(this, paramName, "effectParamSlider_");
     if (slider == nullptr) {
@@ -4193,6 +4212,10 @@ void DesktopWindow::setEffectParamControlDraftValue(const std::string& paramName
 
 void DesktopWindow::setEffectParamControlValue(const std::string& paramName, double value) {
   impl_->setEffectParamControlValue(paramName, value);
+}
+
+void DesktopWindow::setEffectParamVec3ControlValue(const std::string& paramName, foundation::Vec3 value) {
+  impl_->setEffectParamVec3ControlValue(paramName, value);
 }
 
 void DesktopWindow::setEffectParamSliderRatio(const std::string& paramName, double ratio) {

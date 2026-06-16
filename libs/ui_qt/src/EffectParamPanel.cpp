@@ -146,6 +146,10 @@ bool displayedValueMatches(const QWidget* editor, const timeline::ParamValue& va
         return typedValue == displayedValue.toBool();
       } else if constexpr (std::is_same_v<Value, std::string>) {
         return qString(typedValue) == displayedValue.toString();
+      } else if constexpr (std::is_same_v<Value, foundation::Vec2> ||
+                           std::is_same_v<Value, foundation::Vec3> ||
+                           std::is_same_v<Value, foundation::Rect>) {
+        return qString(app::paramValueDisplayText(value)) == displayedValue.toString();
       }
       return false;
     },
@@ -165,6 +169,25 @@ void appendLastEditedRow(QVBoxLayout* layout, const app::AppEffectParamRow& para
   };
   lastEdited->setObjectName("effectParamHelp");
   layout->addWidget(lastEdited);
+}
+
+QDoubleSpinBox* makeVectorComponentEditor(
+  const foundation::NodeId& effectNodeId,
+  const std::string& paramName,
+  const char* objectNamePrefix,
+  double value
+) {
+  auto* editor = new QDoubleSpinBox;
+  editor->setObjectName(effectParamObjectName(objectNamePrefix, effectNodeId, paramName));
+  tagEffectParamWidget(editor, effectNodeId, paramName);
+  editor->setButtonSymbols(QAbstractSpinBox::NoButtons);
+  editor->setRange(-10000.0, 10000.0);
+  editor->setDecimals(3);
+  editor->setSingleStep(0.01);
+  editor->setKeyboardTracking(false);
+  editor->setFixedWidth(74);
+  editor->setValue(value);
+  return editor;
 }
 
 } // namespace
@@ -482,6 +505,112 @@ void EffectParamPanel::setSelection(
           continue;
         }
 
+        if (const auto* vec2Value = std::get_if<foundation::Vec2>(&displayedValue)) {
+          auto* controlRow = new QWidget;
+          auto* controlLayout = new QHBoxLayout{controlRow};
+          controlLayout->setContentsMargins(0, 0, 0, 0);
+          controlLayout->setSpacing(8);
+          controlRow->setObjectName(effectParamObjectName("effectParamEditor", parameterEffectNodeId, param.name));
+          tagEffectParamWidget(controlRow, parameterEffectNodeId, param.name);
+          controlRow->setProperty(DisplayedValueProperty, qString(app::paramValueDisplayText(displayedValue)));
+          auto* xEditor = makeVectorComponentEditor(parameterEffectNodeId, param.name, "effectParamVecX", vec2Value->x);
+          auto* yEditor = makeVectorComponentEditor(parameterEffectNodeId, param.name, "effectParamVecY", vec2Value->y);
+          auto* setKeyframe = new QPushButton;
+          setKeyframe->setFixedWidth(82);
+          setKeyframe->setObjectName(effectParamObjectName("effectParamKeyframe", parameterEffectNodeId, param.name));
+          tagEffectParamWidget(setKeyframe, parameterEffectNodeId, param.name);
+          setCurrentKeyframeId(setKeyframe, currentKeyframeId);
+
+          auto commitVector = [this, controlRow, setKeyframe, xEditor, yEditor, parameterEffectNodeId, paramName, animatedParam] {
+            this->commitEditedValue(
+              controlRow,
+              setKeyframe,
+              parameterEffectNodeId,
+              paramName,
+              animatedParam,
+              timeline::ParamValue{foundation::Vec2{xEditor->value(), yEditor->value()}}
+            );
+          };
+          connect(xEditor, &QDoubleSpinBox::editingFinished, this, commitVector);
+          connect(yEditor, &QDoubleSpinBox::editingFinished, this, commitVector);
+          connect(setKeyframe, &QPushButton::clicked, this, [this, setKeyframe, xEditor, yEditor, parameterEffectNodeId, paramName] {
+            if (setKeyframeHandler_) {
+              setKeyframeHandler_(
+                parameterEffectNodeId,
+                paramName,
+                timeline::ParamValue{foundation::Vec2{xEditor->value(), yEditor->value()}},
+                currentKeyframeIdFromButton(setKeyframe)
+              );
+            }
+          });
+
+          controlLayout->addWidget(new QLabel{"X"});
+          controlLayout->addWidget(xEditor);
+          controlLayout->addWidget(new QLabel{"Y"});
+          controlLayout->addWidget(yEditor);
+          controlLayout->addWidget(setKeyframe);
+          rowLayout->addWidget(controlRow);
+          layout_->addWidget(row);
+          appendLastEditedRow(layout_, param);
+          appendKeyframeRows();
+          continue;
+        }
+
+        if (const auto* vec3Value = std::get_if<foundation::Vec3>(&displayedValue)) {
+          auto* controlRow = new QWidget;
+          auto* controlLayout = new QHBoxLayout{controlRow};
+          controlLayout->setContentsMargins(0, 0, 0, 0);
+          controlLayout->setSpacing(8);
+          controlRow->setObjectName(effectParamObjectName("effectParamEditor", parameterEffectNodeId, param.name));
+          tagEffectParamWidget(controlRow, parameterEffectNodeId, param.name);
+          controlRow->setProperty(DisplayedValueProperty, qString(app::paramValueDisplayText(displayedValue)));
+          auto* xEditor = makeVectorComponentEditor(parameterEffectNodeId, param.name, "effectParamVecX", vec3Value->x);
+          auto* yEditor = makeVectorComponentEditor(parameterEffectNodeId, param.name, "effectParamVecY", vec3Value->y);
+          auto* zEditor = makeVectorComponentEditor(parameterEffectNodeId, param.name, "effectParamVecZ", vec3Value->z);
+          auto* setKeyframe = new QPushButton;
+          setKeyframe->setFixedWidth(82);
+          setKeyframe->setObjectName(effectParamObjectName("effectParamKeyframe", parameterEffectNodeId, param.name));
+          tagEffectParamWidget(setKeyframe, parameterEffectNodeId, param.name);
+          setCurrentKeyframeId(setKeyframe, currentKeyframeId);
+
+          auto commitVector = [this, controlRow, setKeyframe, xEditor, yEditor, zEditor, parameterEffectNodeId, paramName, animatedParam] {
+            this->commitEditedValue(
+              controlRow,
+              setKeyframe,
+              parameterEffectNodeId,
+              paramName,
+              animatedParam,
+              timeline::ParamValue{foundation::Vec3{xEditor->value(), yEditor->value(), zEditor->value()}}
+            );
+          };
+          connect(xEditor, &QDoubleSpinBox::editingFinished, this, commitVector);
+          connect(yEditor, &QDoubleSpinBox::editingFinished, this, commitVector);
+          connect(zEditor, &QDoubleSpinBox::editingFinished, this, commitVector);
+          connect(setKeyframe, &QPushButton::clicked, this, [this, setKeyframe, xEditor, yEditor, zEditor, parameterEffectNodeId, paramName] {
+            if (setKeyframeHandler_) {
+              setKeyframeHandler_(
+                parameterEffectNodeId,
+                paramName,
+                timeline::ParamValue{foundation::Vec3{xEditor->value(), yEditor->value(), zEditor->value()}},
+                currentKeyframeIdFromButton(setKeyframe)
+              );
+            }
+          });
+
+          controlLayout->addWidget(new QLabel{"X"});
+          controlLayout->addWidget(xEditor);
+          controlLayout->addWidget(new QLabel{"Y"});
+          controlLayout->addWidget(yEditor);
+          controlLayout->addWidget(new QLabel{"Z"});
+          controlLayout->addWidget(zEditor);
+          controlLayout->addWidget(setKeyframe);
+          rowLayout->addWidget(controlRow);
+          layout_->addWidget(row);
+          appendLastEditedRow(layout_, param);
+          appendKeyframeRows();
+          continue;
+        }
+
         {
           auto* controlRow = new QWidget;
           auto* controlLayout = new QHBoxLayout{controlRow};
@@ -597,6 +726,72 @@ void EffectParamPanel::refreshPlayheadValues(
             const QSignalBlocker blockEditor{editor};
             editor->setText(qString(*stringValue));
             editor->setProperty(DisplayedValueProperty, qString(*stringValue));
+          }
+          continue;
+        }
+
+        if (const auto* vec2Value = std::get_if<foundation::Vec2>(&displayedValue)) {
+          auto* xEditor = findEffectParamWidget<QDoubleSpinBox>(
+            this,
+            "effectParamVecX",
+            effect.sourceNodeId,
+            param.name
+          );
+          auto* yEditor = findEffectParamWidget<QDoubleSpinBox>(
+            this,
+            "effectParamVecY",
+            effect.sourceNodeId,
+            param.name
+          );
+          auto* editor = findEffectParamWidget<QWidget>(
+            this,
+            "effectParamEditor",
+            effect.sourceNodeId,
+            param.name
+          );
+          if (xEditor != nullptr && yEditor != nullptr && editor != nullptr) {
+            const QSignalBlocker blockX{xEditor};
+            const QSignalBlocker blockY{yEditor};
+            xEditor->setValue(vec2Value->x);
+            yEditor->setValue(vec2Value->y);
+            editor->setProperty(DisplayedValueProperty, qString(app::paramValueDisplayText(displayedValue)));
+          }
+          continue;
+        }
+
+        if (const auto* vec3Value = std::get_if<foundation::Vec3>(&displayedValue)) {
+          auto* xEditor = findEffectParamWidget<QDoubleSpinBox>(
+            this,
+            "effectParamVecX",
+            effect.sourceNodeId,
+            param.name
+          );
+          auto* yEditor = findEffectParamWidget<QDoubleSpinBox>(
+            this,
+            "effectParamVecY",
+            effect.sourceNodeId,
+            param.name
+          );
+          auto* zEditor = findEffectParamWidget<QDoubleSpinBox>(
+            this,
+            "effectParamVecZ",
+            effect.sourceNodeId,
+            param.name
+          );
+          auto* editor = findEffectParamWidget<QWidget>(
+            this,
+            "effectParamEditor",
+            effect.sourceNodeId,
+            param.name
+          );
+          if (xEditor != nullptr && yEditor != nullptr && zEditor != nullptr && editor != nullptr) {
+            const QSignalBlocker blockX{xEditor};
+            const QSignalBlocker blockY{yEditor};
+            const QSignalBlocker blockZ{zEditor};
+            xEditor->setValue(vec3Value->x);
+            yEditor->setValue(vec3Value->y);
+            zEditor->setValue(vec3Value->z);
+            editor->setProperty(DisplayedValueProperty, qString(app::paramValueDisplayText(displayedValue)));
           }
         }
       }

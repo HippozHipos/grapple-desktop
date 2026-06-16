@@ -2831,6 +2831,10 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     window.setStewardIntent("Make clip tint stronger and blue.");
     const bool selectedTargetActionEnabledForTintUpdate = window.stewardSelectedTargetActionEnabled();
     window.clickStewardSelectedTargetAction();
+    window.setEffectParamVec3ControlValue(
+      grapple::effects::builtin_effect::ClipTintColorParam,
+      grapple::foundation::Vec3{0.2, 1.0, 0.35}
+    );
     window.setStewardIntent("Move selected clip right, rotate slightly left, make it smaller, make it faster, and make it invisible.");
     const bool selectedTargetActionEnabledAfterIntent = window.stewardSelectedTargetActionEnabled();
     window.clickStewardPrimaryAction();
@@ -2878,8 +2882,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
             );
             return colorParam != effect.params.end() &&
                    std::holds_alternative<grapple::foundation::Vec3>(colorParam->value) &&
-                   std::get<grapple::foundation::Vec3>(colorParam->value) == grapple::foundation::Vec3{0.2, 0.45, 1.0} &&
-                   colorParam->lastEditedActorName == "steward" &&
+                   std::get<grapple::foundation::Vec3>(colorParam->value) == grapple::foundation::Vec3{0.2, 1.0, 0.35} &&
+                   colorParam->lastEditedActorName == "desktop" &&
                    amountParam != effect.params.end() &&
                    std::holds_alternative<double>(amountParam->value) &&
                    std::get<double>(amountParam->value) == 0.6 &&
@@ -2913,7 +2917,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "stewardIntent=" << stewardIntent << '\n';
     std::cout << "inspector=" << inspector << '\n';
     std::cout << "log=" << log << '\n';
-    return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_7"} &&
+    return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_8"} &&
            viewModel.value().timeline.effectCount == 1 &&
            viewModel.value().timeline.effectGraphs.size() == 1 &&
            viewModel.value().timeline.effectGraphs[0].effects.size() == 1 &&
@@ -2952,6 +2956,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            steward.find("Update Clip Playback Rate -> succeeded") != std::string::npos &&
            log.find("Steward created clip tint controls") != std::string::npos &&
            log.find("Steward adjusted clip tint controls") != std::string::npos &&
+           log.find("Updated effect parameter color") != std::string::npos &&
            log.find("Steward edited selected clip") != std::string::npos
       ? 0
       : 1;

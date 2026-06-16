@@ -1,6 +1,7 @@
 #pragma once
 
 #include <grapple/foundation/FilePath.hpp>
+#include <grapple/foundation/Geometry.hpp>
 #include <grapple/foundation/StrongId.hpp>
 #include <grapple/foundation/Time.hpp>
 
@@ -112,6 +113,7 @@ public:
   void setExportCodecControlValue(std::string codec);
   void setEffectParamControlDraftValue(const std::string& paramName, double value);
   void setEffectParamControlValue(const std::string& paramName, double value);
+  void setEffectParamVec3ControlValue(const std::string& paramName, foundation::Vec3 value);
   void setEffectParamSliderRatio(const std::string& paramName, double ratio);
   void setEffectParamKeyframeAtPlayhead(const std::string& paramName);
   [[nodiscard]] std::string effectParamKeyframeButtonText(const std::string& paramName) const;
