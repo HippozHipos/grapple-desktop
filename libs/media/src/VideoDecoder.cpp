@@ -112,8 +112,6 @@ foundation::Result<OpenVideo> openVideo(const foundation::FilePath& path) {
     return ffmpegError("media.video_decoder_params_failed", "Could not configure decoder for " + path.value + ".");
   }
 
-  codec->thread_count = 1;
-  codec->thread_type = 0;
   if (avcodec_open2(codec.get(), decoder, nullptr) < 0) {
     return ffmpegError("media.video_decoder_open_failed", "Could not open decoder for " + path.value + ".");
   }
