@@ -825,6 +825,25 @@ public:
     ) {
       editSelectedClipWithSteward(std::move(clipNodeId), std::move(intent));
     });
+    steward_->setSelectedTargetIntentTargetsSelectionHandler([this](
+      grapple::ui::StewardPanel::SelectedTargetKind kind,
+      std::string intent
+    ) {
+      switch (kind) {
+        case grapple::ui::StewardPanel::SelectedTargetKind::Clip:
+          return workspace_.steward().clipDeleteIntentTargetsClip(intent) ||
+                 workspace_.steward().clipTintIntentTargetsClip(intent) ||
+                 workspace_.steward().clipEditIntentTargetsClip(intent);
+        case grapple::ui::StewardPanel::SelectedTargetKind::TextClip:
+          return workspace_.steward().clipDeleteIntentTargetsClip(intent) ||
+                 workspace_.steward().textClipEditIntentTargetsTextClip(intent);
+        case grapple::ui::StewardPanel::SelectedTargetKind::Track:
+          return workspace_.steward().trackDeleteIntentTargetsTrack(intent);
+        case grapple::ui::StewardPanel::SelectedTargetKind::Note:
+          return workspace_.steward().noteEditIntentTargetsNote(intent);
+      }
+      return false;
+    });
     steward_->setTryDeleteSelectedClipHandler([this](
       grapple::foundation::NodeId clipNodeId,
       std::string intent
@@ -855,6 +874,9 @@ public:
     ) {
       editSelectedTextClipWithSteward(std::move(clipNodeId), std::move(intent));
     });
+    steward_->setTextClipIntentTargetsTextHandler([this](std::string intent) {
+      return workspace_.steward().textClipIntentTargetsText(intent);
+    });
     steward_->setTryEditSelectedTextClipHandler([this](
       grapple::foundation::NodeId clipNodeId,
       std::string intent
@@ -875,6 +897,9 @@ public:
       std::string intent
     ) {
       editSelectedNoteWithSteward(std::move(noteNodeId), std::move(intent));
+    });
+    steward_->setNoteIntentTargetsNoteHandler([this](std::string intent) {
+      return workspace_.steward().noteIntentTargetsNote(intent);
     });
     steward_->setTryEditSelectedNoteHandler([this](
       grapple::foundation::NodeId noteNodeId,

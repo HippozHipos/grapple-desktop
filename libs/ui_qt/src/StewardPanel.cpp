@@ -498,6 +498,10 @@ void StewardPanel::setEditSelectedClipHandler(EditSelectedClipHandler handler) {
   editSelectedClipHandler_ = std::move(handler);
 }
 
+void StewardPanel::setSelectedTargetIntentTargetsSelectionHandler(SelectedTargetIntentTargetsSelectionHandler handler) {
+  selectedTargetIntentTargetsSelectionHandler_ = std::move(handler);
+}
+
 void StewardPanel::setTryDeleteSelectedClipHandler(TryDeleteSelectedClipHandler handler) {
   tryDeleteSelectedClipHandler_ = std::move(handler);
 }
@@ -518,6 +522,10 @@ void StewardPanel::setEditSelectedTextClipHandler(EditSelectedTextClipHandler ha
   editSelectedTextClipHandler_ = std::move(handler);
 }
 
+void StewardPanel::setTextClipIntentTargetsTextHandler(TextClipIntentTargetsTextHandler handler) {
+  textClipIntentTargetsTextHandler_ = std::move(handler);
+}
+
 void StewardPanel::setTryEditSelectedTextClipHandler(TryEditSelectedTextClipHandler handler) {
   tryEditSelectedTextClipHandler_ = std::move(handler);
 }
@@ -536,6 +544,10 @@ void StewardPanel::setTryCreateTextClipHandler(TryCreateTextClipHandler handler)
 
 void StewardPanel::setEditSelectedNoteHandler(EditSelectedNoteHandler handler) {
   editSelectedNoteHandler_ = std::move(handler);
+}
+
+void StewardPanel::setNoteIntentTargetsNoteHandler(NoteIntentTargetsNoteHandler handler) {
+  noteIntentTargetsNoteHandler_ = std::move(handler);
 }
 
 void StewardPanel::setTryEditSelectedNoteHandler(TryEditSelectedNoteHandler handler) {
@@ -847,10 +859,28 @@ void StewardPanel::updateActionLabels() {
       trackCreateIntentTargetsTrackHandler_(intent())) {
     primaryActionButton_->setText("Create Timeline Track");
   } else if (hasIntent &&
+             textClipIntentTargetsTextHandler_ &&
+             textClipIntentTargetsTextHandler_(intent())) {
+    primaryActionButton_->setText("Create Text Clip");
+  } else if (hasIntent &&
+             noteIntentTargetsNoteHandler_ &&
+             noteIntentTargetsNoteHandler_(intent())) {
+    primaryActionButton_->setText("Create Note");
+  } else if (hasIntent &&
              primaryTargetCameraNodeId_.has_value() &&
              cameraUpdateIntentTargetsCameraHandler_ &&
              cameraUpdateIntentTargetsCameraHandler_(intent())) {
     primaryActionButton_->setText("Update Camera");
+  } else if (selectedTargetIntentTargetsSelection()) {
+    primaryActionButton_->setText(
+      selectedTextClipTargetNodeId_.has_value()
+        ? "Apply Request To Text"
+        : selectedNoteTargetNodeId_.has_value()
+          ? "Apply Request To Note"
+          : selectedTrackTargetNodeId_.has_value()
+            ? "Apply Request To Track"
+            : "Apply Request To Clip"
+    );
   } else {
     switch (primaryAction_) {
       case PrimaryAction::ImportMedia:
@@ -1063,6 +1093,28 @@ bool StewardPanel::intentHasText() const {
   return containsNonWhitespace(intent());
 }
 
+bool StewardPanel::selectedTargetIntentTargetsSelection() const {
+  if (!intentHasText() || !selectedTargetIntentTargetsSelectionHandler_) {
+    return false;
+  }
+
+  const std::string currentIntent = intent();
+  if (selectedClipTargetNodeId_.has_value()) {
+    return selectedTargetIntentTargetsSelectionHandler_(SelectedTargetKind::Clip, currentIntent);
+  }
+  if (selectedTextClipTargetNodeId_.has_value()) {
+    return selectedTargetIntentTargetsSelectionHandler_(SelectedTargetKind::TextClip, currentIntent);
+  }
+  if (selectedTrackTargetNodeId_.has_value()) {
+    return selectedTargetIntentTargetsSelectionHandler_(SelectedTargetKind::Track, currentIntent);
+  }
+  if (selectedNoteTargetNodeId_.has_value()) {
+    return selectedTargetIntentTargetsSelectionHandler_(SelectedTargetKind::Note, currentIntent);
+  }
+
+  return false;
+}
+
 bool StewardPanel::primaryActionCanRun() const {
   if (intentHasText() &&
       historyIntentTargetsEditHandler_ &&
@@ -1080,6 +1132,21 @@ bool StewardPanel::primaryActionCanRun() const {
       cameraUpdateIntentTargetsCameraHandler_ &&
       tryUpdateCameraHandler_ &&
       cameraUpdateIntentTargetsCameraHandler_(intent())) {
+    return true;
+  }
+  if (intentHasText() &&
+      textClipIntentTargetsTextHandler_ &&
+      tryCreateTextClipHandler_ &&
+      textClipIntentTargetsTextHandler_(intent())) {
+    return true;
+  }
+  if (intentHasText() &&
+      noteIntentTargetsNoteHandler_ &&
+      tryCreateNoteHandler_ &&
+      noteIntentTargetsNoteHandler_(intent())) {
+    return true;
+  }
+  if (selectedTargetIntentTargetsSelection()) {
     return true;
   }
 
@@ -1104,23 +1171,7 @@ bool StewardPanel::primaryActionCanRun() const {
 }
 
 bool StewardPanel::selectedTargetActionCanRun() const {
-  if (!intentHasText()) {
-    return false;
-  }
-  if (selectedClipTargetNodeId_.has_value()) {
-    return static_cast<bool>(editSelectedClipHandler_) ||
-           static_cast<bool>(tryCreateClipTintHandler_) ||
-           static_cast<bool>(tryDeleteSelectedClipHandler_);
-  }
-  if (selectedTextClipTargetNodeId_.has_value()) {
-    return static_cast<bool>(editSelectedTextClipHandler_) ||
-           static_cast<bool>(tryDeleteSelectedClipHandler_);
-  }
-  if (selectedTrackTargetNodeId_.has_value()) {
-    return static_cast<bool>(tryDeleteSelectedTrackHandler_);
-  }
-  return selectedNoteTargetNodeId_.has_value() &&
-         static_cast<bool>(editSelectedNoteHandler_);
+  return selectedTargetIntentTargetsSelection();
 }
 
 } // namespace grapple::ui

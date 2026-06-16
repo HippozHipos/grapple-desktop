@@ -2624,9 +2624,13 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       return 1;
     }
     window.setStewardIntent("Tint selected clip red.");
-    window.clickStewardSelectedTargetAction();
+    const std::string clipTintPrimaryActionText = window.stewardPrimaryActionText();
+    const bool clipTintPrimaryActionEnabled = window.stewardPrimaryActionEnabled();
+    window.clickStewardPrimaryAction();
     window.setStewardIntent("Make clip tint stronger and blue.");
-    window.clickStewardSelectedTargetAction();
+    const std::string clipTintUpdatePrimaryActionText = window.stewardPrimaryActionText();
+    const bool clipTintUpdatePrimaryActionEnabled = window.stewardPrimaryActionEnabled();
+    window.clickStewardPrimaryAction();
     window.setEffectParamVec3ControlValue(
       grapple::effects::builtin_effect::ClipTintColorParam,
       grapple::foundation::Vec3{0.2, 1.0, 0.35}
@@ -2803,6 +2807,10 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "exportActionEnabledAfterMediaPlacement=" << (exportActionEnabledAfterMediaPlacement ? "true" : "false") << '\n';
     std::cout << "stewardAction=" << stewardActionText << '\n';
     std::cout << "stewardActionEnabled=" << (stewardActionEnabled ? "true" : "false") << '\n';
+    std::cout << "clipTintPrimaryAction=" << clipTintPrimaryActionText << '\n';
+    std::cout << "clipTintPrimaryActionEnabled=" << (clipTintPrimaryActionEnabled ? "true" : "false") << '\n';
+    std::cout << "clipTintUpdatePrimaryAction=" << clipTintUpdatePrimaryActionText << '\n';
+    std::cout << "clipTintUpdatePrimaryActionEnabled=" << (clipTintUpdatePrimaryActionEnabled ? "true" : "false") << '\n';
     std::cout << "effectParamTitle=" << effectParamTitle << '\n';
     std::cout << "effectParamPanel=" << effectParamPanel << '\n';
     std::cout << "exportStatus=" << exportStatus << '\n';
@@ -2842,6 +2850,10 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            stewardIntent.empty() &&
            stewardActionText == "Type Request To Apply Camera Controls" &&
            !stewardActionEnabled &&
+           clipTintPrimaryActionText == "Apply Request To Clip" &&
+           clipTintPrimaryActionEnabled &&
+           clipTintUpdatePrimaryActionText == "Apply Request To Clip" &&
+           clipTintUpdatePrimaryActionEnabled &&
            effectParamTitle == "Camera Transform on Camera" &&
            inspector.find("Position X (position_x)=0") != std::string::npos &&
            inspector.find("Zoom (zoom)=1.375") != std::string::npos &&
