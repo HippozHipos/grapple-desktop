@@ -2793,6 +2793,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     const bool playActionEnabledAfterExport = window.playActionEnabled();
     const bool pauseActionEnabledAfterExport = window.pauseActionEnabled();
     const bool seekActionEnabledAfterExport = window.seekActionEnabled();
+    const std::string exportStatus = window.exportStatusText();
     const std::string log = window.logContents();
     const bool exists = std::filesystem::exists(outputPath);
     const auto size = exists ? std::filesystem::file_size(outputPath) : 0U;
@@ -2815,6 +2816,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "exists=" << (exists ? "true" : "false") << '\n';
     std::cout << "size=" << size << '\n';
     std::cout << "encodedResolution=" << encodedResolution.value().width << "x" << encodedResolution.value().height << '\n';
+    std::cout << "exportStatus=" << exportStatus << '\n';
     std::cout << "log=" << log << '\n';
     return playbackStartedBeforeExport &&
            exportStarted &&
@@ -2830,6 +2832,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            exists &&
            size > 0U &&
            encodedResolution.value() == grapple::foundation::Resolution{320, 180} &&
+           exportStatus.find("Export complete: 100 frames, plan ") != std::string::npos &&
+           exportStatus.find(outputPath.string()) != std::string::npos &&
            log.find("Export progress 100%") != std::string::npos &&
            log.find("Export evaluated 100 frames") != std::string::npos
       ? 0
@@ -3177,7 +3181,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            effectParamPanel.find("Position X") != std::string::npos &&
            effectParamPanel.find("Zoom") != std::string::npos &&
            effectParamPanel.find("Last changed by desktop at ") != std::string::npos &&
-           exportStatus == "Export complete: 100 frames, plan " + tunedPreviewFrame.value().frame.renderPlanHash.toHex().substr(0, 8) &&
+           exportStatus.find("Export complete: 100 frames, plan " + tunedPreviewFrame.value().frame.renderPlanHash.toHex().substr(0, 8)) != std::string::npos &&
+           exportStatus.find(outputPath.string()) != std::string::npos &&
            log.find("Imported starter-gradient") != std::string::npos &&
            log.find("Added selected media to timeline") == std::string::npos &&
            log.find("Steward added selected media to timeline") != std::string::npos &&

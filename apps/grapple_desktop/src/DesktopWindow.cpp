@@ -3191,7 +3191,7 @@ public:
     updateActionAvailability();
     detailTabs_->setCurrentWidget(exportSettings_);
     log_->append(QString{"Export queued -> %1"}.arg(qString(path.value)));
-    exportSettings_->setStatus("Export queued");
+    exportSettings_->setStatus(QString{"Export queued\n%1"}.arg(qString(path.value)).toStdString());
     auto enqueue = workspace_.jobs().enqueue(grapple::jobs::Job{
       jobId,
       "Desktop video export",
@@ -3269,9 +3269,10 @@ public:
       log_->append("Export progress 100%");
     }
     appendDiagnostics(result.value());
-    exportSettings_->setStatus(QString{"Export complete: %1 frames, plan %2"}
+    exportSettings_->setStatus(QString{"Export complete: %1 frames, plan %2\n%3"}
       .arg(result.value().framesEvaluated)
       .arg(qString(result.value().renderPlanHash.toHex().substr(0, 8)))
+      .arg(qString(result.value().outputPath.value))
       .toStdString());
     log_->append(QString{"Export evaluated %1 frames from %2 plan %3 -> %4"}
       .arg(result.value().framesEvaluated)
