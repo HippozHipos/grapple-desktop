@@ -201,6 +201,16 @@ bool textClipIntentRequestsFontSize(const std::string& normalized) {
          containsAsciiWord(normalized, "caption");
 }
 
+bool textClipIntentRequestsOpacity(const std::string& normalized) {
+  return containsAsciiWord(normalized, "opacity") ||
+         containsAsciiWord(normalized, "transparent") ||
+         containsAsciiWord(normalized, "fade") ||
+         containsAsciiWord(normalized, "opaque") ||
+         containsAsciiWord(normalized, "hidden") ||
+         containsAsciiWord(normalized, "hide") ||
+         containsAsciiWord(normalized, "visible");
+}
+
 std::optional<std::string> quotedTextFromIntent(const std::string& intent) {
   for (char quote : {'"', '\''}) {
     const std::size_t start = intent.find(quote);
@@ -704,8 +714,15 @@ bool NativeStewardPlanner::textClipEditIntentTargetsTextClip(const std::string& 
          containsAsciiWord(normalized, "larger") ||
          containsAsciiWord(normalized, "smaller") ||
          containsAsciiWord(normalized, "move") ||
+         containsAsciiWord(normalized, "left") ||
+         containsAsciiWord(normalized, "right") ||
          containsAsciiWord(normalized, "up") ||
-         containsAsciiWord(normalized, "down");
+         containsAsciiWord(normalized, "down") ||
+         containsAsciiWord(normalized, "longer") ||
+         containsAsciiWord(normalized, "shorter") ||
+         containsAsciiWord(normalized, "extend") ||
+         containsAsciiWord(normalized, "shorten") ||
+         textClipIntentRequestsOpacity(normalized);
 }
 
 foundation::Result<TextClipEditIntent> NativeStewardPlanner::textClipEditForIntent(
@@ -742,10 +759,50 @@ foundation::Result<TextClipEditIntent> NativeStewardPlanner::textClipEditForInte
     changed = changed || payload.transform.position.y != current.transform.position.y;
   }
 
+  if (containsAsciiWord(normalized, "left")) {
+    payload.transform.position.x = current.transform.position.x - CameraTransformPositionXStep;
+    changed = changed || payload.transform.position.x != current.transform.position.x;
+  } else if (containsAsciiWord(normalized, "right")) {
+    payload.transform.position.x = current.transform.position.x + CameraTransformPositionXStep;
+    changed = changed || payload.transform.position.x != current.transform.position.x;
+  }
+
+  if (containsAsciiWord(normalized, "longer") ||
+      containsAsciiWord(normalized, "extend")) {
+    payload.timelineRange.end = foundation::TimeSeconds{current.timelineRange.end.value + ClipTimingStepSeconds};
+    changed = changed || payload.timelineRange.end != current.timelineRange.end;
+  } else if (containsAsciiWord(normalized, "shorter") ||
+             containsAsciiWord(normalized, "shorten")) {
+    payload.timelineRange.end = foundation::TimeSeconds{current.timelineRange.end.value - ClipTimingStepSeconds};
+    if (payload.timelineRange.end.value <= payload.timelineRange.start.value) {
+      return foundation::Error{
+        "steward.text_clip_timing_invalid",
+        "Text clip timing edits must leave a positive timeline range."
+      };
+    }
+    changed = changed || payload.timelineRange.end != current.timelineRange.end;
+  }
+
+  if (containsAsciiWord(normalized, "hidden") ||
+      containsAsciiWord(normalized, "hide")) {
+    payload.transform.opacity = 0.0;
+    changed = changed || payload.transform.opacity != current.transform.opacity;
+  } else if (containsAsciiWord(normalized, "opaque") ||
+             containsText(normalized, "full opacity") ||
+             containsAsciiWord(normalized, "visible")) {
+    payload.transform.opacity = 1.0;
+    changed = changed || payload.transform.opacity != current.transform.opacity;
+  } else if (containsAsciiWord(normalized, "transparent") ||
+             containsAsciiWord(normalized, "fade") ||
+             containsText(normalized, "half opacity")) {
+    payload.transform.opacity = 0.5;
+    changed = changed || payload.transform.opacity != current.transform.opacity;
+  }
+
   if (!changed) {
     return foundation::Error{
       "steward.text_clip_edit_intent_unknown",
-      "Text clip edit requests must explicitly change text, font size, or position."
+      "Text clip edit requests must explicitly change text, font size, position, timing, or opacity."
     };
   }
 

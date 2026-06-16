@@ -375,6 +375,16 @@ int main() {
   GRAPPLE_REQUIRE(textClipEdit);
   GRAPPLE_REQUIRE(textClipEdit.value().payload.text == "Final Title");
   GRAPPLE_REQUIRE(textClipEdit.value().payload.style.fontSize == 48.0);
+  const auto textClipPlacementEdit =
+    stewardPlanner.textClipEditForIntent(
+      plannedTextClip,
+      "Move text right and up, make it shorter, and fade it."
+    );
+  GRAPPLE_REQUIRE(textClipPlacementEdit);
+  GRAPPLE_REQUIRE(textClipPlacementEdit.value().payload.transform.position.x == 0.25);
+  GRAPPLE_REQUIRE(textClipPlacementEdit.value().payload.transform.position.y == 0.2);
+  GRAPPLE_REQUIRE(textClipPlacementEdit.value().payload.timelineRange.end == foundation::TimeSeconds{2.0});
+  GRAPPLE_REQUIRE(textClipPlacementEdit.value().payload.transform.opacity == 0.5);
 
   const std::filesystem::path appPackageRoot =
     std::filesystem::temp_directory_path() /

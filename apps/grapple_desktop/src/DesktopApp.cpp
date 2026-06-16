@@ -570,7 +570,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       std::cerr << "Created Steward text clip was not selected.\n";
       return 1;
     }
-    window.setStewardIntent("Change title to \"Final Title\" and make font smaller.");
+    window.setStewardIntent("Change title to \"Final Title\", make font smaller, move text right and up, make it shorter, and fade it.");
     window.clickStewardSelectedClipAction();
     const auto viewModel = workspace.value().project().buildViewModel();
     if (!viewModel) {
@@ -586,13 +586,19 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     const auto conversation = workspace.value().steward().conversationState();
     std::cout << "text=" << clip.text << '\n';
     std::cout << "fontSize=" << clip.style.fontSize << '\n';
+    std::cout << "positionX=" << clip.transform.position.x << '\n';
     std::cout << "positionY=" << clip.transform.position.y << '\n';
+    std::cout << "opacity=" << clip.transform.opacity << '\n';
+    std::cout << "end=" << clip.timelineRange.end.value << '\n';
     std::cout << "tab=" << window.currentDetailTabText() << '\n';
     std::cout << "runs=" << conversation.runs.size() << '\n';
     return viewModel.value().timeline.textClips.size() == 1 &&
            clip.text == "Final Title" &&
            clip.style.fontSize == 48.0 &&
-           clip.transform.position.y == 0.35 &&
+           clip.transform.position.x == 0.25 &&
+           clip.transform.position.y == 0.55 &&
+           clip.transform.opacity == 0.5 &&
+           clip.timelineRange.end == grapple::foundation::TimeSeconds{2.0} &&
            window.currentDetailTabText() == "Text" &&
            window.stewardIntent().empty() &&
            conversation.runs.size() == 2 &&
