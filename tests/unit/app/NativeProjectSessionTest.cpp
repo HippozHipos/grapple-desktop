@@ -3677,6 +3677,22 @@ int main() {
   );
   GRAPPLE_REQUIRE(!duplicateWorkspacePackage);
   GRAPPLE_REQUIRE(duplicateWorkspacePackage.error().code == "app.package_manifest_already_exists");
+  const std::filesystem::path nonEmptyPackageRoot =
+    std::filesystem::temp_directory_path() /
+    ("grapple_non_empty_package_root_" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+  std::filesystem::remove_all(nonEmptyPackageRoot);
+  std::filesystem::create_directories(nonEmptyPackageRoot);
+  {
+    std::ofstream marker{nonEmptyPackageRoot / "readme.txt", std::ios::binary | std::ios::trunc};
+    marker << "not a grapple package";
+  }
+  auto nonEmptyWorkspacePackage = app::NativeWorkspaceSession::createPackageRoot(
+    foundation::FilePath{nonEmptyPackageRoot.string()},
+    "Non Empty Workspace Package"
+  );
+  GRAPPLE_REQUIRE(!nonEmptyWorkspacePackage);
+  GRAPPLE_REQUIRE(nonEmptyWorkspacePackage.error().code == "app.package_root_not_empty");
+  std::filesystem::remove_all(nonEmptyPackageRoot);
   std::filesystem::remove_all(workspacePackageRoot);
 
   const auto firstCommandId = session.packageState().commandLog.records()[0].id;

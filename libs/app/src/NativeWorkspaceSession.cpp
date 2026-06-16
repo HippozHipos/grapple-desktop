@@ -153,9 +153,24 @@ foundation::Result<storage::ProjectPackage> createWorkspacePackage(
   if (!stem) {
     return stem.error();
   }
+  const std::filesystem::path root{rootPath.value};
+  std::error_code rootExistsError;
+  const bool rootExists = std::filesystem::exists(root, rootExistsError);
+  if (rootExistsError) {
+    return foundation::Error{"app.package_root_stat_failed", rootExistsError.message()};
+  }
+  if (rootExists) {
+    std::error_code directoryError;
+    if (!std::filesystem::is_directory(root, directoryError)) {
+      return foundation::Error{"app.package_root_not_directory", "New package root must be a directory."};
+    }
+    if (directoryError) {
+      return foundation::Error{"app.package_root_stat_failed", directoryError.message()};
+    }
+  }
   std::error_code existsError;
   const bool manifestExists = std::filesystem::exists(
-    std::filesystem::path{rootPath.value} / "manifest.json",
+    root / "manifest.json",
     existsError
   );
   if (existsError) {
@@ -166,6 +181,19 @@ foundation::Result<storage::ProjectPackage> createWorkspacePackage(
       "app.package_manifest_already_exists",
       "New package root already contains a Grapple manifest. Open it instead."
     };
+  }
+  if (rootExists) {
+    std::error_code iterateError;
+    const std::filesystem::directory_iterator entry{root, iterateError};
+    if (iterateError) {
+      return foundation::Error{"app.package_root_iterate_failed", iterateError.message()};
+    }
+    if (entry != std::filesystem::directory_iterator{}) {
+      return foundation::Error{
+        "app.package_root_not_empty",
+        "New package root must be empty. Choose an empty folder or create a new one."
+      };
+    }
   }
 
   return storage::ProjectPackage{
