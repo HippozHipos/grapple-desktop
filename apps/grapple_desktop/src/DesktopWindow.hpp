@@ -89,7 +89,7 @@ public:
   void addNote();
   void updateSelectedNote(std::string title, std::string markdown);
   void importMediaFile(const foundation::FilePath& path);
-  void importStarterSampleMedia();
+  void startStarterSample();
   void addSelectedMediaToTimeline();
   void deleteSelectedClip();
   void deleteSelectedTrack();

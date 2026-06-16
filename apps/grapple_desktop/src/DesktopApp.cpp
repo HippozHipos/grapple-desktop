@@ -523,24 +523,27 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       std::filesystem::exists(currentPackageRoot / "manifest.json") &&
       std::filesystem::exists(currentPackageRoot / "agent" / "runs.json") &&
       std::filesystem::exists(currentPackageRoot / "agent" / "events.json");
-    window.importStarterSampleMedia();
-    const auto afterSampleImport = workspace.value().project().buildViewModel();
-    if (!afterSampleImport) {
-      printError(afterSampleImport.error());
+    window.startStarterSample();
+    const auto afterSampleStart = workspace.value().project().buildViewModel();
+    if (!afterSampleStart) {
+      printError(afterSampleStart.error());
       return 1;
     }
-    const bool sampleImportSelectedAsset = window.selectedAssetId().has_value();
-    const std::string stewardActionAfterSampleImport = window.stewardPrimaryActionText();
-    const bool addMediaActionEnabledAfterSampleImport = window.addSelectedMediaActionEnabled();
+    const bool sampleStartSelectedAsset = window.selectedAssetId().has_value();
+    const std::string stewardActionAfterSampleStart = window.stewardPrimaryActionText();
+    const bool stewardActionEnabledAfterSampleStart = window.stewardPrimaryActionEnabled();
+    const bool addMediaActionEnabledAfterSampleStart = window.addSelectedMediaActionEnabled();
     std::cout << "revision=" << viewModel.value().project.revision.value() << '\n';
     std::cout << "assets=" << viewModel.value().assets.count << '\n';
     std::cout << "clips=" << viewModel.value().timeline.clips.size() << '\n';
     std::cout << "cameras=" << viewModel.value().timeline.cameras.size() << '\n';
-    std::cout << "sampleImportAssets=" << afterSampleImport.value().assets.count << '\n';
-    std::cout << "sampleImportClips=" << afterSampleImport.value().timeline.clips.size() << '\n';
-    std::cout << "sampleImportSelectedAsset=" << (sampleImportSelectedAsset ? "true" : "false") << '\n';
-    std::cout << "sampleImportStewardAction=" << stewardActionAfterSampleImport << '\n';
-    std::cout << "sampleImportAddMediaActionEnabled=" << (addMediaActionEnabledAfterSampleImport ? "true" : "false") << '\n';
+    std::cout << "sampleStartAssets=" << afterSampleStart.value().assets.count << '\n';
+    std::cout << "sampleStartClips=" << afterSampleStart.value().timeline.clips.size() << '\n';
+    std::cout << "sampleStartCameras=" << afterSampleStart.value().timeline.cameras.size() << '\n';
+    std::cout << "sampleStartSelectedAsset=" << (sampleStartSelectedAsset ? "true" : "false") << '\n';
+    std::cout << "sampleStartStewardAction=" << stewardActionAfterSampleStart << '\n';
+    std::cout << "sampleStartStewardActionEnabled=" << (stewardActionEnabledAfterSampleStart ? "true" : "false") << '\n';
+    std::cout << "sampleStartAddMediaActionEnabled=" << (addMediaActionEnabledAfterSampleStart ? "true" : "false") << '\n';
     std::cout << "packageWritten=" << (packageWritten ? "true" : "false") << '\n';
     std::cout << "timelineEmptyPrompt=" << timelineEmptyPrompt << '\n';
     std::cout << "stewardIntent=" << stewardIntent << '\n';
@@ -562,11 +565,13 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     return viewModel.value().assets.count == 0 &&
            viewModel.value().timeline.clips.empty() &&
            viewModel.value().timeline.cameras.empty() &&
-           afterSampleImport.value().assets.count == 1 &&
-           afterSampleImport.value().timeline.clips.empty() &&
-           sampleImportSelectedAsset &&
-           stewardActionAfterSampleImport == "Add Selected Media To Timeline" &&
-           addMediaActionEnabledAfterSampleImport &&
+           afterSampleStart.value().assets.count == 1 &&
+           afterSampleStart.value().timeline.clips.size() == 1 &&
+           afterSampleStart.value().timeline.cameras.size() == 1 &&
+           !sampleStartSelectedAsset &&
+           stewardActionAfterSampleStart == "Type Request To Create Camera Controls" &&
+           !stewardActionEnabledAfterSampleStart &&
+           !addMediaActionEnabledAfterSampleStart &&
            packageWritten &&
            stewardActionText == "Import Media" &&
            stewardActionEnabled &&
@@ -582,9 +587,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            !selectedTrackMenuActionEnabled &&
            !selectedNoteMenuActionEnabled &&
            stewardIntent.empty() &&
-           timelineEmptyPrompt.find("Import media") != std::string::npos &&
-           timelineEmptyPrompt.find("use Sample") != std::string::npos &&
-           timelineEmptyPrompt.find("Add it to the timeline") != std::string::npos &&
+           timelineEmptyPrompt.find("Use Sample to start now") != std::string::npos &&
+           timelineEmptyPrompt.find("import media and add it") != std::string::npos &&
            timelineEmptyPrompt.find("Ask Steward for an editable change") != std::string::npos &&
            stewardIntentPlaceholder.find("add note") != std::string::npos &&
            stewardIntentPlaceholder.find("Sample") != std::string::npos &&
@@ -2732,11 +2736,10 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     const std::filesystem::path outputPath = smokeRoot / "product-loop.avi";
     std::filesystem::remove(outputPath);
 
-    window.importStarterSampleMedia();
-    const std::string stewardActionAfterImport = window.stewardPrimaryActionText();
-    const bool stewardActionEnabledAfterImport = window.stewardPrimaryActionEnabled();
-    const bool addMediaActionEnabledAfterImport = window.addSelectedMediaActionEnabled();
-    window.clickStewardPrimaryAction();
+    window.startStarterSample();
+    const std::string stewardActionAfterSampleStart = window.stewardPrimaryActionText();
+    const bool stewardActionEnabledAfterSampleStart = window.stewardPrimaryActionEnabled();
+    const bool addMediaActionEnabledAfterSampleStart = window.addSelectedMediaActionEnabled();
     const bool exportActionEnabledAfterMediaPlacement = window.exportActionEnabled();
     const auto basePreviewFrame = workspace.value().preview().renderFrame(grapple::render::RenderFrameRequest{
       workspace.value().preview().state().playhead,
@@ -2999,9 +3002,9 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "inspector=" << inspector << '\n';
     std::cout << "steward=" << steward << '\n';
     std::cout << "stewardIntent=" << stewardIntent << '\n';
-    std::cout << "stewardActionAfterImport=" << stewardActionAfterImport << '\n';
-    std::cout << "stewardActionEnabledAfterImport=" << (stewardActionEnabledAfterImport ? "true" : "false") << '\n';
-    std::cout << "addMediaActionEnabledAfterImport=" << (addMediaActionEnabledAfterImport ? "true" : "false") << '\n';
+    std::cout << "stewardActionAfterSampleStart=" << stewardActionAfterSampleStart << '\n';
+    std::cout << "stewardActionEnabledAfterSampleStart=" << (stewardActionEnabledAfterSampleStart ? "true" : "false") << '\n';
+    std::cout << "addMediaActionEnabledAfterSampleStart=" << (addMediaActionEnabledAfterSampleStart ? "true" : "false") << '\n';
     std::cout << "exportActionEnabledAfterMediaPlacement=" << (exportActionEnabledAfterMediaPlacement ? "true" : "false") << '\n';
     std::cout << "stewardAction=" << stewardActionText << '\n';
     std::cout << "stewardActionEnabled=" << (stewardActionEnabled ? "true" : "false") << '\n';
@@ -3028,9 +3031,9 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            hasEvaluatedTunedPreview &&
            previewPixelsChanged &&
            reopenedProductLoopMatches &&
-           stewardActionAfterImport == "Add Selected Media To Timeline" &&
-           stewardActionEnabledAfterImport &&
-           addMediaActionEnabledAfterImport &&
+           stewardActionAfterSampleStart == "Type Request To Create Camera Controls" &&
+           !stewardActionEnabledAfterSampleStart &&
+           !addMediaActionEnabledAfterSampleStart &&
            exportActionEnabledAfterMediaPlacement &&
            stewardRecentEdits == 8 &&
            stewardSelectedRecentEdit == 0 &&

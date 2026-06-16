@@ -634,7 +634,7 @@ public:
     auto* importMediaButton = new QPushButton{"Import"};
     importMediaButton->setToolTip("Import media (Ctrl+Shift+I)");
     auto* sampleMediaButton = new QPushButton{"Sample"};
-    sampleMediaButton->setToolTip("Import the starter sample media");
+    sampleMediaButton->setToolTip("Start with a playable starter sample");
     addSelectedMediaButton_ = new QPushButton{"Add To Timeline"};
     addSelectedMediaButton_->setEnabled(false);
     undoButton_ = new QPushButton{"Undo"};
@@ -748,7 +748,7 @@ public:
     connect(undoButton_, &QPushButton::clicked, this, [this] { undoLastEdit(); });
     connect(redoButton_, &QPushButton::clicked, this, [this] { redoLastEdit(); });
     connect(importMediaButton, &QPushButton::clicked, this, [this] { chooseAndImportMedia(); });
-    connect(sampleMediaButton, &QPushButton::clicked, this, [this] { importStarterSampleMedia(); });
+    connect(sampleMediaButton, &QPushButton::clicked, this, [this] { startStarterSample(); });
     connect(addSelectedMediaButton_, &QPushButton::clicked, this, [this] { addSelectedMediaToTimeline(); });
     connect(newPackageAction, &QAction::triggered, this, [this] { chooseAndNewPackage(); });
     connect(openPackageAction, &QAction::triggered, this, [this] { chooseAndOpenPackage(); });
@@ -2030,26 +2030,40 @@ public:
     return selectedNote == viewModel.notes.rows.end() ? nullptr : &*selectedNote;
   }
 
-  void importMediaFile(const grapple::foundation::FilePath& path) {
+  grapple::foundation::Result<grapple::foundation::AssetId> importMediaFileIntoWorkspace(
+    const grapple::foundation::FilePath& path
+  ) {
     const auto imported = workspace_.importMediaFile(path);
     if (!imported) {
-      appendError(imported.error());
-      return;
+      return imported.error();
     }
 
     selectedNodeId_ = std::nullopt;
     selectedAssetId_ = imported.value();
     refreshViewModelAndPreview();
     log_->append(QString{"Imported %1"}.arg(qString(std::filesystem::path{path.value}.stem().string())));
+    return imported.value();
   }
 
-  void importStarterSampleMedia() {
+  void importMediaFile(const grapple::foundation::FilePath& path) {
+    const auto imported = importMediaFileIntoWorkspace(path);
+    if (!imported) {
+      appendError(imported.error());
+    }
+  }
+
+  void startStarterSample() {
     const auto video = grapple::demo::ensureStarterDemoVideo();
     if (!video) {
       appendError(video.error());
       return;
     }
-    importMediaFile(grapple::demo::starterDemoVideoPath());
+    const auto imported = importMediaFileIntoWorkspace(grapple::demo::starterDemoVideoPath());
+    if (!imported) {
+      appendError(imported.error());
+      return;
+    }
+    placeSelectedMediaWithSteward();
   }
 
   void addSelectedMediaToTimeline() {
@@ -4107,8 +4121,8 @@ void DesktopWindow::importMediaFile(const foundation::FilePath& path) {
   impl_->importMediaFile(path);
 }
 
-void DesktopWindow::importStarterSampleMedia() {
-  impl_->importStarterSampleMedia();
+void DesktopWindow::startStarterSample() {
+  impl_->startStarterSample();
 }
 
 void DesktopWindow::addSelectedMediaToTimeline() {
