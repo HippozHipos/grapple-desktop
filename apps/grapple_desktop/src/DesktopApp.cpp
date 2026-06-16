@@ -2765,6 +2765,65 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       printError(encodedResolution.error());
       return 1;
     }
+    const auto productLoopWrite = workspace.value().writePackage();
+    if (!productLoopWrite) {
+      printError(productLoopWrite.error());
+      return 1;
+    }
+    auto reopenedProductLoopWorkspace = grapple::app::NativeWorkspaceSession::openPackageRoot(
+      workspace.value().project().packageState().package.rootPath
+    );
+    if (!reopenedProductLoopWorkspace) {
+      printError(reopenedProductLoopWorkspace.error());
+      return 1;
+    }
+    const auto reopenedViewModel = reopenedProductLoopWorkspace.value().project().buildViewModel();
+    if (!reopenedViewModel) {
+      printError(reopenedViewModel.error());
+      return 1;
+    }
+    const auto reopenedPreviewRefresh = reopenedProductLoopWorkspace.value().preview().refreshFromProject();
+    if (!reopenedPreviewRefresh) {
+      printError(reopenedPreviewRefresh.error());
+      return 1;
+    }
+    const auto reopenedPreviewFrame = reopenedProductLoopWorkspace.value().preview().renderFrame(grapple::render::RenderFrameRequest{
+      reopenedProductLoopWorkspace.value().preview().state().playhead,
+      grapple::render::RenderQuality::Draft
+    });
+    if (!reopenedPreviewFrame) {
+      printError(reopenedPreviewFrame.error());
+      return 1;
+    }
+    const auto reopenedConversation = reopenedProductLoopWorkspace.value().steward().conversationState();
+    const bool reopenedProductLoopMatches =
+      reopenedViewModel.value().project.revision == viewModel.value().project.revision &&
+      reopenedViewModel.value().assets.count == 1 &&
+      reopenedViewModel.value().timeline.clips.size() == 1 &&
+      reopenedViewModel.value().timeline.textClips.size() == 1 &&
+      reopenedViewModel.value().timeline.textClips.front().text == "MVP Opening" &&
+      reopenedViewModel.value().timeline.textClips.front().style.fontSize == 72.0 &&
+      reopenedViewModel.value().timeline.textClips.front().transform.opacity == 0.75 &&
+      reopenedViewModel.value().timeline.cameras.size() == 1 &&
+      reopenedViewModel.value().timeline.effectCount == 2 &&
+      reopenedConversation.diagnostics.empty() &&
+      reopenedConversation.runs.size() == 8 &&
+      reopenedConversation.runs.front().toolCalls.size() == 1 &&
+      reopenedConversation.runs.front().toolCalls.front().toolSerializedId == "timeline.place_asset" &&
+      reopenedConversation.runs.back().toolCalls.size() == 1 &&
+      reopenedConversation.runs.back().toolCalls.front().toolSerializedId == "effect.update_param_value" &&
+      reopenedPreviewFrame.value().frame.sourceRevision == reopenedViewModel.value().project.revision &&
+      reopenedPreviewFrame.value().frame.mediaFrames.size() == 1 &&
+      reopenedPreviewFrame.value().frame.mediaFrames.front().tintColor.has_value() &&
+      reopenedPreviewFrame.value().frame.mediaFrames.front().tintColor.value() == grapple::foundation::Vec3{0.2, 1.0, 0.35} &&
+      reopenedPreviewFrame.value().frame.mediaFrames.front().tintAmount == 0.6 &&
+      reopenedPreviewFrame.value().frame.textFrames.size() == 1 &&
+      reopenedPreviewFrame.value().frame.textFrames.front().text == "MVP Opening" &&
+      reopenedPreviewFrame.value().frame.textFrames.front().style.fontSize == 72.0 &&
+      reopenedPreviewFrame.value().frame.textFrames.front().transform.opacity == 0.75 &&
+      reopenedPreviewFrame.value().frame.cameras.size() == 1 &&
+      reopenedPreviewFrame.value().frame.cameras.front().state.transform.position.x == 0.0 &&
+      reopenedPreviewFrame.value().frame.cameras.front().state.transform.scale.x == 1.6;
     const std::string expectedExportProvenance =
       "Export evaluated 100 frames from " +
       viewModel.value().project.revision.value() +
@@ -2863,6 +2922,9 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "exists=" << (exists ? "true" : "false") << '\n';
     std::cout << "size=" << size << '\n';
     std::cout << "encodedResolution=" << encodedResolution.value().width << "x" << encodedResolution.value().height << '\n';
+    std::cout << "reopenedRevision=" << reopenedViewModel.value().project.revision.value() << '\n';
+    std::cout << "reopenedRuns=" << reopenedConversation.runs.size() << '\n';
+    std::cout << "reopenedProductLoopMatches=" << (reopenedProductLoopMatches ? "true" : "false") << '\n';
     std::cout << "inspector=" << inspector << '\n';
     std::cout << "steward=" << steward << '\n';
     std::cout << "stewardIntent=" << stewardIntent << '\n';
@@ -2894,6 +2956,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            hasTunedClipTintEffect &&
            hasEvaluatedTunedPreview &&
            previewPixelsChanged &&
+           reopenedProductLoopMatches &&
            stewardActionAfterImport == "Add Selected Media To Timeline" &&
            stewardActionEnabledAfterImport &&
            addMediaActionEnabledAfterImport &&
