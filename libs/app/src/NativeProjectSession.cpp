@@ -151,6 +151,9 @@ foundation::Result<std::string> nodeDisplayName(
   if (const auto* textClip = std::get_if<timeline::TextClipPayload>(&node->payload)) {
     return textClip->text;
   }
+  if (const auto* note = std::get_if<timeline::NotePayload>(&node->payload)) {
+    return note->title;
+  }
 
   return nodeId.value();
 }
@@ -746,6 +749,26 @@ foundation::Result<AppCommandProvenance> appCommandProvenance(
           intent,
           "Text=" + updateText->payload.text +
             ", Font=" + numberDisplayText(updateText->payload.style.fontSize)
+        });
+      } else if (const auto* createNote = std::get_if<project::CreateNoteCommand>(&parsedCommand.value())) {
+        provenance.stewardEdits.push_back(AppStewardEditRow{
+          command.id,
+          command.afterRevision,
+          createNote->nodeId,
+          createNote->payload.title,
+          "Note",
+          intent,
+          "Title=" + createNote->payload.title
+        });
+      } else if (const auto* updateNote = std::get_if<project::UpdateNoteCommand>(&parsedCommand.value())) {
+        provenance.stewardEdits.push_back(AppStewardEditRow{
+          command.id,
+          command.afterRevision,
+          updateNote->nodeId,
+          updateNote->payload.title,
+          "Note",
+          intent,
+          "Title=" + updateNote->payload.title
         });
       }
     }

@@ -69,6 +69,16 @@ struct TextClipEditIntent {
   bool changed = false;
 };
 
+struct NoteIntentDefaults {
+  std::string title;
+  std::string markdown;
+};
+
+struct NoteEditIntent {
+  timeline::NotePayload payload;
+  bool changed = false;
+};
+
 class NativeStewardPlanner final {
 public:
   [[nodiscard]] CameraTransformIntentDefaults cameraTransformDefaultsForIntent(
@@ -85,6 +95,13 @@ public:
   [[nodiscard]] bool textClipEditIntentTargetsTextClip(const std::string& intent) const;
   [[nodiscard]] foundation::Result<TextClipEditIntent> textClipEditForIntent(
     const timeline::TextClipPayload& current,
+    const std::string& intent
+  ) const;
+  [[nodiscard]] bool noteIntentTargetsNote(const std::string& intent) const;
+  [[nodiscard]] NoteIntentDefaults noteDefaultsForIntent(const std::string& intent) const;
+  [[nodiscard]] bool noteEditIntentTargetsNote(const std::string& intent) const;
+  [[nodiscard]] foundation::Result<NoteEditIntent> noteEditForIntent(
+    const timeline::NotePayload& current,
     const std::string& intent
   ) const;
   [[nodiscard]] foundation::Result<ClipEditIntent> clipEditForIntent(

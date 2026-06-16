@@ -29,6 +29,8 @@ constexpr const char CanonicalEffectUpdateParamKeyframeToolId[] = "effect.update
 constexpr const char CanonicalPlaceAssetToolId[] = "timeline.place_asset";
 constexpr const char CanonicalCreateTextClipToolId[] = "timeline.create_text_clip";
 constexpr const char CanonicalUpdateTextClipToolId[] = "timeline.update_text_clip";
+constexpr const char CanonicalCreateNoteToolId[] = "note.create";
+constexpr const char CanonicalUpdateNoteToolId[] = "note.update";
 constexpr const char CanonicalMoveClipToolId[] = "timeline.move_clip";
 constexpr const char CanonicalTrimClipToolId[] = "timeline.trim_clip";
 constexpr const char CanonicalUpdateClipTransformToolId[] = "timeline.update_clip_transform";
@@ -202,6 +204,14 @@ foundation::ToolId stewardUpdateTextClipToolCallIdForRun(const foundation::RunId
   return foundation::ToolId{"tool_steward_update_text_clip_" + std::to_string(stewardRunNumber(runId))};
 }
 
+foundation::ToolId stewardCreateNoteToolCallIdForRun(const foundation::RunId& runId) {
+  return foundation::ToolId{"tool_steward_create_note_" + std::to_string(stewardRunNumber(runId))};
+}
+
+foundation::ToolId stewardUpdateNoteToolCallIdForRun(const foundation::RunId& runId) {
+  return foundation::ToolId{"tool_steward_update_note_" + std::to_string(stewardRunNumber(runId))};
+}
+
 foundation::ToolId stewardClipMoveToolCallIdForRun(const foundation::RunId& runId) {
   return foundation::ToolId{"tool_steward_clip_move_" + std::to_string(stewardRunNumber(runId))};
 }
@@ -300,6 +310,31 @@ std::string textClipUpdateArgumentsPayload(
   foundation::writeJsonStringProperty(arguments, "clipNodeId", clipNodeId.value());
   arguments << ',';
   writeTextClipPayloadArgumentsFields(arguments, payload);
+  arguments << '}';
+  return arguments.str();
+}
+
+std::string noteCreateArgumentsPayload(const timeline::NotePayload& payload) {
+  std::ostringstream arguments;
+  arguments << '{';
+  foundation::writeJsonStringProperty(arguments, "title", payload.title);
+  arguments << ',';
+  foundation::writeJsonStringProperty(arguments, "markdown", payload.markdown);
+  arguments << '}';
+  return arguments.str();
+}
+
+std::string noteUpdateArgumentsPayload(
+  const foundation::NodeId& noteNodeId,
+  const timeline::NotePayload& payload
+) {
+  std::ostringstream arguments;
+  arguments << '{';
+  foundation::writeJsonStringProperty(arguments, "nodeId", noteNodeId.value());
+  arguments << ',';
+  foundation::writeJsonStringProperty(arguments, "title", payload.title);
+  arguments << ',';
+  foundation::writeJsonStringProperty(arguments, "markdown", payload.markdown);
   arguments << '}';
   return arguments.str();
 }
@@ -443,22 +478,24 @@ public:
     NativeProjectCommandWriter& commandWriter,
     std::string snapshotLabel,
     std::optional<storage::ProjectPackageSessionResult>& packageResult,
-    std::optional<foundation::NodeId>* createdClipNodeId = nullptr
+    std::optional<foundation::NodeId>* createdNodeId = nullptr
   )
     : project_{project},
       commandWriter_{commandWriter},
       snapshotLabel_{std::move(snapshotLabel)},
       packageResult_{packageResult},
-      createdClipNodeId_{createdClipNodeId} {}
+      createdNodeId_{createdNodeId} {}
 
   foundation::Result<project::ProjectCommandResult> apply(
     const project::ProjectCommandEnvelope& command
   ) override {
-    if (createdClipNodeId_ != nullptr) {
+    if (createdNodeId_ != nullptr) {
       if (const auto* placement = std::get_if<project::AddMediaToTimelineCommand>(&command.payload)) {
-        *createdClipNodeId_ = placement->clip.nodeId;
+        *createdNodeId_ = placement->clip.nodeId;
       } else if (const auto* textClip = std::get_if<project::CreateTextClipCommand>(&command.payload)) {
-        *createdClipNodeId_ = textClip->nodeId;
+        *createdNodeId_ = textClip->nodeId;
+      } else if (const auto* note = std::get_if<project::CreateNoteCommand>(&command.payload)) {
+        *createdNodeId_ = note->nodeId;
       }
     }
 
@@ -494,7 +531,7 @@ private:
   NativeProjectCommandWriter& commandWriter_;
   std::string snapshotLabel_;
   std::optional<storage::ProjectPackageSessionResult>& packageResult_;
-  std::optional<foundation::NodeId>* createdClipNodeId_;
+  std::optional<foundation::NodeId>* createdNodeId_;
 };
 
 } // namespace
@@ -718,6 +755,97 @@ foundation::Result<NativeStewardTextClipResult> NativeStewardSession::createText
 
   markRunStatus(runId.value(), agent::AgentRunStatus::Succeeded);
   return NativeStewardTextClipResult{packageResult.value(), textClipNodeId.value()};
+}
+
+foundation::Result<NativeStewardNoteResult> NativeStewardSession::createNote(std::string intent) {
+  auto snapshot = project_.snapshot();
+  if (!snapshot) {
+    return snapshot.error();
+  }
+
+  if (!planner_.noteIntentTargetsNote(intent)) {
+    return foundation::Error{
+      "steward.note_intent_mismatch",
+      "Steward note creation requires a note, rationale, or reminder request."
+    };
+  }
+
+  auto runId = startRun(snapshot.value(), intent);
+  if (!runId) {
+    return runId.error();
+  }
+
+  const NoteIntentDefaults defaults = planner_.noteDefaultsForIntent(intent);
+  const timeline::NotePayload payload{defaults.title, defaults.markdown};
+
+  auto message = appendEvent(
+    runId.value(),
+    agent::AgentRunEventKind::ModelMessage,
+    modelMessagePayload("assistant", "Creating an editable project note.")
+  );
+  if (!message) {
+    return message.error();
+  }
+
+  std::optional<storage::ProjectPackageSessionResult> packageResult;
+  std::optional<foundation::NodeId> noteNodeId;
+  CommittingAgentCommandService stewardCommands{
+    project_,
+    commandWriter_,
+    intent,
+    packageResult,
+    &noteNodeId
+  };
+  agent::AgentToolRegistry registry;
+  auto registered = agent::registerProjectTools(registry);
+  if (!registered) {
+    auto finished = finishRunWithError(runId.value(), registered.error());
+    if (!finished) {
+      return finished.error();
+    }
+    return registered.error();
+  }
+
+  agent::AgentToolContext toolContext{stewardCommands, project_, commandWriter_};
+  agent::AgentBridge bridge{registry, toolContext, events_, nextSequence_};
+  auto dispatched = bridge.dispatchToolCall(agent::AgentToolDispatchRequest{
+    runId.value(),
+    snapshot.value().info.id,
+    snapshot.value().revision,
+    stewardCreateNoteToolCallIdForRun(runId.value()),
+    CanonicalCreateNoteToolId,
+    noteCreateArgumentsPayload(payload)
+  });
+  if (!dispatched) {
+    auto finished = finishRunWithError(runId.value(), dispatched.error());
+    if (!finished) {
+      return finished.error();
+    }
+    return dispatched.error();
+  }
+  if (!packageResult.has_value() || !noteNodeId.has_value()) {
+    const foundation::Error error{
+      "steward.note_result_missing",
+      "Steward note creation tool succeeded without a committed note result."
+    };
+    auto finished = finishRunWithError(runId.value(), error);
+    if (!finished) {
+      return finished.error();
+    }
+    return error;
+  }
+
+  auto runFinished = appendEvent(
+    runId.value(),
+    agent::AgentRunEventKind::RunFinished,
+    runFinishedPayload("succeeded", "Created editable project note.")
+  );
+  if (!runFinished) {
+    return runFinished.error();
+  }
+
+  markRunStatus(runId.value(), agent::AgentRunStatus::Succeeded);
+  return NativeStewardNoteResult{packageResult.value(), noteNodeId.value()};
 }
 
 foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::editClip(
@@ -995,6 +1123,110 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::e
   return packageResult.value();
 }
 
+foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::editNote(
+  foundation::NodeId noteNodeId,
+  std::string intent
+) {
+  auto snapshot = project_.snapshot();
+  if (!snapshot) {
+    return snapshot.error();
+  }
+
+  auto runId = startRun(snapshot.value(), intent);
+  if (!runId) {
+    return runId.error();
+  }
+
+  const graph::GraphNode* noteNode = snapshot.value().graph.findNode(noteNodeId);
+  if (noteNode == nullptr || noteNode->kind != graph::NodeKind::Note) {
+    const foundation::Error error{"steward.note_missing", "Steward note edit requires an existing note node."};
+    auto finished = finishRunWithError(runId.value(), error);
+    if (!finished) {
+      return finished.error();
+    }
+    return error;
+  }
+  const auto* notePayload = std::get_if<timeline::NotePayload>(&noteNode->payload);
+  if (notePayload == nullptr) {
+    const foundation::Error error{"steward.note_payload_missing", "Steward note edit requires a note payload."};
+    auto finished = finishRunWithError(runId.value(), error);
+    if (!finished) {
+      return finished.error();
+    }
+    return error;
+  }
+  auto edit = planner_.noteEditForIntent(*notePayload, intent);
+  if (!edit) {
+    auto finished = finishRunWithError(runId.value(), edit.error());
+    if (!finished) {
+      return finished.error();
+    }
+    return edit.error();
+  }
+
+  auto message = appendEvent(
+    runId.value(),
+    agent::AgentRunEventKind::ModelMessage,
+    modelMessagePayload("assistant", "Updating the selected project note as an editable graph change.")
+  );
+  if (!message) {
+    return message.error();
+  }
+
+  std::optional<storage::ProjectPackageSessionResult> packageResult;
+  CommittingAgentCommandService stewardCommands{project_, commandWriter_, intent, packageResult};
+  agent::AgentToolRegistry registry;
+  auto registered = agent::registerProjectTools(registry);
+  if (!registered) {
+    auto finished = finishRunWithError(runId.value(), registered.error());
+    if (!finished) {
+      return finished.error();
+    }
+    return registered.error();
+  }
+
+  agent::AgentToolContext toolContext{stewardCommands, project_, commandWriter_};
+  agent::AgentBridge bridge{registry, toolContext, events_, nextSequence_};
+  auto dispatched = bridge.dispatchToolCall(agent::AgentToolDispatchRequest{
+    runId.value(),
+    snapshot.value().info.id,
+    snapshot.value().revision,
+    stewardUpdateNoteToolCallIdForRun(runId.value()),
+    CanonicalUpdateNoteToolId,
+    noteUpdateArgumentsPayload(noteNodeId, edit.value().payload)
+  });
+  if (!dispatched) {
+    auto finished = finishRunWithError(runId.value(), dispatched.error());
+    if (!finished) {
+      return finished.error();
+    }
+    return dispatched.error();
+  }
+  if (!packageResult.has_value()) {
+    const foundation::Error error{
+      "steward.note_edit_result_missing",
+      "Steward note edit tool succeeded without a committed package result."
+    };
+    auto finished = finishRunWithError(runId.value(), error);
+    if (!finished) {
+      return finished.error();
+    }
+    return error;
+  }
+
+  auto runFinished = appendEvent(
+    runId.value(),
+    agent::AgentRunEventKind::RunFinished,
+    runFinishedPayload("succeeded", "Updated selected project note.")
+  );
+  if (!runFinished) {
+    return runFinished.error();
+  }
+
+  markRunStatus(runId.value(), agent::AgentRunStatus::Succeeded);
+  return packageResult.value();
+}
+
 bool NativeStewardSession::clipEditIntentTargetsClip(const std::string& intent) const {
   return planner_.clipEditIntentTargetsClip(intent);
 }
@@ -1005,6 +1237,14 @@ bool NativeStewardSession::textClipIntentTargetsText(const std::string& intent) 
 
 bool NativeStewardSession::textClipEditIntentTargetsTextClip(const std::string& intent) const {
   return planner_.textClipEditIntentTargetsTextClip(intent);
+}
+
+bool NativeStewardSession::noteIntentTargetsNote(const std::string& intent) const {
+  return planner_.noteIntentTargetsNote(intent);
+}
+
+bool NativeStewardSession::noteEditIntentTargetsNote(const std::string& intent) const {
+  return planner_.noteEditIntentTargetsNote(intent);
 }
 
 foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::adjustCameraTransformControls(

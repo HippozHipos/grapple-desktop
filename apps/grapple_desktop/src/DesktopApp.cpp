@@ -180,6 +180,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   bool clipEffectControlsSmoke = false;
   bool stewardSubmitShortcutSmoke = false;
   bool stewardTextClipSmoke = false;
+  bool stewardNoteSmoke = false;
   bool setEffectParamSmoke = false;
   bool effectKeyframeSmoke = false;
   bool stewardMotionSmoke = false;
@@ -262,6 +263,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       stewardSubmitShortcutSmoke = true;
     } else if (argument == "--steward-text-clip-smoke") {
       stewardTextClipSmoke = true;
+    } else if (argument == "--steward-note-smoke") {
+      stewardNoteSmoke = true;
     } else if (argument == "--set-effect-param-smoke") {
       setEffectParamSmoke = true;
     } else if (argument == "--effect-keyframe-smoke") {
@@ -303,7 +306,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     } else if (argument == "--effect-screenshot" && index + 1 < argc) {
       effectScreenshotPath = argv[++index];
     } else {
-      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --select-audio-clip-smoke, --select-audio-track-smoke, --select-camera-smoke, --select-second-camera-smoke, --steward-smoke, --import-smoke, --import-media-types-smoke, --add-video-smoke, --empty-add-video-smoke, --empty-add-video-undo-smoke, --empty-add-text-smoke, --empty-add-track-smoke, --empty-add-camera-smoke, --update-camera-smoke, --add-note-smoke, --update-note-smoke, --move-clip-smoke, --trim-clip-smoke, --clip-timing-panel-smoke, --nudge-clip-smoke, --undo-redo-smoke, --add-effect-smoke, --clip-effect-controls-smoke, --steward-submit-shortcut-smoke, --steward-text-clip-smoke, --set-effect-param-smoke, --effect-keyframe-smoke, --steward-motion-smoke, --steward-zoom-motion-smoke, --steward-clip-transform-smoke, --delete-effect-smoke, --delete-smoke, --delete-track-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, --new-package-smoke, --export-settings-smoke, --product-loop-smoke, --empty-launch-smoke, --empty-save-smoke, --open-package <path>, --new-package <path>, --screenshot <path>, or --effect-screenshot <path>.\n";
+      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --select-audio-clip-smoke, --select-audio-track-smoke, --select-camera-smoke, --select-second-camera-smoke, --steward-smoke, --import-smoke, --import-media-types-smoke, --add-video-smoke, --empty-add-video-smoke, --empty-add-video-undo-smoke, --empty-add-text-smoke, --empty-add-track-smoke, --empty-add-camera-smoke, --update-camera-smoke, --add-note-smoke, --update-note-smoke, --move-clip-smoke, --trim-clip-smoke, --clip-timing-panel-smoke, --nudge-clip-smoke, --undo-redo-smoke, --add-effect-smoke, --clip-effect-controls-smoke, --steward-submit-shortcut-smoke, --steward-text-clip-smoke, --steward-note-smoke, --set-effect-param-smoke, --effect-keyframe-smoke, --steward-motion-smoke, --steward-zoom-motion-smoke, --steward-clip-transform-smoke, --delete-effect-smoke, --delete-smoke, --delete-track-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, --new-package-smoke, --export-settings-smoke, --product-loop-smoke, --empty-launch-smoke, --empty-save-smoke, --open-package <path>, --new-package <path>, --screenshot <path>, or --effect-screenshot <path>.\n";
       return 1;
     }
   }
@@ -488,9 +491,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            !selectedTrackMenuActionEnabled &&
            !selectedNoteMenuActionEnabled &&
            stewardIntent.empty() &&
-           stewardIntentPlaceholder.find("Import media to start") != std::string::npos &&
-           stewardIntentPlaceholder.find("speed up clip") != std::string::npos &&
-           stewardIntentPlaceholder.find("shorten clip") != std::string::npos &&
+           stewardIntentPlaceholder.find("add note") != std::string::npos &&
+           stewardIntentPlaceholder.find("import media") != std::string::npos &&
            steward.find("0 assets | 0 clips | 0 cameras | 0 editable effects") != std::string::npos &&
            steward.find("Next: import media to start the timeline.") != std::string::npos
       ? 0
@@ -606,6 +608,50 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            conversation.runs[0].toolCalls[0].toolSerializedId == "timeline.create_text_clip" &&
            conversation.runs[1].toolCalls.size() == 1 &&
            conversation.runs[1].toolCalls[0].toolSerializedId == "timeline.update_text_clip"
+      ? 0
+      : 1;
+  }
+
+  if (stewardNoteSmoke) {
+    window.setStewardIntent("Add note \"Camera rationale\" saying Keep zoom editable.");
+    window.clickStewardPrimaryAction();
+    if (window.currentDetailTabText() != "Inspector") {
+      std::cerr << "Created Steward note was not selected.\n";
+      return 1;
+    }
+    window.setStewardIntent("Update note to \"Keep zoom exposed as a user-editable control.\"");
+    window.clickStewardSelectedClipAction();
+    const auto viewModel = workspace.value().project().buildViewModel();
+    if (!viewModel) {
+      printError(viewModel.error());
+      return 1;
+    }
+    if (viewModel.value().notes.rows.empty()) {
+      std::cerr << "No Steward note was created.\n";
+      return 1;
+    }
+
+    const grapple::app::AppNoteRow& note = viewModel.value().notes.rows.back();
+    const auto conversation = workspace.value().steward().conversationState();
+    const std::string inspector = window.inspectorContents();
+    std::cout << "title=" << note.title << '\n';
+    std::cout << "markdown=" << note.markdown << '\n';
+    std::cout << "tab=" << window.currentDetailTabText() << '\n';
+    std::cout << "runs=" << conversation.runs.size() << '\n';
+    std::cout << "inspector=" << inspector << '\n';
+    return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_2"} &&
+           viewModel.value().notes.rows.size() == 1 &&
+           note.title == "Camera rationale" &&
+           note.markdown == "Keep zoom exposed as a user-editable control." &&
+           window.currentDetailTabText() == "Inspector" &&
+           window.selectedNoteMenuActionEnabled() &&
+           window.stewardIntent().empty() &&
+           inspector.find("Inspector\nNote\nCamera rationale") != std::string::npos &&
+           conversation.runs.size() == 2 &&
+           conversation.runs[0].toolCalls.size() == 1 &&
+           conversation.runs[0].toolCalls[0].toolSerializedId == "note.create" &&
+           conversation.runs[1].toolCalls.size() == 1 &&
+           conversation.runs[1].toolCalls[0].toolSerializedId == "note.update"
       ? 0
       : 1;
   }

@@ -102,6 +102,27 @@ std::optional<foundation::NodeId> selectedTextClipNodeId(
   return selectedClip->sourceNodeId;
 }
 
+std::optional<foundation::NodeId> selectedNoteNodeId(
+  const app::AppViewModel& viewModel,
+  const std::optional<foundation::NodeId>& selectedNodeId
+) {
+  if (!selectedNodeId.has_value()) {
+    return std::nullopt;
+  }
+
+  const auto selectedNote = std::find_if(
+    viewModel.notes.rows.begin(),
+    viewModel.notes.rows.end(),
+    [&](const app::AppNoteRow& note) {
+      return note.sourceNodeId == selectedNodeId.value();
+    }
+  );
+  if (selectedNote == viewModel.notes.rows.end()) {
+    return std::nullopt;
+  }
+  return selectedNote->sourceNodeId;
+}
+
 QString cameraName(
   const app::AppViewModel& viewModel,
   const foundation::NodeId& cameraNodeId
@@ -136,6 +157,18 @@ QString textClipName(
     }
   }
   return qString(clipNodeId.value());
+}
+
+QString noteName(
+  const app::AppViewModel& viewModel,
+  const foundation::NodeId& noteNodeId
+) {
+  for (const app::AppNoteRow& note : viewModel.notes.rows) {
+    if (note.sourceNodeId == noteNodeId) {
+      return qString(note.title);
+    }
+  }
+  return qString(noteNodeId.value());
 }
 
 QString assetName(
@@ -230,7 +263,13 @@ StewardPanel::StewardPanel(QWidget* parent)
     if (tryEditSelectedTextClipFromPrimaryAction()) {
       return;
     }
+    if (tryEditSelectedNoteFromPrimaryAction()) {
+      return;
+    }
     if (tryCreateTextClipFromPrimaryAction()) {
+      return;
+    }
+    if (tryCreateNoteFromPrimaryAction()) {
       return;
     }
 
@@ -289,6 +328,8 @@ StewardPanel::StewardPanel(QWidget* parent)
       editSelectedClipHandler_(selectedClipTargetNodeId_.value(), intent());
     } else if (editSelectedTextClipHandler_ && selectedTextClipTargetNodeId_.has_value()) {
       editSelectedTextClipHandler_(selectedTextClipTargetNodeId_.value(), intent());
+    } else if (editSelectedNoteHandler_ && selectedNoteTargetNodeId_.has_value()) {
+      editSelectedNoteHandler_(selectedNoteTargetNodeId_.value(), intent());
     }
   });
 
@@ -366,6 +407,18 @@ void StewardPanel::setTryCreateTextClipHandler(TryCreateTextClipHandler handler)
   tryCreateTextClipHandler_ = std::move(handler);
 }
 
+void StewardPanel::setEditSelectedNoteHandler(EditSelectedNoteHandler handler) {
+  editSelectedNoteHandler_ = std::move(handler);
+}
+
+void StewardPanel::setTryEditSelectedNoteHandler(TryEditSelectedNoteHandler handler) {
+  tryEditSelectedNoteHandler_ = std::move(handler);
+}
+
+void StewardPanel::setTryCreateNoteHandler(TryCreateNoteHandler handler) {
+  tryCreateNoteHandler_ = std::move(handler);
+}
+
 void StewardPanel::setSelectEditTargetHandler(SelectEditTargetHandler handler) {
   selectEditTargetHandler_ = std::move(handler);
 }
@@ -379,7 +432,12 @@ void StewardPanel::setViewModel(
   const std::optional<foundation::NodeId> cameraTargetId = app::stewardCameraTargetId(viewModel, selectedNodeId);
   selectedClipTargetNodeId_ = selectedVisualClipNodeId(viewModel, selectedNodeId);
   selectedTextClipTargetNodeId_ = selectedTextClipNodeId(viewModel, selectedNodeId);
-  selectedClipActionButton_->setVisible(selectedClipTargetNodeId_.has_value() || selectedTextClipTargetNodeId_.has_value());
+  selectedNoteTargetNodeId_ = selectedNoteNodeId(viewModel, selectedNodeId);
+  selectedClipActionButton_->setVisible(
+    selectedClipTargetNodeId_.has_value() ||
+    selectedTextClipTargetNodeId_.has_value() ||
+    selectedNoteTargetNodeId_.has_value()
+  );
   primaryTargetCameraNodeId_ = cameraTargetId;
   if (!cameraTargetId.has_value()) {
     primaryTargetCameraNodeId_ = std::nullopt;
@@ -415,10 +473,15 @@ void StewardPanel::setViewModel(
   }
 
   QString nextStep;
-  const bool selectedClipActionAvailable = selectedClipTargetNodeId_.has_value() || selectedTextClipTargetNodeId_.has_value();
+  const bool selectedClipActionAvailable =
+    selectedClipTargetNodeId_.has_value() ||
+    selectedTextClipTargetNodeId_.has_value() ||
+    selectedNoteTargetNodeId_.has_value();
   const QString targetChoiceStep = selectedTextClipTargetNodeId_.has_value()
     ? "Next: type a camera request, or use the text action to edit the selected text clip."
-    : "Next: type a camera request, or mention clip/video to edit the selected clip.";
+    : selectedNoteTargetNodeId_.has_value()
+      ? "Next: type a camera request, or use the note action to edit the selected note."
+      : "Next: type a camera request, or mention clip/video to edit the selected clip.";
   switch (primaryAction_) {
     case PrimaryAction::ImportMedia:
       nextStep = "Next: import media to start the timeline.";
@@ -480,6 +543,10 @@ void StewardPanel::setViewModel(
   if (selectedTextClipTargetNodeId_.has_value()) {
     lines << QString{"Text target: %1"}.arg(textClipName(viewModel, selectedTextClipTargetNodeId_.value()));
     lines << "Text route: use the text action to update text clip parameters.";
+  }
+  if (selectedNoteTargetNodeId_.has_value()) {
+    lines << QString{"Note target: %1"}.arg(noteName(viewModel, selectedNoteTargetNodeId_.value()));
+    lines << "Note route: use the note action to update the note title or body.";
   }
 
   recentEdits_->blockSignals(true);
@@ -653,7 +720,9 @@ void StewardPanel::updateActionLabels() {
   selectedClipActionButton_->setText(
     selectedTextClipTargetNodeId_.has_value()
       ? (hasIntent ? "Apply Request To Text" : "Type Request To Edit Text")
-      : (hasIntent ? "Apply Request To Clip" : "Type Request To Edit Clip")
+      : selectedNoteTargetNodeId_.has_value()
+        ? (hasIntent ? "Apply Request To Note" : "Type Request To Edit Note")
+        : (hasIntent ? "Apply Request To Clip" : "Type Request To Edit Clip")
   );
 }
 
@@ -661,7 +730,7 @@ void StewardPanel::updateIntentPlaceholder() {
   const bool selectedClipActionAvailable = selectedClipTargetNodeId_.has_value();
   switch (primaryAction_) {
     case PrimaryAction::ImportMedia:
-      intent_->setPlaceholderText("Import media to start. Then try: \"slowly zoom in\", \"add title \\\"Opening\\\"\", \"speed up clip\", or \"shorten clip\".");
+      intent_->setPlaceholderText("Try: \"add note \\\"Camera rationale\\\" saying Keep zoom editable\", or import media to start the timeline.");
       return;
     case PrimaryAction::AddSelectedMedia:
       intent_->setPlaceholderText("Add selected media to the timeline. Then try: \"center the subject\" or \"add title \\\"Opening\\\"\".");
@@ -691,7 +760,7 @@ void StewardPanel::updateIntentPlaceholder() {
       );
       return;
     case PrimaryAction::Disabled:
-      intent_->setPlaceholderText("Select media, a clip, or a camera to make an editable request.");
+      intent_->setPlaceholderText("Try: \"add note \\\"Camera rationale\\\" saying Keep zoom editable\", or select media, a clip, or a camera.");
       return;
   }
 }
@@ -716,6 +785,16 @@ bool StewardPanel::tryEditSelectedTextClipFromPrimaryAction() {
   return tryEditSelectedTextClipHandler_(selectedTextClipTargetNodeId_.value(), intent());
 }
 
+bool StewardPanel::tryEditSelectedNoteFromPrimaryAction() {
+  if (!selectedNoteTargetNodeId_.has_value() ||
+      !intentHasText() ||
+      !tryEditSelectedNoteHandler_) {
+    return false;
+  }
+
+  return tryEditSelectedNoteHandler_(selectedNoteTargetNodeId_.value(), intent());
+}
+
 bool StewardPanel::tryCreateTextClipFromPrimaryAction() {
   if (!intentHasText() || !tryCreateTextClipHandler_) {
     return false;
@@ -727,6 +806,14 @@ bool StewardPanel::tryCreateTextClipFromPrimaryAction() {
   }
 
   return tryCreateTextClipHandler_(intent());
+}
+
+bool StewardPanel::tryCreateNoteFromPrimaryAction() {
+  if (!intentHasText() || !tryCreateNoteHandler_) {
+    return false;
+  }
+
+  return tryCreateNoteHandler_(intent());
 }
 
 bool StewardPanel::intentHasText() const {
@@ -761,8 +848,11 @@ bool StewardPanel::selectedClipActionCanRun() const {
   if (selectedClipTargetNodeId_.has_value()) {
     return static_cast<bool>(editSelectedClipHandler_);
   }
-  return selectedTextClipTargetNodeId_.has_value() &&
-         static_cast<bool>(editSelectedTextClipHandler_);
+  if (selectedTextClipTargetNodeId_.has_value()) {
+    return static_cast<bool>(editSelectedTextClipHandler_);
+  }
+  return selectedNoteTargetNodeId_.has_value() &&
+         static_cast<bool>(editSelectedNoteHandler_);
 }
 
 } // namespace grapple::ui

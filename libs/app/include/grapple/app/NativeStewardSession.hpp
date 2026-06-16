@@ -26,6 +26,11 @@ struct NativeStewardTextClipResult {
   foundation::NodeId textClipNodeId;
 };
 
+struct NativeStewardNoteResult {
+  storage::ProjectPackageSessionResult packageResult;
+  foundation::NodeId noteNodeId;
+};
+
 class NativeStewardSession final {
 public:
   NativeStewardSession(NativeProjectSession& project, NativeProjectCommandWriter& commandWriter);
@@ -43,6 +48,7 @@ public:
     std::string intent,
     foundation::TimeSeconds start
   );
+  foundation::Result<NativeStewardNoteResult> createNote(std::string intent);
   foundation::Result<storage::ProjectPackageSessionResult> editClip(
     foundation::NodeId clipNodeId,
     std::string intent
@@ -51,9 +57,15 @@ public:
     foundation::NodeId clipNodeId,
     std::string intent
   );
+  foundation::Result<storage::ProjectPackageSessionResult> editNote(
+    foundation::NodeId noteNodeId,
+    std::string intent
+  );
   [[nodiscard]] bool clipEditIntentTargetsClip(const std::string& intent) const;
   [[nodiscard]] bool textClipIntentTargetsText(const std::string& intent) const;
   [[nodiscard]] bool textClipEditIntentTargetsTextClip(const std::string& intent) const;
+  [[nodiscard]] bool noteIntentTargetsNote(const std::string& intent) const;
+  [[nodiscard]] bool noteEditIntentTargetsNote(const std::string& intent) const;
   foundation::Result<storage::ProjectPackageSessionResult> adjustCameraTransformControls(
     foundation::NodeId cameraNodeId,
     std::string intent,

@@ -805,6 +805,21 @@ public:
     steward_->setTryCreateTextClipHandler([this](std::string intent) {
       return createTextClipWithPrimaryIntent(std::move(intent));
     });
+    steward_->setEditSelectedNoteHandler([this](
+      grapple::foundation::NodeId noteNodeId,
+      std::string intent
+    ) {
+      editSelectedNoteWithSteward(std::move(noteNodeId), std::move(intent));
+    });
+    steward_->setTryEditSelectedNoteHandler([this](
+      grapple::foundation::NodeId noteNodeId,
+      std::string intent
+    ) {
+      return editSelectedNoteWithPrimaryIntent(std::move(noteNodeId), std::move(intent));
+    });
+    steward_->setTryCreateNoteHandler([this](std::string intent) {
+      return createNoteWithPrimaryIntent(std::move(intent));
+    });
     steward_->setSelectEditTargetHandler([this](grapple::foundation::NodeId targetNodeId) {
       selectNode(std::move(targetNodeId));
     });
@@ -2673,6 +2688,56 @@ public:
     refreshViewModelAndPreview();
     steward_->setIntent({});
     log_->append("Steward created text clip");
+    return true;
+  }
+
+  bool createNoteWithPrimaryIntent(std::string intent) {
+    if (!workspace_.steward().noteIntentTargetsNote(intent)) {
+      return false;
+    }
+
+    const auto created = workspace_.steward().createNote(std::move(intent));
+    if (!created) {
+      appendError(created.error());
+      refreshViewModel();
+      return true;
+    }
+
+    selectedNodeId_ = created.value().noteNodeId;
+    selectedAssetId_ = std::nullopt;
+    refreshViewModel();
+    steward_->setIntent({});
+    log_->append("Steward created project note");
+    return true;
+  }
+
+  void editSelectedNoteWithSteward(
+    grapple::foundation::NodeId noteNodeId,
+    std::string intent
+  ) {
+    const auto updated = workspace_.steward().editNote(noteNodeId, std::move(intent));
+    if (!updated) {
+      appendError(updated.error());
+      refreshViewModel();
+      return;
+    }
+
+    selectedNodeId_ = noteNodeId;
+    selectedAssetId_ = std::nullopt;
+    refreshViewModel();
+    steward_->setIntent({});
+    log_->append("Steward edited selected note");
+  }
+
+  bool editSelectedNoteWithPrimaryIntent(
+    grapple::foundation::NodeId noteNodeId,
+    std::string intent
+  ) {
+    if (!workspace_.steward().noteEditIntentTargetsNote(intent)) {
+      return false;
+    }
+
+    editSelectedNoteWithSteward(std::move(noteNodeId), std::move(intent));
     return true;
   }
 

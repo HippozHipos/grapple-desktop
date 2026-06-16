@@ -28,6 +28,7 @@ constexpr double TitleTextPositionY = 0.35;
 constexpr double LowerThirdTextPositionY = -0.35;
 constexpr double TitleTextFontSize = 64.0;
 constexpr double LowerThirdTextFontSize = 44.0;
+constexpr std::string_view DefaultNoteTitle{"Project Note"};
 
 std::string lowercaseAscii(std::string value) {
   for (char& character : value) {
@@ -211,6 +212,13 @@ bool textClipIntentRequestsOpacity(const std::string& normalized) {
          containsAsciiWord(normalized, "visible");
 }
 
+bool noteIntentRequestsNote(const std::string& normalized) {
+  return containsAsciiWord(normalized, "note") ||
+         containsAsciiWord(normalized, "notes") ||
+         containsAsciiWord(normalized, "rationale") ||
+         containsAsciiWord(normalized, "reminder");
+}
+
 std::optional<std::string> quotedTextFromIntent(const std::string& intent) {
   for (char quote : {'"', '\''}) {
     const std::size_t start = intent.find(quote);
@@ -250,6 +258,93 @@ std::string unquotedTextFromIntent(const std::string& intent, const std::string&
     }
   }
   return "Title";
+}
+
+std::string unquotedNoteTextFromIntent(const std::string& intent, const std::string& normalized) {
+  for (std::string_view marker : {
+         std::string_view{"that says"},
+         std::string_view{"saying"},
+         std::string_view{"body"},
+         std::string_view{"markdown"},
+         std::string_view{"note"},
+         std::string_view{":"}
+       }) {
+    const std::size_t markerPosition = normalized.find(marker);
+    if (markerPosition == std::string::npos) {
+      continue;
+    }
+    const std::size_t textStart = markerPosition + marker.size();
+    if (textStart < intent.size()) {
+      const std::string text = stripLeadingTextSeparators(intent.substr(textStart));
+      if (!text.empty()) {
+        return text;
+      }
+    }
+  }
+  return stripLeadingTextSeparators(intent);
+}
+
+std::optional<std::string> noteTitleEditFromIntent(const std::string& intent, const std::string& normalized) {
+  if (!containsAsciiWord(normalized, "title") &&
+      !containsAsciiWord(normalized, "rename")) {
+    return std::nullopt;
+  }
+  if (auto quoted = quotedTextFromIntent(intent)) {
+    return quoted.value();
+  }
+  for (std::string_view marker : {
+         std::string_view{"change title to"},
+         std::string_view{"set title to"},
+         std::string_view{"rename note to"},
+         std::string_view{"title"}
+       }) {
+    const std::size_t markerPosition = normalized.find(marker);
+    if (markerPosition == std::string::npos) {
+      continue;
+    }
+    const std::size_t textStart = markerPosition + marker.size();
+    if (textStart < intent.size()) {
+      const std::string title = stripLeadingTextSeparators(intent.substr(textStart));
+      if (!title.empty()) {
+        return title;
+      }
+    }
+  }
+  return std::nullopt;
+}
+
+std::optional<std::string> noteMarkdownEditFromIntent(const std::string& intent, const std::string& normalized) {
+  if (containsAsciiWord(normalized, "title") ||
+      containsAsciiWord(normalized, "rename")) {
+    return std::nullopt;
+  }
+  if (auto quoted = quotedTextFromIntent(intent)) {
+    return quoted.value();
+  }
+  for (std::string_view marker : {
+         std::string_view{"change body to"},
+         std::string_view{"set body to"},
+         std::string_view{"change markdown to"},
+         std::string_view{"set markdown to"},
+         std::string_view{"body"},
+         std::string_view{"markdown"},
+         std::string_view{"that says"},
+         std::string_view{"saying"},
+         std::string_view{"to"}
+       }) {
+    const std::size_t markerPosition = normalized.find(marker);
+    if (markerPosition == std::string::npos) {
+      continue;
+    }
+    const std::size_t textStart = markerPosition + marker.size();
+    if (textStart < intent.size()) {
+      const std::string markdown = stripLeadingTextSeparators(intent.substr(textStart));
+      if (!markdown.empty()) {
+        return markdown;
+      }
+    }
+  }
+  return std::nullopt;
 }
 
 std::optional<std::string> editedTextFromIntent(const std::string& intent, const std::string& normalized) {
@@ -807,6 +902,57 @@ foundation::Result<TextClipEditIntent> NativeStewardPlanner::textClipEditForInte
   }
 
   return TextClipEditIntent{payload, changed};
+}
+
+bool NativeStewardPlanner::noteIntentTargetsNote(const std::string& intent) const {
+  return noteIntentRequestsNote(lowercaseAscii(intent));
+}
+
+NoteIntentDefaults NativeStewardPlanner::noteDefaultsForIntent(const std::string& intent) const {
+  const std::string normalized = lowercaseAscii(intent);
+  NoteIntentDefaults defaults;
+  defaults.title = quotedTextFromIntent(intent).value_or(std::string{DefaultNoteTitle});
+  defaults.markdown = unquotedNoteTextFromIntent(intent, normalized);
+  if (defaults.markdown.empty()) {
+    defaults.markdown = defaults.title;
+  }
+  return defaults;
+}
+
+bool NativeStewardPlanner::noteEditIntentTargetsNote(const std::string& intent) const {
+  const std::string normalized = lowercaseAscii(intent);
+  return noteIntentRequestsNote(normalized) ||
+         containsAsciiWord(normalized, "title") ||
+         containsAsciiWord(normalized, "rename") ||
+         containsAsciiWord(normalized, "body") ||
+         containsAsciiWord(normalized, "markdown");
+}
+
+foundation::Result<NoteEditIntent> NativeStewardPlanner::noteEditForIntent(
+  const timeline::NotePayload& current,
+  const std::string& intent
+) const {
+  const std::string normalized = lowercaseAscii(intent);
+  timeline::NotePayload payload = current;
+  bool changed = false;
+
+  if (auto title = noteTitleEditFromIntent(intent, normalized)) {
+    payload.title = title.value();
+    changed = changed || payload.title != current.title;
+  }
+  if (auto markdown = noteMarkdownEditFromIntent(intent, normalized)) {
+    payload.markdown = markdown.value();
+    changed = changed || payload.markdown != current.markdown;
+  }
+
+  if (!changed) {
+    return foundation::Error{
+      "steward.note_edit_intent_unknown",
+      "Note edit requests must explicitly change the note title or body."
+    };
+  }
+
+  return NoteEditIntent{payload, changed};
 }
 
 foundation::Result<ClipEditIntent> NativeStewardPlanner::clipEditForIntent(

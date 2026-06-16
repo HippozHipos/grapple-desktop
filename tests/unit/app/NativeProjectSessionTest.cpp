@@ -5,6 +5,7 @@
 #include <grapple/app/NativeProjectCommandWriter.hpp>
 #include <grapple/app/NativeProjectSession.hpp>
 #include <grapple/app/NativeStewardPlanner.hpp>
+#include <grapple/app/NativeStewardSession.hpp>
 #include <grapple/app/NativeWorkspaceSession.hpp>
 #include <grapple/asset/Asset.hpp>
 #include <grapple/foundation/Hash.hpp>
@@ -385,6 +386,24 @@ int main() {
   GRAPPLE_REQUIRE(textClipPlacementEdit.value().payload.transform.position.y == 0.2);
   GRAPPLE_REQUIRE(textClipPlacementEdit.value().payload.timelineRange.end == foundation::TimeSeconds{2.0});
   GRAPPLE_REQUIRE(textClipPlacementEdit.value().payload.transform.opacity == 0.5);
+  GRAPPLE_REQUIRE(stewardPlanner.noteIntentTargetsNote("Add note \"Camera rationale\" saying Keep zoom editable."));
+  GRAPPLE_REQUIRE(!stewardPlanner.noteIntentTargetsNote("slowly pan right"));
+  const app::NoteIntentDefaults noteDefaults =
+    stewardPlanner.noteDefaultsForIntent("Add note \"Camera rationale\" saying Keep zoom editable.");
+  GRAPPLE_REQUIRE(noteDefaults.title == "Camera rationale");
+  GRAPPLE_REQUIRE(noteDefaults.markdown == "Keep zoom editable");
+  const timeline::NotePayload plannedNote{"Camera rationale", "Keep the offset editable."};
+  GRAPPLE_REQUIRE(stewardPlanner.noteEditIntentTargetsNote("Update note to \"Keep camera controls editable.\""));
+  const auto noteBodyEdit =
+    stewardPlanner.noteEditForIntent(plannedNote, "Update note to \"Keep camera controls editable.\"");
+  GRAPPLE_REQUIRE(noteBodyEdit);
+  GRAPPLE_REQUIRE(noteBodyEdit.value().payload.title == "Camera rationale");
+  GRAPPLE_REQUIRE(noteBodyEdit.value().payload.markdown == "Keep camera controls editable.");
+  const auto noteTitleEdit =
+    stewardPlanner.noteEditForIntent(plannedNote, "Rename note to \"Camera Notes\"");
+  GRAPPLE_REQUIRE(noteTitleEdit);
+  GRAPPLE_REQUIRE(noteTitleEdit.value().payload.title == "Camera Notes");
+  GRAPPLE_REQUIRE(noteTitleEdit.value().payload.markdown == "Keep the offset editable.");
 
   const std::filesystem::path appPackageRoot =
     std::filesystem::temp_directory_path() /
@@ -3054,6 +3073,30 @@ int main() {
   GRAPPLE_REQUIRE(notesResult->notes[0].nodeId == foundation::NodeId{"node_note_1"});
   GRAPPLE_REQUIRE(notesResult->notes[0].title == "Camera rationale");
   GRAPPLE_REQUIRE(notesResult->notes[0].markdown == "Keep the camera offset exposed as a parameter.");
+  app::NativeStewardSession noteSteward{noteSession, noteWriter};
+  auto stewardNote = noteSteward.createNote("Add note \"Edit rationale\" saying Keep the crop user-editable.");
+  GRAPPLE_REQUIRE(stewardNote);
+  GRAPPLE_REQUIRE(stewardNote.value().noteNodeId == foundation::NodeId{"node_note_2"});
+  auto stewardNoteEdit = noteSteward.editNote(
+    stewardNote.value().noteNodeId,
+    "Update note to \"Keep the crop exposed as an editable control.\""
+  );
+  GRAPPLE_REQUIRE(stewardNoteEdit);
+  const auto stewardNoteViewModel = noteSession.buildViewModel();
+  GRAPPLE_REQUIRE(stewardNoteViewModel);
+  GRAPPLE_REQUIRE(stewardNoteViewModel.value().notes.rows.size() == 2);
+  GRAPPLE_REQUIRE(stewardNoteViewModel.value().notes.rows[1].sourceNodeId == foundation::NodeId{"node_note_2"});
+  GRAPPLE_REQUIRE(stewardNoteViewModel.value().notes.rows[1].title == "Edit rationale");
+  GRAPPLE_REQUIRE(stewardNoteViewModel.value().notes.rows[1].markdown == "Keep the crop exposed as an editable control.");
+  GRAPPLE_REQUIRE(stewardNoteViewModel.value().steward.edits.size() == 2);
+  GRAPPLE_REQUIRE(stewardNoteViewModel.value().steward.edits[0].editName == "Note");
+  GRAPPLE_REQUIRE(stewardNoteViewModel.value().steward.edits[1].editName == "Note");
+  const auto stewardNoteConversation = noteSteward.conversationState();
+  GRAPPLE_REQUIRE(stewardNoteConversation.runs.size() == 2);
+  GRAPPLE_REQUIRE(stewardNoteConversation.runs[0].toolCalls.size() == 1);
+  GRAPPLE_REQUIRE(stewardNoteConversation.runs[0].toolCalls[0].toolSerializedId == "note.create");
+  GRAPPLE_REQUIRE(stewardNoteConversation.runs[1].toolCalls.size() == 1);
+  GRAPPLE_REQUIRE(stewardNoteConversation.runs[1].toolCalls[0].toolSerializedId == "note.update");
 
   const std::string workspacePackageStem =
     "grapple_workspace_package_" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count());

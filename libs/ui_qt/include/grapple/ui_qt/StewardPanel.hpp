@@ -29,6 +29,9 @@ public:
   using EditSelectedTextClipHandler = std::function<void(foundation::NodeId, std::string)>;
   using TryEditSelectedTextClipHandler = std::function<bool(foundation::NodeId, std::string)>;
   using TryCreateTextClipHandler = std::function<bool(std::string)>;
+  using EditSelectedNoteHandler = std::function<void(foundation::NodeId, std::string)>;
+  using TryEditSelectedNoteHandler = std::function<bool(foundation::NodeId, std::string)>;
+  using TryCreateNoteHandler = std::function<bool(std::string)>;
   using SelectEditTargetHandler = std::function<void(foundation::NodeId)>;
 
   explicit StewardPanel(QWidget* parent = nullptr);
@@ -44,6 +47,9 @@ public:
   void setEditSelectedTextClipHandler(EditSelectedTextClipHandler handler);
   void setTryEditSelectedTextClipHandler(TryEditSelectedTextClipHandler handler);
   void setTryCreateTextClipHandler(TryCreateTextClipHandler handler);
+  void setEditSelectedNoteHandler(EditSelectedNoteHandler handler);
+  void setTryEditSelectedNoteHandler(TryEditSelectedNoteHandler handler);
+  void setTryCreateNoteHandler(TryCreateNoteHandler handler);
   void setSelectEditTargetHandler(SelectEditTargetHandler handler);
   void setViewModel(
     const app::AppViewModel& viewModel,
@@ -82,7 +88,9 @@ private:
   void updateIntentPlaceholder();
   [[nodiscard]] bool tryEditSelectedClipFromPrimaryAction();
   [[nodiscard]] bool tryEditSelectedTextClipFromPrimaryAction();
+  [[nodiscard]] bool tryEditSelectedNoteFromPrimaryAction();
   [[nodiscard]] bool tryCreateTextClipFromPrimaryAction();
+  [[nodiscard]] bool tryCreateNoteFromPrimaryAction();
   [[nodiscard]] bool intentHasText() const;
   [[nodiscard]] bool primaryActionCanRun() const;
   [[nodiscard]] bool selectedClipActionCanRun() const;
@@ -98,11 +106,15 @@ private:
   EditSelectedTextClipHandler editSelectedTextClipHandler_;
   TryEditSelectedTextClipHandler tryEditSelectedTextClipHandler_;
   TryCreateTextClipHandler tryCreateTextClipHandler_;
+  EditSelectedNoteHandler editSelectedNoteHandler_;
+  TryEditSelectedNoteHandler tryEditSelectedNoteHandler_;
+  TryCreateNoteHandler tryCreateNoteHandler_;
   SelectEditTargetHandler selectEditTargetHandler_;
   PrimaryAction primaryAction_ = PrimaryAction::Disabled;
   std::optional<foundation::NodeId> primaryTargetCameraNodeId_;
   std::optional<foundation::NodeId> selectedClipTargetNodeId_;
   std::optional<foundation::NodeId> selectedTextClipTargetNodeId_;
+  std::optional<foundation::NodeId> selectedNoteTargetNodeId_;
   QTextEdit* intent_ = nullptr;
   QPushButton* primaryActionButton_ = nullptr;
   QPushButton* selectedClipActionButton_ = nullptr;
