@@ -187,6 +187,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   bool stewardZoomMotionSmoke = false;
   bool stewardClipTransformSmoke = false;
   bool stewardDeleteClipSmoke = false;
+  bool stewardDeleteCameraControlsSmoke = false;
   bool deleteEffectSmoke = false;
   bool deleteSmoke = false;
   bool deleteTrackSmoke = false;
@@ -278,6 +279,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       stewardClipTransformSmoke = true;
     } else if (argument == "--steward-delete-clip-smoke") {
       stewardDeleteClipSmoke = true;
+    } else if (argument == "--steward-delete-camera-controls-smoke") {
+      stewardDeleteCameraControlsSmoke = true;
     } else if (argument == "--delete-effect-smoke") {
       deleteEffectSmoke = true;
     } else if (argument == "--delete-smoke") {
@@ -309,7 +312,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     } else if (argument == "--effect-screenshot" && index + 1 < argc) {
       effectScreenshotPath = argv[++index];
     } else {
-      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --select-audio-clip-smoke, --select-audio-track-smoke, --select-camera-smoke, --select-second-camera-smoke, --steward-smoke, --import-smoke, --import-media-types-smoke, --add-video-smoke, --empty-add-video-smoke, --empty-add-video-undo-smoke, --empty-add-text-smoke, --empty-add-track-smoke, --empty-add-camera-smoke, --update-camera-smoke, --add-note-smoke, --update-note-smoke, --move-clip-smoke, --trim-clip-smoke, --clip-timing-panel-smoke, --nudge-clip-smoke, --undo-redo-smoke, --add-effect-smoke, --clip-effect-controls-smoke, --steward-submit-shortcut-smoke, --steward-text-clip-smoke, --steward-note-smoke, --set-effect-param-smoke, --effect-keyframe-smoke, --steward-motion-smoke, --steward-zoom-motion-smoke, --steward-clip-transform-smoke, --steward-delete-clip-smoke, --delete-effect-smoke, --delete-smoke, --delete-track-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, --new-package-smoke, --export-settings-smoke, --product-loop-smoke, --empty-launch-smoke, --empty-save-smoke, --open-package <path>, --new-package <path>, --screenshot <path>, or --effect-screenshot <path>.\n";
+      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --select-audio-clip-smoke, --select-audio-track-smoke, --select-camera-smoke, --select-second-camera-smoke, --steward-smoke, --import-smoke, --import-media-types-smoke, --add-video-smoke, --empty-add-video-smoke, --empty-add-video-undo-smoke, --empty-add-text-smoke, --empty-add-track-smoke, --empty-add-camera-smoke, --update-camera-smoke, --add-note-smoke, --update-note-smoke, --move-clip-smoke, --trim-clip-smoke, --clip-timing-panel-smoke, --nudge-clip-smoke, --undo-redo-smoke, --add-effect-smoke, --clip-effect-controls-smoke, --steward-submit-shortcut-smoke, --steward-text-clip-smoke, --steward-note-smoke, --set-effect-param-smoke, --effect-keyframe-smoke, --steward-motion-smoke, --steward-zoom-motion-smoke, --steward-clip-transform-smoke, --steward-delete-clip-smoke, --steward-delete-camera-controls-smoke, --delete-effect-smoke, --delete-smoke, --delete-track-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, --new-package-smoke, --export-settings-smoke, --product-loop-smoke, --empty-launch-smoke, --empty-save-smoke, --open-package <path>, --new-package <path>, --screenshot <path>, or --effect-screenshot <path>.\n";
       return 1;
     }
   }
@@ -372,6 +375,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     emptyAddVideoUndoSmoke ||
     productLoopSmoke ||
     stewardDeleteClipSmoke ||
+    stewardDeleteCameraControlsSmoke ||
     stewardClipTransformSmoke;
 
   if (needsStarterDemoVideo) {
@@ -2768,6 +2772,51 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            steward.find("Delete Timeline Clip -> succeeded") != std::string::npos &&
            log.find("Steward added selected media to timeline") != std::string::npos &&
            log.find("Steward deleted selected clip") != std::string::npos
+      ? 0
+      : 1;
+  }
+
+  if (stewardDeleteCameraControlsSmoke) {
+    window.show();
+    app.processEvents();
+    window.importMediaFile(grapple::foundation::FilePath{starterVideoPath.string()});
+    window.clickStewardPrimaryAction();
+    window.setStewardIntent("Create editable camera controls.");
+    window.clickStewardPrimaryAction();
+    window.setStewardIntent("Remove camera controls.");
+    window.clickStewardPrimaryAction();
+    const auto viewModel = workspace.value().project().buildViewModel();
+    if (!viewModel) {
+      printError(viewModel.error());
+      return 1;
+    }
+    const auto conversation = workspace.value().steward().conversationState();
+    const std::string steward = window.stewardContents();
+    const std::string inspector = window.inspectorContents();
+    const std::string log = window.logContents();
+    std::cout << "revision=" << viewModel.value().project.revision.value() << '\n';
+    std::cout << "effectGraphs=" << viewModel.value().timeline.effectGraphs.size() << '\n';
+    std::cout << "runs=" << conversation.runs.size() << '\n';
+    std::cout << "steward=" << steward << '\n';
+    std::cout << "inspector=" << inspector << '\n';
+    std::cout << "log=" << log << '\n';
+    return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_4"} &&
+           viewModel.value().timeline.effectGraphs.empty() &&
+           viewModel.value().steward.edits.size() == 3 &&
+           viewModel.value().steward.edits[2].editName == "Camera Transform Delete" &&
+           viewModel.value().steward.edits[2].controlSummary == "Deleted" &&
+           window.stewardIntent().empty() &&
+           conversation.runs.size() == 3 &&
+           conversation.runs[1].toolCalls.size() == 1 &&
+           conversation.runs[1].toolCalls[0].toolSerializedId == "effect.create_node" &&
+           conversation.runs[2].toolCalls.size() == 1 &&
+           conversation.runs[2].toolCalls[0].toolSerializedId == "effect.delete_node" &&
+           steward.find("Camera Transform Delete") != std::string::npos &&
+           steward.find("Delete Effect Node -> succeeded") != std::string::npos &&
+           inspector.find("Camera\nName: Camera") != std::string::npos &&
+           inspector.find("No effects attached.") != std::string::npos &&
+           log.find("Steward applied camera edit") != std::string::npos &&
+           log.find("Steward deleted camera controls") != std::string::npos
       ? 0
       : 1;
   }

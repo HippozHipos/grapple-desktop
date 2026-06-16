@@ -772,6 +772,12 @@ public:
       showEffectControls();
     });
     steward_->setCreateCameraEffectHandler([this](std::string intent) { addEffectToSelectedTarget(std::move(intent)); });
+    steward_->setTryDeleteCameraControlsHandler([this](
+      grapple::foundation::NodeId cameraNodeId,
+      std::string intent
+    ) {
+      return deleteCameraControlsWithPrimaryIntent(std::move(cameraNodeId), std::move(intent));
+    });
     steward_->setAdjustCameraControlsHandler([this](
       grapple::foundation::NodeId cameraNodeId,
       std::string intent
@@ -2612,6 +2618,36 @@ public:
     refreshViewModelAndPreview();
     steward_->setIntent({});
     log_->append("Steward applied camera edit");
+  }
+
+  void deleteCameraControlsWithSteward(
+    grapple::foundation::NodeId cameraNodeId,
+    std::string intent
+  ) {
+    const auto deleted = workspace_.steward().deleteCameraTransformEffect(cameraNodeId, std::move(intent));
+    if (!deleted) {
+      appendError(deleted.error());
+      refreshViewModel();
+      return;
+    }
+
+    selectedNodeId_ = cameraNodeId;
+    selectedAssetId_ = std::nullopt;
+    refreshViewModelAndPreview();
+    steward_->setIntent({});
+    log_->append("Steward deleted camera controls");
+  }
+
+  bool deleteCameraControlsWithPrimaryIntent(
+    grapple::foundation::NodeId cameraNodeId,
+    std::string intent
+  ) {
+    if (!workspace_.steward().cameraTransformDeleteIntentTargetsCameraControls(intent)) {
+      return false;
+    }
+
+    deleteCameraControlsWithSteward(std::move(cameraNodeId), std::move(intent));
+    return true;
   }
 
   void editSelectedClipWithSteward(

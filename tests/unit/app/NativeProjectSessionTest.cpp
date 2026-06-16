@@ -224,6 +224,10 @@ int main() {
   GRAPPLE_REQUIRE(farPanRightMotion->startValue == 0.0);
   GRAPPLE_REQUIRE(farPanRightMotion->endValue == 0.5);
   GRAPPLE_REQUIRE(farPanRightMotion->endTime == foundation::TimeSeconds{4.0});
+  GRAPPLE_REQUIRE(stewardPlanner.cameraTransformDeleteIntentTargetsCameraControls("remove camera controls"));
+  GRAPPLE_REQUIRE(stewardPlanner.cameraTransformDeleteIntentTargetsCameraControls("delete framing effect"));
+  GRAPPLE_REQUIRE(!stewardPlanner.cameraTransformDeleteIntentTargetsCameraControls("reset camera"));
+  GRAPPLE_REQUIRE(!stewardPlanner.cameraTransformDeleteIntentTargetsCameraControls("move camera right"));
   timeline::Transform2D plannedClipInputTransform;
   const timeline::ClipPayload plannedClipInput{
     timeline::ClipKind::Video,
@@ -1685,6 +1689,79 @@ int main() {
   GRAPPLE_REQUIRE(stewardDeleteViewModel.value().steward.edits[1].intent == "Delete selected clip.");
   GRAPPLE_REQUIRE(stewardDeleteViewModel.value().steward.edits[1].controlSummary == "Deleted");
   std::filesystem::remove_all(stewardDeletePackageRoot);
+
+  app::NativeProjectSession stewardDeleteEffectProject{
+    foundation::ProjectId{"proj_app_steward_delete_effect"},
+    "Steward Delete Effect Project",
+    storage::ProjectPackage{
+      foundation::ProjectId{"proj_app_steward_delete_effect"},
+      foundation::FilePath{"steward-delete-effect-app.grapple"},
+      storage::CurrentProjectPackageSchemaVersion
+    }
+  };
+  auto stewardDeleteEffectWorkspace = app::NativeWorkspaceSession::fromProject(std::move(stewardDeleteEffectProject));
+  GRAPPLE_REQUIRE(stewardDeleteEffectWorkspace);
+  const foundation::NodeId stewardDeleteEffectCompositionNodeId =
+    stewardDeleteEffectWorkspace.value().commandWriter().nextNodeId("composition");
+  const auto stewardDeleteEffectComposition = stewardDeleteEffectWorkspace.value().commandWriter().apply(
+    project::CreateCompositionCommand{stewardDeleteEffectCompositionNodeId, "Delete Effect Main"},
+    userSource()
+  );
+  GRAPPLE_REQUIRE(stewardDeleteEffectComposition);
+  const foundation::NodeId stewardDeleteEffectCameraNodeId =
+    stewardDeleteEffectWorkspace.value().commandWriter().nextNodeId("camera");
+  const auto stewardDeleteEffectCamera = stewardDeleteEffectWorkspace.value().commandWriter().apply(
+    project::CreateCameraCommand{
+      stewardDeleteEffectCameraNodeId,
+      stewardDeleteEffectCompositionNodeId,
+      stewardDeleteEffectWorkspace.value().commandWriter().nextEdgeId("contains camera"),
+      timeline::CameraPayload{
+        "Camera",
+        timeline::CameraState{
+          timeline::Transform2D{},
+          timeline::CameraLens{35.0}
+        }
+      }
+    },
+    userSource()
+  );
+  GRAPPLE_REQUIRE(stewardDeleteEffectCamera);
+  const auto stewardCreatedEffect = stewardDeleteEffectWorkspace.value().steward().createCameraTransformEffect(
+    stewardDeleteEffectCameraNodeId,
+    "Create editable camera controls.",
+    foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{4.0}}
+  );
+  GRAPPLE_REQUIRE(stewardCreatedEffect);
+  const auto stewardDeletedEffect = stewardDeleteEffectWorkspace.value().steward().deleteCameraTransformEffect(
+    stewardDeleteEffectCameraNodeId,
+    "Remove camera controls."
+  );
+  GRAPPLE_REQUIRE(stewardDeletedEffect);
+  GRAPPLE_REQUIRE(stewardDeletedEffect.value().snapshot.revision == foundation::RevisionId{"rev_4"});
+  const agent::AgentConversationState stewardDeleteEffectConversation =
+    stewardDeleteEffectWorkspace.value().steward().conversationState();
+  GRAPPLE_REQUIRE(stewardDeleteEffectConversation.diagnostics.empty());
+  GRAPPLE_REQUIRE(stewardDeleteEffectConversation.runs.size() == 2);
+  GRAPPLE_REQUIRE(stewardDeleteEffectConversation.runs[1].status == agent::AgentRunStatus::Succeeded);
+  GRAPPLE_REQUIRE(stewardDeleteEffectConversation.runs[1].summary == "Deleted Camera Transform controls.");
+  GRAPPLE_REQUIRE(stewardDeleteEffectConversation.runs[1].messages.size() == 1);
+  GRAPPLE_REQUIRE(stewardDeleteEffectConversation.runs[1].messages[0].content == "Deleting the Camera Transform controls.");
+  GRAPPLE_REQUIRE(stewardDeleteEffectConversation.runs[1].toolCalls.size() == 1);
+  GRAPPLE_REQUIRE(stewardDeleteEffectConversation.runs[1].toolCalls[0].toolSerializedId == "effect.delete_node");
+  GRAPPLE_REQUIRE(stewardDeleteEffectConversation.runs[1].toolCalls[0].toolDisplayName == "Delete Effect Node");
+  GRAPPLE_REQUIRE(stewardDeleteEffectConversation.runs[1].toolCalls[0].toolCallId == foundation::ToolId{"tool_steward_delete_effect_2"});
+  GRAPPLE_REQUIRE(stewardDeleteEffectConversation.runs[1].toolCalls[0].observedRevision == foundation::RevisionId{"rev_4"});
+  const auto stewardDeleteEffectViewModel = stewardDeleteEffectWorkspace.value().project().buildViewModel();
+  GRAPPLE_REQUIRE(stewardDeleteEffectViewModel);
+  GRAPPLE_REQUIRE(stewardDeleteEffectViewModel.value().timeline.effectGraphs.empty());
+  GRAPPLE_REQUIRE(!app::cameraHasTransformEffect(stewardDeleteEffectViewModel.value(), stewardDeleteEffectCameraNodeId));
+  GRAPPLE_REQUIRE(stewardDeleteEffectViewModel.value().steward.edits.size() == 2);
+  GRAPPLE_REQUIRE(stewardDeleteEffectViewModel.value().steward.edits[1].revision == foundation::RevisionId{"rev_4"});
+  GRAPPLE_REQUIRE(stewardDeleteEffectViewModel.value().steward.edits[1].targetNodeId == stewardDeleteEffectCameraNodeId);
+  GRAPPLE_REQUIRE(stewardDeleteEffectViewModel.value().steward.edits[1].targetName == "Camera");
+  GRAPPLE_REQUIRE(stewardDeleteEffectViewModel.value().steward.edits[1].editName == "Camera Transform Delete");
+  GRAPPLE_REQUIRE(stewardDeleteEffectViewModel.value().steward.edits[1].intent == "Remove camera controls.");
+  GRAPPLE_REQUIRE(stewardDeleteEffectViewModel.value().steward.edits[1].controlSummary == "Deleted");
 
   app::NativeProjectSession runtimeProject{
     foundation::ProjectId{"proj_app_runtime"},

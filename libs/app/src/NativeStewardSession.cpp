@@ -24,6 +24,7 @@ namespace grapple::app {
 namespace {
 
 constexpr const char CanonicalEffectCreateNodeToolId[] = "effect.create_node";
+constexpr const char CanonicalEffectDeleteNodeToolId[] = "effect.delete_node";
 constexpr const char CanonicalEffectCreateParamKeyframeToolId[] = "effect.create_param_keyframe";
 constexpr const char CanonicalEffectUpdateParamKeyframeToolId[] = "effect.update_param_keyframe";
 constexpr const char CanonicalPlaceAssetToolId[] = "timeline.place_asset";
@@ -110,6 +111,14 @@ std::string cameraTransformEffectCreateArgumentsPayload(
   return arguments.str();
 }
 
+std::string effectDeleteArgumentsPayload(const foundation::NodeId& effectNodeId) {
+  std::ostringstream arguments;
+  arguments << '{';
+  foundation::writeJsonStringProperty(arguments, "effectNodeId", effectNodeId.value());
+  arguments << '}';
+  return arguments.str();
+}
+
 std::string effectCreateParamKeyframeArgumentsPayload(
   const foundation::NodeId& effectNodeId,
   const std::string& paramName,
@@ -185,6 +194,10 @@ std::int64_t stewardRunNumber(const foundation::RunId& runId) {
 
 foundation::ToolId stewardToolCallIdForRun(const foundation::RunId& runId) {
   return foundation::ToolId{"tool_steward_camera_transform_" + std::to_string(stewardRunNumber(runId))};
+}
+
+foundation::ToolId stewardDeleteEffectToolCallIdForRun(const foundation::RunId& runId) {
+  return foundation::ToolId{"tool_steward_delete_effect_" + std::to_string(stewardRunNumber(runId))};
 }
 
 foundation::ToolId stewardKeyframeToolCallIdForRun(const foundation::RunId& runId, std::int64_t index) {
@@ -1358,6 +1371,10 @@ bool NativeStewardSession::noteEditIntentTargetsNote(const std::string& intent) 
   return planner_.noteEditIntentTargetsNote(intent);
 }
 
+bool NativeStewardSession::cameraTransformDeleteIntentTargetsCameraControls(const std::string& intent) const {
+  return planner_.cameraTransformDeleteIntentTargetsCameraControls(intent);
+}
+
 foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::adjustCameraTransformControls(
   foundation::NodeId cameraNodeId,
   std::string intent,
@@ -1769,6 +1786,98 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::c
         ? "Created editable Camera Transform parameters and motion keyframes."
         : "Created editable Camera Transform parameters."
     )
+  );
+  if (!runFinished) {
+    return runFinished.error();
+  }
+
+  markRunStatus(runId.value(), agent::AgentRunStatus::Succeeded);
+  return packageResult.value();
+}
+
+foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::deleteCameraTransformEffect(
+  foundation::NodeId cameraNodeId,
+  std::string intent
+) {
+  auto snapshot = project_.snapshot();
+  if (!snapshot) {
+    return snapshot.error();
+  }
+
+  if (!planner_.cameraTransformDeleteIntentTargetsCameraControls(intent)) {
+    return foundation::Error{
+      "steward.camera_transform_delete_intent_mismatch",
+      "Deleting Camera Transform controls requires an explicit delete or remove request for camera controls."
+    };
+  }
+
+  foundation::NodeId effectNodeId;
+  if (planner_.cameraTransformEffectPayload(snapshot.value(), cameraNodeId, effectNodeId) == nullptr) {
+    return foundation::Error{
+      "steward.camera_transform_missing",
+      "Deleting Camera Transform controls requires existing Camera Transform controls."
+    };
+  }
+
+  auto runId = startRun(snapshot.value(), intent);
+  if (!runId) {
+    return runId.error();
+  }
+
+  auto message = appendEvent(
+    runId.value(),
+    agent::AgentRunEventKind::ModelMessage,
+    modelMessagePayload("assistant", "Deleting the Camera Transform controls.")
+  );
+  if (!message) {
+    return message.error();
+  }
+
+  std::optional<storage::ProjectPackageSessionResult> packageResult;
+  CommittingAgentCommandService stewardCommands{project_, commandWriter_, intent, packageResult};
+  agent::AgentToolRegistry registry;
+  auto registered = agent::registerProjectTools(registry);
+  if (!registered) {
+    auto finished = finishRunWithError(runId.value(), registered.error());
+    if (!finished) {
+      return finished.error();
+    }
+    return registered.error();
+  }
+
+  agent::AgentToolContext toolContext{stewardCommands, project_, commandWriter_};
+  agent::AgentBridge bridge{registry, toolContext, events_, nextSequence_};
+  auto dispatched = bridge.dispatchToolCall(agent::AgentToolDispatchRequest{
+    runId.value(),
+    snapshot.value().info.id,
+    snapshot.value().revision,
+    stewardDeleteEffectToolCallIdForRun(runId.value()),
+    CanonicalEffectDeleteNodeToolId,
+    effectDeleteArgumentsPayload(effectNodeId)
+  });
+  if (!dispatched) {
+    auto finished = finishRunWithError(runId.value(), dispatched.error());
+    if (!finished) {
+      return finished.error();
+    }
+    return dispatched.error();
+  }
+  if (!packageResult.has_value()) {
+    const foundation::Error error{
+      "steward.camera_transform_delete_result_missing",
+      "Steward Camera Transform delete tool succeeded without a committed package result."
+    };
+    auto finished = finishRunWithError(runId.value(), error);
+    if (!finished) {
+      return finished.error();
+    }
+    return error;
+  }
+
+  auto runFinished = appendEvent(
+    runId.value(),
+    agent::AgentRunEventKind::RunFinished,
+    runFinishedPayload("succeeded", "Deleted Camera Transform controls.")
   );
   if (!runFinished) {
     return runFinished.error();

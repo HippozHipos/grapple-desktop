@@ -233,6 +233,27 @@ foundation::Result<EffectTargetDisplay> effectTargetDisplay(
   };
 }
 
+foundation::Result<EffectTargetDisplay> effectTargetDisplayAtRevision(
+  const std::vector<project::ProjectSnapshot>& snapshotDocuments,
+  const foundation::RevisionId& revision,
+  const foundation::NodeId& effectNodeId
+) {
+  const auto snapshot = std::find_if(
+    snapshotDocuments.begin(),
+    snapshotDocuments.end(),
+    [&](const project::ProjectSnapshot& value) {
+      return value.revision == revision;
+    }
+  );
+  if (snapshot == snapshotDocuments.end()) {
+    return foundation::Error{
+      "app.snapshot_revision_missing",
+      "Effect provenance requires the snapshot at revision " + revision.value() + "."
+    };
+  }
+  return effectTargetDisplay(*snapshot, effectNodeId);
+}
+
 std::string effectParamLabel(
   const project::ProjectSnapshot& snapshot,
   const foundation::NodeId& effectNodeId,
@@ -782,6 +803,20 @@ foundation::Result<AppCommandProvenance> appCommandProvenance(
           deleteClip->nodeId,
           targetName.value(),
           "Clip Delete",
+          intent,
+          "Deleted"
+        });
+      } else if (const auto* deleteEffect = std::get_if<project::DeleteEffectCommand>(&parsedCommand.value())) {
+        auto targetDisplay = effectTargetDisplayAtRevision(snapshotDocuments, command.beforeRevision, deleteEffect->nodeId);
+        if (!targetDisplay) {
+          return targetDisplay.error();
+        }
+        provenance.stewardEdits.push_back(AppStewardEditRow{
+          command.id,
+          command.afterRevision,
+          targetDisplay.value().targetNodeId,
+          targetDisplay.value().targetName,
+          targetDisplay.value().effectName + " Delete",
           intent,
           "Deleted"
         });

@@ -275,6 +275,9 @@ StewardPanel::StewardPanel(QWidget* parent)
     if (tryCreateNoteFromPrimaryAction()) {
       return;
     }
+    if (tryDeleteCameraControlsFromPrimaryAction()) {
+      return;
+    }
 
     switch (primaryAction_) {
       case PrimaryAction::AddCamera:
@@ -392,6 +395,10 @@ void StewardPanel::setShowCameraControlsHandler(ShowCameraControlsHandler handle
 
 void StewardPanel::setCreateCameraEffectHandler(CreateCameraEffectHandler handler) {
   createCameraEffectHandler_ = std::move(handler);
+}
+
+void StewardPanel::setTryDeleteCameraControlsHandler(TryDeleteCameraControlsHandler handler) {
+  tryDeleteCameraControlsHandler_ = std::move(handler);
 }
 
 void StewardPanel::setAdjustCameraControlsHandler(AdjustCameraControlsHandler handler) {
@@ -794,6 +801,20 @@ bool StewardPanel::tryDeleteSelectedClipFromPrimaryAction() {
     return tryDeleteSelectedClipHandler_(selectedTextClipTargetNodeId_.value(), intent());
   }
   return false;
+}
+
+bool StewardPanel::tryDeleteCameraControlsFromPrimaryAction() {
+  if (!intentHasText() ||
+      !tryDeleteCameraControlsHandler_ ||
+      !primaryTargetCameraNodeId_.has_value()) {
+    return false;
+  }
+  if (primaryAction_ != PrimaryAction::AdjustCameraControls &&
+      primaryAction_ != PrimaryAction::ShowCameraControls) {
+    return false;
+  }
+
+  return tryDeleteCameraControlsHandler_(primaryTargetCameraNodeId_.value(), intent());
 }
 
 bool StewardPanel::tryEditSelectedClipFromPrimaryAction() {

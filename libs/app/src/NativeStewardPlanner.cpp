@@ -182,6 +182,20 @@ bool cameraIntentRequestsReset(const std::string& normalized) {
   return containsAsciiWord(normalized, "reset");
 }
 
+bool cameraTransformDeleteIntentRequestsControls(const std::string& normalized) {
+  const bool deleteRequested =
+    containsAsciiWord(normalized, "delete") ||
+    containsAsciiWord(normalized, "remove");
+  if (!deleteRequested) {
+    return false;
+  }
+  return containsAsciiWord(normalized, "camera") ||
+         containsAsciiWord(normalized, "control") ||
+         containsAsciiWord(normalized, "controls") ||
+         containsAsciiWord(normalized, "effect") ||
+         containsAsciiWord(normalized, "framing");
+}
+
 bool textIntentRequestsText(const std::string& normalized) {
   return containsAsciiWord(normalized, "title") ||
          containsAsciiWord(normalized, "text") ||
@@ -778,6 +792,10 @@ std::optional<CameraTransformMotionKeyframes> NativeStewardPlanner::cameraMotion
 
 bool NativeStewardPlanner::cameraIntentRequestsExplicitMotion(const std::string& intent) const {
   return cameraIntentRequestsTemporalMotion(lowercaseAscii(intent));
+}
+
+bool NativeStewardPlanner::cameraTransformDeleteIntentTargetsCameraControls(const std::string& intent) const {
+  return cameraTransformDeleteIntentRequestsControls(lowercaseAscii(intent));
 }
 
 bool NativeStewardPlanner::clipEditIntentTargetsClip(const std::string& intent) const {

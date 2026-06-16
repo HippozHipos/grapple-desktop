@@ -40,6 +40,10 @@ public:
     std::string intent,
     foundation::TimeRange activeRange
   );
+  foundation::Result<storage::ProjectPackageSessionResult> deleteCameraTransformEffect(
+    foundation::NodeId cameraNodeId,
+    std::string intent
+  );
   foundation::Result<NativeStewardMediaPlacementResult> placeAssetOnTimeline(
     foundation::AssetId assetId,
     std::optional<foundation::TimeSeconds> duration = std::nullopt
@@ -71,6 +75,7 @@ public:
   [[nodiscard]] bool textClipEditIntentTargetsTextClip(const std::string& intent) const;
   [[nodiscard]] bool noteIntentTargetsNote(const std::string& intent) const;
   [[nodiscard]] bool noteEditIntentTargetsNote(const std::string& intent) const;
+  [[nodiscard]] bool cameraTransformDeleteIntentTargetsCameraControls(const std::string& intent) const;
   foundation::Result<storage::ProjectPackageSessionResult> adjustCameraTransformControls(
     foundation::NodeId cameraNodeId,
     std::string intent,
