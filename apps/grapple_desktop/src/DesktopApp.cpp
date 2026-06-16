@@ -478,6 +478,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            !selectedNoteMenuActionEnabled &&
            stewardIntent.empty() &&
            stewardIntentPlaceholder.find("Import media to start") != std::string::npos &&
+           stewardIntentPlaceholder.find("speed up clip") != std::string::npos &&
+           stewardIntentPlaceholder.find("shorten clip") != std::string::npos &&
            steward.find("0 assets | 0 clips | 0 cameras | 0 editable effects") != std::string::npos &&
            steward.find("Next: import media to start the timeline.") != std::string::npos
       ? 0
@@ -2484,6 +2486,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     }
     const auto clipBeforeTransform = beforeTransformViewModel.value().timeline.clips.front().transform;
     const std::string selectedClipActionText = window.stewardSelectedClipActionText();
+    const std::string stewardIntentPlaceholderBeforeIntent = window.stewardIntentPlaceholder();
     const bool selectedClipActionEnabledBeforeIntent = window.stewardSelectedClipActionEnabled();
     window.setStewardIntent("Move selected clip right, rotate slightly left, make it smaller, make it faster, and make it invisible.");
     const bool selectedClipActionEnabledAfterIntent = window.stewardSelectedClipActionEnabled();
@@ -2515,6 +2518,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "clipOpacity=" << clip.transform.opacity << '\n';
     std::cout << "clipPlaybackRate=" << clip.playbackRate << '\n';
     std::cout << "selectedClipActionText=" << selectedClipActionText << '\n';
+    std::cout << "stewardIntentPlaceholderBeforeIntent=" << stewardIntentPlaceholderBeforeIntent << '\n';
     std::cout << "selectedClipActionEnabledBeforeIntent=" << (selectedClipActionEnabledBeforeIntent ? "true" : "false") << '\n';
     std::cout << "selectedClipActionEnabledAfterIntent=" << (selectedClipActionEnabledAfterIntent ? "true" : "false") << '\n';
     std::cout << "selectedClipActionEnabledAfterAction=" << (window.stewardSelectedClipActionEnabled() ? "true" : "false") << '\n';
@@ -2531,6 +2535,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            clip.transform.opacity == 0.0 &&
            clip.playbackRate == 1.25 &&
            selectedClipActionText == "Type Request To Edit Clip" &&
+           stewardIntentPlaceholderBeforeIntent.find("speed up clip") != std::string::npos &&
            !selectedClipActionEnabledBeforeIntent &&
            selectedClipActionEnabledAfterIntent &&
            !window.stewardSelectedClipActionEnabled() &&

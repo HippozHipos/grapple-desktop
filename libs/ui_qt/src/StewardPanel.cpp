@@ -599,7 +599,7 @@ void StewardPanel::updateIntentPlaceholder() {
   const bool selectedClipActionAvailable = selectedClipTargetNodeId_.has_value();
   switch (primaryAction_) {
     case PrimaryAction::ImportMedia:
-      intent_->setPlaceholderText("Import media to start. Then try: \"slowly zoom in\" or \"rotate clip slightly left\".");
+      intent_->setPlaceholderText("Import media to start. Then try: \"slowly zoom in\", \"speed up clip\", or \"shorten clip\".");
       return;
     case PrimaryAction::AddSelectedMedia:
       intent_->setPlaceholderText("Add selected media to the timeline. Then try: \"center the subject\".");
@@ -610,21 +610,21 @@ void StewardPanel::updateIntentPlaceholder() {
     case PrimaryAction::ShowCameraControls:
       intent_->setPlaceholderText(
         selectedClipActionAvailable
-          ? "Try: \"zoom in a little\", \"slowly pan right\", or use the clip action for \"rotate slightly left\"."
+          ? "Try: \"zoom in a little\", \"slowly pan right\", or use the clip action for \"rotate clip slightly left\"."
           : "Show camera controls, then try: \"zoom in a little\" or \"slowly pan left\"."
       );
       return;
     case PrimaryAction::CreateCameraEffect:
       intent_->setPlaceholderText(
         selectedClipActionAvailable
-          ? "Try: \"center the subject\", \"zoom in a little\", or use the clip action for \"make clip invisible\"."
+          ? "Try: \"center the subject\", \"zoom in a little\", or use the clip action for \"speed up clip\"."
           : "Try: \"center the subject\", \"zoom in a little\", or \"slowly pan right\"."
       );
       return;
     case PrimaryAction::AdjustCameraControls:
       intent_->setPlaceholderText(
         selectedClipActionAvailable
-          ? "Try: \"move far right\", \"zoom in a little\", \"reset camera\", or use the clip action for \"straighten clip\"."
+          ? "Try: \"move far right\", \"zoom in a little\", \"reset camera\", or use the clip action for \"move clip later\"."
           : "Try: \"move far right\", \"zoom in a little\", \"reset camera\", or \"slowly pan left\"."
       );
       return;
