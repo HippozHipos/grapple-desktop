@@ -2846,7 +2846,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   if (productLoopSmoke) {
     window.show();
     app.processEvents();
-    const std::filesystem::path outputPath = smokeRoot / "product-loop.avi";
+    const std::filesystem::path outputPath = smokeRoot / "product-loop.mp4";
     std::filesystem::remove(outputPath);
 
     window.startStarterSample();
@@ -2927,7 +2927,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       basePreviewFrame.value().frame.image->rgbaPixels != tunedPreviewFrame.value().frame.image->rgbaPixels;
     window.setExportResolutionControlValue(320, 180);
     window.setExportFrameRateControlValue(10.0);
-    window.setExportCodecControlValue("mjpeg");
+    window.setExportCodecControlValue("mp4v");
     window.exportVideoFile(grapple::foundation::FilePath{outputPath.string()});
 
     const auto viewModel = workspace.value().project().buildViewModel();
