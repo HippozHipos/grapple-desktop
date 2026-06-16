@@ -3340,7 +3340,9 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            clip.transform.opacity == 0.0 &&
            clip.playbackRate == 1.25 &&
            primaryActionTextBeforeIntent == "Choose Or Type Request" &&
-           stewardIntentPlaceholderBeforeIntent.find("speed up clip") != std::string::npos &&
+           stewardIntentPlaceholderBeforeIntent.find("tint selected clip red") != std::string::npos &&
+           stewardIntentPlaceholderBeforeIntent.find("speed up selected clip") != std::string::npos &&
+           stewardIntentPlaceholderBeforeIntent.find("delete selected clip") != std::string::npos &&
            !primaryActionEnabledBeforeIntent &&
            primaryActionTextForTint == "Apply Request To Clip" &&
            primaryActionEnabledForTint &&

@@ -1007,11 +1007,22 @@ void StewardPanel::updateActionLabels() {
 }
 
 void StewardPanel::updateIntentPlaceholder() {
-  const bool hasSelectedTarget =
-    selectedClipTargetNodeId_.has_value() ||
-    selectedTextClipTargetNodeId_.has_value() ||
-    selectedTrackTargetNodeId_.has_value() ||
-    selectedNoteTargetNodeId_.has_value();
+  if (selectedClipTargetNodeId_.has_value()) {
+    intent_->setPlaceholderText("Try: \"tint selected clip red\", \"move selected clip right\", \"speed up selected clip\", or \"delete selected clip\".");
+    return;
+  }
+  if (selectedTextClipTargetNodeId_.has_value()) {
+    intent_->setPlaceholderText("Try: \"change title to \\\"Final Title\\\"\", \"move selected text up\", \"fade selected text\", or \"delete selected text\".");
+    return;
+  }
+  if (selectedTrackTargetNodeId_.has_value()) {
+    intent_->setPlaceholderText("Try: \"delete selected track\".");
+    return;
+  }
+  if (selectedNoteTargetNodeId_.has_value()) {
+    intent_->setPlaceholderText("Try: \"update note to \\\"Keep zoom exposed as a user-editable control\\\"\".");
+    return;
+  }
   switch (primaryAction_) {
     case PrimaryAction::StartSample:
       intent_->setPlaceholderText("Use Start Sample for the fastest editable demo, or use Import for your own media.");
@@ -1023,25 +1034,13 @@ void StewardPanel::updateIntentPlaceholder() {
       intent_->setPlaceholderText("Try: \"add audio track\", \"add title \\\"Opening\\\"\", or add a camera for editable framing.");
       return;
     case PrimaryAction::ShowCameraControls:
-      intent_->setPlaceholderText(
-        hasSelectedTarget
-          ? "Try: \"rotate clip slightly left\", \"rename camera to \\\"Closeup\\\"\", \"add title \\\"Opening\\\"\", or \"zoom in a little\"."
-          : "Try: \"rename camera to \\\"Closeup\\\"\", \"add title \\\"Opening\\\"\", or show camera controls for \"zoom in a little\"."
-      );
+      intent_->setPlaceholderText("Try: \"rename camera to \\\"Closeup\\\"\", \"add title \\\"Opening\\\"\", or show camera controls for \"zoom in a little\".");
       return;
     case PrimaryAction::CreateCameraEffect:
-      intent_->setPlaceholderText(
-        hasSelectedTarget
-          ? "Try: \"speed up clip\", \"rename camera to \\\"Closeup\\\"\", \"add title \\\"Opening\\\"\", or \"center the subject\"."
-          : "Try: \"rename camera to \\\"Closeup\\\"\", \"add title \\\"Opening\\\"\", \"center the subject\", or \"slowly pan right\"."
-      );
+      intent_->setPlaceholderText("Try: \"rename camera to \\\"Closeup\\\"\", \"add title \\\"Opening\\\"\", \"center the subject\", or \"slowly pan right\".");
       return;
     case PrimaryAction::AdjustCameraControls:
-      intent_->setPlaceholderText(
-        hasSelectedTarget
-          ? "Try: \"move clip later\", \"rename camera to \\\"Closeup\\\"\", \"set camera focal length to 50\", or \"zoom in a little\"."
-          : "Try: \"rename camera to \\\"Closeup\\\"\", \"set camera focal length to 50\", \"zoom in a little\", \"reset camera\", or \"slowly pan left\"."
-      );
+      intent_->setPlaceholderText("Try: \"rename camera to \\\"Closeup\\\"\", \"set camera focal length to 50\", \"zoom in a little\", \"reset camera\", or \"slowly pan left\".");
       return;
     case PrimaryAction::Disabled:
       intent_->setPlaceholderText("Try: \"add note \\\"Camera rationale\\\" saying Keep zoom editable\", or select media, a clip, or a camera.");

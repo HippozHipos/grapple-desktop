@@ -31,6 +31,47 @@ grapple::app::AppViewModel viewModelWithCamera() {
   return viewModel;
 }
 
+grapple::app::AppViewModel viewModelWithSelectedClip() {
+  grapple::app::AppViewModel viewModel = viewModelWithCamera();
+  viewModel.assets.count = 1;
+  viewModel.timeline.layers.push_back(grapple::app::AppLayerRow{
+    grapple::foundation::NodeId{"track_1"},
+    "Video",
+    1
+  });
+  viewModel.timeline.clips.push_back(grapple::app::AppClipRow{
+    grapple::foundation::NodeId{"clip_1"},
+    grapple::foundation::NodeId{"track_1"},
+    grapple::foundation::AssetId{"asset_1"},
+    "Starter",
+    grapple::timeline::ClipKind::Video,
+    "video",
+    grapple::foundation::TimeRange{grapple::foundation::TimeSeconds{0.0}, grapple::foundation::TimeSeconds{10.0}},
+    grapple::foundation::TimeRange{grapple::foundation::TimeSeconds{0.0}, grapple::foundation::TimeSeconds{10.0}},
+    1.0,
+    grapple::foundation::Transform2D{}
+  });
+  return viewModel;
+}
+
+grapple::app::AppViewModel viewModelWithSelectedTextClip() {
+  grapple::app::AppViewModel viewModel = viewModelWithCamera();
+  viewModel.timeline.layers.push_back(grapple::app::AppLayerRow{
+    grapple::foundation::NodeId{"track_1"},
+    "Video",
+    1
+  });
+  viewModel.timeline.textClips.push_back(grapple::app::AppTextClipRow{
+    grapple::foundation::NodeId{"text_1"},
+    grapple::foundation::NodeId{"track_1"},
+    "Opening",
+    grapple::foundation::TimeRange{grapple::foundation::TimeSeconds{0.0}, grapple::foundation::TimeSeconds{5.0}},
+    grapple::foundation::Transform2D{},
+    grapple::timeline::TextClipStyle{}
+  });
+  return viewModel;
+}
+
 bool containsText(const std::string& value, const std::string& text) {
   return value.find(text) != std::string::npos;
 }
@@ -79,6 +120,7 @@ int main(int argc, char** argv) {
   GRAPPLE_REQUIRE(panel.primaryActionText() == "Start Sample");
   GRAPPLE_REQUIRE(panel.primaryActionEnabled());
   GRAPPLE_REQUIRE(panel.suggestedRequestCount() == 0);
+  GRAPPLE_REQUIRE(containsText(panel.intentPlaceholder(), "Start Sample"));
   panel.triggerPrimaryAction();
   GRAPPLE_REQUIRE(startSampleCalled);
 
@@ -115,6 +157,24 @@ int main(int argc, char** argv) {
   GRAPPLE_REQUIRE(containsText(editSummary->text().toStdString(), "Editable result: Camera Transform on Camera (rev_2)"));
   GRAPPLE_REQUIRE(containsText(editSummary->text().toStdString(), "Controls: Position X=0.25, Zoom=1.3"));
   GRAPPLE_REQUIRE(containsText(editSummary->text().toStdString(), "Request: Center subject."));
+
+  panel.setViewModel(
+    viewModelWithSelectedClip(),
+    grapple::agent::AgentConversationState{},
+    grapple::foundation::NodeId{"clip_1"},
+    std::nullopt
+  );
+  GRAPPLE_REQUIRE(containsText(panel.intentPlaceholder(), "tint selected clip red"));
+  GRAPPLE_REQUIRE(containsText(panel.intentPlaceholder(), "delete selected clip"));
+
+  panel.setViewModel(
+    viewModelWithSelectedTextClip(),
+    grapple::agent::AgentConversationState{},
+    grapple::foundation::NodeId{"text_1"},
+    std::nullopt
+  );
+  GRAPPLE_REQUIRE(containsText(panel.intentPlaceholder(), "change title"));
+  GRAPPLE_REQUIRE(containsText(panel.intentPlaceholder(), "delete selected text"));
 
   panel.setIntent("zoom in a little");
   panel.triggerPrimaryAction();
