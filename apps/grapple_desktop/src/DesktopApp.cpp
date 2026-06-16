@@ -508,6 +508,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       return 1;
     }
     const std::string steward = window.stewardContents();
+    const std::string toolbarTooltips = window.toolbarTooltipText();
     const std::string timelineEmptyPrompt = window.timelineEmptyPromptText();
     const std::string stewardIntent = window.stewardIntent();
     const std::string stewardIntentPlaceholder = window.stewardIntentPlaceholder();
@@ -536,6 +537,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "cameras=" << viewModel.value().timeline.cameras.size() << '\n';
     std::cout << "packageWritten=" << (packageWritten ? "true" : "false") << '\n';
     std::cout << "timelineEmptyPrompt=" << timelineEmptyPrompt << '\n';
+    std::cout << "toolbarTooltips=" << toolbarTooltips << '\n';
     std::cout << "stewardIntent=" << stewardIntent << '\n';
     std::cout << "stewardIntentPlaceholder=" << stewardIntentPlaceholder << '\n';
     std::cout << "stewardAction=" << stewardActionText << '\n';
@@ -571,6 +573,12 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            timelineEmptyPrompt.find("Use Sample to start now") != std::string::npos &&
            timelineEmptyPrompt.find("import/drop media, then double-click it") != std::string::npos &&
            timelineEmptyPrompt.find("Ask Steward for an editable change") != std::string::npos &&
+           toolbarTooltips.find("Space") != std::string::npos &&
+           toolbarTooltips.find("Home") != std::string::npos &&
+           toolbarTooltips.find("Left") != std::string::npos &&
+           toolbarTooltips.find("Right") != std::string::npos &&
+           toolbarTooltips.find("Ctrl+Z") != std::string::npos &&
+           toolbarTooltips.find("Ctrl+Shift+Z") != std::string::npos &&
            stewardIntentPlaceholder.find("Start Sample") != std::string::npos &&
            stewardIntentPlaceholder.find("import/drop your own media") != std::string::npos &&
            steward.find("0 assets | 0 clips | 0 cameras | 0 editable effects") != std::string::npos &&

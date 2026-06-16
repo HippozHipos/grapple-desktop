@@ -44,6 +44,7 @@ public:
   [[nodiscard]] std::optional<foundation::NodeId> selectedNodeId() const;
   [[nodiscard]] std::optional<foundation::AssetId> selectedAssetId() const;
   [[nodiscard]] std::string projectHeaderText() const;
+  [[nodiscard]] std::string toolbarTooltipText() const;
   [[nodiscard]] std::string timelineEmptyPromptText() const;
   [[nodiscard]] std::string inspectorContents() const;
   [[nodiscard]] std::string logContents() const;

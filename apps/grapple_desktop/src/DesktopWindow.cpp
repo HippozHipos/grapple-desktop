@@ -628,10 +628,15 @@ public:
     playheadLabel_ = new QLabel;
     playheadLabel_->setObjectName("playheadLabel");
     playButton_ = new QPushButton{"Play"};
+    playButton_->setToolTip("Play or pause preview (Space)");
     pauseButton_ = new QPushButton{"Pause"};
+    pauseButton_->setToolTip("Pause preview (Space)");
     seekStartButton_ = new QPushButton{"Start"};
+    seekStartButton_->setToolTip("Jump to timeline start (Home)");
     stepBackButton_ = new QPushButton{"-1s"};
+    stepBackButton_->setToolTip("Step playhead back 1 second (Left)");
     stepForwardButton_ = new QPushButton{"+1s"};
+    stepForwardButton_->setToolTip("Step playhead forward 1 second (Right)");
     auto* importMediaButton = new QPushButton{"Import"};
     importMediaButton->setToolTip("Import media (Ctrl+Shift+I)");
     auto* sampleMediaButton = new QPushButton{"Sample"};
@@ -640,12 +645,15 @@ public:
     addSelectedMediaButton_->setToolTip("Add selected asset to the timeline");
     addSelectedMediaButton_->setEnabled(false);
     undoButton_ = new QPushButton{"Undo"};
+    undoButton_->setToolTip("Undo last edit (Ctrl+Z)");
     redoButton_ = new QPushButton{"Redo"};
+    redoButton_->setToolTip("Redo last edit (Ctrl+Shift+Z or Ctrl+Y)");
     exportButton_ = new QPushButton{"Export"};
     exportButton_->setToolTip("Export video (Ctrl+Shift+E)");
     saveButton_ = new QPushButton{"Save"};
     saveButton_->setToolTip("Save package (Ctrl+S)");
     auto* moreButton = new QPushButton{"More"};
+    moreButton->setToolTip("Project and timeline actions");
     auto* moreMenu = new QMenu{moreButton};
     auto* newPackageAction = moreMenu->addAction("New Package");
     auto* openPackageAction = moreMenu->addAction("Open Package");
@@ -1320,6 +1328,26 @@ public:
 
   std::string projectHeaderText() const {
     return (productTitle_->text() + "\n" + productSubtitle_->text()).toStdString();
+  }
+
+  std::string toolbarTooltipText() const {
+    QStringList lines;
+    for (const QPushButton* button : {
+           playButton_,
+           pauseButton_,
+           seekStartButton_,
+           stepBackButton_,
+           stepForwardButton_,
+           undoButton_,
+           redoButton_,
+           saveButton_,
+           exportButton_
+         }) {
+      if (button != nullptr && !button->toolTip().isEmpty()) {
+        lines << button->toolTip();
+      }
+    }
+    return lines.join('\n').toStdString();
   }
 
   std::string timelineEmptyPromptText() const {
@@ -4155,6 +4183,10 @@ std::optional<foundation::AssetId> DesktopWindow::selectedAssetId() const {
 
 std::string DesktopWindow::projectHeaderText() const {
   return impl_->projectHeaderText();
+}
+
+std::string DesktopWindow::toolbarTooltipText() const {
+  return impl_->toolbarTooltipText();
 }
 
 std::string DesktopWindow::timelineEmptyPromptText() const {
