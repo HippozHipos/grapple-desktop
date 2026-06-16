@@ -21,6 +21,8 @@ add_test(
 )
 
 add_test(NAME grapple_cli_smoke COMMAND grapple_cli)
+add_test(NAME grapple_cli_version COMMAND grapple_cli --version)
+set_tests_properties(grapple_cli_version PROPERTIES PASS_REGULAR_EXPRESSION "Grapple 0\\.1\\.0")
 add_test(NAME grapple_cli_render_plan_json COMMAND grapple_cli --render-plan-json)
 add_test(NAME grapple_cli_preview_frame COMMAND grapple_cli --preview-frame)
 set_tests_properties(grapple_cli_preview_frame PROPERTIES PASS_REGULAR_EXPRESSION "audioClips=0")
@@ -29,6 +31,8 @@ add_test(NAME grapple_cli_save_package COMMAND grapple_cli --save-package /tmp/g
 add_test(NAME grapple_cli_open_package_smoke COMMAND grapple_cli --open-package-smoke /tmp/grapple-cli-open-package)
 add_test(NAME grapple_desktop_smoke COMMAND grapple_desktop --smoke)
 set_tests_properties(grapple_desktop_smoke PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+add_test(NAME grapple_desktop_version COMMAND grapple_desktop --version)
+set_tests_properties(grapple_desktop_version PROPERTIES PASS_REGULAR_EXPRESSION "Grapple 0\\.1\\.0")
 add_test(NAME grapple_desktop_mutate_smoke COMMAND grapple_desktop --mutate-smoke)
 set_tests_properties(grapple_desktop_mutate_smoke PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 add_test(NAME grapple_desktop_seek_smoke COMMAND grapple_desktop --seek-smoke)

@@ -14,6 +14,10 @@
 #include <optional>
 #include <string>
 
+#ifndef GRAPPLE_NATIVE_VERSION
+#error "GRAPPLE_NATIVE_VERSION must be defined by CMake"
+#endif
+
 namespace {
 
 void printError(const grapple::foundation::Error& error) {
@@ -35,6 +39,11 @@ const char* mediaKindText(grapple::render::RenderedMediaKind kind) {
 
 int main(int argc, char* argv[]) {
   using namespace grapple;
+
+  if (argc == 2 && std::string{argv[1]} == "--version") {
+    std::cout << "Grapple " << GRAPPLE_NATIVE_VERSION << '\n';
+    return 0;
+  }
 
   bool printRenderPlanJson = false;
   bool printPreviewFrame = false;
@@ -82,7 +91,7 @@ int main(int argc, char* argv[]) {
       return 1;
     }
   } else if (argc > 2) {
-    std::cerr << "Expected zero arguments, --render-plan-json, --preview-frame, --export-smoke, --save-package <dir>, or --open-package-smoke <dir>.\n";
+    std::cerr << "Expected zero arguments, --version, --render-plan-json, --preview-frame, --export-smoke, --save-package <dir>, or --open-package-smoke <dir>.\n";
     return 1;
   }
 

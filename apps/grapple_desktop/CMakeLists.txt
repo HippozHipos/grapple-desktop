@@ -11,6 +11,11 @@ set_target_properties(grapple_desktop PROPERTIES
   OUTPUT_NAME grapple
 )
 
+target_compile_definitions(grapple_desktop
+  PRIVATE
+    GRAPPLE_NATIVE_VERSION="${PROJECT_VERSION}"
+)
+
 target_link_libraries(grapple_desktop
   PRIVATE
     Grapple::App
