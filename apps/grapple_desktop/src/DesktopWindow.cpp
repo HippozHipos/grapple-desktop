@@ -1487,6 +1487,22 @@ public:
     QApplication::processEvents();
   }
 
+  void pressDeleteShortcut() {
+    QKeyEvent press{
+      QEvent::KeyPress,
+      Qt::Key_Delete,
+      Qt::NoModifier
+    };
+    QApplication::sendEvent(this, &press);
+    QKeyEvent release{
+      QEvent::KeyRelease,
+      Qt::Key_Delete,
+      Qt::NoModifier
+    };
+    QApplication::sendEvent(this, &release);
+    QApplication::processEvents();
+  }
+
   void clickStewardPrimaryAction() {
     steward_->triggerPrimaryAction();
   }
@@ -1529,6 +1545,18 @@ public:
     }
   }
 
+  bool deleteSelectedTimelineItem() {
+    if (selectedClipMenuActionsEnabled()) {
+      deleteSelectedClip();
+      return true;
+    }
+    if (selectedTrackMenuActionEnabled()) {
+      deleteSelectedTrack();
+      return true;
+    }
+    return false;
+  }
+
   void pausePlayback() {
     playbackTimer_->stop();
     const auto pause = workspace_.preview().pause();
@@ -1547,6 +1575,12 @@ public:
       togglePlayback();
       event->accept();
       return;
+    }
+    if (event->key() == Qt::Key_Delete && !event->isAutoRepeat() && !focusedWidgetConsumesSpace()) {
+      if (deleteSelectedTimelineItem()) {
+        event->accept();
+        return;
+      }
     }
     QMainWindow::keyPressEvent(event);
   }
@@ -4111,6 +4145,10 @@ void DesktopWindow::applyStewardSuggestedRequest(int row) {
 
 void DesktopWindow::pressPlaybackShortcut() {
   impl_->pressPlaybackShortcut();
+}
+
+void DesktopWindow::pressDeleteShortcut() {
+  impl_->pressDeleteShortcut();
 }
 
 void DesktopWindow::startPlayback() {

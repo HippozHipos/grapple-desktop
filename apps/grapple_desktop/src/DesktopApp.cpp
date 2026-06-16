@@ -2546,7 +2546,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     window.show();
     app.processEvents();
     window.clickFirstTimelineClip();
-    window.deleteSelectedClip();
+    window.pressDeleteShortcut();
     const auto viewModel = workspace.value().project().buildViewModel();
     if (!viewModel) {
       printError(viewModel.error());
@@ -2560,7 +2560,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     window.show();
     app.processEvents();
     window.clickFirstTimelineTrack();
-    window.deleteSelectedTrack();
+    window.pressDeleteShortcut();
     const auto viewModel = workspace.value().project().buildViewModel();
     if (!viewModel) {
       printError(viewModel.error());
