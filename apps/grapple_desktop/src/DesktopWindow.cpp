@@ -3652,7 +3652,9 @@ public:
 
 private:
   void updateActionAvailability() {
-    addSelectedMediaButton_->setEnabled(selectedAssetId_.has_value());
+    const bool hasSelectedAsset = selectedAssetId_.has_value();
+    addSelectedMediaButton_->setVisible(hasSelectedAsset);
+    addSelectedMediaButton_->setEnabled(hasSelectedAsset);
     undoButton_->setEnabled(workspace_.commandWriter().canUndoLastCommittedCommand());
     redoButton_->setEnabled(workspace_.commandWriter().canRedoLastUndoneCommand());
     const bool hasPlayableDuration = timelineDuration_.value > 0.0;
