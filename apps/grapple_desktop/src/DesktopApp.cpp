@@ -2848,6 +2848,14 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       return 1;
     }
     const auto& clip = viewModel.value().timeline.clips.front();
+    const auto renderedFrame = workspace.value().preview().renderFrame(grapple::render::RenderFrameRequest{
+      workspace.value().preview().state().playhead,
+      grapple::render::RenderQuality::Draft
+    });
+    if (!renderedFrame) {
+      printError(renderedFrame.error());
+      return 1;
+    }
     const std::string steward = window.stewardContents();
     const std::string stewardIntent = window.stewardIntent();
     const std::string inspector = window.inspectorContents();
@@ -2904,6 +2912,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "clipRotation=" << clip.transform.rotationDegrees << '\n';
     std::cout << "clipOpacity=" << clip.transform.opacity << '\n';
     std::cout << "clipPlaybackRate=" << clip.playbackRate << '\n';
+    std::cout << "renderedMediaFrames=" << renderedFrame.value().frame.mediaFrames.size() << '\n';
     std::cout << "selectedTargetActionText=" << selectedTargetActionText << '\n';
     std::cout << "stewardIntentPlaceholderBeforeIntent=" << stewardIntentPlaceholderBeforeIntent << '\n';
     std::cout << "selectedTargetActionEnabledBeforeIntent=" << (selectedTargetActionEnabledBeforeIntent ? "true" : "false") << '\n';
@@ -2923,6 +2932,11 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            viewModel.value().timeline.effectGraphs[0].effects.size() == 1 &&
            viewModel.value().timeline.effectGraphs[0].effects[0].displayName == grapple::effects::builtin_effect::ClipTintDisplayName &&
            clipTintUpdated &&
+           renderedFrame.value().frame.sourceRevision == viewModel.value().project.revision &&
+           renderedFrame.value().frame.mediaFrames.size() == 1 &&
+           renderedFrame.value().frame.mediaFrames[0].tintColor.has_value() &&
+           renderedFrame.value().frame.mediaFrames[0].tintColor.value() == grapple::foundation::Vec3{0.2, 1.0, 0.35} &&
+           renderedFrame.value().frame.mediaFrames[0].tintAmount == 0.6 &&
            clip.transform.position.x == clipBeforeTransform.position.x + 0.25 &&
            clip.transform.position.y == clipBeforeTransform.position.y &&
            clip.transform.scale.x == clipBeforeTransform.scale.x * 0.75 &&
