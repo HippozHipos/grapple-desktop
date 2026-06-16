@@ -98,7 +98,7 @@ public:
   void nudgeSelectedClipY(double delta);
   void setSelectedClipUniformScale(double scale);
   void setSelectedClipOpacity(double opacity);
-  void setSelectedClipTransformControlValue(std::string controlName, double value);
+  void setSelectedClipPropertyControlValue(std::string controlName, double value);
   void undoLastEdit();
   void redoLastEdit();
   void newPackageRoot(const foundation::FilePath& rootPath, std::string projectName);

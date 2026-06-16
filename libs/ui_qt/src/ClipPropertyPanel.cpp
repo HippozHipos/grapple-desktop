@@ -1,4 +1,4 @@
-#include <grapple/ui_qt/ClipTransformPanel.hpp>
+#include <grapple/ui_qt/ClipPropertyPanel.hpp>
 
 #include <QDoubleSpinBox>
 #include <QHBoxLayout>
@@ -32,19 +32,19 @@ const app::AppClipRow* selectedVisualClip(
 
 } // namespace
 
-ClipTransformPanel::ClipTransformPanel(QWidget* parent)
+ClipPropertyPanel::ClipPropertyPanel(QWidget* parent)
   : QWidget{parent} {
-  setObjectName("clipTransformPanel");
+  setObjectName("clipPropertyPanel");
   layout_ = new QVBoxLayout{this};
   layout_->setContentsMargins(12, 12, 12, 12);
   layout_->setSpacing(10);
 }
 
-void ClipTransformPanel::setApplyHandler(ApplyHandler handler) {
+void ClipPropertyPanel::setApplyHandler(ApplyHandler handler) {
   applyHandler_ = std::move(handler);
 }
 
-void ClipTransformPanel::setSelection(
+void ClipPropertyPanel::setSelection(
   const app::AppViewModel& viewModel,
   const std::optional<foundation::NodeId>& selectedNodeId
 ) {
@@ -52,21 +52,25 @@ void ClipTransformPanel::setSelection(
   selectedClipNodeId_ = std::nullopt;
 
   if (!selectedNodeId.has_value()) {
-    addMessage("Select a visual clip to adjust its transform.");
+    addMessage("Select a visual clip to adjust its properties.");
     return;
   }
 
   const app::AppClipRow* selectedClip = selectedVisualClip(viewModel, selectedNodeId.value());
   if (selectedClip == nullptr) {
-    addMessage("Clip transform controls appear when a visual clip is selected.");
+    addMessage("Clip controls appear when a visual clip is selected.");
     return;
   }
 
   selectedClipNodeId_ = selectedClip->sourceNodeId;
-  auto* title = new QLabel{QString{"Clip Transform - %1"}.arg(qString(selectedClip->assetName))};
-  title->setObjectName("clipTransformTitle");
+  auto* title = new QLabel{QString{"Clip - %1"}.arg(qString(selectedClip->assetName))};
+  title->setObjectName("clipPropertyTitle");
   layout_->addWidget(title);
 
+  timelineStart_ = addEditor("Timeline Start", "clipTimelineStart", selectedClip->timelineRange.start.value, 0.0, 100000.0, 0.1);
+  timelineEnd_ = addEditor("Timeline End", "clipTimelineEnd", selectedClip->timelineRange.end.value, 0.0, 100000.0, 0.1);
+  sourceStart_ = addEditor("Source Start", "clipSourceStart", selectedClip->sourceRange.start.value, 0.0, 100000.0, 0.1);
+  sourceEnd_ = addEditor("Source End", "clipSourceEnd", selectedClip->sourceRange.end.value, 0.0, 100000.0, 0.1);
   positionX_ = addEditor("Position X", "clipTransformPositionX", selectedClip->transform.position.x, -1000.0, 1000.0, 0.05);
   positionY_ = addEditor("Position Y", "clipTransformPositionY", selectedClip->transform.position.y, -1000.0, 1000.0, 0.05);
   scaleX_ = addEditor("Scale X", "clipTransformScaleX", selectedClip->transform.scale.x, 0.01, 1000.0, 0.05);
@@ -77,8 +81,12 @@ void ClipTransformPanel::setSelection(
   layout_->addStretch(1);
 }
 
-void ClipTransformPanel::clearControls() {
+void ClipPropertyPanel::clearControls() {
   selectedClipNodeId_ = std::nullopt;
+  timelineStart_ = nullptr;
+  timelineEnd_ = nullptr;
+  sourceStart_ = nullptr;
+  sourceEnd_ = nullptr;
   positionX_ = nullptr;
   positionY_ = nullptr;
   scaleX_ = nullptr;
@@ -95,18 +103,18 @@ void ClipTransformPanel::clearControls() {
   }
 }
 
-void ClipTransformPanel::addMessage(const QString& message) {
-  auto* title = new QLabel{"Clip Transform"};
-  title->setObjectName("clipTransformTitle");
+void ClipPropertyPanel::addMessage(const QString& message) {
+  auto* title = new QLabel{"Clip"};
+  title->setObjectName("clipPropertyTitle");
   auto* help = new QLabel{message};
-  help->setObjectName("clipTransformHelp");
+  help->setObjectName("clipPropertyHelp");
   help->setWordWrap(true);
   layout_->addWidget(title);
   layout_->addWidget(help);
   layout_->addStretch(1);
 }
 
-QDoubleSpinBox* ClipTransformPanel::addEditor(
+QDoubleSpinBox* ClipPropertyPanel::addEditor(
   const QString& labelText,
   const QString& objectName,
   double value,
@@ -129,7 +137,7 @@ QDoubleSpinBox* ClipTransformPanel::addEditor(
   editor->setSingleStep(step);
   editor->setKeyboardTracking(false);
   editor->setValue(value);
-  connect(editor, &QDoubleSpinBox::editingFinished, this, [this] { emitCurrentTransform(); });
+  connect(editor, &QDoubleSpinBox::editingFinished, this, [this] { emitCurrentEdit(); });
 
   rowLayout->addWidget(label);
   rowLayout->addWidget(editor, 1);
@@ -137,8 +145,12 @@ QDoubleSpinBox* ClipTransformPanel::addEditor(
   return editor;
 }
 
-void ClipTransformPanel::emitCurrentTransform() {
+void ClipPropertyPanel::emitCurrentEdit() {
   if (!selectedClipNodeId_.has_value() ||
+      timelineStart_ == nullptr ||
+      timelineEnd_ == nullptr ||
+      sourceStart_ == nullptr ||
+      sourceEnd_ == nullptr ||
       positionX_ == nullptr ||
       positionY_ == nullptr ||
       scaleX_ == nullptr ||
@@ -158,6 +170,14 @@ void ClipTransformPanel::emitCurrentTransform() {
         foundation::Vec2{scaleX_->value(), scaleY_->value()},
         rotation_->value(),
         opacity_->value()
+      },
+      foundation::TimeRange{
+        foundation::TimeSeconds{timelineStart_->value()},
+        foundation::TimeSeconds{timelineEnd_->value()}
+      },
+      foundation::TimeRange{
+        foundation::TimeSeconds{sourceStart_->value()},
+        foundation::TimeSeconds{sourceEnd_->value()}
       },
       playbackRate_->value()
     }

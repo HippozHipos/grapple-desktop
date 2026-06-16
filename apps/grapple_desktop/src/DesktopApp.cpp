@@ -172,6 +172,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   bool updateNoteSmoke = false;
   bool moveClipSmoke = false;
   bool trimClipSmoke = false;
+  bool clipTimingPanelSmoke = false;
   bool nudgeClipSmoke = false;
   bool undoRedoSmoke = false;
   bool addEffectSmoke = false;
@@ -243,6 +244,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       moveClipSmoke = true;
     } else if (argument == "--trim-clip-smoke") {
       trimClipSmoke = true;
+    } else if (argument == "--clip-timing-panel-smoke") {
+      clipTimingPanelSmoke = true;
     } else if (argument == "--nudge-clip-smoke") {
       nudgeClipSmoke = true;
     } else if (argument == "--undo-redo-smoke") {
@@ -294,7 +297,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     } else if (argument == "--effect-screenshot" && index + 1 < argc) {
       effectScreenshotPath = argv[++index];
     } else {
-      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --select-audio-clip-smoke, --select-audio-track-smoke, --select-camera-smoke, --select-second-camera-smoke, --steward-smoke, --import-smoke, --import-media-types-smoke, --add-video-smoke, --empty-add-video-smoke, --empty-add-video-undo-smoke, --empty-add-track-smoke, --empty-add-camera-smoke, --update-camera-smoke, --add-note-smoke, --update-note-smoke, --move-clip-smoke, --trim-clip-smoke, --nudge-clip-smoke, --undo-redo-smoke, --add-effect-smoke, --clip-effect-controls-smoke, --steward-submit-shortcut-smoke, --set-effect-param-smoke, --effect-keyframe-smoke, --steward-motion-smoke, --steward-zoom-motion-smoke, --steward-clip-transform-smoke, --delete-effect-smoke, --delete-smoke, --delete-track-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, --new-package-smoke, --export-settings-smoke, --product-loop-smoke, --empty-launch-smoke, --empty-save-smoke, --open-package <path>, --new-package <path>, --screenshot <path>, or --effect-screenshot <path>.\n";
+      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --select-audio-clip-smoke, --select-audio-track-smoke, --select-camera-smoke, --select-second-camera-smoke, --steward-smoke, --import-smoke, --import-media-types-smoke, --add-video-smoke, --empty-add-video-smoke, --empty-add-video-undo-smoke, --empty-add-track-smoke, --empty-add-camera-smoke, --update-camera-smoke, --add-note-smoke, --update-note-smoke, --move-clip-smoke, --trim-clip-smoke, --clip-timing-panel-smoke, --nudge-clip-smoke, --undo-redo-smoke, --add-effect-smoke, --clip-effect-controls-smoke, --steward-submit-shortcut-smoke, --set-effect-param-smoke, --effect-keyframe-smoke, --steward-motion-smoke, --steward-zoom-motion-smoke, --steward-clip-transform-smoke, --delete-effect-smoke, --delete-smoke, --delete-track-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, --new-package-smoke, --export-settings-smoke, --product-loop-smoke, --empty-launch-smoke, --empty-save-smoke, --open-package <path>, --new-package <path>, --screenshot <path>, or --effect-screenshot <path>.\n";
       return 1;
     }
   }
@@ -332,6 +335,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     updateNoteSmoke ||
     moveClipSmoke ||
     trimClipSmoke ||
+    clipTimingPanelSmoke ||
     nudgeClipSmoke ||
     undoRedoSmoke ||
     addEffectSmoke ||
@@ -1164,16 +1168,53 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       : 1;
   }
 
+  if (clipTimingPanelSmoke) {
+    window.show();
+    app.processEvents();
+    window.clickFirstTimelineClip();
+    window.setSelectedClipPropertyControlValue("clipTimelineStart", 1.0);
+    window.setSelectedClipPropertyControlValue("clipTimelineEnd", 8.0);
+    window.setSelectedClipPropertyControlValue("clipSourceStart", 0.5);
+    window.setSelectedClipPropertyControlValue("clipSourceEnd", 7.5);
+    const auto viewModel = workspace.value().project().buildViewModel();
+    if (!viewModel) {
+      printError(viewModel.error());
+      return 1;
+    }
+    if (viewModel.value().timeline.clips.empty()) {
+      std::cerr << "No clips after clip timing panel edit.\n";
+      return 1;
+    }
+    const grapple::app::AppClipRow& clip = viewModel.value().timeline.clips.front();
+    const std::string inspector = window.inspectorContents();
+    std::cout << "revision=" << viewModel.value().project.revision.value() << '\n';
+    std::cout << "timelineStart=" << clip.timelineRange.start.value << '\n';
+    std::cout << "timelineEnd=" << clip.timelineRange.end.value << '\n';
+    std::cout << "sourceStart=" << clip.sourceRange.start.value << '\n';
+    std::cout << "sourceEnd=" << clip.sourceRange.end.value << '\n';
+    std::cout << "duration=" << viewModel.value().timeline.duration.value << '\n';
+    std::cout << "inspector=" << inspector << '\n';
+    return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_9"} &&
+           clip.timelineRange.start == grapple::foundation::TimeSeconds{1.0} &&
+           clip.timelineRange.end == grapple::foundation::TimeSeconds{8.0} &&
+           clip.sourceRange.start == grapple::foundation::TimeSeconds{0.5} &&
+           clip.sourceRange.end == grapple::foundation::TimeSeconds{7.5} &&
+           viewModel.value().timeline.duration == grapple::foundation::TimeSeconds{8.0} &&
+           inspector.find("Range: 1s - 8s") != std::string::npos
+      ? 0
+      : 1;
+  }
+
   if (nudgeClipSmoke) {
     window.show();
     app.processEvents();
     window.clickFirstTimelineClip();
-    window.setSelectedClipTransformControlValue("clipTransformPositionX", 0.25);
-    window.setSelectedClipTransformControlValue("clipTransformPositionY", 0.5);
-    window.setSelectedClipTransformControlValue("clipTransformScaleX", 1.25);
-    window.setSelectedClipTransformControlValue("clipTransformScaleY", 1.25);
-    window.setSelectedClipTransformControlValue("clipTransformOpacity", 0.5);
-    window.setSelectedClipTransformControlValue("clipPlaybackRate", 1.5);
+    window.setSelectedClipPropertyControlValue("clipTransformPositionX", 0.25);
+    window.setSelectedClipPropertyControlValue("clipTransformPositionY", 0.5);
+    window.setSelectedClipPropertyControlValue("clipTransformScaleX", 1.25);
+    window.setSelectedClipPropertyControlValue("clipTransformScaleY", 1.25);
+    window.setSelectedClipPropertyControlValue("clipTransformOpacity", 0.5);
+    window.setSelectedClipPropertyControlValue("clipPlaybackRate", 1.5);
     const auto viewModel = workspace.value().project().buildViewModel();
     if (!viewModel) {
       printError(viewModel.error());

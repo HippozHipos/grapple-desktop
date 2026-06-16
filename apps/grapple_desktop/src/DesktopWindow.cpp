@@ -11,7 +11,7 @@
 #include <grapple/runtime/RuntimeDiagnostic.hpp>
 #include <grapple/timeline/Payloads.hpp>
 #include <grapple/ui_qt/CameraPropertyPanel.hpp>
-#include <grapple/ui_qt/ClipTransformPanel.hpp>
+#include <grapple/ui_qt/ClipPropertyPanel.hpp>
 #include <grapple/ui_qt/CompositionViewport.hpp>
 #include <grapple/ui_qt/EffectParamPanel.hpp>
 #include <grapple/ui_qt/ExportSettingsPanel.hpp>
@@ -503,12 +503,12 @@ public:
       updateCameraProperties(cameraNodeId, std::move(name), focalLength);
     });
 
-    clipTransform_ = new grapple::ui::ClipTransformPanel;
-    clipTransform_->setApplyHandler([this](
+    clipProperties_ = new grapple::ui::ClipPropertyPanel;
+    clipProperties_->setApplyHandler([this](
       grapple::foundation::NodeId clipNodeId,
-      grapple::ui::ClipTransformPanel::ClipEdit edit
+      grapple::ui::ClipPropertyPanel::ClipEdit edit
     ) {
-      updateClip(clipNodeId, edit.transform, edit.playbackRate, "Updated clip");
+      updateClip(clipNodeId, std::move(edit), "Updated clip");
     });
 
     effectParams_ = new grapple::ui::EffectParamPanel;
@@ -654,7 +654,7 @@ public:
     detailTabs_->setObjectName("detailsTabs");
     detailTabs_->addTab(effectParamsScroll_, "Effects");
     detailTabs_->addTab(cameraProperties_, "Camera");
-    detailTabs_->addTab(clipTransform_, "Clip");
+    detailTabs_->addTab(clipProperties_, "Clip");
     detailTabs_->addTab(exportSettings_, "Export");
     detailTabs_->addTab(inspector_, "Inspector");
     detailTabs_->addTab(summary_, "Project");
@@ -760,7 +760,7 @@ public:
     setStyleSheet(R"(
       QMainWindow { background: #15171c; color: #e9edf5; }
       QWidget { background: #15171c; color: #e9edf5; font-family: "DejaVu Sans"; font-size: 14px; }
-      QLabel#summary, QListWidget#mediaBin, QTextEdit#timeline, QTextEdit#inspector, QWidget#cameraPropertyPanel, QWidget#clipTransformPanel, QWidget#effectParams, QWidget#exportSettingsPanel, QTextEdit#log, QWidget#actions, QWidget#assetStrip {
+      QLabel#summary, QListWidget#mediaBin, QTextEdit#timeline, QTextEdit#inspector, QWidget#cameraPropertyPanel, QWidget#clipPropertyPanel, QWidget#effectParams, QWidget#exportSettingsPanel, QTextEdit#log, QWidget#actions, QWidget#assetStrip {
         background: #20242d; border: 1px solid #343b4a; border-radius: 10px; padding: 12px;
       }
       QTabWidget#detailsTabs::pane { background: #20242d; border: 1px solid #343b4a; border-radius: 10px; }
@@ -793,8 +793,8 @@ public:
       QLabel#effectParamHelp { color: #9fb0c8; }
       QLabel#cameraPropertyTitle { color: #e8f4ff; font-weight: 800; }
       QLabel#cameraPropertyHelp { color: #9fb0c8; }
-      QLabel#clipTransformTitle { color: #e8f4ff; font-weight: 800; }
-      QLabel#clipTransformHelp { color: #9fb0c8; }
+      QLabel#clipPropertyTitle { color: #e8f4ff; font-weight: 800; }
+      QLabel#clipPropertyHelp { color: #9fb0c8; }
       QLabel#exportSettingsTitle { color: #e8f4ff; font-weight: 800; }
       QLabel#exportSettingsStatus { color: #b8c7dc; background: #151b25; border: 1px solid #343b4a; border-radius: 8px; padding: 8px; }
       QLabel#playheadLabel { color: #d8f3ff; font-weight: 800; padding: 0 8px; }
@@ -2114,8 +2114,7 @@ public:
 
   void updateClip(
     const grapple::foundation::NodeId& clipNodeId,
-    grapple::timeline::Transform2D transform,
-    double playbackRate,
+    grapple::ui::ClipPropertyPanel::ClipEdit edit,
     const QString& logMessage
   ) {
     const auto viewModel = workspace_.project().buildViewModel();
@@ -2132,7 +2131,52 @@ public:
 
     selectedNodeId_ = clipNodeId;
     selectedAssetId_ = std::nullopt;
-    updateSelectedClip(*selectedClip, transform, playbackRate, logMessage);
+    const bool timingChanged =
+      edit.timelineRange != selectedClip->timelineRange ||
+      edit.sourceRange != selectedClip->sourceRange;
+    const bool payloadChanged =
+      edit.transform != selectedClip->transform ||
+      edit.playbackRate != selectedClip->playbackRate;
+
+    if (timingChanged) {
+      const auto trimmed = workspace_.commandWriter().apply(
+        grapple::project::TrimClipCommand{
+          selectedClip->sourceNodeId,
+          edit.timelineRange,
+          edit.sourceRange
+        },
+        userSource()
+      );
+      if (!trimmed) {
+        appendError(trimmed.error());
+        return;
+      }
+    }
+
+    if (!payloadChanged) {
+      if (timingChanged) {
+        refreshViewModelAndPreview();
+        log_->append(logMessage);
+      }
+      return;
+    }
+
+    if (!timingChanged) {
+      updateSelectedClip(*selectedClip, edit.transform, edit.playbackRate, logMessage);
+      return;
+    }
+
+    const auto updatedViewModel = workspace_.project().buildViewModel();
+    if (!updatedViewModel) {
+      appendError(updatedViewModel.error());
+      return;
+    }
+    const grapple::app::AppClipRow* trimmedClip = findClipRow(updatedViewModel.value(), clipNodeId);
+    if (trimmedClip == nullptr) {
+      appendError(grapple::foundation::Error{"desktop.clip_missing", "Clip update requires an existing clip after trim."});
+      return;
+    }
+    updateSelectedClip(*trimmedClip, edit.transform, edit.playbackRate, logMessage);
   }
 
   grapple::foundation::Result<grapple::app::AppClipRow> selectedClipRowForAction(const std::string& actionName) {
@@ -2268,10 +2312,10 @@ public:
     QApplication::processEvents();
   }
 
-  void setSelectedClipTransformControlValue(std::string controlName, double value) {
+  void setSelectedClipPropertyControlValue(std::string controlName, double value) {
     auto* editor = findChild<QDoubleSpinBox*>(qString(controlName));
     if (editor == nullptr) {
-      appendError(grapple::foundation::Error{"desktop.clip_transform_control_missing", "Clip transform control not found."});
+      appendError(grapple::foundation::Error{"desktop.clip_property_control_missing", "Clip property control not found."});
       return;
     }
 
@@ -2926,7 +2970,7 @@ private:
   void updateInspector(const grapple::app::AppViewModel& viewModel) {
     inspector_->setPlainText(inspectorText(viewModel, selectedNodeId_, selectedAssetId_, workspace_.preview().state().playhead));
     cameraProperties_->setSelection(viewModel, selectedNodeId_);
-    clipTransform_->setSelection(viewModel, selectedNodeId_);
+    clipProperties_->setSelection(viewModel, selectedNodeId_);
     effectParams_->setSelection(viewModel, selectedNodeId_, workspace_.preview().state().playhead);
     selectRelevantDetailTab(viewModel);
   }
@@ -2967,7 +3011,7 @@ private:
       }
     );
     if (selectedClip) {
-      detailTabs_->setCurrentWidget(clipTransform_);
+      detailTabs_->setCurrentWidget(clipProperties_);
     } else {
       detailTabs_->setCurrentWidget(inspector_);
     }
@@ -3150,7 +3194,7 @@ private:
   grapple::ui::TimelinePanel* timeline_ = nullptr;
   QTextEdit* inspector_ = nullptr;
   grapple::ui::CameraPropertyPanel* cameraProperties_ = nullptr;
-  grapple::ui::ClipTransformPanel* clipTransform_ = nullptr;
+  grapple::ui::ClipPropertyPanel* clipProperties_ = nullptr;
   grapple::ui::EffectParamPanel* effectParams_ = nullptr;
   QScrollArea* effectParamsScroll_ = nullptr;
   grapple::ui::ExportSettingsPanel* exportSettings_ = nullptr;
@@ -3435,8 +3479,8 @@ void DesktopWindow::setSelectedClipOpacity(double opacity) {
   impl_->setSelectedClipOpacity(opacity);
 }
 
-void DesktopWindow::setSelectedClipTransformControlValue(std::string controlName, double value) {
-  impl_->setSelectedClipTransformControlValue(std::move(controlName), value);
+void DesktopWindow::setSelectedClipPropertyControlValue(std::string controlName, double value) {
+  impl_->setSelectedClipPropertyControlValue(std::move(controlName), value);
 }
 
 void DesktopWindow::undoLastEdit() {
