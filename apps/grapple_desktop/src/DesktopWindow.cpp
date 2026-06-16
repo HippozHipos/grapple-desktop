@@ -1290,6 +1290,10 @@ public:
     return (productTitle_->text() + "\n" + productSubtitle_->text()).toStdString();
   }
 
+  std::string timelineEmptyPromptText() const {
+    return timeline_->emptyPromptText().toStdString();
+  }
+
   std::string inspectorContents() const {
     return inspector_->toPlainText().toStdString();
   }
@@ -3950,6 +3954,10 @@ std::optional<foundation::AssetId> DesktopWindow::selectedAssetId() const {
 
 std::string DesktopWindow::projectHeaderText() const {
   return impl_->projectHeaderText();
+}
+
+std::string DesktopWindow::timelineEmptyPromptText() const {
+  return impl_->timelineEmptyPromptText();
 }
 
 std::string DesktopWindow::inspectorContents() const {

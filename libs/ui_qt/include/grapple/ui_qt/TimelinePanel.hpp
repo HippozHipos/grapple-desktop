@@ -30,6 +30,7 @@ public:
   void setSelectedNodeId(std::optional<foundation::NodeId> selectedNodeId);
   void setSeekHandler(std::function<void(foundation::TimeSeconds)> seekHandler);
   void setSelectionHandler(std::function<void(foundation::NodeId)> selectionHandler);
+  [[nodiscard]] QString emptyPromptText() const;
 
 protected:
   void paintEvent(QPaintEvent* event) override;

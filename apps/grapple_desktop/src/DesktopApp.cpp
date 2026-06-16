@@ -500,6 +500,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       return 1;
     }
     const std::string steward = window.stewardContents();
+    const std::string timelineEmptyPrompt = window.timelineEmptyPromptText();
     const std::string stewardIntent = window.stewardIntent();
     const std::string stewardIntentPlaceholder = window.stewardIntentPlaceholder();
     const std::string stewardActionText = window.stewardPrimaryActionText();
@@ -527,6 +528,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "clips=" << viewModel.value().timeline.clips.size() << '\n';
     std::cout << "cameras=" << viewModel.value().timeline.cameras.size() << '\n';
     std::cout << "packageWritten=" << (packageWritten ? "true" : "false") << '\n';
+    std::cout << "timelineEmptyPrompt=" << timelineEmptyPrompt << '\n';
     std::cout << "stewardIntent=" << stewardIntent << '\n';
     std::cout << "stewardIntentPlaceholder=" << stewardIntentPlaceholder << '\n';
     std::cout << "stewardAction=" << stewardActionText << '\n';
@@ -561,6 +563,9 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            !selectedTrackMenuActionEnabled &&
            !selectedNoteMenuActionEnabled &&
            stewardIntent.empty() &&
+           timelineEmptyPrompt.find("Import media") != std::string::npos &&
+           timelineEmptyPrompt.find("Add it to the timeline") != std::string::npos &&
+           timelineEmptyPrompt.find("Ask Steward for an editable change") != std::string::npos &&
            stewardIntentPlaceholder.find("add note") != std::string::npos &&
            stewardIntentPlaceholder.find("import media") != std::string::npos &&
            steward.find("0 assets | 0 clips | 0 cameras | 0 editable effects") != std::string::npos &&

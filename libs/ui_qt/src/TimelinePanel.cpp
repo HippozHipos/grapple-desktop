@@ -55,6 +55,10 @@ void TimelinePanel::setSelectionHandler(std::function<void(foundation::NodeId)> 
   selectionHandler_ = std::move(selectionHandler);
 }
 
+QString TimelinePanel::emptyPromptText() const {
+  return "Timeline is empty\n1. Import media\n2. Add it to the timeline\n3. Ask Steward for an editable change";
+}
+
 void TimelinePanel::paintEvent(QPaintEvent* event) {
   QWidget::paintEvent(event);
 
@@ -387,7 +391,7 @@ void TimelinePanel::drawEmptyTimelinePrompt(QPainter& painter, const QRect& boun
   painter.drawText(
     bounds.adjusted(18, 18, -18, -18),
     Qt::AlignCenter,
-    "Timeline is empty\nImport media, then add it to the timeline"
+    emptyPromptText()
   );
 }
 
