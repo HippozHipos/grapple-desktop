@@ -580,7 +580,9 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   }
 
   if (sampleStartSmoke) {
-    window.startStarterSample();
+    const std::string stewardActionBeforeStart = window.stewardPrimaryActionText();
+    const bool stewardActionEnabledBeforeStart = window.stewardPrimaryActionEnabled();
+    window.clickStewardPrimaryAction();
     const auto viewModel = workspace.value().project().buildViewModel();
     if (!viewModel) {
       printError(viewModel.error());
@@ -616,6 +618,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       previewFrame.value().runtimeDiagnostics.empty() &&
       previewFrame.value().renderDiagnostics.empty();
 
+    std::cout << "stewardActionBeforeStart=" << stewardActionBeforeStart << '\n';
+    std::cout << "stewardActionEnabledBeforeStart=" << (stewardActionEnabledBeforeStart ? "true" : "false") << '\n';
     std::cout << "revision=" << viewModel.value().project.revision.value() << '\n';
     std::cout << "assets=" << viewModel.value().assets.count << '\n';
     std::cout << "clips=" << viewModel.value().timeline.clips.size() << '\n';
@@ -639,6 +643,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     return viewModel.value().assets.count == 1 &&
            viewModel.value().timeline.clips.size() == 1 &&
            viewModel.value().timeline.cameras.size() == 1 &&
+           stewardActionBeforeStart == "Start Sample" &&
+           stewardActionEnabledBeforeStart &&
            selectedClip &&
            detailTab == "Clip" &&
            currentPreview &&
