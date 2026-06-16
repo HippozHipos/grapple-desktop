@@ -203,6 +203,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   bool stewardSubmitShortcutSmoke = false;
   bool stewardTextClipSmoke = false;
   bool stewardNoteSmoke = false;
+  bool stewardSuggestionSmoke = false;
   bool setEffectParamSmoke = false;
   bool effectKeyframeSmoke = false;
   bool stewardMotionSmoke = false;
@@ -294,6 +295,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       stewardTextClipSmoke = true;
     } else if (argument == "--steward-note-smoke") {
       stewardNoteSmoke = true;
+    } else if (argument == "--steward-suggestion-smoke") {
+      stewardSuggestionSmoke = true;
     } else if (argument == "--set-effect-param-smoke") {
       setEffectParamSmoke = true;
     } else if (argument == "--effect-keyframe-smoke") {
@@ -349,7 +352,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     } else if (argument == "--effect-screenshot" && index + 1 < argc) {
       effectScreenshotPath = argv[++index];
     } else {
-      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --select-audio-clip-smoke, --select-audio-track-smoke, --select-camera-smoke, --select-second-camera-smoke, --steward-smoke, --import-smoke, --import-media-types-smoke, --add-video-smoke, --empty-add-video-smoke, --empty-add-video-undo-smoke, --empty-add-text-smoke, --empty-add-track-smoke, --empty-add-camera-smoke, --update-camera-smoke, --add-note-smoke, --update-note-smoke, --move-clip-smoke, --trim-clip-smoke, --clip-timing-panel-smoke, --nudge-clip-smoke, --undo-redo-smoke, --add-effect-smoke, --clip-effect-controls-smoke, --steward-submit-shortcut-smoke, --steward-text-clip-smoke, --steward-note-smoke, --set-effect-param-smoke, --effect-keyframe-smoke, --steward-motion-smoke, --steward-zoom-motion-smoke, --steward-clip-transform-smoke, --steward-undo-smoke, --steward-delete-track-smoke, --steward-delete-clip-smoke, --steward-delete-camera-controls-smoke, --delete-effect-smoke, --delete-smoke, --delete-track-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, --new-package-smoke, --export-settings-smoke, --product-loop-smoke, --empty-launch-smoke, --sample-start-smoke, --empty-save-smoke, --open-package <path>, --new-package <path>, --screenshot <path>, or --effect-screenshot <path>.\n";
+      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --select-audio-clip-smoke, --select-audio-track-smoke, --select-camera-smoke, --select-second-camera-smoke, --steward-smoke, --import-smoke, --import-media-types-smoke, --add-video-smoke, --empty-add-video-smoke, --empty-add-video-undo-smoke, --empty-add-text-smoke, --empty-add-track-smoke, --empty-add-camera-smoke, --update-camera-smoke, --add-note-smoke, --update-note-smoke, --move-clip-smoke, --trim-clip-smoke, --clip-timing-panel-smoke, --nudge-clip-smoke, --undo-redo-smoke, --add-effect-smoke, --clip-effect-controls-smoke, --steward-submit-shortcut-smoke, --steward-text-clip-smoke, --steward-note-smoke, --steward-suggestion-smoke, --set-effect-param-smoke, --effect-keyframe-smoke, --steward-motion-smoke, --steward-zoom-motion-smoke, --steward-clip-transform-smoke, --steward-undo-smoke, --steward-delete-track-smoke, --steward-delete-clip-smoke, --steward-delete-camera-controls-smoke, --delete-effect-smoke, --delete-smoke, --delete-track-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, --new-package-smoke, --export-settings-smoke, --product-loop-smoke, --empty-launch-smoke, --sample-start-smoke, --empty-save-smoke, --open-package <path>, --new-package <path>, --screenshot <path>, or --effect-screenshot <path>.\n";
       return 1;
     }
   }
@@ -415,6 +418,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     emptyAddVideoSmoke ||
     emptyAddVideoUndoSmoke ||
     sampleStartSmoke ||
+    stewardSuggestionSmoke ||
     productLoopSmoke ||
     stewardDeleteClipSmoke ||
     stewardDeleteCameraControlsSmoke ||
@@ -1768,6 +1772,47 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            approx(std::get<double>(redoneParam.value()->value), 0.25) &&
            approx(redoneCameraX.value(), 0.25) &&
            redoneParam.value()->lastEditedRevision.has_value()
+      ? 0
+      : 1;
+  }
+
+  if (stewardSuggestionSmoke) {
+    window.show();
+    app.processEvents();
+    window.startStarterSample();
+    const int suggestions = window.stewardSuggestedRequestCount();
+    const std::string firstSuggestion = window.stewardSuggestedRequestText(0);
+    window.clickStewardSuggestedRequest(0);
+    const std::string intentAfterSuggestion = window.stewardIntent();
+    const std::string primaryActionText = window.stewardPrimaryActionText();
+    const bool primaryActionEnabled = window.stewardPrimaryActionEnabled();
+    window.clickStewardPrimaryAction();
+    const auto viewModel = workspace.value().project().buildViewModel();
+    if (!viewModel) {
+      printError(viewModel.error());
+      return 1;
+    }
+    const std::string effectParamTitle = window.effectParamTitleText();
+    const std::string inspector = window.inspectorContents();
+    const std::string steward = window.stewardContents();
+    std::cout << "suggestions=" << suggestions << '\n';
+    std::cout << "firstSuggestion=" << firstSuggestion << '\n';
+    std::cout << "intentAfterSuggestion=" << intentAfterSuggestion << '\n';
+    std::cout << "primaryAction=" << primaryActionText << '\n';
+    std::cout << "primaryActionEnabled=" << (primaryActionEnabled ? "true" : "false") << '\n';
+    std::cout << "effects=" << viewModel.value().timeline.effectCount << '\n';
+    std::cout << "effectParamTitle=" << effectParamTitle << '\n';
+    std::cout << "inspector=" << inspector << '\n';
+    std::cout << "steward=" << steward << '\n';
+    return suggestions == 3 &&
+           firstSuggestion == "Tint selected clip red." &&
+           intentAfterSuggestion == firstSuggestion &&
+           primaryActionText == "Apply Request To Clip" &&
+           primaryActionEnabled &&
+           viewModel.value().timeline.effectCount == 1 &&
+           effectParamTitle == "Clip Tint on starter-gradient" &&
+           inspector.find("Created by steward") != std::string::npos &&
+           steward.find("Latest request: Tint selected clip red.") != std::string::npos
       ? 0
       : 1;
   }

@@ -53,6 +53,8 @@ public:
   [[nodiscard]] int stewardRecentEditCount() const;
   [[nodiscard]] int stewardCurrentRecentEditRow() const;
   [[nodiscard]] std::string stewardRecentEditText(int row) const;
+  [[nodiscard]] int stewardSuggestedRequestCount() const;
+  [[nodiscard]] std::string stewardSuggestedRequestText(int row) const;
   [[nodiscard]] std::string effectParamTitleText() const;
   [[nodiscard]] std::string effectParamPanelText() const;
   [[nodiscard]] bool effectParamControlVisible(const std::string& paramName) const;
@@ -75,6 +77,7 @@ public:
   void pressStewardSubmitShortcut();
   void clickStewardPrimaryAction();
   void clickStewardRecentEdit(int row);
+  void clickStewardSuggestedRequest(int row);
   void startPlayback();
   void pausePlayback();
   void advancePlaybackFrame();

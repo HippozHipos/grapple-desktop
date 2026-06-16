@@ -1323,6 +1323,14 @@ public:
     return steward_->recentEditText(row);
   }
 
+  int stewardSuggestedRequestCount() const {
+    return steward_->suggestedRequestCount();
+  }
+
+  std::string stewardSuggestedRequestText(int row) const {
+    return steward_->suggestedRequestText(row);
+  }
+
   std::string effectParamTitleText() const {
     auto* title = findChild<QLabel*>("effectParamTitle");
     if (title == nullptr) {
@@ -1459,6 +1467,10 @@ public:
 
   void clickStewardRecentEdit(int row) {
     steward_->triggerRecentEdit(row);
+  }
+
+  void clickStewardSuggestedRequest(int row) {
+    steward_->triggerSuggestedRequest(row);
   }
 
   void showEffectControls() {
@@ -3881,6 +3893,14 @@ std::string DesktopWindow::stewardRecentEditText(int row) const {
   return impl_->stewardRecentEditText(row);
 }
 
+int DesktopWindow::stewardSuggestedRequestCount() const {
+  return impl_->stewardSuggestedRequestCount();
+}
+
+std::string DesktopWindow::stewardSuggestedRequestText(int row) const {
+  return impl_->stewardSuggestedRequestText(row);
+}
+
 std::string DesktopWindow::effectParamTitleText() const {
   return impl_->effectParamTitleText();
 }
@@ -3923,6 +3943,10 @@ void DesktopWindow::clickStewardPrimaryAction() {
 
 void DesktopWindow::clickStewardRecentEdit(int row) {
   impl_->clickStewardRecentEdit(row);
+}
+
+void DesktopWindow::clickStewardSuggestedRequest(int row) {
+  impl_->clickStewardSuggestedRequest(row);
 }
 
 void DesktopWindow::startPlayback() {
