@@ -814,6 +814,7 @@ foundation::Result<NativeProjectViewModelResult> NativeProjectSession::buildView
       asset.name,
       mediaTypeName(asset.metadata.mediaType),
       asset.metadata.sourcePath,
+      asset.metadata.thumbnailPath,
       asset.metadata.duration,
       asset.metadata.dimensions
     });

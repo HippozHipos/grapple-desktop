@@ -10,4 +10,10 @@ foundation::Result<asset::Asset> inspectNativeMediaAsset(
   const foundation::FilePath& path
 );
 
+foundation::Result<void> writeNativeMediaThumbnail(
+  asset::AssetMediaType mediaType,
+  const foundation::FilePath& mediaPath,
+  const foundation::FilePath& thumbnailPath
+);
+
 } // namespace grapple::app

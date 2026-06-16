@@ -27,6 +27,7 @@
 #include <QFrame>
 #include <QGridLayout>
 #include <QHBoxLayout>
+#include <QIcon>
 #include <QInputDialog>
 #include <QKeyEvent>
 #include <QLabel>
@@ -42,6 +43,7 @@
 #include <QKeySequence>
 #include <QStringList>
 #include <QShortcut>
+#include <QSize>
 #include <QSlider>
 #include <QSpinBox>
 #include <QTabWidget>
@@ -115,6 +117,19 @@ QString packageRootName(const grapple::foundation::FilePath& rootPath) {
     return qString(path.filename().string());
   }
   return qString(rootPath.value);
+}
+
+QString packageAssetPath(
+  const grapple::app::NativeWorkspaceSession& workspace,
+  const grapple::foundation::FilePath& path
+) {
+  const std::filesystem::path filesystemPath{path.value};
+  if (filesystemPath.is_absolute()) {
+    return qString(filesystemPath.string());
+  }
+
+  const std::filesystem::path packageRoot{workspace.project().packageState().package.rootPath.value};
+  return qString((packageRoot / filesystemPath).lexically_normal().string());
 }
 
 QString inspectorText(
@@ -440,6 +455,7 @@ public:
     mediaBin_->setWrapping(false);
     mediaBin_->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     mediaBin_->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    mediaBin_->setIconSize(QSize{64, 48});
     mediaBin_->setMaximumHeight(82);
 
     previewFrame_ = new QFrame;
@@ -3040,6 +3056,9 @@ private:
         ? QString{"%1 [%2]"}.arg(qString(asset.name)).arg(qString(asset.mediaType))
         : QString{"%1 [%2]\n%3"}.arg(qString(asset.name)).arg(qString(asset.mediaType)).arg(metadata.join("  "));
       auto* item = new QListWidgetItem{label};
+      if (asset.thumbnailPath.has_value()) {
+        item->setIcon(QIcon{packageAssetPath(workspace_, asset.thumbnailPath.value())});
+      }
       item->setData(Qt::UserRole, qString(asset.assetId.value()));
       mediaBin_->addItem(item);
       if (selectedAssetId_.has_value() && asset.assetId == selectedAssetId_.value()) {

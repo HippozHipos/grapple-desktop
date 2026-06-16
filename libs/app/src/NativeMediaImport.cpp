@@ -1,6 +1,7 @@
 #include <grapple/app/NativeMediaImport.hpp>
 
 #include <opencv2/imgcodecs.hpp>
+#include <opencv2/imgproc.hpp>
 #include <opencv2/videoio.hpp>
 
 #include <algorithm>
@@ -14,6 +15,8 @@
 namespace grapple::app {
 
 namespace {
+
+constexpr int ThumbnailMaxEdge = 320;
 
 std::optional<std::uint32_t> readLittleEndianU32(std::istream& input) {
   unsigned char bytes[4]{};
@@ -130,6 +133,49 @@ foundation::Result<asset::AssetMediaType> mediaTypeForPath(const foundation::Fil
   return foundation::Error{"app.media_type_unsupported", "Unsupported media file extension for " + path.value + "."};
 }
 
+foundation::Result<cv::Mat> decodeThumbnailSource(
+  asset::AssetMediaType mediaType,
+  const foundation::FilePath& mediaPath
+) {
+  switch (mediaType) {
+    case asset::AssetMediaType::Image: {
+      cv::Mat decoded = cv::imread(mediaPath.value, cv::IMREAD_COLOR);
+      if (decoded.empty()) {
+        return foundation::Error{"app.thumbnail_image_open_failed", "Could not decode image thumbnail source " + mediaPath.value + "."};
+      }
+      return decoded;
+    }
+    case asset::AssetMediaType::Video: {
+      cv::VideoCapture capture{mediaPath.value};
+      if (!capture.isOpened()) {
+        return foundation::Error{"app.thumbnail_video_open_failed", "Could not decode video thumbnail source " + mediaPath.value + "."};
+      }
+      cv::Mat frame;
+      capture.read(frame);
+      if (frame.empty()) {
+        return foundation::Error{"app.thumbnail_video_frame_missing", "Could not decode first video frame for " + mediaPath.value + "."};
+      }
+      return frame;
+    }
+    case asset::AssetMediaType::Audio:
+      return foundation::Error{"app.thumbnail_media_type_invalid", "Thumbnails require image or video media."};
+  }
+
+  std::abort();
+}
+
+cv::Mat resizedThumbnail(const cv::Mat& source) {
+  const int largestEdge = std::max(source.cols, source.rows);
+  if (largestEdge <= ThumbnailMaxEdge) {
+    return source;
+  }
+
+  const double scale = static_cast<double>(ThumbnailMaxEdge) / static_cast<double>(largestEdge);
+  cv::Mat resized;
+  cv::resize(source, resized, cv::Size{}, scale, scale, cv::INTER_AREA);
+  return resized;
+}
+
 foundation::Result<asset::Asset> inspectVideoAsset(
   const foundation::AssetId& assetId,
   const foundation::FilePath& path
@@ -230,6 +276,26 @@ foundation::Result<asset::Asset> inspectNativeMediaAsset(
   }
 
   std::abort();
+}
+
+foundation::Result<void> writeNativeMediaThumbnail(
+  asset::AssetMediaType mediaType,
+  const foundation::FilePath& mediaPath,
+  const foundation::FilePath& thumbnailPath
+) {
+  auto decoded = decodeThumbnailSource(mediaType, mediaPath);
+  if (!decoded) {
+    return decoded.error();
+  }
+
+  const cv::Mat thumbnail = resizedThumbnail(decoded.value());
+  if (thumbnail.empty()) {
+    return foundation::Error{"app.thumbnail_empty", "Decoded thumbnail image must not be empty."};
+  }
+  if (!cv::imwrite(thumbnailPath.value, thumbnail)) {
+    return foundation::Error{"app.thumbnail_write_failed", "Could not write media thumbnail " + thumbnailPath.value + "."};
+  }
+  return {};
 }
 
 } // namespace grapple::app

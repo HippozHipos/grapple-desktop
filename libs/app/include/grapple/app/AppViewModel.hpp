@@ -59,6 +59,7 @@ struct AppAssetRow {
   std::string name;
   std::string mediaType;
   foundation::FilePath sourcePath;
+  std::optional<foundation::FilePath> thumbnailPath;
   std::optional<foundation::TimeSeconds> duration;
   std::optional<foundation::Resolution> dimensions;
 };

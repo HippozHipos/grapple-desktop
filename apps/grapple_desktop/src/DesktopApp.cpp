@@ -2674,6 +2674,10 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       if (!std::filesystem::exists(saveAsRoot / sourcePath)) {
         saveAsPackageLocalMediaMissing = true;
       }
+      if (asset.thumbnailPath.has_value() &&
+          !std::filesystem::exists(saveAsRoot / asset.thumbnailPath->value)) {
+        saveAsPackageLocalMediaMissing = true;
+      }
     }
     const bool saveAsRestored =
       saveAsViewModel.value().project.revision == grapple::foundation::RevisionId{"rev_9"} &&

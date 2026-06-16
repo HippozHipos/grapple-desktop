@@ -343,6 +343,7 @@ int main() {
   GRAPPLE_REQUIRE(inspectedImage.value().id == foundation::AssetId{"asset_inspected_image"});
   GRAPPLE_REQUIRE(inspectedImage.value().metadata.mediaType == asset::AssetMediaType::Image);
   GRAPPLE_REQUIRE(inspectedImage.value().metadata.sourcePath == foundation::FilePath{inspectedImagePath.string()});
+  GRAPPLE_REQUIRE(!inspectedImage.value().metadata.thumbnailPath.has_value());
   GRAPPLE_REQUIRE(!inspectedImage.value().metadata.duration.has_value());
   GRAPPLE_REQUIRE(inspectedImage.value().metadata.dimensions.has_value());
   GRAPPLE_REQUIRE((inspectedImage.value().metadata.dimensions.value() == foundation::Resolution{2, 1}));
@@ -356,6 +357,7 @@ int main() {
   GRAPPLE_REQUIRE(inspectedAudio.value().id == foundation::AssetId{"asset_inspected_audio"});
   GRAPPLE_REQUIRE(inspectedAudio.value().metadata.mediaType == asset::AssetMediaType::Audio);
   GRAPPLE_REQUIRE(inspectedAudio.value().metadata.sourcePath == foundation::FilePath{inspectedAudioPath.string()});
+  GRAPPLE_REQUIRE(!inspectedAudio.value().metadata.thumbnailPath.has_value());
   GRAPPLE_REQUIRE(inspectedAudio.value().metadata.duration.has_value());
   GRAPPLE_REQUIRE(inspectedAudio.value().metadata.duration.value() == foundation::TimeSeconds{1.0});
   GRAPPLE_REQUIRE(!inspectedAudio.value().metadata.dimensions.has_value());
@@ -594,6 +596,7 @@ int main() {
   GRAPPLE_REQUIRE(assetViewModel.value().assets.rows[0].name == "Clip");
   GRAPPLE_REQUIRE(assetViewModel.value().assets.rows[0].mediaType == "video");
   GRAPPLE_REQUIRE(assetViewModel.value().assets.rows[0].sourcePath == foundation::FilePath{"/tmp/clip.mov"});
+  GRAPPLE_REQUIRE(!assetViewModel.value().assets.rows[0].thumbnailPath.has_value());
   GRAPPLE_REQUIRE(assetViewModel.value().assets.rows[0].duration == foundation::TimeSeconds{12.5});
   GRAPPLE_REQUIRE(assetViewModel.value().assets.rows[0].dimensions.has_value());
   GRAPPLE_REQUIRE(assetViewModel.value().assets.rows[0].dimensions->width == 1920);
@@ -2750,8 +2753,13 @@ int main() {
   GRAPPLE_REQUIRE(workspacePackageAfterImport.value().assets.count == 1);
   const foundation::FilePath workspaceImportedSourcePath =
     workspacePackageAfterImport.value().assets.rows[0].sourcePath;
+  const std::optional<foundation::FilePath> workspaceImportedThumbnailPath =
+    workspacePackageAfterImport.value().assets.rows[0].thumbnailPath;
   GRAPPLE_REQUIRE(workspaceImportedSourcePath == foundation::FilePath{"assets/originals/" + workspaceImportedAssetId.value().value() + ".ppm"});
+  GRAPPLE_REQUIRE(workspaceImportedThumbnailPath.has_value());
+  GRAPPLE_REQUIRE(workspaceImportedThumbnailPath.value() == foundation::FilePath{"assets/thumbnails/" + workspaceImportedAssetId.value().value() + ".jpg"});
   GRAPPLE_REQUIRE(std::filesystem::exists(workspacePackageRoot / workspaceImportedSourcePath.value));
+  GRAPPLE_REQUIRE(std::filesystem::exists(workspacePackageRoot / workspaceImportedThumbnailPath->value));
   GRAPPLE_REQUIRE(workspacePackage.value().mediaSources().sources().size() == 1);
   GRAPPLE_REQUIRE(workspacePackage.value().mediaSources().sources()[0].path == foundation::FilePath{(workspacePackageRoot / workspaceImportedSourcePath.value).lexically_normal().string()});
   const auto workspaceWrite = workspacePackage.value().writePackage();
@@ -2768,6 +2776,8 @@ int main() {
   GRAPPLE_REQUIRE(workspacePackageViewModel.value().project.revision == foundation::RevisionId{"rev_1"});
   GRAPPLE_REQUIRE(workspacePackageViewModel.value().assets.count == 1);
   GRAPPLE_REQUIRE(workspacePackageViewModel.value().assets.rows[0].sourcePath == workspaceImportedSourcePath);
+  GRAPPLE_REQUIRE(workspacePackageViewModel.value().assets.rows[0].thumbnailPath == workspaceImportedThumbnailPath);
+  GRAPPLE_REQUIRE(std::filesystem::exists(workspacePackageRoot / workspacePackageViewModel.value().assets.rows[0].thumbnailPath->value));
   GRAPPLE_REQUIRE(workspacePackageViewModel.value().timeline.clips.empty());
   GRAPPLE_REQUIRE(reopenedWorkspacePackage.value().project().packageState().commandLog.records().size() == 1);
   GRAPPLE_REQUIRE(reopenedWorkspacePackage.value().project().packageState().snapshots.records().size() == 2);
