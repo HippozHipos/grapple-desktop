@@ -81,6 +81,8 @@
 
 namespace {
 
+constexpr int PlaybackTickMilliseconds = 16;
+
 QString qString(const std::string& value) {
   return QString::fromStdString(value);
 }
@@ -643,7 +645,8 @@ public:
     steward_ = new grapple::ui::StewardPanel;
 
     playbackTimer_ = new QTimer{this};
-    playbackTimer_->setInterval(33);
+    playbackTimer_->setTimerType(Qt::PreciseTimer);
+    playbackTimer_->setInterval(PlaybackTickMilliseconds);
     connect(playbackTimer_, &QTimer::timeout, this, [this] { advancePlaybackFrame(); });
     jobDispatchTimer_ = new QTimer{this};
     jobDispatchTimer_->setInterval(16);
@@ -1845,7 +1848,7 @@ public:
     pendingPlaybackRenderPlayhead_ = std::nullopt;
     playbackRenderStats_ = PlaybackRenderStats{};
     playbackTimer_->start();
-    renderCurrentFrame();
+    renderPlaybackFrameAsync(playbackStartPlayhead_);
     updateActionAvailability();
   }
 
