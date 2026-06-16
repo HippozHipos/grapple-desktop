@@ -28,6 +28,7 @@ constexpr const char CanonicalEffectCreateParamKeyframeToolId[] = "effect.create
 constexpr const char CanonicalEffectUpdateParamKeyframeToolId[] = "effect.update_param_keyframe";
 constexpr const char CanonicalPlaceAssetToolId[] = "timeline.place_asset";
 constexpr const char CanonicalCreateTextClipToolId[] = "timeline.create_text_clip";
+constexpr const char CanonicalUpdateTextClipToolId[] = "timeline.update_text_clip";
 constexpr const char CanonicalMoveClipToolId[] = "timeline.move_clip";
 constexpr const char CanonicalTrimClipToolId[] = "timeline.trim_clip";
 constexpr const char CanonicalUpdateClipTransformToolId[] = "timeline.update_clip_transform";
@@ -197,6 +198,10 @@ foundation::ToolId stewardCreateTextClipToolCallIdForRun(const foundation::RunId
   return foundation::ToolId{"tool_steward_create_text_clip_" + std::to_string(stewardRunNumber(runId))};
 }
 
+foundation::ToolId stewardUpdateTextClipToolCallIdForRun(const foundation::RunId& runId) {
+  return foundation::ToolId{"tool_steward_update_text_clip_" + std::to_string(stewardRunNumber(runId))};
+}
+
 foundation::ToolId stewardClipMoveToolCallIdForRun(const foundation::RunId& runId) {
   return foundation::ToolId{"tool_steward_clip_move_" + std::to_string(stewardRunNumber(runId))};
 }
@@ -252,14 +257,10 @@ void writeTransformArguments(
   arguments << ",\"opacity\":" << transform.opacity;
 }
 
-std::string textClipArgumentsPayload(
-  const foundation::NodeId& trackNodeId,
+void writeTextClipPayloadArgumentsFields(
+  std::ostringstream& arguments,
   const timeline::TextClipPayload& payload
 ) {
-  std::ostringstream arguments;
-  arguments << '{';
-  foundation::writeJsonStringProperty(arguments, "trackNodeId", trackNodeId.value());
-  arguments << ',';
   foundation::writeJsonStringProperty(arguments, "text", payload.text);
   arguments << ",\"timelineRange\":{";
   arguments << "\"start\":" << payload.timelineRange.start.value;
@@ -275,6 +276,30 @@ std::string textClipArgumentsPayload(
   arguments << ",\"y\":" << payload.style.color.y;
   arguments << ",\"z\":" << payload.style.color.z;
   arguments << "}}";
+}
+
+std::string textClipArgumentsPayload(
+  const foundation::NodeId& trackNodeId,
+  const timeline::TextClipPayload& payload
+) {
+  std::ostringstream arguments;
+  arguments << '{';
+  foundation::writeJsonStringProperty(arguments, "trackNodeId", trackNodeId.value());
+  arguments << ',';
+  writeTextClipPayloadArgumentsFields(arguments, payload);
+  arguments << '}';
+  return arguments.str();
+}
+
+std::string textClipUpdateArgumentsPayload(
+  const foundation::NodeId& clipNodeId,
+  const timeline::TextClipPayload& payload
+) {
+  std::ostringstream arguments;
+  arguments << '{';
+  foundation::writeJsonStringProperty(arguments, "clipNodeId", clipNodeId.value());
+  arguments << ',';
+  writeTextClipPayloadArgumentsFields(arguments, payload);
   arguments << '}';
   return arguments.str();
 }
@@ -866,12 +891,120 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::e
   return packageResult.value();
 }
 
+foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::editTextClip(
+  foundation::NodeId clipNodeId,
+  std::string intent
+) {
+  auto snapshot = project_.snapshot();
+  if (!snapshot) {
+    return snapshot.error();
+  }
+
+  auto runId = startRun(snapshot.value(), intent);
+  if (!runId) {
+    return runId.error();
+  }
+
+  const graph::GraphNode* clipNode = snapshot.value().graph.findNode(clipNodeId);
+  if (clipNode == nullptr || clipNode->kind != graph::NodeKind::Clip) {
+    const foundation::Error error{"steward.text_clip_missing", "Steward text edit requires an existing text clip node."};
+    auto finished = finishRunWithError(runId.value(), error);
+    if (!finished) {
+      return finished.error();
+    }
+    return error;
+  }
+  const auto* clipPayload = std::get_if<timeline::TextClipPayload>(&clipNode->payload);
+  if (clipPayload == nullptr) {
+    const foundation::Error error{"steward.text_clip_payload_missing", "Steward text edit requires a text clip payload."};
+    auto finished = finishRunWithError(runId.value(), error);
+    if (!finished) {
+      return finished.error();
+    }
+    return error;
+  }
+  auto edit = planner_.textClipEditForIntent(*clipPayload, intent);
+  if (!edit) {
+    auto finished = finishRunWithError(runId.value(), edit.error());
+    if (!finished) {
+      return finished.error();
+    }
+    return edit.error();
+  }
+
+  auto message = appendEvent(
+    runId.value(),
+    agent::AgentRunEventKind::ModelMessage,
+    modelMessagePayload("assistant", "Updating the selected text clip as an editable graph change.")
+  );
+  if (!message) {
+    return message.error();
+  }
+
+  std::optional<storage::ProjectPackageSessionResult> packageResult;
+  CommittingAgentCommandService stewardCommands{project_, commandWriter_, intent, packageResult};
+  agent::AgentToolRegistry registry;
+  auto registered = agent::registerProjectTools(registry);
+  if (!registered) {
+    auto finished = finishRunWithError(runId.value(), registered.error());
+    if (!finished) {
+      return finished.error();
+    }
+    return registered.error();
+  }
+
+  agent::AgentToolContext toolContext{stewardCommands, project_, commandWriter_};
+  agent::AgentBridge bridge{registry, toolContext, events_, nextSequence_};
+  auto dispatched = bridge.dispatchToolCall(agent::AgentToolDispatchRequest{
+    runId.value(),
+    snapshot.value().info.id,
+    snapshot.value().revision,
+    stewardUpdateTextClipToolCallIdForRun(runId.value()),
+    CanonicalUpdateTextClipToolId,
+    textClipUpdateArgumentsPayload(clipNodeId, edit.value().payload)
+  });
+  if (!dispatched) {
+    auto finished = finishRunWithError(runId.value(), dispatched.error());
+    if (!finished) {
+      return finished.error();
+    }
+    return dispatched.error();
+  }
+  if (!packageResult.has_value()) {
+    const foundation::Error error{
+      "steward.text_clip_edit_result_missing",
+      "Steward text edit tool succeeded without a committed package result."
+    };
+    auto finished = finishRunWithError(runId.value(), error);
+    if (!finished) {
+      return finished.error();
+    }
+    return error;
+  }
+
+  auto runFinished = appendEvent(
+    runId.value(),
+    agent::AgentRunEventKind::RunFinished,
+    runFinishedPayload("succeeded", "Updated selected text clip.")
+  );
+  if (!runFinished) {
+    return runFinished.error();
+  }
+
+  markRunStatus(runId.value(), agent::AgentRunStatus::Succeeded);
+  return packageResult.value();
+}
+
 bool NativeStewardSession::clipEditIntentTargetsClip(const std::string& intent) const {
   return planner_.clipEditIntentTargetsClip(intent);
 }
 
 bool NativeStewardSession::textClipIntentTargetsText(const std::string& intent) const {
   return planner_.textClipIntentTargetsText(intent);
+}
+
+bool NativeStewardSession::textClipEditIntentTargetsTextClip(const std::string& intent) const {
+  return planner_.textClipEditIntentTargetsTextClip(intent);
 }
 
 foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::adjustCameraTransformControls(

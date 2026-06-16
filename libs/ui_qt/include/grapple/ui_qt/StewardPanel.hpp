@@ -26,6 +26,8 @@ public:
   using AdjustCameraControlsHandler = std::function<void(foundation::NodeId, std::string)>;
   using EditSelectedClipHandler = std::function<void(foundation::NodeId, std::string)>;
   using TryEditSelectedClipHandler = std::function<bool(foundation::NodeId, std::string)>;
+  using EditSelectedTextClipHandler = std::function<void(foundation::NodeId, std::string)>;
+  using TryEditSelectedTextClipHandler = std::function<bool(foundation::NodeId, std::string)>;
   using TryCreateTextClipHandler = std::function<bool(std::string)>;
   using SelectEditTargetHandler = std::function<void(foundation::NodeId)>;
 
@@ -39,6 +41,8 @@ public:
   void setAdjustCameraControlsHandler(AdjustCameraControlsHandler handler);
   void setEditSelectedClipHandler(EditSelectedClipHandler handler);
   void setTryEditSelectedClipHandler(TryEditSelectedClipHandler handler);
+  void setEditSelectedTextClipHandler(EditSelectedTextClipHandler handler);
+  void setTryEditSelectedTextClipHandler(TryEditSelectedTextClipHandler handler);
   void setTryCreateTextClipHandler(TryCreateTextClipHandler handler);
   void setSelectEditTargetHandler(SelectEditTargetHandler handler);
   void setViewModel(
@@ -77,6 +81,7 @@ private:
   void updateActionLabels();
   void updateIntentPlaceholder();
   [[nodiscard]] bool tryEditSelectedClipFromPrimaryAction();
+  [[nodiscard]] bool tryEditSelectedTextClipFromPrimaryAction();
   [[nodiscard]] bool tryCreateTextClipFromPrimaryAction();
   [[nodiscard]] bool intentHasText() const;
   [[nodiscard]] bool primaryActionCanRun() const;
@@ -90,11 +95,14 @@ private:
   AdjustCameraControlsHandler adjustCameraControlsHandler_;
   EditSelectedClipHandler editSelectedClipHandler_;
   TryEditSelectedClipHandler tryEditSelectedClipHandler_;
+  EditSelectedTextClipHandler editSelectedTextClipHandler_;
+  TryEditSelectedTextClipHandler tryEditSelectedTextClipHandler_;
   TryCreateTextClipHandler tryCreateTextClipHandler_;
   SelectEditTargetHandler selectEditTargetHandler_;
   PrimaryAction primaryAction_ = PrimaryAction::Disabled;
   std::optional<foundation::NodeId> primaryTargetCameraNodeId_;
   std::optional<foundation::NodeId> selectedClipTargetNodeId_;
+  std::optional<foundation::NodeId> selectedTextClipTargetNodeId_;
   QTextEdit* intent_ = nullptr;
   QPushButton* primaryActionButton_ = nullptr;
   QPushButton* selectedClipActionButton_ = nullptr;

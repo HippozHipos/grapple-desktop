@@ -194,6 +194,13 @@ bool textIntentRequestsLowerThird(const std::string& normalized) {
          containsAsciiWord(normalized, "caption");
 }
 
+bool textClipIntentRequestsFontSize(const std::string& normalized) {
+  return containsAsciiWord(normalized, "font") ||
+         containsAsciiWord(normalized, "text") ||
+         containsAsciiWord(normalized, "title") ||
+         containsAsciiWord(normalized, "caption");
+}
+
 std::optional<std::string> quotedTextFromIntent(const std::string& intent) {
   for (char quote : {'"', '\''}) {
     const std::size_t start = intent.find(quote);
@@ -233,6 +240,34 @@ std::string unquotedTextFromIntent(const std::string& intent, const std::string&
     }
   }
   return "Title";
+}
+
+std::optional<std::string> editedTextFromIntent(const std::string& intent, const std::string& normalized) {
+  if (auto quoted = quotedTextFromIntent(intent)) {
+    return quoted.value();
+  }
+  for (std::string_view marker : {
+         std::string_view{"change text to"},
+         std::string_view{"set text to"},
+         std::string_view{"change title to"},
+         std::string_view{"set title to"},
+         std::string_view{"say"},
+         std::string_view{"says"},
+         std::string_view{"to"}
+       }) {
+    const std::size_t markerPosition = normalized.find(marker);
+    if (markerPosition == std::string::npos) {
+      continue;
+    }
+    const std::size_t textStart = markerPosition + marker.size();
+    if (textStart < intent.size()) {
+      const std::string text = stripLeadingTextSeparators(intent.substr(textStart));
+      if (!text.empty()) {
+        return text;
+      }
+    }
+  }
+  return std::nullopt;
 }
 
 bool clipIntentRequestsRotation(const std::string& normalized) {
@@ -659,6 +694,62 @@ TextClipIntentDefaults NativeStewardPlanner::textClipDefaultsForIntent(const std
     : TitleTextFontSize;
   defaults.style.color = foundation::Vec3{1.0, 1.0, 1.0};
   return defaults;
+}
+
+bool NativeStewardPlanner::textClipEditIntentTargetsTextClip(const std::string& intent) const {
+  const std::string normalized = lowercaseAscii(intent);
+  return textIntentRequestsText(normalized) ||
+         containsAsciiWord(normalized, "font") ||
+         containsAsciiWord(normalized, "bigger") ||
+         containsAsciiWord(normalized, "larger") ||
+         containsAsciiWord(normalized, "smaller") ||
+         containsAsciiWord(normalized, "move") ||
+         containsAsciiWord(normalized, "up") ||
+         containsAsciiWord(normalized, "down");
+}
+
+foundation::Result<TextClipEditIntent> NativeStewardPlanner::textClipEditForIntent(
+  const timeline::TextClipPayload& current,
+  const std::string& intent
+) const {
+  const std::string normalized = lowercaseAscii(intent);
+  timeline::TextClipPayload payload = current;
+  bool changed = false;
+
+  if (auto text = editedTextFromIntent(intent, normalized)) {
+    payload.text = text.value();
+    changed = payload.text != current.text;
+  }
+
+  if (textClipIntentRequestsFontSize(normalized)) {
+    if (containsAsciiWord(normalized, "bigger") ||
+        containsAsciiWord(normalized, "larger") ||
+        containsText(normalized, "increase")) {
+      payload.style.fontSize = current.style.fontSize * 1.25;
+      changed = changed || payload.style.fontSize != current.style.fontSize;
+    } else if (containsAsciiWord(normalized, "smaller") ||
+               containsText(normalized, "decrease")) {
+      payload.style.fontSize = current.style.fontSize * 0.75;
+      changed = changed || payload.style.fontSize != current.style.fontSize;
+    }
+  }
+
+  if (containsAsciiWord(normalized, "up")) {
+    payload.transform.position.y = current.transform.position.y + CameraTransformPositionYStep;
+    changed = changed || payload.transform.position.y != current.transform.position.y;
+  } else if (containsAsciiWord(normalized, "down")) {
+    payload.transform.position.y = current.transform.position.y - CameraTransformPositionYStep;
+    changed = changed || payload.transform.position.y != current.transform.position.y;
+  }
+
+  if (!changed) {
+    return foundation::Error{
+      "steward.text_clip_edit_intent_unknown",
+      "Text clip edit requests must explicitly change text, font size, or position."
+    };
+  }
+
+  return TextClipEditIntent{payload, changed};
 }
 
 foundation::Result<ClipEditIntent> NativeStewardPlanner::clipEditForIntent(

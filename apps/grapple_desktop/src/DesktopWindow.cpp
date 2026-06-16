@@ -790,6 +790,18 @@ public:
     ) {
       return editSelectedClipWithPrimaryIntent(std::move(clipNodeId), std::move(intent));
     });
+    steward_->setEditSelectedTextClipHandler([this](
+      grapple::foundation::NodeId clipNodeId,
+      std::string intent
+    ) {
+      editSelectedTextClipWithSteward(std::move(clipNodeId), std::move(intent));
+    });
+    steward_->setTryEditSelectedTextClipHandler([this](
+      grapple::foundation::NodeId clipNodeId,
+      std::string intent
+    ) {
+      return editSelectedTextClipWithPrimaryIntent(std::move(clipNodeId), std::move(intent));
+    });
     steward_->setTryCreateTextClipHandler([this](std::string intent) {
       return createTextClipWithPrimaryIntent(std::move(intent));
     });
@@ -2608,6 +2620,36 @@ public:
     }
 
     editSelectedClipWithSteward(std::move(clipNodeId), std::move(intent));
+    return true;
+  }
+
+  void editSelectedTextClipWithSteward(
+    grapple::foundation::NodeId clipNodeId,
+    std::string intent
+  ) {
+    const auto transformed = workspace_.steward().editTextClip(clipNodeId, std::move(intent));
+    if (!transformed) {
+      appendError(transformed.error());
+      refreshViewModel();
+      return;
+    }
+
+    selectedNodeId_ = clipNodeId;
+    selectedAssetId_ = std::nullopt;
+    refreshViewModelAndPreview();
+    steward_->setIntent({});
+    log_->append("Steward edited selected text clip");
+  }
+
+  bool editSelectedTextClipWithPrimaryIntent(
+    grapple::foundation::NodeId clipNodeId,
+    std::string intent
+  ) {
+    if (!workspace_.steward().textClipEditIntentTargetsTextClip(intent)) {
+      return false;
+    }
+
+    editSelectedTextClipWithSteward(std::move(clipNodeId), std::move(intent));
     return true;
   }
 

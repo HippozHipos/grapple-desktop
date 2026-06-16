@@ -566,6 +566,12 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   if (stewardTextClipSmoke) {
     window.setStewardIntent("Add title \"Opening Title\".");
     window.clickStewardPrimaryAction();
+    if (window.currentDetailTabText() != "Text") {
+      std::cerr << "Created Steward text clip was not selected.\n";
+      return 1;
+    }
+    window.setStewardIntent("Change title to \"Final Title\" and make font smaller.");
+    window.clickStewardSelectedClipAction();
     const auto viewModel = workspace.value().project().buildViewModel();
     if (!viewModel) {
       printError(viewModel.error());
@@ -584,14 +590,16 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "tab=" << window.currentDetailTabText() << '\n';
     std::cout << "runs=" << conversation.runs.size() << '\n';
     return viewModel.value().timeline.textClips.size() == 1 &&
-           clip.text == "Opening Title" &&
-           clip.style.fontSize == 64.0 &&
+           clip.text == "Final Title" &&
+           clip.style.fontSize == 48.0 &&
            clip.transform.position.y == 0.35 &&
            window.currentDetailTabText() == "Text" &&
            window.stewardIntent().empty() &&
-           conversation.runs.size() == 1 &&
+           conversation.runs.size() == 2 &&
            conversation.runs[0].toolCalls.size() == 1 &&
-           conversation.runs[0].toolCalls[0].toolSerializedId == "timeline.create_text_clip"
+           conversation.runs[0].toolCalls[0].toolSerializedId == "timeline.create_text_clip" &&
+           conversation.runs[1].toolCalls.size() == 1 &&
+           conversation.runs[1].toolCalls[0].toolSerializedId == "timeline.update_text_clip"
       ? 0
       : 1;
   }

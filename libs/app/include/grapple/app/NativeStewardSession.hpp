@@ -47,8 +47,13 @@ public:
     foundation::NodeId clipNodeId,
     std::string intent
   );
+  foundation::Result<storage::ProjectPackageSessionResult> editTextClip(
+    foundation::NodeId clipNodeId,
+    std::string intent
+  );
   [[nodiscard]] bool clipEditIntentTargetsClip(const std::string& intent) const;
   [[nodiscard]] bool textClipIntentTargetsText(const std::string& intent) const;
+  [[nodiscard]] bool textClipEditIntentTargetsTextClip(const std::string& intent) const;
   foundation::Result<storage::ProjectPackageSessionResult> adjustCameraTransformControls(
     foundation::NodeId cameraNodeId,
     std::string intent,

@@ -732,6 +732,21 @@ foundation::Result<AppCommandProvenance> appCommandProvenance(
             "s, Duration=" + timeDisplayText(foundation::TimeSeconds{createText->payload.timelineRange.duration()}) +
             "s, Font=" + numberDisplayText(createText->payload.style.fontSize)
         });
+      } else if (const auto* updateText = std::get_if<project::UpdateTextClipCommand>(&parsedCommand.value())) {
+        auto targetName = nodeDisplayName(snapshot, updateText->nodeId);
+        if (!targetName) {
+          return targetName.error();
+        }
+        provenance.stewardEdits.push_back(AppStewardEditRow{
+          command.id,
+          command.afterRevision,
+          updateText->nodeId,
+          targetName.value(),
+          "Text Clip",
+          intent,
+          "Text=" + updateText->payload.text +
+            ", Font=" + numberDisplayText(updateText->payload.style.fontSize)
+        });
       }
     }
 

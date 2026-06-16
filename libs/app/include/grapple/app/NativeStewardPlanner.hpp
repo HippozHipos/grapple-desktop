@@ -64,6 +64,11 @@ struct TextClipIntentDefaults {
   timeline::TextClipStyle style;
 };
 
+struct TextClipEditIntent {
+  timeline::TextClipPayload payload;
+  bool changed = false;
+};
+
 class NativeStewardPlanner final {
 public:
   [[nodiscard]] CameraTransformIntentDefaults cameraTransformDefaultsForIntent(
@@ -77,6 +82,11 @@ public:
   [[nodiscard]] bool clipEditIntentTargetsClip(const std::string& intent) const;
   [[nodiscard]] bool textClipIntentTargetsText(const std::string& intent) const;
   [[nodiscard]] TextClipIntentDefaults textClipDefaultsForIntent(const std::string& intent) const;
+  [[nodiscard]] bool textClipEditIntentTargetsTextClip(const std::string& intent) const;
+  [[nodiscard]] foundation::Result<TextClipEditIntent> textClipEditForIntent(
+    const timeline::TextClipPayload& current,
+    const std::string& intent
+  ) const;
   [[nodiscard]] foundation::Result<ClipEditIntent> clipEditForIntent(
     const timeline::ClipPayload& current,
     const std::string& intent

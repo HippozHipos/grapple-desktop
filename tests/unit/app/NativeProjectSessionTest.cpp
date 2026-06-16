@@ -363,6 +363,18 @@ int main() {
   GRAPPLE_REQUIRE(lowerThirdDefaults.text == "Jane Doe");
   GRAPPLE_REQUIRE(lowerThirdDefaults.transform.position.y == -0.35);
   GRAPPLE_REQUIRE(lowerThirdDefaults.style.fontSize == 44.0);
+  const timeline::TextClipPayload plannedTextClip{
+    "Opening Title",
+    foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{3.0}},
+    timeline::Transform2D{},
+    timeline::TextClipStyle{64.0, foundation::Vec3{1.0, 1.0, 1.0}}
+  };
+  GRAPPLE_REQUIRE(stewardPlanner.textClipEditIntentTargetsTextClip("Change title to \"Final Title\" and make font smaller"));
+  const auto textClipEdit =
+    stewardPlanner.textClipEditForIntent(plannedTextClip, "Change title to \"Final Title\" and make font smaller");
+  GRAPPLE_REQUIRE(textClipEdit);
+  GRAPPLE_REQUIRE(textClipEdit.value().payload.text == "Final Title");
+  GRAPPLE_REQUIRE(textClipEdit.value().payload.style.fontSize == 48.0);
 
   const std::filesystem::path appPackageRoot =
     std::filesystem::temp_directory_path() /
@@ -1484,6 +1496,33 @@ int main() {
   GRAPPLE_REQUIRE(stewardTextViewModel.value().steward.edits[5].editName == "Text Clip");
   GRAPPLE_REQUIRE(stewardTextViewModel.value().steward.edits[5].intent == "Add title \"Opening Title\".");
   GRAPPLE_REQUIRE(stewardTextViewModel.value().steward.edits[5].controlSummary == "Start=1s, Duration=3s, Font=64");
+  const auto stewardTextEdit = stewardMediaWorkspace.value().steward().editTextClip(
+    stewardTextClip.value().textClipNodeId,
+    "Change title to \"Final Title\" and make font smaller."
+  );
+  GRAPPLE_REQUIRE(stewardTextEdit);
+  const agent::AgentConversationState stewardTextEditConversation =
+    stewardMediaWorkspace.value().steward().conversationState();
+  GRAPPLE_REQUIRE(stewardTextEditConversation.diagnostics.empty());
+  GRAPPLE_REQUIRE(stewardTextEditConversation.runs.size() == 7);
+  GRAPPLE_REQUIRE(stewardTextEditConversation.runs[6].status == agent::AgentRunStatus::Succeeded);
+  GRAPPLE_REQUIRE(stewardTextEditConversation.runs[6].toolCalls.size() == 1);
+  GRAPPLE_REQUIRE(stewardTextEditConversation.runs[6].toolCalls[0].toolSerializedId == "timeline.update_text_clip");
+  GRAPPLE_REQUIRE(stewardTextEditConversation.runs[6].toolCalls[0].toolDisplayName == "Update Text Clip");
+  GRAPPLE_REQUIRE(stewardTextEditConversation.runs[6].toolCalls[0].toolCallId == foundation::ToolId{"tool_steward_update_text_clip_7"});
+  GRAPPLE_REQUIRE(stewardTextEditConversation.runs[6].toolCalls[0].observedRevision == foundation::RevisionId{"rev_8"});
+  GRAPPLE_REQUIRE(stewardTextEdit.value().snapshot.revision == foundation::RevisionId{"rev_8"});
+  const auto stewardTextEditViewModel = stewardMediaWorkspace.value().project().buildViewModel();
+  GRAPPLE_REQUIRE(stewardTextEditViewModel);
+  GRAPPLE_REQUIRE(stewardTextEditViewModel.value().timeline.textClips.size() == 1);
+  GRAPPLE_REQUIRE(stewardTextEditViewModel.value().timeline.textClips[0].text == "Final Title");
+  GRAPPLE_REQUIRE(stewardTextEditViewModel.value().timeline.textClips[0].style.fontSize == 48.0);
+  GRAPPLE_REQUIRE(stewardTextEditViewModel.value().steward.edits.size() == 7);
+  GRAPPLE_REQUIRE(stewardTextEditViewModel.value().steward.edits[6].targetNodeId == stewardTextClip.value().textClipNodeId);
+  GRAPPLE_REQUIRE(stewardTextEditViewModel.value().steward.edits[6].targetName == "Final Title");
+  GRAPPLE_REQUIRE(stewardTextEditViewModel.value().steward.edits[6].editName == "Text Clip");
+  GRAPPLE_REQUIRE(stewardTextEditViewModel.value().steward.edits[6].intent == "Change title to \"Final Title\" and make font smaller.");
+  GRAPPLE_REQUIRE(stewardTextEditViewModel.value().steward.edits[6].controlSummary == "Text=Final Title, Font=48");
   const auto stewardMediaWrite = stewardMediaWorkspace.value().writePackage();
   GRAPPLE_REQUIRE(stewardMediaWrite);
   auto reopenedStewardMediaWorkspace =
@@ -1492,7 +1531,7 @@ int main() {
   const agent::AgentConversationState reopenedStewardMediaConversation =
     reopenedStewardMediaWorkspace.value().steward().conversationState();
   GRAPPLE_REQUIRE(reopenedStewardMediaConversation.diagnostics.empty());
-  GRAPPLE_REQUIRE(reopenedStewardMediaConversation.runs.size() == 6);
+  GRAPPLE_REQUIRE(reopenedStewardMediaConversation.runs.size() == 7);
   GRAPPLE_REQUIRE(reopenedStewardMediaConversation.runs[0].title == "Add Steward Video to the timeline.");
   GRAPPLE_REQUIRE(reopenedStewardMediaConversation.runs[0].toolCalls.size() == 1);
   GRAPPLE_REQUIRE(reopenedStewardMediaConversation.runs[0].toolCalls[0].toolSerializedId == "timeline.place_asset");
@@ -1516,18 +1555,22 @@ int main() {
   GRAPPLE_REQUIRE(reopenedStewardMediaConversation.runs[5].toolCalls.size() == 1);
   GRAPPLE_REQUIRE(reopenedStewardMediaConversation.runs[5].toolCalls[0].toolSerializedId == "timeline.create_text_clip");
   GRAPPLE_REQUIRE(reopenedStewardMediaConversation.runs[5].toolCalls[0].observedRevision == foundation::RevisionId{"rev_7"});
+  GRAPPLE_REQUIRE(reopenedStewardMediaConversation.runs[6].title == "Change title to \"Final Title\" and make font smaller.");
+  GRAPPLE_REQUIRE(reopenedStewardMediaConversation.runs[6].toolCalls.size() == 1);
+  GRAPPLE_REQUIRE(reopenedStewardMediaConversation.runs[6].toolCalls[0].toolSerializedId == "timeline.update_text_clip");
+  GRAPPLE_REQUIRE(reopenedStewardMediaConversation.runs[6].toolCalls[0].observedRevision == foundation::RevisionId{"rev_8"});
   const auto reopenedStewardMediaViewModel = reopenedStewardMediaWorkspace.value().project().buildViewModel();
   GRAPPLE_REQUIRE(reopenedStewardMediaViewModel);
-  GRAPPLE_REQUIRE(reopenedStewardMediaViewModel.value().project.revision == foundation::RevisionId{"rev_7"});
+  GRAPPLE_REQUIRE(reopenedStewardMediaViewModel.value().project.revision == foundation::RevisionId{"rev_8"});
   GRAPPLE_REQUIRE(reopenedStewardMediaViewModel.value().timeline.clips.size() == 1);
   GRAPPLE_REQUIRE(reopenedStewardMediaViewModel.value().timeline.textClips.size() == 1);
-  GRAPPLE_REQUIRE(reopenedStewardMediaViewModel.value().timeline.textClips[0].text == "Opening Title");
+  GRAPPLE_REQUIRE(reopenedStewardMediaViewModel.value().timeline.textClips[0].text == "Final Title");
   GRAPPLE_REQUIRE(reopenedStewardMediaViewModel.value().timeline.clips[0].transform.position.x == 0.25);
   GRAPPLE_REQUIRE(reopenedStewardMediaViewModel.value().timeline.clips[0].transform.scale.x == 0.75);
   GRAPPLE_REQUIRE(reopenedStewardMediaViewModel.value().timeline.clips[0].playbackRate == 1.25);
   GRAPPLE_REQUIRE((reopenedStewardMediaViewModel.value().timeline.clips[0].timelineRange == foundation::TimeRange{foundation::TimeSeconds{1.0}, foundation::TimeSeconds{6.0}}));
   GRAPPLE_REQUIRE((reopenedStewardMediaViewModel.value().timeline.clips[0].sourceRange == foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{4.75}}));
-  GRAPPLE_REQUIRE(reopenedStewardMediaViewModel.value().steward.edits.size() == 6);
+  GRAPPLE_REQUIRE(reopenedStewardMediaViewModel.value().steward.edits.size() == 7);
   GRAPPLE_REQUIRE(reopenedStewardMediaViewModel.value().steward.edits[0].editName == "Timeline Placement");
   GRAPPLE_REQUIRE(reopenedStewardMediaViewModel.value().steward.edits[1].editName == "Clip Transform");
   GRAPPLE_REQUIRE(reopenedStewardMediaViewModel.value().steward.edits[1].intent == "Move clip right and make it smaller.");
@@ -1539,6 +1582,8 @@ int main() {
   GRAPPLE_REQUIRE(reopenedStewardMediaViewModel.value().steward.edits[4].intent == "Shorten selected clip.");
   GRAPPLE_REQUIRE(reopenedStewardMediaViewModel.value().steward.edits[5].editName == "Text Clip");
   GRAPPLE_REQUIRE(reopenedStewardMediaViewModel.value().steward.edits[5].intent == "Add title \"Opening Title\".");
+  GRAPPLE_REQUIRE(reopenedStewardMediaViewModel.value().steward.edits[6].editName == "Text Clip");
+  GRAPPLE_REQUIRE(reopenedStewardMediaViewModel.value().steward.edits[6].intent == "Change title to \"Final Title\" and make font smaller.");
   std::filesystem::remove_all(stewardMediaPackageRoot);
 
   app::NativeProjectSession runtimeProject{
