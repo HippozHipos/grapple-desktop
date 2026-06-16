@@ -2529,9 +2529,9 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            selectedClipActionEnabledAfterIntent &&
            !window.stewardSelectedClipActionEnabled() &&
 	           stewardIntent.empty() &&
-	           steward.find("Next: choose camera controls or selected clip transform for this request.") != std::string::npos &&
+	           steward.find("Next: type a camera request, or mention clip/video to transform the selected clip.") != std::string::npos &&
            steward.find("Clip target: starter-gradient") != std::string::npos &&
-	           steward.find("Selected clip action: apply the request to clip transform parameters.") != std::string::npos &&
+	           steward.find("Clip route: mention clip/video, or use the clip action, to update transform parameters.") != std::string::npos &&
            steward.find("Rotation=-7.5") != std::string::npos &&
            inspector.find("Rotation: -7.50") != std::string::npos &&
            inspector.find("Opacity: 0.00") != std::string::npos &&

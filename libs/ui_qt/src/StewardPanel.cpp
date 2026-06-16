@@ -362,7 +362,7 @@ void StewardPanel::setViewModel(
 
   QString nextStep;
   const bool selectedClipActionAvailable = selectedClipTargetNodeId_.has_value();
-  const QString targetChoiceStep = "Next: choose camera controls or selected clip transform for this request.";
+  const QString targetChoiceStep = "Next: type a camera request, or mention clip/video to transform the selected clip.";
   switch (primaryAction_) {
     case PrimaryAction::ImportMedia:
       nextStep = "Next: import media to start the timeline.";
@@ -419,7 +419,7 @@ void StewardPanel::setViewModel(
   }
   if (selectedClipTargetNodeId_.has_value()) {
     lines << QString{"Clip target: %1"}.arg(clipName(viewModel, selectedClipTargetNodeId_.value()));
-    lines << "Selected clip action: apply the request to clip transform parameters.";
+    lines << "Clip route: mention clip/video, or use the clip action, to update transform parameters.";
   }
 
   recentEdits_->blockSignals(true);
