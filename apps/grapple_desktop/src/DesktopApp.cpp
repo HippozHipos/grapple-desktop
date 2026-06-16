@@ -2605,7 +2605,17 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     window.setExportResolutionControlValue(320, 180);
     window.setExportFrameRateControlValue(10.0);
     window.setExportCodecControlValue("mjpeg");
-    window.exportVideoFile(grapple::foundation::FilePath{outputPath.string()});
+    window.startPlayback();
+    const bool playbackStartedBeforeExport = window.pauseActionEnabled();
+    const bool exportStarted = window.startExportVideoFile(grapple::foundation::FilePath{outputPath.string()});
+    const bool playActionEnabledDuringExport = window.playActionEnabled();
+    const bool pauseActionEnabledDuringExport = window.pauseActionEnabled();
+    const bool seekActionEnabledDuringExport = window.seekActionEnabled();
+    const bool exportActionEnabledDuringExport = window.exportActionEnabled();
+    window.waitForExportIdle();
+    const bool playActionEnabledAfterExport = window.playActionEnabled();
+    const bool pauseActionEnabledAfterExport = window.pauseActionEnabled();
+    const bool seekActionEnabledAfterExport = window.seekActionEnabled();
     const std::string log = window.logContents();
     const bool exists = std::filesystem::exists(outputPath);
     const auto size = exists ? std::filesystem::file_size(outputPath) : 0U;
@@ -2614,11 +2624,29 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       printError(encodedResolution.error());
       return 1;
     }
+    std::cout << "playbackStartedBeforeExport=" << (playbackStartedBeforeExport ? "true" : "false") << '\n';
+    std::cout << "exportStarted=" << (exportStarted ? "true" : "false") << '\n';
+    std::cout << "playActionEnabledDuringExport=" << (playActionEnabledDuringExport ? "true" : "false") << '\n';
+    std::cout << "pauseActionEnabledDuringExport=" << (pauseActionEnabledDuringExport ? "true" : "false") << '\n';
+    std::cout << "seekActionEnabledDuringExport=" << (seekActionEnabledDuringExport ? "true" : "false") << '\n';
+    std::cout << "exportActionEnabledDuringExport=" << (exportActionEnabledDuringExport ? "true" : "false") << '\n';
+    std::cout << "playActionEnabledAfterExport=" << (playActionEnabledAfterExport ? "true" : "false") << '\n';
+    std::cout << "pauseActionEnabledAfterExport=" << (pauseActionEnabledAfterExport ? "true" : "false") << '\n';
+    std::cout << "seekActionEnabledAfterExport=" << (seekActionEnabledAfterExport ? "true" : "false") << '\n';
     std::cout << "exists=" << (exists ? "true" : "false") << '\n';
     std::cout << "size=" << size << '\n';
     std::cout << "encodedResolution=" << encodedResolution.value().width << "x" << encodedResolution.value().height << '\n';
     std::cout << "log=" << log << '\n';
-    return exists &&
+    return playbackStartedBeforeExport &&
+           exportStarted &&
+           !playActionEnabledDuringExport &&
+           !pauseActionEnabledDuringExport &&
+           !seekActionEnabledDuringExport &&
+           !exportActionEnabledDuringExport &&
+           playActionEnabledAfterExport &&
+           !pauseActionEnabledAfterExport &&
+           seekActionEnabledAfterExport &&
+           exists &&
            size > 0U &&
            encodedResolution.value() == grapple::foundation::Resolution{320, 180} &&
            log.find("Export progress 100%") != std::string::npos &&

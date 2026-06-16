@@ -3305,6 +3305,7 @@ public:
       path
     };
 
+    pausePlayback();
     const grapple::foundation::JobId jobId{
       "job_desktop_export_" + std::to_string(++exportJobCounter_)
     };
@@ -3462,11 +3463,12 @@ private:
     redoButton_->setEnabled(workspace_.commandWriter().canRedoLastUndoneCommand());
     const bool hasPlayableDuration = timelineDuration_.value > 0.0;
     const bool isPlaying = workspace_.preview().state().playback == grapple::render::PreviewPlaybackState::Playing;
-    playButton_->setEnabled(hasPlayableDuration && !isPlaying);
-    pauseButton_->setEnabled(hasPlayableDuration && isPlaying);
-    seekStartButton_->setEnabled(hasPlayableDuration);
-    stepBackButton_->setEnabled(hasPlayableDuration);
-    stepForwardButton_->setEnabled(hasPlayableDuration);
+    const bool previewControlsEnabled = hasPlayableDuration && !exportInProgress_;
+    playButton_->setEnabled(previewControlsEnabled && !isPlaying);
+    pauseButton_->setEnabled(previewControlsEnabled && isPlaying);
+    seekStartButton_->setEnabled(previewControlsEnabled);
+    stepBackButton_->setEnabled(previewControlsEnabled);
+    stepForwardButton_->setEnabled(previewControlsEnabled);
     bool selectedCamera = false;
     bool selectedClip = false;
     bool selectedTrack = false;
@@ -4148,6 +4150,14 @@ void DesktopWindow::savePackageAs(const foundation::FilePath& rootPath) {
 
 void DesktopWindow::exportVideoFile(const foundation::FilePath& path) {
   impl_->exportVideoFile(path);
+}
+
+bool DesktopWindow::startExportVideoFile(const foundation::FilePath& path) {
+  return impl_->startExportVideoFile(path);
+}
+
+void DesktopWindow::waitForExportIdle() {
+  impl_->waitForExportIdle();
 }
 
 void DesktopWindow::setExportResolutionControlValue(int width, int height) {

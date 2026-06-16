@@ -105,6 +105,8 @@ public:
   void newPackageRoot(const foundation::FilePath& rootPath, std::string projectName);
   void savePackageAs(const foundation::FilePath& rootPath);
   void exportVideoFile(const foundation::FilePath& path);
+  bool startExportVideoFile(const foundation::FilePath& path);
+  void waitForExportIdle();
   void setExportResolutionControlValue(int width, int height);
   void setExportFrameRateControlValue(double framesPerSecond);
   void setExportCodecControlValue(std::string codec);
