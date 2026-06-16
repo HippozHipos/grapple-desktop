@@ -1,5 +1,7 @@
 #include <grapple/ui_qt/PreviewSurface.hpp>
 
+#include <grapple/ui_qt/RenderFrameText.hpp>
+
 #include <QColor>
 #include <QFontMetrics>
 #include <QImage>
@@ -74,11 +76,13 @@ void PreviewSurface::setAssetLabels(const app::AppAssetSummary& assets) {
   for (const app::AppAssetRow& asset : assets.rows) {
     assetLabels_.push_back({asset.assetId, asset.name});
   }
+  updateFrameToolTip();
   update();
 }
 
 void PreviewSurface::setFrame(std::shared_ptr<const render::RenderFrame> frame) {
   frame_ = std::move(frame);
+  updateFrameToolTip();
   update();
 }
 
@@ -182,7 +186,10 @@ void PreviewSurface::drawRenderedImage(QPainter& painter, const render::RenderFr
     painter.drawText(
       rect().adjusted(18, -32, -18, -10),
       Qt::AlignBottom | Qt::AlignHCenter,
-      QString{"%1  %2"}.arg(assetLabel(mediaFrame.assetId)).arg(timeText(mediaFrame.sourceTime))
+      QString{"%1  %2  %3"}
+        .arg(assetLabel(mediaFrame.assetId))
+        .arg(timeText(mediaFrame.sourceTime))
+        .arg(prefixedEvaluatedClipEffectText(mediaFrame))
     );
   }
 }
@@ -205,7 +212,8 @@ void PreviewSurface::drawMediaFrame(
   const QStringList lines{
     QString{"asset %1"}.arg(assetLabel(mediaFrame.assetId)),
     QString{"clip %1"}.arg(qString(mediaFrame.clipNodeId.value())),
-    QString{"source %1"}.arg(timeText(mediaFrame.sourceTime))
+    QString{"source %1"}.arg(timeText(mediaFrame.sourceTime)),
+    prefixedEvaluatedClipEffectText(mediaFrame)
   };
   int y = detailsRect.top();
   for (const QString& line : lines) {
@@ -234,6 +242,23 @@ void PreviewSurface::drawTextFrame(
   const QRect textRect{-textWidth / 2, -fontSize, textWidth, fontSize * 2};
   painter.drawText(textRect, Qt::AlignCenter, qString(textFrame.text));
   painter.restore();
+}
+
+void PreviewSurface::updateFrameToolTip() {
+  if (frame_ == nullptr) {
+    setToolTip({});
+    return;
+  }
+
+  QStringList lines;
+  lines << QString{"Frame %1"}.arg(timeText(frame_->time));
+  for (const render::RenderedMediaFrame& mediaFrame : frame_->mediaFrames) {
+    lines << QString{"%1 source %2"}
+               .arg(assetLabel(mediaFrame.assetId))
+               .arg(timeText(mediaFrame.sourceTime));
+    lines << prefixedEvaluatedClipEffectText(mediaFrame);
+  }
+  setToolTip(lines.join("\n"));
 }
 
 QString PreviewSurface::assetLabel(const foundation::AssetId& assetId) const {

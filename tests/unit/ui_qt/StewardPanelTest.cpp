@@ -3,6 +3,9 @@
 #include <grapple/agent/AgentConversationState.hpp>
 #include <grapple/app/AppViewModel.hpp>
 #include <grapple/foundation/StrongId.hpp>
+#include <grapple/render/RenderFrame.hpp>
+#include <grapple/ui_qt/CompositionViewport.hpp>
+#include <grapple/ui_qt/PreviewSurface.hpp>
 #include <grapple/timeline/Payloads.hpp>
 
 #include "TestAssert.hpp"
@@ -34,6 +37,15 @@ grapple::app::AppViewModel viewModelWithCamera() {
 grapple::app::AppViewModel viewModelWithSelectedClip() {
   grapple::app::AppViewModel viewModel = viewModelWithCamera();
   viewModel.assets.count = 1;
+  viewModel.assets.rows.push_back(grapple::app::AppAssetRow{
+    grapple::foundation::AssetId{"asset_1"},
+    "Walking Woman",
+    "video",
+    grapple::foundation::FilePath{"/tmp/walking-woman.mp4"},
+    std::nullopt,
+    grapple::foundation::TimeSeconds{10.0},
+    grapple::foundation::Resolution{1080, 1920}
+  });
   viewModel.timeline.layers.push_back(grapple::app::AppLayerRow{
     grapple::foundation::NodeId{"track_1"},
     "Video",
@@ -74,6 +86,23 @@ grapple::app::AppViewModel viewModelWithSelectedTextClip() {
 
 bool containsText(const std::string& value, const std::string& text) {
   return value.find(text) != std::string::npos;
+}
+
+std::shared_ptr<grapple::render::RenderFrame> evaluatedClipFrame() {
+  auto frame = std::make_shared<grapple::render::RenderFrame>();
+  frame->time = grapple::foundation::TimeSeconds{1.25};
+  frame->mediaFrames.push_back(grapple::render::RenderedMediaFrame{
+    grapple::foundation::NodeId{"clip_1"},
+    grapple::foundation::NodeId{"track_1"},
+    grapple::foundation::AssetId{"asset_1"},
+    grapple::render::RenderedMediaKind::Video,
+    grapple::foundation::TimeSeconds{0.5},
+    grapple::timeline::Transform2D{},
+    grapple::foundation::Vec3{1.0, 0.25, 0.1},
+    0.6,
+    -0.35
+  });
+  return frame;
 }
 
 } // namespace
@@ -195,6 +224,24 @@ int main(int argc, char** argv) {
   GRAPPLE_REQUIRE(!cameraRouteCalled);
   GRAPPLE_REQUIRE(textRouteCalled);
   GRAPPLE_REQUIRE(!noteRouteCalled);
+
+  const grapple::app::AppViewModel renderedViewModel = viewModelWithSelectedClip();
+  const std::shared_ptr<grapple::render::RenderFrame> frame = evaluatedClipFrame();
+
+  grapple::ui::PreviewSurface previewSurface;
+  previewSurface.setAssetLabels(renderedViewModel.assets);
+  previewSurface.setFrame(frame);
+  GRAPPLE_REQUIRE(containsText(previewSurface.toolTip().toStdString(), "Walking Woman source 0.50s"));
+  GRAPPLE_REQUIRE(containsText(previewSurface.toolTip().toStdString(), "Tint 60%"));
+  GRAPPLE_REQUIRE(containsText(previewSurface.toolTip().toStdString(), "Exposure -0.35 EV"));
+
+  grapple::ui::CompositionViewport compositionViewport;
+  compositionViewport.setViewModel(renderedViewModel);
+  compositionViewport.setFrame(frame);
+  GRAPPLE_REQUIRE(containsText(compositionViewport.toolTip().toStdString(), "Evaluated frame 1.25s"));
+  GRAPPLE_REQUIRE(containsText(compositionViewport.toolTip().toStdString(), "Starter"));
+  GRAPPLE_REQUIRE(containsText(compositionViewport.toolTip().toStdString(), "Tint 60%"));
+  GRAPPLE_REQUIRE(containsText(compositionViewport.toolTip().toStdString(), "Exposure -0.35 EV"));
 
   return 0;
 }

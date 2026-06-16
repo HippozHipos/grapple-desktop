@@ -8,6 +8,7 @@ add_library(grapple_ui_qt
   src/EffectParamPanel.cpp
   src/ExportSettingsPanel.cpp
   src/PreviewSurface.cpp
+  src/RenderFrameText.cpp
   src/StewardPanel.cpp
   src/TextClipPropertyPanel.cpp
   src/TimelinePanel.cpp

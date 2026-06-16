@@ -1,10 +1,13 @@
 #include <grapple/ui_qt/CompositionViewport.hpp>
 
+#include <grapple/ui_qt/RenderFrameText.hpp>
+
 #include <QColor>
 #include <QFontMetrics>
 #include <QPainter>
 #include <QPaintEvent>
 #include <QRectF>
+#include <QStringList>
 
 #include <algorithm>
 #include <cmath>
@@ -41,6 +44,7 @@ CompositionViewport::CompositionViewport(QWidget* parent)
 void CompositionViewport::setViewModel(app::AppViewModel viewModel) {
   viewModel_ = std::move(viewModel);
   thumbnailCache_.setAssets(viewModel_->assets);
+  updateFrameToolTip();
   update();
 }
 
@@ -54,6 +58,7 @@ void CompositionViewport::setFrame(std::shared_ptr<const render::RenderFrame> fr
   if (frame_ != nullptr) {
     playhead_ = frame_->time;
   }
+  updateFrameToolTip();
   update();
 }
 
@@ -256,14 +261,20 @@ std::optional<foundation::Resolution> CompositionViewport::dimensionsFor(const f
 }
 
 std::string CompositionViewport::mediaFrameLabel(const render::RenderedMediaFrame& mediaFrame) const {
+  std::string label = mediaFrame.assetId.value();
   if (viewModel_.has_value()) {
     for (const app::AppClipRow& clip : viewModel_->timeline.clips) {
       if (clip.sourceNodeId == mediaFrame.clipNodeId) {
-        return clip.assetName;
+        label = clip.assetName;
+        break;
       }
     }
   }
-  return mediaFrame.assetId.value();
+  const QString effects = evaluatedClipEffectText(mediaFrame);
+  if (effects == "No evaluated clip effects") {
+    return label;
+  }
+  return label + " · " + effects.toStdString();
 }
 
 std::string CompositionViewport::cameraLabel(const render::RenderedCamera& camera) const {
@@ -279,6 +290,20 @@ std::string CompositionViewport::cameraLabel(const render::RenderedCamera& camer
 
 bool CompositionViewport::selected(const foundation::NodeId& nodeId) const {
   return selectedNodeId_.has_value() && selectedNodeId_.value() == nodeId;
+}
+
+void CompositionViewport::updateFrameToolTip() {
+  if (frame_ == nullptr) {
+    setToolTip({});
+    return;
+  }
+
+  QStringList lines;
+  lines << QString{"Evaluated frame %1s"}.arg(frame_->time.value, 0, 'f', 2);
+  for (const render::RenderedMediaFrame& mediaFrame : frame_->mediaFrames) {
+    lines << qString(mediaFrameLabel(mediaFrame));
+  }
+  setToolTip(lines.join("\n"));
 }
 
 } // namespace grapple::ui

@@ -33,6 +33,7 @@ private:
   void drawRenderedImage(QPainter& painter, const render::RenderFrame& frame) const;
   void drawMediaFrame(QPainter& painter, const render::RenderedMediaFrame& mediaFrame, const QRect& card) const;
   void drawTextFrame(QPainter& painter, const render::RenderedTextFrame& textFrame, const QRect& bounds) const;
+  void updateFrameToolTip();
   [[nodiscard]] QString assetLabel(const foundation::AssetId& assetId) const;
 
   std::shared_ptr<const render::RenderFrame> frame_;

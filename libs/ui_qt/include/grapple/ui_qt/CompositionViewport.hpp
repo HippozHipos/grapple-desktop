@@ -42,6 +42,7 @@ private:
   [[nodiscard]] std::string mediaFrameLabel(const render::RenderedMediaFrame& mediaFrame) const;
   [[nodiscard]] std::string cameraLabel(const render::RenderedCamera& camera) const;
   [[nodiscard]] bool selected(const foundation::NodeId& nodeId) const;
+  void updateFrameToolTip();
 
   std::optional<app::AppViewModel> viewModel_;
   std::shared_ptr<const render::RenderFrame> frame_;
