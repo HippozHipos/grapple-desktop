@@ -33,6 +33,8 @@ public:
   using TryEditSelectedClipHandler = std::function<bool(foundation::NodeId, std::string)>;
   using EditSelectedTextClipHandler = std::function<void(foundation::NodeId, std::string)>;
   using TryEditSelectedTextClipHandler = std::function<bool(foundation::NodeId, std::string)>;
+  using TrackCreateIntentTargetsTrackHandler = std::function<bool(std::string)>;
+  using TryCreateTrackHandler = std::function<bool(std::string)>;
   using TryCreateTextClipHandler = std::function<bool(std::string)>;
   using EditSelectedNoteHandler = std::function<void(foundation::NodeId, std::string)>;
   using TryEditSelectedNoteHandler = std::function<bool(foundation::NodeId, std::string)>;
@@ -56,6 +58,8 @@ public:
   void setTryEditSelectedClipHandler(TryEditSelectedClipHandler handler);
   void setEditSelectedTextClipHandler(EditSelectedTextClipHandler handler);
   void setTryEditSelectedTextClipHandler(TryEditSelectedTextClipHandler handler);
+  void setTrackCreateIntentTargetsTrackHandler(TrackCreateIntentTargetsTrackHandler handler);
+  void setTryCreateTrackHandler(TryCreateTrackHandler handler);
   void setTryCreateTextClipHandler(TryCreateTextClipHandler handler);
   void setEditSelectedNoteHandler(EditSelectedNoteHandler handler);
   void setTryEditSelectedNoteHandler(TryEditSelectedNoteHandler handler);
@@ -103,6 +107,7 @@ private:
   [[nodiscard]] bool tryEditSelectedClipFromPrimaryAction();
   [[nodiscard]] bool tryEditSelectedTextClipFromPrimaryAction();
   [[nodiscard]] bool tryEditSelectedNoteFromPrimaryAction();
+  [[nodiscard]] bool tryCreateTrackFromPrimaryAction();
   [[nodiscard]] bool tryCreateTextClipFromPrimaryAction();
   [[nodiscard]] bool tryCreateNoteFromPrimaryAction();
   [[nodiscard]] bool intentHasText() const;
@@ -124,6 +129,8 @@ private:
   TryEditSelectedClipHandler tryEditSelectedClipHandler_;
   EditSelectedTextClipHandler editSelectedTextClipHandler_;
   TryEditSelectedTextClipHandler tryEditSelectedTextClipHandler_;
+  TrackCreateIntentTargetsTrackHandler trackCreateIntentTargetsTrackHandler_;
+  TryCreateTrackHandler tryCreateTrackHandler_;
   TryCreateTextClipHandler tryCreateTextClipHandler_;
   EditSelectedNoteHandler editSelectedNoteHandler_;
   TryEditSelectedNoteHandler tryEditSelectedNoteHandler_;

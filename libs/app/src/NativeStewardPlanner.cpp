@@ -224,6 +224,28 @@ bool trackDeleteIntentRequestsTrack(const std::string& normalized) {
          containsAsciiWord(normalized, "layer");
 }
 
+bool trackCreateIntentRequestsTrack(const std::string& normalized) {
+  const bool createRequested =
+    containsAsciiWord(normalized, "add") ||
+    containsAsciiWord(normalized, "create") ||
+    containsAsciiWord(normalized, "new");
+  if (!createRequested || trackDeleteIntentRequestsTrack(normalized)) {
+    return false;
+  }
+  return containsAsciiWord(normalized, "track") ||
+         containsAsciiWord(normalized, "layer");
+}
+
+timeline::TrackKind trackKindForIntent(const std::string& normalized) {
+  if (containsAsciiWord(normalized, "audio") ||
+      containsAsciiWord(normalized, "sound") ||
+      containsAsciiWord(normalized, "music") ||
+      containsAsciiWord(normalized, "voiceover")) {
+    return timeline::TrackKind::Audio;
+  }
+  return timeline::TrackKind::Visual;
+}
+
 bool textIntentRequestsText(const std::string& normalized) {
   return containsAsciiWord(normalized, "title") ||
          containsAsciiWord(normalized, "text") ||
@@ -863,6 +885,19 @@ bool NativeStewardPlanner::clipEditIntentTargetsClip(const std::string& intent) 
 
 bool NativeStewardPlanner::clipDeleteIntentTargetsClip(const std::string& intent) const {
   return clipDeleteIntentRequestsClip(lowercaseAscii(intent));
+}
+
+bool NativeStewardPlanner::trackCreateIntentTargetsTrack(const std::string& intent) const {
+  return trackCreateIntentRequestsTrack(lowercaseAscii(intent));
+}
+
+TrackIntentDefaults NativeStewardPlanner::trackDefaultsForIntent(const std::string& intent) const {
+  const std::string normalized = lowercaseAscii(intent);
+  const timeline::TrackKind kind = trackKindForIntent(normalized);
+  return TrackIntentDefaults{
+    kind == timeline::TrackKind::Audio ? "Audio Track" : "Video Track",
+    kind
+  };
 }
 
 bool NativeStewardPlanner::trackDeleteIntentTargetsTrack(const std::string& intent) const {

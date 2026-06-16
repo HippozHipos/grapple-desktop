@@ -187,6 +187,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   bool stewardZoomMotionSmoke = false;
   bool stewardClipTransformSmoke = false;
   bool stewardUndoSmoke = false;
+  bool stewardCreateTrackSmoke = false;
   bool stewardDeleteTrackSmoke = false;
   bool stewardDeleteClipSmoke = false;
   bool stewardDeleteCameraControlsSmoke = false;
@@ -281,6 +282,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       stewardClipTransformSmoke = true;
     } else if (argument == "--steward-undo-smoke") {
       stewardUndoSmoke = true;
+    } else if (argument == "--steward-create-track-smoke") {
+      stewardCreateTrackSmoke = true;
     } else if (argument == "--steward-delete-track-smoke") {
       stewardDeleteTrackSmoke = true;
     } else if (argument == "--steward-delete-clip-smoke") {
@@ -368,6 +371,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     stewardMotionSmoke ||
     stewardZoomMotionSmoke ||
     stewardUndoSmoke ||
+    stewardCreateTrackSmoke ||
     stewardDeleteTrackSmoke ||
     deleteEffectSmoke ||
     deleteSmoke ||
@@ -2348,6 +2352,49 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            steward.find("Delete selected track.") != std::string::npos &&
            steward.find("Delete Timeline Track -> succeeded") != std::string::npos &&
            log.find("Steward deleted selected track") != std::string::npos
+      ? 0
+      : 1;
+  }
+
+  if (stewardCreateTrackSmoke) {
+    window.show();
+    app.processEvents();
+    window.setStewardIntent("Create audio layer.");
+    const std::string primaryActionText = window.stewardPrimaryActionText();
+    const bool primaryActionEnabled = window.stewardPrimaryActionEnabled();
+    window.clickStewardPrimaryAction();
+    const auto viewModel = workspace.value().project().buildViewModel();
+    if (!viewModel) {
+      printError(viewModel.error());
+      return 1;
+    }
+    const auto conversation = workspace.value().steward().conversationState();
+    const std::string steward = window.stewardContents();
+    const std::string log = window.logContents();
+    std::cout << "revision=" << viewModel.value().project.revision.value() << '\n';
+    std::cout << "layers=" << viewModel.value().timeline.layers.size() << '\n';
+    std::cout << "audioTracks=" << viewModel.value().timeline.audioTracks.size() << '\n';
+    std::cout << "primaryActionText=" << primaryActionText << '\n';
+    std::cout << "primaryActionEnabled=" << (primaryActionEnabled ? "true" : "false") << '\n';
+    std::cout << "runs=" << conversation.runs.size() << '\n';
+    std::cout << "steward=" << steward << '\n';
+    std::cout << "log=" << log << '\n';
+    return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_6"} &&
+           viewModel.value().timeline.layers.size() == 1 &&
+           viewModel.value().timeline.audioTracks.size() == 1 &&
+           viewModel.value().timeline.audioTracks[0].name == "Audio Track" &&
+           window.selectedNodeId().has_value() &&
+           window.selectedNodeId().value() == viewModel.value().timeline.audioTracks[0].sourceNodeId &&
+           window.stewardIntent().empty() &&
+           primaryActionText == "Create Timeline Track" &&
+           primaryActionEnabled &&
+           conversation.runs.size() == 1 &&
+           conversation.runs[0].toolCalls.size() == 1 &&
+           conversation.runs[0].toolCalls[0].toolSerializedId == "timeline.create_track" &&
+           steward.find("Track") != std::string::npos &&
+           steward.find("Create audio layer.") != std::string::npos &&
+           steward.find("Create Timeline Track -> succeeded") != std::string::npos &&
+           log.find("Steward created timeline track") != std::string::npos
       ? 0
       : 1;
   }

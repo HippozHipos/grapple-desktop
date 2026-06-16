@@ -79,6 +79,11 @@ struct NoteEditIntent {
   bool changed = false;
 };
 
+struct TrackIntentDefaults {
+  std::string name;
+  timeline::TrackKind kind = timeline::TrackKind::Visual;
+};
+
 class NativeStewardPlanner final {
 public:
   [[nodiscard]] CameraTransformIntentDefaults cameraTransformDefaultsForIntent(
@@ -95,6 +100,8 @@ public:
   [[nodiscard]] bool cameraTransformDeleteIntentTargetsCameraControls(const std::string& intent) const;
   [[nodiscard]] bool clipEditIntentTargetsClip(const std::string& intent) const;
   [[nodiscard]] bool clipDeleteIntentTargetsClip(const std::string& intent) const;
+  [[nodiscard]] bool trackCreateIntentTargetsTrack(const std::string& intent) const;
+  [[nodiscard]] TrackIntentDefaults trackDefaultsForIntent(const std::string& intent) const;
   [[nodiscard]] bool trackDeleteIntentTargetsTrack(const std::string& intent) const;
   [[nodiscard]] bool textClipIntentTargetsText(const std::string& intent) const;
   [[nodiscard]] TextClipIntentDefaults textClipDefaultsForIntent(const std::string& intent) const;

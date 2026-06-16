@@ -31,6 +31,11 @@ struct NativeStewardNoteResult {
   foundation::NodeId noteNodeId;
 };
 
+struct NativeStewardTrackResult {
+  storage::ProjectPackageSessionResult packageResult;
+  foundation::NodeId trackNodeId;
+};
+
 class NativeStewardSession final {
 public:
   NativeStewardSession(NativeProjectSession& project, NativeProjectCommandWriter& commandWriter);
@@ -55,6 +60,7 @@ public:
     foundation::TimeSeconds start
   );
   foundation::Result<NativeStewardNoteResult> createNote(std::string intent);
+  foundation::Result<NativeStewardTrackResult> createTrack(std::string intent);
   foundation::Result<storage::ProjectPackageSessionResult> editClip(
     foundation::NodeId clipNodeId,
     std::string intent
@@ -77,6 +83,7 @@ public:
   );
   [[nodiscard]] bool clipEditIntentTargetsClip(const std::string& intent) const;
   [[nodiscard]] bool clipDeleteIntentTargetsClip(const std::string& intent) const;
+  [[nodiscard]] bool trackCreateIntentTargetsTrack(const std::string& intent) const;
   [[nodiscard]] bool trackDeleteIntentTargetsTrack(const std::string& intent) const;
   [[nodiscard]] bool textClipIntentTargetsText(const std::string& intent) const;
   [[nodiscard]] bool textClipEditIntentTargetsTextClip(const std::string& intent) const;

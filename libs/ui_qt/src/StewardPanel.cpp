@@ -325,6 +325,9 @@ StewardPanel::StewardPanel(QWidget* parent)
     if (tryEditSelectedNoteFromPrimaryAction()) {
       return;
     }
+    if (tryCreateTrackFromPrimaryAction()) {
+      return;
+    }
     if (tryCreateTextClipFromPrimaryAction()) {
       return;
     }
@@ -495,6 +498,14 @@ void StewardPanel::setEditSelectedTextClipHandler(EditSelectedTextClipHandler ha
 
 void StewardPanel::setTryEditSelectedTextClipHandler(TryEditSelectedTextClipHandler handler) {
   tryEditSelectedTextClipHandler_ = std::move(handler);
+}
+
+void StewardPanel::setTrackCreateIntentTargetsTrackHandler(TrackCreateIntentTargetsTrackHandler handler) {
+  trackCreateIntentTargetsTrackHandler_ = std::move(handler);
+}
+
+void StewardPanel::setTryCreateTrackHandler(TryCreateTrackHandler handler) {
+  tryCreateTrackHandler_ = std::move(handler);
 }
 
 void StewardPanel::setTryCreateTextClipHandler(TryCreateTextClipHandler handler) {
@@ -809,15 +820,34 @@ void StewardPanel::updateActionButtons() {
 
 void StewardPanel::updateActionLabels() {
   const bool hasIntent = intentHasText();
-  switch (primaryAction_) {
-    case PrimaryAction::CreateCameraEffect:
-      primaryActionButton_->setText(hasIntent ? "Create Editable Camera Controls" : "Type Request To Create Camera Controls");
-      break;
-    case PrimaryAction::AdjustCameraControls:
-      primaryActionButton_->setText(hasIntent ? "Apply Request To Camera Controls" : "Type Request To Apply Camera Controls");
-      break;
-    default:
-      break;
+  if (hasIntent &&
+      trackCreateIntentTargetsTrackHandler_ &&
+      trackCreateIntentTargetsTrackHandler_(intent())) {
+    primaryActionButton_->setText("Create Timeline Track");
+  } else {
+    switch (primaryAction_) {
+      case PrimaryAction::ImportMedia:
+        primaryActionButton_->setText("Import Media");
+        break;
+      case PrimaryAction::AddSelectedMedia:
+        primaryActionButton_->setText("Add Selected Media To Timeline");
+        break;
+      case PrimaryAction::AddCamera:
+        primaryActionButton_->setText("Add Camera");
+        break;
+      case PrimaryAction::ShowCameraControls:
+        primaryActionButton_->setText("Show Editable Controls");
+        break;
+      case PrimaryAction::CreateCameraEffect:
+        primaryActionButton_->setText(hasIntent ? "Create Editable Camera Controls" : "Type Request To Create Camera Controls");
+        break;
+      case PrimaryAction::AdjustCameraControls:
+        primaryActionButton_->setText(hasIntent ? "Apply Request To Camera Controls" : "Type Request To Apply Camera Controls");
+        break;
+      case PrimaryAction::Disabled:
+        primaryActionButton_->setText("Select Project Item");
+        break;
+    }
   }
 
   selectedTargetActionButton_->setText(
@@ -842,30 +872,30 @@ void StewardPanel::updateIntentPlaceholder() {
       intent_->setPlaceholderText("Try: \"add note \\\"Camera rationale\\\" saying Keep zoom editable\", or import media to start the timeline.");
       return;
     case PrimaryAction::AddSelectedMedia:
-      intent_->setPlaceholderText("Add selected media to the timeline. Then try: \"center the subject\" or \"add title \\\"Opening\\\"\".");
+      intent_->setPlaceholderText("Add selected media to the timeline. Then try: \"center the subject\", \"add audio track\", or \"add title \\\"Opening\\\"\".");
       return;
     case PrimaryAction::AddCamera:
-      intent_->setPlaceholderText("Try: \"add title \\\"Opening\\\"\", or add a camera for editable framing.");
+      intent_->setPlaceholderText("Try: \"add audio track\", \"add title \\\"Opening\\\"\", or add a camera for editable framing.");
       return;
     case PrimaryAction::ShowCameraControls:
       intent_->setPlaceholderText(
         selectedTargetActionAvailable
-          ? "Try: \"add title \\\"Opening\\\"\", \"zoom in a little\", or use the clip action for \"rotate clip slightly left\"."
-          : "Try: \"add title \\\"Opening\\\"\", or show camera controls for \"zoom in a little\"."
+          ? "Try: \"add audio track\", \"add title \\\"Opening\\\"\", \"zoom in a little\", or use the clip action for \"rotate clip slightly left\"."
+          : "Try: \"add audio track\", \"add title \\\"Opening\\\"\", or show camera controls for \"zoom in a little\"."
       );
       return;
     case PrimaryAction::CreateCameraEffect:
       intent_->setPlaceholderText(
         selectedTargetActionAvailable
-          ? "Try: \"add title \\\"Opening\\\"\", \"center the subject\", or use the clip action for \"speed up clip\"."
-          : "Try: \"add title \\\"Opening\\\"\", \"center the subject\", or \"slowly pan right\"."
+          ? "Try: \"add audio track\", \"add title \\\"Opening\\\"\", \"center the subject\", or use the clip action for \"speed up clip\"."
+          : "Try: \"add audio track\", \"add title \\\"Opening\\\"\", \"center the subject\", or \"slowly pan right\"."
       );
       return;
     case PrimaryAction::AdjustCameraControls:
       intent_->setPlaceholderText(
         selectedTargetActionAvailable
-          ? "Try: \"add title \\\"Opening\\\"\", \"move far right\", \"zoom in a little\", or use the clip action for \"move clip later\"."
-          : "Try: \"add title \\\"Opening\\\"\", \"move far right\", \"zoom in a little\", \"reset camera\", or \"slowly pan left\"."
+          ? "Try: \"add audio track\", \"add title \\\"Opening\\\"\", \"move far right\", \"zoom in a little\", or use the clip action for \"move clip later\"."
+          : "Try: \"add audio track\", \"add title \\\"Opening\\\"\", \"move far right\", \"zoom in a little\", \"reset camera\", or \"slowly pan left\"."
       );
       return;
     case PrimaryAction::Disabled:
@@ -948,6 +978,17 @@ bool StewardPanel::tryEditSelectedNoteFromPrimaryAction() {
   return tryEditSelectedNoteHandler_(selectedNoteTargetNodeId_.value(), intent());
 }
 
+bool StewardPanel::tryCreateTrackFromPrimaryAction() {
+  if (!intentHasText() ||
+      !trackCreateIntentTargetsTrackHandler_ ||
+      !tryCreateTrackHandler_ ||
+      !trackCreateIntentTargetsTrackHandler_(intent())) {
+    return false;
+  }
+
+  return tryCreateTrackHandler_(intent());
+}
+
 bool StewardPanel::tryCreateTextClipFromPrimaryAction() {
   if (!intentHasText() || !tryCreateTextClipHandler_) {
     return false;
@@ -977,6 +1018,12 @@ bool StewardPanel::primaryActionCanRun() const {
   if (intentHasText() &&
       historyIntentTargetsEditHandler_ &&
       historyIntentTargetsEditHandler_(intent())) {
+    return true;
+  }
+  if (intentHasText() &&
+      trackCreateIntentTargetsTrackHandler_ &&
+      tryCreateTrackHandler_ &&
+      trackCreateIntentTargetsTrackHandler_(intent())) {
     return true;
   }
 

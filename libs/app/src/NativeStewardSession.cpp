@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cctype>
+#include <cstdlib>
 #include <optional>
 #include <sstream>
 #include <string>
@@ -28,6 +29,7 @@ constexpr const char CanonicalEffectDeleteNodeToolId[] = "effect.delete_node";
 constexpr const char CanonicalEffectCreateParamKeyframeToolId[] = "effect.create_param_keyframe";
 constexpr const char CanonicalEffectUpdateParamKeyframeToolId[] = "effect.update_param_keyframe";
 constexpr const char CanonicalPlaceAssetToolId[] = "timeline.place_asset";
+constexpr const char CanonicalCreateTrackToolId[] = "timeline.create_track";
 constexpr const char CanonicalCreateTextClipToolId[] = "timeline.create_text_clip";
 constexpr const char CanonicalUpdateTextClipToolId[] = "timeline.update_text_clip";
 constexpr const char CanonicalCreateNoteToolId[] = "note.create";
@@ -215,6 +217,10 @@ foundation::ToolId stewardCreateTextClipToolCallIdForRun(const foundation::RunId
   return foundation::ToolId{"tool_steward_create_text_clip_" + std::to_string(stewardRunNumber(runId))};
 }
 
+foundation::ToolId stewardCreateTrackToolCallIdForRun(const foundation::RunId& runId) {
+  return foundation::ToolId{"tool_steward_create_track_" + std::to_string(stewardRunNumber(runId))};
+}
+
 foundation::ToolId stewardUpdateTextClipToolCallIdForRun(const foundation::RunId& runId) {
   return foundation::ToolId{"tool_steward_update_text_clip_" + std::to_string(stewardRunNumber(runId))};
 }
@@ -383,12 +389,47 @@ std::string clipDeleteArgumentsPayload(const foundation::NodeId& clipNodeId) {
   return arguments.str();
 }
 
+std::string trackKindName(timeline::TrackKind kind) {
+  switch (kind) {
+    case timeline::TrackKind::Visual:
+      return "visual";
+    case timeline::TrackKind::Audio:
+      return "audio";
+  }
+
+  std::abort();
+}
+
+std::string trackCreateArgumentsPayload(
+  const foundation::NodeId& compositionNodeId,
+  const TrackIntentDefaults& defaults
+) {
+  std::ostringstream arguments;
+  arguments << '{';
+  foundation::writeJsonStringProperty(arguments, "compositionNodeId", compositionNodeId.value());
+  arguments << ',';
+  foundation::writeJsonStringProperty(arguments, "name", defaults.name);
+  arguments << ',';
+  foundation::writeJsonStringProperty(arguments, "kind", trackKindName(defaults.kind));
+  arguments << '}';
+  return arguments.str();
+}
+
 std::string trackDeleteArgumentsPayload(const foundation::NodeId& trackNodeId) {
   std::ostringstream arguments;
   arguments << '{';
   foundation::writeJsonStringProperty(arguments, "trackNodeId", trackNodeId.value());
   arguments << '}';
   return arguments.str();
+}
+
+std::optional<foundation::NodeId> firstCompositionNodeId(const project::ProjectSnapshot& snapshot) {
+  for (const graph::GraphNode& node : snapshot.graph.nodes()) {
+    if (node.kind == graph::NodeKind::Composition) {
+      return node.id;
+    }
+  }
+  return std::nullopt;
 }
 
 std::optional<foundation::NodeId> firstVisualTrackNodeId(const project::ProjectSnapshot& snapshot) {
@@ -531,6 +572,8 @@ public:
     if (createdNodeId_ != nullptr) {
       if (const auto* placement = std::get_if<project::AddMediaToTimelineCommand>(&command.payload)) {
         *createdNodeId_ = placement->clip.nodeId;
+      } else if (const auto* track = std::get_if<project::CreateTrackCommand>(&command.payload)) {
+        *createdNodeId_ = track->nodeId;
       } else if (const auto* textClip = std::get_if<project::CreateTextClipCommand>(&command.payload)) {
         *createdNodeId_ = textClip->nodeId;
       } else if (const auto* note = std::get_if<project::CreateNoteCommand>(&command.payload)) {
@@ -997,6 +1040,103 @@ foundation::Result<NativeStewardNoteResult> NativeStewardSession::createNote(std
 
   markRunStatus(runId.value(), agent::AgentRunStatus::Succeeded);
   return NativeStewardNoteResult{packageResult.value(), noteNodeId.value()};
+}
+
+foundation::Result<NativeStewardTrackResult> NativeStewardSession::createTrack(std::string intent) {
+  auto snapshot = project_.snapshot();
+  if (!snapshot) {
+    return snapshot.error();
+  }
+
+  if (!planner_.trackCreateIntentTargetsTrack(intent)) {
+    return foundation::Error{
+      "steward.track_create_intent_mismatch",
+      "Steward track creation requires an explicit add, create, or new track request."
+    };
+  }
+
+  const std::optional<foundation::NodeId> compositionNodeId = firstCompositionNodeId(snapshot.value());
+  if (!compositionNodeId.has_value()) {
+    return foundation::Error{
+      "steward.composition_missing",
+      "Steward track creation requires an existing composition."
+    };
+  }
+
+  auto runId = startRun(snapshot.value(), intent);
+  if (!runId) {
+    return runId.error();
+  }
+
+  const TrackIntentDefaults defaults = planner_.trackDefaultsForIntent(intent);
+  auto message = appendEvent(
+    runId.value(),
+    agent::AgentRunEventKind::ModelMessage,
+    modelMessagePayload("assistant", "Creating an editable timeline track.")
+  );
+  if (!message) {
+    return message.error();
+  }
+
+  std::optional<storage::ProjectPackageSessionResult> packageResult;
+  std::optional<foundation::NodeId> trackNodeId;
+  CommittingAgentCommandService stewardCommands{
+    project_,
+    commandWriter_,
+    intent,
+    packageResult,
+    &trackNodeId
+  };
+  agent::AgentToolRegistry registry;
+  auto registered = agent::registerProjectTools(registry);
+  if (!registered) {
+    auto finished = finishRunWithError(runId.value(), registered.error());
+    if (!finished) {
+      return finished.error();
+    }
+    return registered.error();
+  }
+
+  agent::AgentToolContext toolContext{stewardCommands, project_, commandWriter_};
+  agent::AgentBridge bridge{registry, toolContext, events_, nextSequence_};
+  auto dispatched = bridge.dispatchToolCall(agent::AgentToolDispatchRequest{
+    runId.value(),
+    snapshot.value().info.id,
+    snapshot.value().revision,
+    stewardCreateTrackToolCallIdForRun(runId.value()),
+    CanonicalCreateTrackToolId,
+    trackCreateArgumentsPayload(compositionNodeId.value(), defaults)
+  });
+  if (!dispatched) {
+    auto finished = finishRunWithError(runId.value(), dispatched.error());
+    if (!finished) {
+      return finished.error();
+    }
+    return dispatched.error();
+  }
+  if (!packageResult.has_value() || !trackNodeId.has_value()) {
+    const foundation::Error error{
+      "steward.track_create_result_missing",
+      "Steward track creation tool succeeded without a committed track result."
+    };
+    auto finished = finishRunWithError(runId.value(), error);
+    if (!finished) {
+      return finished.error();
+    }
+    return error;
+  }
+
+  auto runFinished = appendEvent(
+    runId.value(),
+    agent::AgentRunEventKind::RunFinished,
+    runFinishedPayload("succeeded", "Created editable timeline track.")
+  );
+  if (!runFinished) {
+    return runFinished.error();
+  }
+
+  markRunStatus(runId.value(), agent::AgentRunStatus::Succeeded);
+  return NativeStewardTrackResult{packageResult.value(), trackNodeId.value()};
 }
 
 foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::editClip(
@@ -1572,6 +1712,10 @@ bool NativeStewardSession::clipEditIntentTargetsClip(const std::string& intent) 
 
 bool NativeStewardSession::clipDeleteIntentTargetsClip(const std::string& intent) const {
   return planner_.clipDeleteIntentTargetsClip(intent);
+}
+
+bool NativeStewardSession::trackCreateIntentTargetsTrack(const std::string& intent) const {
+  return planner_.trackCreateIntentTargetsTrack(intent);
 }
 
 bool NativeStewardSession::trackDeleteIntentTargetsTrack(const std::string& intent) const {

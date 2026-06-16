@@ -296,6 +296,12 @@ int main() {
   GRAPPLE_REQUIRE(stewardPlanner.clipDeleteIntentTargetsClip("remove selected title"));
   GRAPPLE_REQUIRE(!stewardPlanner.clipEditIntentTargetsClip("delete selected clip"));
   GRAPPLE_REQUIRE(!stewardPlanner.clipDeleteIntentTargetsClip("make clip smaller"));
+  GRAPPLE_REQUIRE(stewardPlanner.trackCreateIntentTargetsTrack("add video track"));
+  GRAPPLE_REQUIRE(stewardPlanner.trackCreateIntentTargetsTrack("create audio layer"));
+  GRAPPLE_REQUIRE(!stewardPlanner.trackCreateIntentTargetsTrack("delete selected track"));
+  GRAPPLE_REQUIRE(!stewardPlanner.trackCreateIntentTargetsTrack("add title"));
+  GRAPPLE_REQUIRE(stewardPlanner.trackDefaultsForIntent("add video track").kind == timeline::TrackKind::Visual);
+  GRAPPLE_REQUIRE(stewardPlanner.trackDefaultsForIntent("create audio layer").kind == timeline::TrackKind::Audio);
   GRAPPLE_REQUIRE(stewardPlanner.trackDeleteIntentTargetsTrack("delete selected track"));
   GRAPPLE_REQUIRE(stewardPlanner.trackDeleteIntentTargetsTrack("remove selected layer"));
   GRAPPLE_REQUIRE(!stewardPlanner.trackDeleteIntentTargetsTrack("delete selected clip"));
@@ -3352,6 +3358,52 @@ int main() {
   GRAPPLE_REQUIRE(stewardTrackDeleteConversation.runs.size() == 1);
   GRAPPLE_REQUIRE(stewardTrackDeleteConversation.runs[0].toolCalls.size() == 1);
   GRAPPLE_REQUIRE(stewardTrackDeleteConversation.runs[0].toolCalls[0].toolSerializedId == "timeline.delete_track");
+
+  app::NativeProjectSession trackCreateSession{
+    foundation::ProjectId{"proj_app_steward_track_create"},
+    "Steward Track Create",
+    storage::ProjectPackage{
+      foundation::ProjectId{"proj_app_steward_track_create"},
+      foundation::FilePath{"steward-track-create.grapple"},
+      storage::CurrentProjectPackageSchemaVersion
+    }
+  };
+  app::NativeProjectCommandWriter trackCreateWriter{trackCreateSession};
+  const foundation::NodeId trackCreateCompositionNodeId = trackCreateWriter.nextNodeId("composition");
+  const auto trackCreateComposition = trackCreateWriter.apply(
+    project::CreateCompositionCommand{trackCreateCompositionNodeId, "Main"},
+    userSource()
+  );
+  GRAPPLE_REQUIRE(trackCreateComposition);
+  app::NativeStewardSession trackCreateSteward{trackCreateSession, trackCreateWriter};
+  auto stewardTrackCreate = trackCreateSteward.createTrack("Create audio layer.");
+  GRAPPLE_REQUIRE(stewardTrackCreate);
+  GRAPPLE_REQUIRE(stewardTrackCreate.value().trackNodeId == foundation::NodeId{"node_track_2"});
+  GRAPPLE_REQUIRE(stewardTrackCreate.value().packageResult.snapshot.revision == foundation::RevisionId{"rev_2"});
+  const auto stewardTrackCreateViewModel = trackCreateSession.buildViewModel();
+  GRAPPLE_REQUIRE(stewardTrackCreateViewModel);
+  GRAPPLE_REQUIRE(stewardTrackCreateViewModel.value().timeline.layers.empty());
+  GRAPPLE_REQUIRE(stewardTrackCreateViewModel.value().timeline.audioTracks.size() == 1);
+  GRAPPLE_REQUIRE(stewardTrackCreateViewModel.value().timeline.audioTracks[0].sourceNodeId == stewardTrackCreate.value().trackNodeId);
+  GRAPPLE_REQUIRE(stewardTrackCreateViewModel.value().timeline.audioTracks[0].name == "Audio Track");
+  GRAPPLE_REQUIRE(stewardTrackCreateViewModel.value().steward.edits.size() == 1);
+  GRAPPLE_REQUIRE(stewardTrackCreateViewModel.value().steward.edits[0].editName == "Track");
+  GRAPPLE_REQUIRE(stewardTrackCreateViewModel.value().steward.edits[0].targetName == "Audio Track");
+  GRAPPLE_REQUIRE(stewardTrackCreateViewModel.value().steward.edits[0].intent == "Create audio layer.");
+  GRAPPLE_REQUIRE(stewardTrackCreateViewModel.value().steward.edits[0].controlSummary == "Kind=audio");
+  const history::CommandRecord& trackCreateCommand = trackCreateSession.packageState().commandLog.records().back();
+  GRAPPLE_REQUIRE(trackCreateCommand.serializedName == "project.create_track");
+  GRAPPLE_REQUIRE(trackCreateCommand.sourceKind == "agent");
+  GRAPPLE_REQUIRE(trackCreateCommand.sourceActorName == "steward");
+  GRAPPLE_REQUIRE(trackCreateCommand.sourceRunId == foundation::RunId{"run_steward_1"});
+  const auto stewardTrackCreateConversation = trackCreateSteward.conversationState();
+  GRAPPLE_REQUIRE(stewardTrackCreateConversation.runs.size() == 1);
+  GRAPPLE_REQUIRE(stewardTrackCreateConversation.runs[0].status == agent::AgentRunStatus::Succeeded);
+  GRAPPLE_REQUIRE(stewardTrackCreateConversation.runs[0].toolCalls.size() == 1);
+  GRAPPLE_REQUIRE(stewardTrackCreateConversation.runs[0].toolCalls[0].toolSerializedId == "timeline.create_track");
+  GRAPPLE_REQUIRE(stewardTrackCreateConversation.runs[0].toolCalls[0].toolDisplayName == "Create Timeline Track");
+  GRAPPLE_REQUIRE(stewardTrackCreateConversation.runs[0].toolCalls[0].toolCallId == foundation::ToolId{"tool_steward_create_track_1"});
+  GRAPPLE_REQUIRE(stewardTrackCreateConversation.runs[0].toolCalls[0].observedRevision == foundation::RevisionId{"rev_2"});
 
   const std::string workspacePackageStem =
     "grapple_workspace_package_" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count());

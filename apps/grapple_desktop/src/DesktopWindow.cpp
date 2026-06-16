@@ -826,6 +826,12 @@ public:
     ) {
       return editSelectedTextClipWithPrimaryIntent(std::move(clipNodeId), std::move(intent));
     });
+    steward_->setTrackCreateIntentTargetsTrackHandler([this](std::string intent) {
+      return workspace_.steward().trackCreateIntentTargetsTrack(intent);
+    });
+    steward_->setTryCreateTrackHandler([this](std::string intent) {
+      return createTrackWithPrimaryIntent(std::move(intent));
+    });
     steward_->setTryCreateTextClipHandler([this](std::string intent) {
       return createTextClipWithPrimaryIntent(std::move(intent));
     });
@@ -2804,6 +2810,26 @@ public:
     }
 
     deleteSelectedTrackWithSteward(std::move(trackNodeId), std::move(intent));
+    return true;
+  }
+
+  bool createTrackWithPrimaryIntent(std::string intent) {
+    if (!workspace_.steward().trackCreateIntentTargetsTrack(intent)) {
+      return false;
+    }
+
+    const auto created = workspace_.steward().createTrack(std::move(intent));
+    if (!created) {
+      appendError(created.error());
+      refreshViewModel();
+      return true;
+    }
+
+    selectedNodeId_ = created.value().trackNodeId;
+    selectedAssetId_ = std::nullopt;
+    refreshViewModelAndPreview();
+    steward_->setIntent({});
+    log_->append("Steward created timeline track");
     return true;
   }
 

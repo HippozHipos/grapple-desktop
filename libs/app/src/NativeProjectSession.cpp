@@ -57,6 +57,17 @@ std::string clipKindName(timeline::ClipKind kind) {
   std::abort();
 }
 
+std::string trackKindName(timeline::TrackKind kind) {
+  switch (kind) {
+    case timeline::TrackKind::Visual:
+      return "visual";
+    case timeline::TrackKind::Audio:
+      return "audio";
+  }
+
+  std::abort();
+}
+
 foundation::Result<std::string> assetNameFor(
   const asset::AssetCatalog& assets,
   const foundation::AssetId& assetId
@@ -819,6 +830,16 @@ foundation::Result<AppCommandProvenance> appCommandProvenance(
           "Track Delete",
           intent,
           "Deleted"
+        });
+      } else if (const auto* createTrack = std::get_if<project::CreateTrackCommand>(&parsedCommand.value())) {
+        provenance.stewardEdits.push_back(AppStewardEditRow{
+          command.id,
+          command.afterRevision,
+          createTrack->nodeId,
+          createTrack->name,
+          "Track",
+          intent,
+          "Kind=" + trackKindName(createTrack->kind)
         });
       } else if (const auto* deleteEffect = std::get_if<project::DeleteEffectCommand>(&parsedCommand.value())) {
         auto targetDisplay = effectTargetDisplayAtRevision(snapshotDocuments, command.beforeRevision, deleteEffect->nodeId);
