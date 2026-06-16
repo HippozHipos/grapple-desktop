@@ -56,7 +56,7 @@ void TimelinePanel::setSelectionHandler(std::function<void(foundation::NodeId)> 
 }
 
 QString TimelinePanel::emptyPromptText() const {
-  return "Timeline is empty\n1. Import media\n2. Add it to the timeline\n3. Ask Steward for an editable change";
+  return "Timeline is empty\n1. Import media or use Sample\n2. Add it to the timeline\n3. Ask Steward for an editable change";
 }
 
 void TimelinePanel::paintEvent(QPaintEvent* event) {

@@ -593,7 +593,7 @@ void StewardPanel::setViewModel(
         : "Next: type a selected clip request, or type a camera request.";
   switch (primaryAction_) {
     case PrimaryAction::ImportMedia:
-      nextStep = "Next: import media to start the timeline.";
+      nextStep = "Next: import media or use Sample to start the timeline.";
       break;
     case PrimaryAction::AddSelectedMedia:
       nextStep = "Next: add the selected media to the timeline.";
@@ -868,7 +868,7 @@ void StewardPanel::updateIntentPlaceholder() {
     selectedNoteTargetNodeId_.has_value();
   switch (primaryAction_) {
     case PrimaryAction::ImportMedia:
-      intent_->setPlaceholderText("Try: \"add note \\\"Camera rationale\\\" saying Keep zoom editable\", or import media to start the timeline.");
+      intent_->setPlaceholderText("Try: \"add note \\\"Camera rationale\\\" saying Keep zoom editable\", or use Sample/import media to start the timeline.");
       return;
     case PrimaryAction::AddSelectedMedia:
       intent_->setPlaceholderText("Add selected media to the timeline. Then try: \"center the subject\", \"add audio track\", or \"add title \\\"Opening\\\"\".");
