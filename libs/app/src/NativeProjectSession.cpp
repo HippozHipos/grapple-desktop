@@ -280,6 +280,59 @@ void appendControlSummary(AppStewardEditRow& row, std::string summary) {
   row.controlSummary += std::move(summary);
 }
 
+void appendSummaryPart(std::string& summary, std::string part) {
+  if (part.empty()) {
+    return;
+  }
+  if (!summary.empty()) {
+    summary += ", ";
+  }
+  summary += std::move(part);
+}
+
+std::string playbackRateDisplayText(double playbackRate) {
+  std::ostringstream output;
+  output << playbackRate << "x";
+  return output.str();
+}
+
+foundation::Result<const timeline::ClipPayload*> clipPayloadAtRevision(
+  const std::vector<project::ProjectSnapshot>& snapshotDocuments,
+  const foundation::RevisionId& revision,
+  const foundation::NodeId& clipNodeId
+) {
+  const auto snapshot = std::find_if(
+    snapshotDocuments.begin(),
+    snapshotDocuments.end(),
+    [&](const project::ProjectSnapshot& value) {
+      return value.revision == revision;
+    }
+  );
+  if (snapshot == snapshotDocuments.end()) {
+    return foundation::Error{
+      "app.clip_previous_snapshot_missing",
+      "Clip edit provenance requires the snapshot before the clip command."
+    };
+  }
+
+  const graph::GraphNode* node = snapshot->graph.findNode(clipNodeId);
+  if (node == nullptr || node->kind != graph::NodeKind::Clip) {
+    return foundation::Error{
+      "app.clip_previous_node_missing",
+      "Clip edit provenance requires the previous clip node."
+    };
+  }
+
+  const auto* payload = std::get_if<timeline::ClipPayload>(&node->payload);
+  if (payload == nullptr) {
+    return foundation::Error{
+      "app.clip_previous_payload_missing",
+      "Clip edit provenance requires the previous clip payload."
+    };
+  }
+  return payload;
+}
+
 struct EffectCreationProvenance {
   foundation::CommandId commandId;
   foundation::NodeId effectNodeId;
@@ -330,6 +383,7 @@ struct StewardEditRowIndex {
 foundation::Result<AppCommandProvenance> appCommandProvenance(
   const std::vector<history::CommandRecord>& commands,
   const std::vector<history::SnapshotRecord>& snapshots,
+  const std::vector<project::ProjectSnapshot>& snapshotDocuments,
   const project::ProjectSnapshot& snapshot,
   const foundation::RevisionId& contentRevision
 ) {
@@ -342,6 +396,7 @@ foundation::Result<AppCommandProvenance> appCommandProvenance(
   std::vector<foundation::RunId> stewardEffectCreationRunIds;
   std::vector<StewardEditRowIndex> stewardParamEditRows;
   std::vector<StewardEditRowIndex> stewardKeyframeEditRows;
+  std::vector<StewardEditRowIndex> stewardClipEditRows;
   for (const history::CommandRecord& command : commands) {
     auto parsedCommand = project::deserializeCanonicalCommandPayload(
       command.serializedName,
@@ -511,18 +566,72 @@ foundation::Result<AppCommandProvenance> appCommandProvenance(
         if (!targetName) {
           return targetName.error();
         }
-        provenance.stewardEdits.push_back(AppStewardEditRow{
-          command.id,
-          command.afterRevision,
-          updateClip->nodeId,
-          targetName.value(),
-          "Clip Transform",
-          intent,
-          "Position=" + paramValueDisplayText(updateClip->payload.transform.position) +
-            ", Scale=" + paramValueDisplayText(updateClip->payload.transform.scale) +
-            ", Rotation=" + paramValueDisplayText(updateClip->payload.transform.rotationDegrees) +
-            ", Opacity=" + paramValueDisplayText(updateClip->payload.transform.opacity)
-        });
+        auto previousClip = clipPayloadAtRevision(snapshotDocuments, command.beforeRevision, updateClip->nodeId);
+        if (!previousClip) {
+          return previousClip.error();
+        }
+        const bool transformChanged = updateClip->payload.transform != previousClip.value()->transform;
+        const bool playbackRateChanged = updateClip->payload.playbackRate != previousClip.value()->playbackRate;
+        if (!transformChanged && !playbackRateChanged) {
+          continue;
+        }
+
+        std::string controlSummary;
+        if (transformChanged) {
+          appendSummaryPart(
+            controlSummary,
+            "Position=" + paramValueDisplayText(updateClip->payload.transform.position) +
+              ", Scale=" + paramValueDisplayText(updateClip->payload.transform.scale) +
+              ", Rotation=" + paramValueDisplayText(updateClip->payload.transform.rotationDegrees) +
+              ", Opacity=" + paramValueDisplayText(updateClip->payload.transform.opacity)
+          );
+        }
+        if (playbackRateChanged) {
+          appendSummaryPart(
+            controlSummary,
+            "Speed=" + playbackRateDisplayText(updateClip->payload.playbackRate)
+          );
+        }
+
+        auto existingClipEdit = command.sourceRunId.has_value()
+          ? std::find_if(
+              stewardClipEditRows.begin(),
+              stewardClipEditRows.end(),
+              [&](const StewardEditRowIndex& row) {
+                return row.runId == command.sourceRunId.value() &&
+                       row.targetNodeId == updateClip->nodeId &&
+                       row.intent == intent;
+              }
+            )
+          : stewardClipEditRows.end();
+        if (existingClipEdit != stewardClipEditRows.end()) {
+          AppStewardEditRow& row = provenance.stewardEdits[existingClipEdit->rowIndex];
+          row.commandId = command.id;
+          row.revision = command.afterRevision;
+          row.editName = "Clip Edit";
+          appendControlSummary(row, controlSummary);
+        } else {
+          provenance.stewardEdits.push_back(AppStewardEditRow{
+            command.id,
+            command.afterRevision,
+            updateClip->nodeId,
+            targetName.value(),
+            transformChanged && playbackRateChanged
+              ? "Clip Edit"
+              : (playbackRateChanged ? "Clip Playback Rate" : "Clip Transform"),
+            intent,
+            controlSummary
+          });
+          if (command.sourceRunId.has_value()) {
+            stewardClipEditRows.push_back(StewardEditRowIndex{
+              command.sourceRunId.value(),
+              updateClip->nodeId,
+              std::string{},
+              intent,
+              provenance.stewardEdits.size() - 1
+            });
+          }
+        }
       } else if (const auto* addMedia = std::get_if<project::AddMediaToTimelineCommand>(&parsedCommand.value())) {
         auto targetName = nodeDisplayName(snapshot, addMedia->clip.nodeId);
         if (!targetName) {
@@ -798,6 +907,7 @@ foundation::Result<NativeProjectViewModelResult> NativeProjectSession::buildView
   auto commandProvenance = appCommandProvenance(
     packageState.commandLog.records(),
     packageState.snapshots.records(),
+    packageState.snapshotDocuments,
     snapshot,
     contentRevision.value()
   );

@@ -254,7 +254,7 @@ int main() {
   agent::AgentToolRegistry registry;
   const auto registered = agent::registerProjectTools(registry);
   GRAPPLE_REQUIRE(registered);
-  GRAPPLE_REQUIRE(registry.tools().size() == 28);
+  GRAPPLE_REQUIRE(registry.tools().size() == 29);
   std::vector<std::string> serializedToolIds;
   serializedToolIds.reserve(registry.tools().size());
   for (const agent::AgentTool& tool : registry.tools()) {
@@ -367,6 +367,13 @@ int main() {
   GRAPPLE_REQUIRE(registeredUpdateClipTransformTool->schema.find("\"assetId\"") == std::string::npos);
   GRAPPLE_REQUIRE(registeredUpdateClipTransformTool->schema.find("\"timelineRange\"") == std::string::npos);
   GRAPPLE_REQUIRE(registeredUpdateClipTransformTool->schema.find("\"commandId\"") == std::string::npos);
+  const agent::AgentTool* registeredUpdateClipPlaybackRateTool = registry.findBySerializedId("timeline.update_clip_playback_rate");
+  GRAPPLE_REQUIRE(registeredUpdateClipPlaybackRateTool != nullptr);
+  GRAPPLE_REQUIRE(registeredUpdateClipPlaybackRateTool->schema.find("\"clipNodeId\"") != std::string::npos);
+  GRAPPLE_REQUIRE(registeredUpdateClipPlaybackRateTool->schema.find("\"playbackRate\"") != std::string::npos);
+  GRAPPLE_REQUIRE(registeredUpdateClipPlaybackRateTool->schema.find("\"position\"") == std::string::npos);
+  GRAPPLE_REQUIRE(registeredUpdateClipPlaybackRateTool->schema.find("\"timelineRange\"") == std::string::npos);
+  GRAPPLE_REQUIRE(registeredUpdateClipPlaybackRateTool->schema.find("\"commandId\"") == std::string::npos);
   const agent::AgentTool* registeredCreateEffectTool = registry.findBySerializedId("effect.create_node");
   GRAPPLE_REQUIRE(registeredCreateEffectTool != nullptr);
   GRAPPLE_REQUIRE(registeredCreateEffectTool->schema.find("\"targetNodeId\"") != std::string::npos);
@@ -1797,8 +1804,45 @@ int main() {
   GRAPPLE_REQUIRE((transformedClipPayload->transform.scale == foundation::Vec2{1.5, 0.75}));
   GRAPPLE_REQUIRE(transformedClipPayload->transform.rotationDegrees == 15.0);
   GRAPPLE_REQUIRE(transformedClipPayload->transform.opacity == 0.6);
-  GRAPPLE_REQUIRE(clipTransformCommands.applyCount() == 1);
-  GRAPPLE_REQUIRE(clipTransformQueries.snapshotQueryCount() == 1);
+  const agent::AgentTool* updateClipPlaybackRate = registry.findBySerializedId("timeline.update_clip_playback_rate");
+  GRAPPLE_REQUIRE(updateClipPlaybackRate != nullptr);
+  const auto updateClipPlaybackRateResult = updateClipPlaybackRate->handler(
+    agent::ToolCall{
+      foundation::ToolId{"tool_timeline_update_clip_playback_rate"},
+      foundation::RunId{"run_clip_transform"},
+      foundation::ProjectId{"proj_agent_clip_transform"},
+      foundation::RevisionId{"rev_5"},
+      R"({
+        "clipNodeId": "node_clip_transform_clip",
+        "playbackRate": 0.5
+      })"
+    },
+    clipTransformContext
+  );
+  GRAPPLE_REQUIRE(updateClipPlaybackRateResult);
+  GRAPPLE_REQUIRE(updateClipPlaybackRateResult.value().status == agent::ToolResultStatus::Succeeded);
+  GRAPPLE_REQUIRE(updateClipPlaybackRateResult.value().observedRevision == foundation::RevisionId{"rev_6"});
+  GRAPPLE_REQUIRE(updateClipPlaybackRateResult.value().payload == "{\"commandId\":\"cmd_agent_2\",\"clipNodeId\":\"node_clip_transform_clip\",\"playbackRate\":0.5,\"revision\":\"rev_6\"}");
+
+  const auto afterClipPlaybackRateSnapshot = clipTransformProject.snapshot();
+  GRAPPLE_REQUIRE(afterClipPlaybackRateSnapshot);
+  const graph::GraphNode* playbackRateClipNode = afterClipPlaybackRateSnapshot.value().graph.findNode(foundation::NodeId{"node_clip_transform_clip"});
+  GRAPPLE_REQUIRE(playbackRateClipNode != nullptr);
+  const auto* playbackRateClipPayload = std::get_if<timeline::ClipPayload>(&playbackRateClipNode->payload);
+  GRAPPLE_REQUIRE(playbackRateClipPayload != nullptr);
+  GRAPPLE_REQUIRE(playbackRateClipPayload->kind == timeline::ClipKind::Video);
+  GRAPPLE_REQUIRE(playbackRateClipPayload->timelineRange.start == foundation::TimeSeconds{2.0});
+  GRAPPLE_REQUIRE(playbackRateClipPayload->timelineRange.end == foundation::TimeSeconds{6.0});
+  GRAPPLE_REQUIRE(playbackRateClipPayload->sourceRange.start == foundation::TimeSeconds{1.0});
+  GRAPPLE_REQUIRE(playbackRateClipPayload->sourceRange.end == foundation::TimeSeconds{5.0});
+  GRAPPLE_REQUIRE(playbackRateClipPayload->playbackRate == 0.5);
+  GRAPPLE_REQUIRE(playbackRateClipPayload->assetId == foundation::AssetId{"asset_clip_transform_video"});
+  GRAPPLE_REQUIRE((playbackRateClipPayload->transform.position == foundation::Vec2{0.25, -0.5}));
+  GRAPPLE_REQUIRE((playbackRateClipPayload->transform.scale == foundation::Vec2{1.5, 0.75}));
+  GRAPPLE_REQUIRE(playbackRateClipPayload->transform.rotationDegrees == 15.0);
+  GRAPPLE_REQUIRE(playbackRateClipPayload->transform.opacity == 0.6);
+  GRAPPLE_REQUIRE(clipTransformCommands.applyCount() == 2);
+  GRAPPLE_REQUIRE(clipTransformQueries.snapshotQueryCount() == 2);
 
   project::ProjectController timelineDeleteProject{
     project::createEmptyProject(foundation::ProjectId{"proj_agent_timeline_delete"}, "Agent Timeline Delete Project")

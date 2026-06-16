@@ -73,6 +73,7 @@ void ClipTransformPanel::setSelection(
   scaleY_ = addEditor("Scale Y", "clipTransformScaleY", selectedClip->transform.scale.y, 0.01, 1000.0, 0.05);
   rotation_ = addEditor("Rotation", "clipTransformRotation", selectedClip->transform.rotationDegrees, -3600.0, 3600.0, 1.0);
   opacity_ = addEditor("Opacity", "clipTransformOpacity", selectedClip->transform.opacity, 0.0, 1.0, 0.05);
+  playbackRate_ = addEditor("Speed", "clipPlaybackRate", selectedClip->playbackRate, 0.01, 32.0, 0.05);
   layout_->addStretch(1);
 }
 
@@ -84,6 +85,7 @@ void ClipTransformPanel::clearControls() {
   scaleY_ = nullptr;
   rotation_ = nullptr;
   opacity_ = nullptr;
+  playbackRate_ = nullptr;
 
   while (QLayoutItem* item = layout_->takeAt(0)) {
     if (QWidget* widget = item->widget()) {
@@ -143,17 +145,21 @@ void ClipTransformPanel::emitCurrentTransform() {
       scaleY_ == nullptr ||
       rotation_ == nullptr ||
       opacity_ == nullptr ||
+      playbackRate_ == nullptr ||
       !applyHandler_) {
     return;
   }
 
   applyHandler_(
     selectedClipNodeId_.value(),
-    foundation::Transform2D{
-      foundation::Vec2{positionX_->value(), positionY_->value()},
-      foundation::Vec2{scaleX_->value(), scaleY_->value()},
-      rotation_->value(),
-      opacity_->value()
+    ClipEdit{
+      foundation::Transform2D{
+        foundation::Vec2{positionX_->value(), positionY_->value()},
+        foundation::Vec2{scaleX_->value(), scaleY_->value()},
+        rotation_->value(),
+        opacity_->value()
+      },
+      playbackRate_->value()
     }
   );
 }

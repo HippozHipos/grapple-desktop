@@ -45,6 +45,13 @@ struct CameraTransformKeyframeAdjustment {
   double value = 0.0;
 };
 
+struct ClipEditIntent {
+  timeline::Transform2D transform;
+  double playbackRate = 1.0;
+  bool transformChanged = false;
+  bool playbackRateChanged = false;
+};
+
 class NativeStewardPlanner final {
 public:
   [[nodiscard]] CameraTransformIntentDefaults cameraTransformDefaultsForIntent(
@@ -55,9 +62,10 @@ public:
     foundation::TimeRange activeRange
   ) const;
   [[nodiscard]] bool cameraIntentRequestsExplicitMotion(const std::string& intent) const;
-  [[nodiscard]] bool clipTransformIntentTargetsClip(const std::string& intent) const;
-  [[nodiscard]] foundation::Result<timeline::Transform2D> clipTransformForIntent(
+  [[nodiscard]] bool clipEditIntentTargetsClip(const std::string& intent) const;
+  [[nodiscard]] foundation::Result<ClipEditIntent> clipEditForIntent(
     const timeline::Transform2D& current,
+    double currentPlaybackRate,
     const std::string& intent
   ) const;
   [[nodiscard]] const timeline::EffectPayload* cameraTransformEffectPayload(

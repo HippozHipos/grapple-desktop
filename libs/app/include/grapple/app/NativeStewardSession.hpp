@@ -34,11 +34,11 @@ public:
     foundation::AssetId assetId,
     std::optional<foundation::TimeSeconds> duration = std::nullopt
   );
-  foundation::Result<storage::ProjectPackageSessionResult> transformClip(
+  foundation::Result<storage::ProjectPackageSessionResult> editClip(
     foundation::NodeId clipNodeId,
     std::string intent
   );
-  [[nodiscard]] bool clipTransformIntentTargetsClip(const std::string& intent) const;
+  [[nodiscard]] bool clipEditIntentTargetsClip(const std::string& intent) const;
   foundation::Result<storage::ProjectPackageSessionResult> adjustCameraTransformControls(
     foundation::NodeId cameraNodeId,
     std::string intent,

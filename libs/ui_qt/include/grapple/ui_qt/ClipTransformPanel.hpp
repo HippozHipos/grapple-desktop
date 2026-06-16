@@ -15,7 +15,12 @@ namespace grapple::ui {
 
 class ClipTransformPanel final : public QWidget {
 public:
-  using ApplyHandler = std::function<void(foundation::NodeId, foundation::Transform2D)>;
+  struct ClipEdit {
+    foundation::Transform2D transform;
+    double playbackRate = 1.0;
+  };
+
+  using ApplyHandler = std::function<void(foundation::NodeId, ClipEdit)>;
 
   explicit ClipTransformPanel(QWidget* parent = nullptr);
 
@@ -47,6 +52,7 @@ private:
   QDoubleSpinBox* scaleY_ = nullptr;
   QDoubleSpinBox* rotation_ = nullptr;
   QDoubleSpinBox* opacity_ = nullptr;
+  QDoubleSpinBox* playbackRate_ = nullptr;
 };
 
 } // namespace grapple::ui

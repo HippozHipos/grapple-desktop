@@ -28,6 +28,7 @@ constexpr const char CanonicalEffectCreateParamKeyframeToolId[] = "effect.create
 constexpr const char CanonicalEffectUpdateParamKeyframeToolId[] = "effect.update_param_keyframe";
 constexpr const char CanonicalPlaceAssetToolId[] = "timeline.place_asset";
 constexpr const char CanonicalUpdateClipTransformToolId[] = "timeline.update_clip_transform";
+constexpr const char CanonicalUpdateClipPlaybackRateToolId[] = "timeline.update_clip_playback_rate";
 constexpr const char CanonicalUpdateEffectParamToolId[] = "effect.update_param_value";
 
 std::string runStartedPayload(const std::string& title) {
@@ -193,6 +194,10 @@ foundation::ToolId stewardClipTransformToolCallIdForRun(const foundation::RunId&
   return foundation::ToolId{"tool_steward_clip_transform_" + std::to_string(stewardRunNumber(runId))};
 }
 
+foundation::ToolId stewardClipPlaybackRateToolCallIdForRun(const foundation::RunId& runId) {
+  return foundation::ToolId{"tool_steward_clip_playback_rate_" + std::to_string(stewardRunNumber(runId))};
+}
+
 foundation::ToolId stewardCameraTransformParamToolCallIdForRun(const foundation::RunId& runId, std::int64_t index) {
   return foundation::ToolId{
     "tool_steward_camera_transform_param_" +
@@ -233,6 +238,18 @@ std::string clipTransformArgumentsPayload(
   arguments << "}";
   arguments << ",\"rotationDegrees\":" << transform.rotationDegrees;
   arguments << ",\"opacity\":" << transform.opacity;
+  arguments << '}';
+  return arguments.str();
+}
+
+std::string clipPlaybackRateArgumentsPayload(
+  const foundation::NodeId& clipNodeId,
+  double playbackRate
+) {
+  std::ostringstream arguments;
+  arguments << '{';
+  foundation::writeJsonStringProperty(arguments, "clipNodeId", clipNodeId.value());
+  arguments << ",\"playbackRate\":" << playbackRate;
   arguments << '}';
   return arguments.str();
 }
@@ -469,7 +486,7 @@ foundation::Result<NativeStewardMediaPlacementResult> NativeStewardSession::plac
   return NativeStewardMediaPlacementResult{packageResult.value(), placedClipNodeId.value()};
 }
 
-foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::transformClip(
+foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::editClip(
   foundation::NodeId clipNodeId,
   std::string intent
 ) {
@@ -485,7 +502,7 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::t
 
   const graph::GraphNode* clipNode = snapshot.value().graph.findNode(clipNodeId);
   if (clipNode == nullptr || clipNode->kind != graph::NodeKind::Clip) {
-    const foundation::Error error{"steward.clip_missing", "Steward clip transform requires an existing clip node."};
+    const foundation::Error error{"steward.clip_missing", "Steward clip edit requires an existing clip node."};
     auto finished = finishRunWithError(runId.value(), error);
     if (!finished) {
       return finished.error();
@@ -494,26 +511,26 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::t
   }
   const auto* clipPayload = std::get_if<timeline::ClipPayload>(&clipNode->payload);
   if (clipPayload == nullptr) {
-    const foundation::Error error{"steward.clip_payload_missing", "Steward clip transform requires a clip payload."};
+    const foundation::Error error{"steward.clip_payload_missing", "Steward clip edit requires a clip payload."};
     auto finished = finishRunWithError(runId.value(), error);
     if (!finished) {
       return finished.error();
     }
     return error;
   }
-  auto nextTransform = planner_.clipTransformForIntent(clipPayload->transform, intent);
-  if (!nextTransform) {
-    auto finished = finishRunWithError(runId.value(), nextTransform.error());
+  auto edit = planner_.clipEditForIntent(clipPayload->transform, clipPayload->playbackRate, intent);
+  if (!edit) {
+    auto finished = finishRunWithError(runId.value(), edit.error());
     if (!finished) {
       return finished.error();
     }
-    return nextTransform.error();
+    return edit.error();
   }
 
   auto message = appendEvent(
     runId.value(),
     agent::AgentRunEventKind::ModelMessage,
-    modelMessagePayload("assistant", "Updating the selected clip transform as an editable graph change.")
+    modelMessagePayload("assistant", "Updating the selected clip as an editable graph change.")
   );
   if (!message) {
     return message.error();
@@ -533,25 +550,48 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::t
 
   agent::AgentToolContext toolContext{stewardCommands, project_, commandWriter_};
   agent::AgentBridge bridge{registry, toolContext, events_, nextSequence_};
-  auto dispatched = bridge.dispatchToolCall(agent::AgentToolDispatchRequest{
-    runId.value(),
-    snapshot.value().info.id,
-    snapshot.value().revision,
-    stewardClipTransformToolCallIdForRun(runId.value()),
-    CanonicalUpdateClipTransformToolId,
-    clipTransformArgumentsPayload(clipNodeId, nextTransform.value())
-  });
-  if (!dispatched) {
-    auto finished = finishRunWithError(runId.value(), dispatched.error());
-    if (!finished) {
-      return finished.error();
+  foundation::RevisionId expectedRevision = snapshot.value().revision;
+  if (edit.value().transformChanged) {
+    auto dispatched = bridge.dispatchToolCall(agent::AgentToolDispatchRequest{
+      runId.value(),
+      snapshot.value().info.id,
+      expectedRevision,
+      stewardClipTransformToolCallIdForRun(runId.value()),
+      CanonicalUpdateClipTransformToolId,
+      clipTransformArgumentsPayload(clipNodeId, edit.value().transform)
+    });
+    if (!dispatched) {
+      auto finished = finishRunWithError(runId.value(), dispatched.error());
+      if (!finished) {
+        return finished.error();
+      }
+      return dispatched.error();
     }
-    return dispatched.error();
+    if (packageResult.has_value()) {
+      expectedRevision = packageResult->snapshot.revision;
+    }
+  }
+  if (edit.value().playbackRateChanged) {
+    auto dispatched = bridge.dispatchToolCall(agent::AgentToolDispatchRequest{
+      runId.value(),
+      snapshot.value().info.id,
+      expectedRevision,
+      stewardClipPlaybackRateToolCallIdForRun(runId.value()),
+      CanonicalUpdateClipPlaybackRateToolId,
+      clipPlaybackRateArgumentsPayload(clipNodeId, edit.value().playbackRate)
+    });
+    if (!dispatched) {
+      auto finished = finishRunWithError(runId.value(), dispatched.error());
+      if (!finished) {
+        return finished.error();
+      }
+      return dispatched.error();
+    }
   }
   if (!packageResult.has_value()) {
     const foundation::Error error{
-      "steward.clip_transform_result_missing",
-      "Steward clip transform tool succeeded without a committed package result."
+      "steward.clip_edit_result_missing",
+      "Steward clip edit tool succeeded without a committed package result."
     };
     auto finished = finishRunWithError(runId.value(), error);
     if (!finished) {
@@ -563,7 +603,7 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::t
   auto runFinished = appendEvent(
     runId.value(),
     agent::AgentRunEventKind::RunFinished,
-    runFinishedPayload("succeeded", "Updated selected clip transform.")
+    runFinishedPayload("succeeded", "Updated selected clip.")
   );
   if (!runFinished) {
     return runFinished.error();
@@ -573,8 +613,8 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::t
   return packageResult.value();
 }
 
-bool NativeStewardSession::clipTransformIntentTargetsClip(const std::string& intent) const {
-  return planner_.clipTransformIntentTargetsClip(intent);
+bool NativeStewardSession::clipEditIntentTargetsClip(const std::string& intent) const {
+  return planner_.clipEditIntentTargetsClip(intent);
 }
 
 foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::adjustCameraTransformControls(

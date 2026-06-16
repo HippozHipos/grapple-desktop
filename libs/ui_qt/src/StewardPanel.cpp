@@ -191,7 +191,7 @@ StewardPanel::StewardPanel(QWidget* parent)
   primaryActionButton_->setObjectName("stewardPrimaryAction");
   layout->addWidget(primaryActionButton_);
   connect(primaryActionButton_, &QPushButton::clicked, this, [this] {
-    if (tryTransformSelectedClipFromPrimaryAction()) {
+    if (tryEditSelectedClipFromPrimaryAction()) {
       return;
     }
 
@@ -242,12 +242,12 @@ StewardPanel::StewardPanel(QWidget* parent)
     triggerPrimaryAction();
   });
 
-  selectedClipActionButton_ = new QPushButton{"Apply Request To Clip Transform"};
+  selectedClipActionButton_ = new QPushButton{"Apply Request To Clip"};
   selectedClipActionButton_->setObjectName("stewardSelectedClipAction");
   layout->addWidget(selectedClipActionButton_);
   connect(selectedClipActionButton_, &QPushButton::clicked, this, [this] {
-    if (transformSelectedClipHandler_ && selectedClipTargetNodeId_.has_value()) {
-      transformSelectedClipHandler_(selectedClipTargetNodeId_.value(), intent());
+    if (editSelectedClipHandler_ && selectedClipTargetNodeId_.has_value()) {
+      editSelectedClipHandler_(selectedClipTargetNodeId_.value(), intent());
     }
   });
 
@@ -305,12 +305,12 @@ void StewardPanel::setAdjustCameraControlsHandler(AdjustCameraControlsHandler ha
   adjustCameraControlsHandler_ = std::move(handler);
 }
 
-void StewardPanel::setTransformSelectedClipHandler(TransformSelectedClipHandler handler) {
-  transformSelectedClipHandler_ = std::move(handler);
+void StewardPanel::setEditSelectedClipHandler(EditSelectedClipHandler handler) {
+  editSelectedClipHandler_ = std::move(handler);
 }
 
-void StewardPanel::setTryTransformSelectedClipHandler(TryTransformSelectedClipHandler handler) {
-  tryTransformSelectedClipHandler_ = std::move(handler);
+void StewardPanel::setTryEditSelectedClipHandler(TryEditSelectedClipHandler handler) {
+  tryEditSelectedClipHandler_ = std::move(handler);
 }
 
 void StewardPanel::setSelectEditTargetHandler(SelectEditTargetHandler handler) {
@@ -362,7 +362,7 @@ void StewardPanel::setViewModel(
 
   QString nextStep;
   const bool selectedClipActionAvailable = selectedClipTargetNodeId_.has_value();
-  const QString targetChoiceStep = "Next: type a camera request, or mention clip/video to transform the selected clip.";
+  const QString targetChoiceStep = "Next: type a camera request, or mention clip/video to edit the selected clip.";
   switch (primaryAction_) {
     case PrimaryAction::ImportMedia:
       nextStep = "Next: import media to start the timeline.";
@@ -419,7 +419,7 @@ void StewardPanel::setViewModel(
   }
   if (selectedClipTargetNodeId_.has_value()) {
     lines << QString{"Clip target: %1"}.arg(clipName(viewModel, selectedClipTargetNodeId_.value()));
-    lines << "Clip route: mention clip/video, or use the clip action, to update transform parameters.";
+    lines << "Clip route: mention clip/video, or use the clip action, to update clip parameters.";
   }
 
   recentEdits_->blockSignals(true);
@@ -591,7 +591,7 @@ void StewardPanel::updateActionLabels() {
   }
 
   selectedClipActionButton_->setText(
-    hasIntent ? "Apply Request To Clip Transform" : "Type Request To Transform Clip"
+    hasIntent ? "Apply Request To Clip" : "Type Request To Edit Clip"
   );
 }
 
@@ -634,14 +634,14 @@ void StewardPanel::updateIntentPlaceholder() {
   }
 }
 
-bool StewardPanel::tryTransformSelectedClipFromPrimaryAction() {
+bool StewardPanel::tryEditSelectedClipFromPrimaryAction() {
   if (!selectedClipTargetNodeId_.has_value() ||
       !intentHasText() ||
-      !tryTransformSelectedClipHandler_) {
+      !tryEditSelectedClipHandler_) {
     return false;
   }
 
-  return tryTransformSelectedClipHandler_(selectedClipTargetNodeId_.value(), intent());
+  return tryEditSelectedClipHandler_(selectedClipTargetNodeId_.value(), intent());
 }
 
 bool StewardPanel::intentHasText() const {
@@ -671,7 +671,7 @@ bool StewardPanel::primaryActionCanRun() const {
 
 bool StewardPanel::selectedClipActionCanRun() const {
   return selectedClipTargetNodeId_.has_value() &&
-         static_cast<bool>(transformSelectedClipHandler_) &&
+         static_cast<bool>(editSelectedClipHandler_) &&
          intentHasText();
 }
 

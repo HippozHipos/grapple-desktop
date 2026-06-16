@@ -1,5 +1,6 @@
 #include <grapple/project/ProjectCommand.hpp>
 
+#include <cmath>
 #include <string_view>
 #include <type_traits>
 
@@ -20,7 +21,14 @@ foundation::Result<void> requireNonEmptyId(const Id& id, const char* code, const
 }
 
 foundation::Result<void> validateClipPayload(const timeline::ClipPayload& payload) {
-  return requireNonEmptyId(payload.assetId, "project.clip_asset_id_empty", "Clip asset id must not be empty.");
+  auto assetId = requireNonEmptyId(payload.assetId, "project.clip_asset_id_empty", "Clip asset id must not be empty.");
+  if (!assetId) {
+    return assetId;
+  }
+  if (!std::isfinite(payload.playbackRate) || payload.playbackRate <= 0.0) {
+    return foundation::Error{"project.clip_playback_rate_invalid", "Clip playback rate must be a positive finite value."};
+  }
+  return {};
 }
 
 foundation::Result<void> validateAsset(const asset::Asset& asset) {

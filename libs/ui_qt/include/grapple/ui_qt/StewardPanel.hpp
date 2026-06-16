@@ -24,8 +24,8 @@ public:
   using ShowCameraControlsHandler = std::function<void(foundation::NodeId)>;
   using CreateCameraEffectHandler = std::function<void(std::string)>;
   using AdjustCameraControlsHandler = std::function<void(foundation::NodeId, std::string)>;
-  using TransformSelectedClipHandler = std::function<void(foundation::NodeId, std::string)>;
-  using TryTransformSelectedClipHandler = std::function<bool(foundation::NodeId, std::string)>;
+  using EditSelectedClipHandler = std::function<void(foundation::NodeId, std::string)>;
+  using TryEditSelectedClipHandler = std::function<bool(foundation::NodeId, std::string)>;
   using SelectEditTargetHandler = std::function<void(foundation::NodeId)>;
 
   explicit StewardPanel(QWidget* parent = nullptr);
@@ -36,8 +36,8 @@ public:
   void setShowCameraControlsHandler(ShowCameraControlsHandler handler);
   void setCreateCameraEffectHandler(CreateCameraEffectHandler handler);
   void setAdjustCameraControlsHandler(AdjustCameraControlsHandler handler);
-  void setTransformSelectedClipHandler(TransformSelectedClipHandler handler);
-  void setTryTransformSelectedClipHandler(TryTransformSelectedClipHandler handler);
+  void setEditSelectedClipHandler(EditSelectedClipHandler handler);
+  void setTryEditSelectedClipHandler(TryEditSelectedClipHandler handler);
   void setSelectEditTargetHandler(SelectEditTargetHandler handler);
   void setViewModel(
     const app::AppViewModel& viewModel,
@@ -74,7 +74,7 @@ private:
   void updateActionButtons();
   void updateActionLabels();
   void updateIntentPlaceholder();
-  [[nodiscard]] bool tryTransformSelectedClipFromPrimaryAction();
+  [[nodiscard]] bool tryEditSelectedClipFromPrimaryAction();
   [[nodiscard]] bool intentHasText() const;
   [[nodiscard]] bool primaryActionCanRun() const;
   [[nodiscard]] bool selectedClipActionCanRun() const;
@@ -85,8 +85,8 @@ private:
   ShowCameraControlsHandler showCameraControlsHandler_;
   CreateCameraEffectHandler createCameraEffectHandler_;
   AdjustCameraControlsHandler adjustCameraControlsHandler_;
-  TransformSelectedClipHandler transformSelectedClipHandler_;
-  TryTransformSelectedClipHandler tryTransformSelectedClipHandler_;
+  EditSelectedClipHandler editSelectedClipHandler_;
+  TryEditSelectedClipHandler tryEditSelectedClipHandler_;
   SelectEditTargetHandler selectEditTargetHandler_;
   PrimaryAction primaryAction_ = PrimaryAction::Disabled;
   std::optional<foundation::NodeId> primaryTargetCameraNodeId_;

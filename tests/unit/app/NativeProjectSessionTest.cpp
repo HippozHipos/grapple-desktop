@@ -217,77 +217,94 @@ int main() {
     stewardPlanner.cameraMotionKeyframesForIntent(
       "slowly pan far right",
       foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{4.0}}
-    );
+  );
   GRAPPLE_REQUIRE(farPanRightMotion.has_value());
   GRAPPLE_REQUIRE(farPanRightMotion->paramName == effects::builtin_effect::PositionXParam);
   GRAPPLE_REQUIRE(farPanRightMotion->startValue == 0.0);
   GRAPPLE_REQUIRE(farPanRightMotion->endValue == 0.5);
   GRAPPLE_REQUIRE(farPanRightMotion->endTime == foundation::TimeSeconds{4.0});
   timeline::Transform2D plannedClipInputTransform;
-  const auto plannedClipTransform =
-    stewardPlanner.clipTransformForIntent(plannedClipInputTransform, "move right and make smaller");
-  GRAPPLE_REQUIRE(plannedClipTransform);
-  GRAPPLE_REQUIRE(plannedClipTransform.value().position.x == 0.25);
-  GRAPPLE_REQUIRE(plannedClipTransform.value().position.y == 0.0);
-  GRAPPLE_REQUIRE(plannedClipTransform.value().scale.x == 0.75);
-  GRAPPLE_REQUIRE(plannedClipTransform.value().scale.y == 0.75);
-  const auto twoAxisClipTransform =
-    stewardPlanner.clipTransformForIntent(plannedClipInputTransform, "move right and up");
-  GRAPPLE_REQUIRE(twoAxisClipTransform);
-  GRAPPLE_REQUIRE(twoAxisClipTransform.value().position.x == 0.25);
-  GRAPPLE_REQUIRE(twoAxisClipTransform.value().position.y == -0.2);
-  const auto strongClipTransform =
-    stewardPlanner.clipTransformForIntent(plannedClipInputTransform, "move far right and make much bigger");
-  GRAPPLE_REQUIRE(strongClipTransform);
-  GRAPPLE_REQUIRE(strongClipTransform.value().position.x == 0.5);
-  GRAPPLE_REQUIRE(strongClipTransform.value().scale.x == 1.5);
-  GRAPPLE_REQUIRE(strongClipTransform.value().scale.y == 1.5);
-  const auto rotateClipTransform =
-    stewardPlanner.clipTransformForIntent(plannedClipInputTransform, "rotate slightly left and make invisible");
-  GRAPPLE_REQUIRE(rotateClipTransform);
-  GRAPPLE_REQUIRE(rotateClipTransform.value().position.x == 0.0);
-  GRAPPLE_REQUIRE(rotateClipTransform.value().position.y == 0.0);
-  GRAPPLE_REQUIRE(rotateClipTransform.value().scale.x == 1.0);
-  GRAPPLE_REQUIRE(rotateClipTransform.value().scale.y == 1.0);
-  GRAPPLE_REQUIRE(rotateClipTransform.value().rotationDegrees == -7.5);
-  GRAPPLE_REQUIRE(rotateClipTransform.value().opacity == 0.0);
-  const auto rotateRightClipTransform =
-    stewardPlanner.clipTransformForIntent(plannedClipInputTransform, "rotate right");
-  GRAPPLE_REQUIRE(rotateRightClipTransform);
-  GRAPPLE_REQUIRE(rotateRightClipTransform.value().position.x == 0.0);
-  GRAPPLE_REQUIRE(rotateRightClipTransform.value().rotationDegrees == 15.0);
-  const auto rotateWithoutCommaClipTransform =
-    stewardPlanner.clipTransformForIntent(plannedClipInputTransform, "move right and rotate left");
-  GRAPPLE_REQUIRE(rotateWithoutCommaClipTransform);
-  GRAPPLE_REQUIRE(rotateWithoutCommaClipTransform.value().position.x == 0.25);
-  GRAPPLE_REQUIRE(rotateWithoutCommaClipTransform.value().rotationDegrees == -15.0);
-  GRAPPLE_REQUIRE(stewardPlanner.clipTransformIntentTargetsClip("rotate selected clip slightly left"));
-  GRAPPLE_REQUIRE(stewardPlanner.clipTransformIntentTargetsClip("make video invisible"));
-  GRAPPLE_REQUIRE(!stewardPlanner.clipTransformIntentTargetsClip("slowly pan right"));
-  GRAPPLE_REQUIRE(!stewardPlanner.clipTransformIntentTargetsClip("make clip cinematic"));
-  const auto mixedClipTransform =
-    stewardPlanner.clipTransformForIntent(
+  const auto plannedClipEdit =
+    stewardPlanner.clipEditForIntent(plannedClipInputTransform, 1.0, "move right and make smaller");
+  GRAPPLE_REQUIRE(plannedClipEdit);
+  GRAPPLE_REQUIRE(plannedClipEdit.value().transformChanged);
+  GRAPPLE_REQUIRE(!plannedClipEdit.value().playbackRateChanged);
+  GRAPPLE_REQUIRE(plannedClipEdit.value().transform.position.x == 0.25);
+  GRAPPLE_REQUIRE(plannedClipEdit.value().transform.position.y == 0.0);
+  GRAPPLE_REQUIRE(plannedClipEdit.value().transform.scale.x == 0.75);
+  GRAPPLE_REQUIRE(plannedClipEdit.value().transform.scale.y == 0.75);
+  const auto twoAxisClipEdit =
+    stewardPlanner.clipEditForIntent(plannedClipInputTransform, 1.0, "move right and up");
+  GRAPPLE_REQUIRE(twoAxisClipEdit);
+  GRAPPLE_REQUIRE(twoAxisClipEdit.value().transform.position.x == 0.25);
+  GRAPPLE_REQUIRE(twoAxisClipEdit.value().transform.position.y == -0.2);
+  const auto strongClipEdit =
+    stewardPlanner.clipEditForIntent(plannedClipInputTransform, 1.0, "move far right and make much bigger");
+  GRAPPLE_REQUIRE(strongClipEdit);
+  GRAPPLE_REQUIRE(strongClipEdit.value().transform.position.x == 0.5);
+  GRAPPLE_REQUIRE(strongClipEdit.value().transform.scale.x == 1.5);
+  GRAPPLE_REQUIRE(strongClipEdit.value().transform.scale.y == 1.5);
+  const auto rotateClipEdit =
+    stewardPlanner.clipEditForIntent(plannedClipInputTransform, 1.0, "rotate slightly left and make invisible");
+  GRAPPLE_REQUIRE(rotateClipEdit);
+  GRAPPLE_REQUIRE(rotateClipEdit.value().transform.position.x == 0.0);
+  GRAPPLE_REQUIRE(rotateClipEdit.value().transform.position.y == 0.0);
+  GRAPPLE_REQUIRE(rotateClipEdit.value().transform.scale.x == 1.0);
+  GRAPPLE_REQUIRE(rotateClipEdit.value().transform.scale.y == 1.0);
+  GRAPPLE_REQUIRE(rotateClipEdit.value().transform.rotationDegrees == -7.5);
+  GRAPPLE_REQUIRE(rotateClipEdit.value().transform.opacity == 0.0);
+  const auto rotateRightClipEdit =
+    stewardPlanner.clipEditForIntent(plannedClipInputTransform, 1.0, "rotate right");
+  GRAPPLE_REQUIRE(rotateRightClipEdit);
+  GRAPPLE_REQUIRE(rotateRightClipEdit.value().transform.position.x == 0.0);
+  GRAPPLE_REQUIRE(rotateRightClipEdit.value().transform.rotationDegrees == 15.0);
+  const auto rotateWithoutCommaClipEdit =
+    stewardPlanner.clipEditForIntent(plannedClipInputTransform, 1.0, "move right and rotate left");
+  GRAPPLE_REQUIRE(rotateWithoutCommaClipEdit);
+  GRAPPLE_REQUIRE(rotateWithoutCommaClipEdit.value().transform.position.x == 0.25);
+  GRAPPLE_REQUIRE(rotateWithoutCommaClipEdit.value().transform.rotationDegrees == -15.0);
+  GRAPPLE_REQUIRE(stewardPlanner.clipEditIntentTargetsClip("rotate selected clip slightly left"));
+  GRAPPLE_REQUIRE(stewardPlanner.clipEditIntentTargetsClip("make video invisible"));
+  GRAPPLE_REQUIRE(stewardPlanner.clipEditIntentTargetsClip("speed up selected clip"));
+  GRAPPLE_REQUIRE(!stewardPlanner.clipEditIntentTargetsClip("slowly pan right"));
+  GRAPPLE_REQUIRE(!stewardPlanner.clipEditIntentTargetsClip("make clip cinematic"));
+  const auto mixedClipEdit =
+    stewardPlanner.clipEditForIntent(
       plannedClipInputTransform,
+      1.0,
       "Move selected clip right, rotate slightly left, make it smaller, and make it invisible."
     );
-  GRAPPLE_REQUIRE(mixedClipTransform);
-  GRAPPLE_REQUIRE(mixedClipTransform.value().position.x == 0.25);
-  GRAPPLE_REQUIRE(mixedClipTransform.value().scale.x == 0.75);
-  GRAPPLE_REQUIRE(mixedClipTransform.value().scale.y == 0.75);
-  GRAPPLE_REQUIRE(mixedClipTransform.value().rotationDegrees == -7.5);
-  GRAPPLE_REQUIRE(mixedClipTransform.value().opacity == 0.0);
+  GRAPPLE_REQUIRE(mixedClipEdit);
+  GRAPPLE_REQUIRE(mixedClipEdit.value().transform.position.x == 0.25);
+  GRAPPLE_REQUIRE(mixedClipEdit.value().transform.scale.x == 0.75);
+  GRAPPLE_REQUIRE(mixedClipEdit.value().transform.scale.y == 0.75);
+  GRAPPLE_REQUIRE(mixedClipEdit.value().transform.rotationDegrees == -7.5);
+  GRAPPLE_REQUIRE(mixedClipEdit.value().transform.opacity == 0.0);
   timeline::Transform2D rotatedClipInputTransform;
   rotatedClipInputTransform.rotationDegrees = 22.0;
   rotatedClipInputTransform.opacity = 0.5;
-  const auto straightenedClipTransform =
-    stewardPlanner.clipTransformForIntent(rotatedClipInputTransform, "straighten and make opaque");
-  GRAPPLE_REQUIRE(straightenedClipTransform);
-  GRAPPLE_REQUIRE(straightenedClipTransform.value().rotationDegrees == 0.0);
-  GRAPPLE_REQUIRE(straightenedClipTransform.value().opacity == 1.0);
-  const auto unknownClipTransform =
-    stewardPlanner.clipTransformForIntent(plannedClipInputTransform, "make it cinematic");
-  GRAPPLE_REQUIRE(!unknownClipTransform);
-  GRAPPLE_REQUIRE(unknownClipTransform.error().code == "steward.clip_transform_intent_unknown");
+  const auto straightenedClipEdit =
+    stewardPlanner.clipEditForIntent(rotatedClipInputTransform, 1.0, "straighten and make opaque");
+  GRAPPLE_REQUIRE(straightenedClipEdit);
+  GRAPPLE_REQUIRE(straightenedClipEdit.value().transform.rotationDegrees == 0.0);
+  GRAPPLE_REQUIRE(straightenedClipEdit.value().transform.opacity == 1.0);
+  const auto fasterClipEdit =
+    stewardPlanner.clipEditForIntent(plannedClipInputTransform, 1.0, "make selected clip faster");
+  GRAPPLE_REQUIRE(fasterClipEdit);
+  GRAPPLE_REQUIRE(!fasterClipEdit.value().transformChanged);
+  GRAPPLE_REQUIRE(fasterClipEdit.value().playbackRateChanged);
+  GRAPPLE_REQUIRE(fasterClipEdit.value().transform == plannedClipInputTransform);
+  GRAPPLE_REQUIRE(fasterClipEdit.value().playbackRate == 1.25);
+  const auto halfSpeedClipEdit =
+    stewardPlanner.clipEditForIntent(plannedClipInputTransform, 1.0, "set clip to half speed");
+  GRAPPLE_REQUIRE(halfSpeedClipEdit);
+  GRAPPLE_REQUIRE(!halfSpeedClipEdit.value().transformChanged);
+  GRAPPLE_REQUIRE(halfSpeedClipEdit.value().playbackRateChanged);
+  GRAPPLE_REQUIRE(halfSpeedClipEdit.value().playbackRate == 0.5);
+  const auto unknownClipEdit =
+    stewardPlanner.clipEditForIntent(plannedClipInputTransform, 1.0, "make it cinematic");
+  GRAPPLE_REQUIRE(!unknownClipEdit);
+  GRAPPLE_REQUIRE(unknownClipEdit.error().code == "steward.clip_edit_intent_unknown");
 
   const std::filesystem::path appPackageRoot =
     std::filesystem::temp_directory_path() /
@@ -1208,7 +1225,7 @@ int main() {
   GRAPPLE_REQUIRE(stewardMediaViewModel.value().steward.edits[0].targetName == "Steward Video");
   GRAPPLE_REQUIRE(stewardMediaViewModel.value().steward.edits[0].editName == "Timeline Placement");
   GRAPPLE_REQUIRE(stewardMediaViewModel.value().steward.edits[0].intent == "Add Steward Video to the timeline.");
-  const auto stewardClipTransform = stewardMediaWorkspace.value().steward().transformClip(
+  const auto stewardClipTransform = stewardMediaWorkspace.value().steward().editClip(
     stewardMediaPlacement.value().clipNodeId,
     "Move clip right and make it smaller."
   );
@@ -1247,6 +1264,40 @@ int main() {
   GRAPPLE_REQUIRE(stewardClipTransformViewModel.value().steward.edits[1].editName == "Clip Transform");
   GRAPPLE_REQUIRE(stewardClipTransformViewModel.value().steward.edits[1].intent == "Move clip right and make it smaller.");
   GRAPPLE_REQUIRE(stewardClipTransformViewModel.value().steward.edits[1].controlSummary == "Position=0.25, 0, Scale=0.75, 0.75, Rotation=0, Opacity=1");
+  const auto stewardClipSpeed = stewardMediaWorkspace.value().steward().editClip(
+    stewardMediaPlacement.value().clipNodeId,
+    "Speed up selected clip."
+  );
+  GRAPPLE_REQUIRE(stewardClipSpeed);
+  const agent::AgentConversationState stewardClipSpeedConversation =
+    stewardMediaWorkspace.value().steward().conversationState();
+  GRAPPLE_REQUIRE(stewardClipSpeedConversation.diagnostics.empty());
+  GRAPPLE_REQUIRE(stewardClipSpeedConversation.runs.size() == 3);
+  GRAPPLE_REQUIRE(stewardClipSpeedConversation.runs[2].status == agent::AgentRunStatus::Succeeded);
+  GRAPPLE_REQUIRE(stewardClipSpeedConversation.runs[2].toolCalls.size() == 1);
+  GRAPPLE_REQUIRE(stewardClipSpeedConversation.runs[2].toolCalls[0].toolSerializedId == "timeline.update_clip_playback_rate");
+  GRAPPLE_REQUIRE(stewardClipSpeedConversation.runs[2].toolCalls[0].toolDisplayName == "Update Clip Playback Rate");
+  GRAPPLE_REQUIRE(stewardClipSpeedConversation.runs[2].toolCalls[0].toolCallId == foundation::ToolId{"tool_steward_clip_playback_rate_3"});
+  GRAPPLE_REQUIRE(stewardClipSpeedConversation.runs[2].toolCalls[0].observedRevision == foundation::RevisionId{"rev_4"});
+  GRAPPLE_REQUIRE(stewardClipSpeed.value().snapshot.revision == foundation::RevisionId{"rev_4"});
+  GRAPPLE_REQUIRE(stewardMediaWorkspace.value().project().packageState().commandLog.records().back().sourceRunId.has_value());
+  GRAPPLE_REQUIRE(
+    stewardMediaWorkspace.value().project().packageState().commandLog.records().back().sourceRunId.value() ==
+    stewardClipSpeedConversation.runs[2].runId
+  );
+  const auto stewardClipSpeedViewModel = stewardMediaWorkspace.value().project().buildViewModel();
+  GRAPPLE_REQUIRE(stewardClipSpeedViewModel);
+  GRAPPLE_REQUIRE(stewardClipSpeedViewModel.value().timeline.clips.size() == 1);
+  GRAPPLE_REQUIRE(stewardClipSpeedViewModel.value().timeline.clips[0].transform.position.x == 0.25);
+  GRAPPLE_REQUIRE(stewardClipSpeedViewModel.value().timeline.clips[0].transform.scale.x == 0.75);
+  GRAPPLE_REQUIRE(stewardClipSpeedViewModel.value().timeline.clips[0].playbackRate == 1.25);
+  GRAPPLE_REQUIRE(stewardClipSpeedViewModel.value().steward.edits.size() == 3);
+  GRAPPLE_REQUIRE(stewardClipSpeedViewModel.value().steward.edits[2].revision == foundation::RevisionId{"rev_4"});
+  GRAPPLE_REQUIRE(stewardClipSpeedViewModel.value().steward.edits[2].targetNodeId == stewardMediaPlacement.value().clipNodeId);
+  GRAPPLE_REQUIRE(stewardClipSpeedViewModel.value().steward.edits[2].targetName == "Steward Video");
+  GRAPPLE_REQUIRE(stewardClipSpeedViewModel.value().steward.edits[2].editName == "Clip Playback Rate");
+  GRAPPLE_REQUIRE(stewardClipSpeedViewModel.value().steward.edits[2].intent == "Speed up selected clip.");
+  GRAPPLE_REQUIRE(stewardClipSpeedViewModel.value().steward.edits[2].controlSummary == "Speed=1.25x");
   const auto stewardMediaWrite = stewardMediaWorkspace.value().writePackage();
   GRAPPLE_REQUIRE(stewardMediaWrite);
   auto reopenedStewardMediaWorkspace =
@@ -1255,7 +1306,7 @@ int main() {
   const agent::AgentConversationState reopenedStewardMediaConversation =
     reopenedStewardMediaWorkspace.value().steward().conversationState();
   GRAPPLE_REQUIRE(reopenedStewardMediaConversation.diagnostics.empty());
-  GRAPPLE_REQUIRE(reopenedStewardMediaConversation.runs.size() == 2);
+  GRAPPLE_REQUIRE(reopenedStewardMediaConversation.runs.size() == 3);
   GRAPPLE_REQUIRE(reopenedStewardMediaConversation.runs[0].title == "Add Steward Video to the timeline.");
   GRAPPLE_REQUIRE(reopenedStewardMediaConversation.runs[0].toolCalls.size() == 1);
   GRAPPLE_REQUIRE(reopenedStewardMediaConversation.runs[0].toolCalls[0].toolSerializedId == "timeline.place_asset");
@@ -1263,16 +1314,23 @@ int main() {
   GRAPPLE_REQUIRE(reopenedStewardMediaConversation.runs[1].toolCalls.size() == 1);
   GRAPPLE_REQUIRE(reopenedStewardMediaConversation.runs[1].toolCalls[0].toolSerializedId == "timeline.update_clip_transform");
   GRAPPLE_REQUIRE(reopenedStewardMediaConversation.runs[1].toolCalls[0].observedRevision == foundation::RevisionId{"rev_3"});
+  GRAPPLE_REQUIRE(reopenedStewardMediaConversation.runs[2].title == "Speed up selected clip.");
+  GRAPPLE_REQUIRE(reopenedStewardMediaConversation.runs[2].toolCalls.size() == 1);
+  GRAPPLE_REQUIRE(reopenedStewardMediaConversation.runs[2].toolCalls[0].toolSerializedId == "timeline.update_clip_playback_rate");
+  GRAPPLE_REQUIRE(reopenedStewardMediaConversation.runs[2].toolCalls[0].observedRevision == foundation::RevisionId{"rev_4"});
   const auto reopenedStewardMediaViewModel = reopenedStewardMediaWorkspace.value().project().buildViewModel();
   GRAPPLE_REQUIRE(reopenedStewardMediaViewModel);
-  GRAPPLE_REQUIRE(reopenedStewardMediaViewModel.value().project.revision == foundation::RevisionId{"rev_3"});
+  GRAPPLE_REQUIRE(reopenedStewardMediaViewModel.value().project.revision == foundation::RevisionId{"rev_4"});
   GRAPPLE_REQUIRE(reopenedStewardMediaViewModel.value().timeline.clips.size() == 1);
   GRAPPLE_REQUIRE(reopenedStewardMediaViewModel.value().timeline.clips[0].transform.position.x == 0.25);
   GRAPPLE_REQUIRE(reopenedStewardMediaViewModel.value().timeline.clips[0].transform.scale.x == 0.75);
-  GRAPPLE_REQUIRE(reopenedStewardMediaViewModel.value().steward.edits.size() == 2);
+  GRAPPLE_REQUIRE(reopenedStewardMediaViewModel.value().timeline.clips[0].playbackRate == 1.25);
+  GRAPPLE_REQUIRE(reopenedStewardMediaViewModel.value().steward.edits.size() == 3);
   GRAPPLE_REQUIRE(reopenedStewardMediaViewModel.value().steward.edits[0].editName == "Timeline Placement");
   GRAPPLE_REQUIRE(reopenedStewardMediaViewModel.value().steward.edits[1].editName == "Clip Transform");
   GRAPPLE_REQUIRE(reopenedStewardMediaViewModel.value().steward.edits[1].intent == "Move clip right and make it smaller.");
+  GRAPPLE_REQUIRE(reopenedStewardMediaViewModel.value().steward.edits[2].editName == "Clip Playback Rate");
+  GRAPPLE_REQUIRE(reopenedStewardMediaViewModel.value().steward.edits[2].intent == "Speed up selected clip.");
   std::filesystem::remove_all(stewardMediaPackageRoot);
 
   app::NativeProjectSession runtimeProject{

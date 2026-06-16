@@ -242,6 +242,16 @@ constexpr const char TimelineUpdateClipTransformSchema[] = R"json({
   }
 })json";
 
+constexpr const char TimelineUpdateClipPlaybackRateSchema[] = R"json({
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["clipNodeId", "playbackRate"],
+  "properties": {
+    "clipNodeId": {"type": "string", "minLength": 1},
+    "playbackRate": {"type": "number"}
+  }
+})json";
+
 constexpr const char EffectCreateNodeSchema[] = R"json({
   "type": "object",
   "additionalProperties": false,
@@ -1551,6 +1561,10 @@ foundation::Result<void> registerProjectTools(AgentToolRegistry& registry) {
   if (!registered) {
     return registered.error();
   }
+  registered = registry.registerTool(makeTimelineUpdateClipPlaybackRateTool());
+  if (!registered) {
+    return registered.error();
+  }
   registered = registry.registerTool(makeEffectCreateNodeTool());
   if (!registered) {
     return registered.error();
@@ -2607,6 +2621,91 @@ AgentTool makeTimelineUpdateClipTransformTool() {
               << "\"commandId\":" << foundation::jsonQuoted(commandId.value())
               << ",\"clipNodeId\":" << foundation::jsonQuoted(clipId.value())
               << ",\"revision\":" << foundation::jsonQuoted(command.value().afterRevision.value())
+              << '}';
+      return ToolResult{
+        call.toolId,
+        ToolResultStatus::Succeeded,
+        command.value().afterRevision,
+        payload.str(),
+        {}
+      };
+    }
+  };
+}
+
+AgentTool makeTimelineUpdateClipPlaybackRateTool() {
+  return AgentTool{
+    foundation::ToolId{"tool_timeline_update_clip_playback_rate"},
+    "timeline.update_clip_playback_rate",
+    "Update Clip Playback Rate",
+    "Updates a clip's authored playback speed through Project Core while preserving its timing, media, transform, and track membership.",
+    TimelineUpdateClipPlaybackRateSchema,
+    [](const ToolCall& call, AgentToolContext& context) -> foundation::Result<ToolResult> {
+      auto arguments = parseArguments(call.arguments);
+      if (!arguments) {
+        return arguments.error();
+      }
+      auto members = requireOnlyMembers(
+        arguments.value(),
+        {"clipNodeId", "playbackRate"},
+        "$"
+      );
+      if (!members) {
+        return members.error();
+      }
+      auto clipNodeId = requiredStringMember(arguments.value(), "clipNodeId", "$");
+      if (!clipNodeId) {
+        return clipNodeId.error();
+      }
+      auto playbackRate = requiredDoubleMember(arguments.value(), "playbackRate", "$");
+      if (!playbackRate) {
+        return playbackRate.error();
+      }
+
+      auto snapshot = readProjectSnapshot(context, "timeline.update_clip_playback_rate");
+      if (!snapshot) {
+        return snapshot.error();
+      }
+
+      const foundation::NodeId clipId{clipNodeId.value()};
+      const graph::GraphNode* node = snapshot.value().graph.findNode(clipId);
+      if (node == nullptr || node->kind != graph::NodeKind::Clip) {
+        return foundation::Error{"agent.clip_missing", "Clip playback-rate update requires an existing clip node."};
+      }
+      const auto* currentPayload = std::get_if<timeline::ClipPayload>(&node->payload);
+      if (currentPayload == nullptr) {
+        return foundation::Error{"agent.clip_payload_missing", "Clip node must contain a clip payload."};
+      }
+
+      const foundation::CommandId commandId = context.ids.nextCommandId();
+      auto command = context.commands.apply(project::ProjectCommandEnvelope{
+        commandId,
+        call.projectId,
+        call.expectedRevision,
+        project::CommandSource{project::CommandSourceKind::Agent, call.runId, "agent"},
+        project::UpdateClipCommand{
+          clipId,
+          timeline::ClipPayload{
+            currentPayload->kind,
+            currentPayload->timelineRange,
+            currentPayload->sourceRange,
+            playbackRate.value(),
+            currentPayload->assetId,
+            currentPayload->transform
+          }
+        }
+      });
+      if (!command) {
+        return command.error();
+      }
+
+      std::ostringstream payload;
+      payload << '{'
+              << "\"commandId\":" << foundation::jsonQuoted(commandId.value())
+              << ",\"clipNodeId\":" << foundation::jsonQuoted(clipId.value())
+              << ",\"playbackRate\":";
+      writeNumber(payload, playbackRate.value());
+      payload << ",\"revision\":" << foundation::jsonQuoted(command.value().afterRevision.value())
               << '}';
       return ToolResult{
         call.toolId,

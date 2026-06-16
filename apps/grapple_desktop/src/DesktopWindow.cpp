@@ -220,11 +220,12 @@ QString inspectorText(
   };
 
   auto selectedClipText = [&](const grapple::app::AppClipRow& clip) {
-    return QString{"Inspector\nClip\nAsset: %1\nType: %2\nRange: %3s - %4s\nPosition: %5, %6\nScale: %7, %8\nRotation: %9\nOpacity: %10\n\n%11"}
+    return QString{"Inspector\nClip\nAsset: %1\nType: %2\nRange: %3s - %4s\nSpeed: %5x\nPosition: %6, %7\nScale: %8, %9\nRotation: %10\nOpacity: %11\n\n%12"}
       .arg(qString(clip.assetName))
       .arg(qString(clip.kind))
       .arg(clip.timelineRange.start.value)
       .arg(clip.timelineRange.end.value)
+      .arg(clip.playbackRate, 0, 'f', 2)
       .arg(clip.transform.position.x, 0, 'f', 2)
       .arg(clip.transform.position.y, 0, 'f', 2)
       .arg(clip.transform.scale.x, 0, 'f', 2)
@@ -505,9 +506,9 @@ public:
     clipTransform_ = new grapple::ui::ClipTransformPanel;
     clipTransform_->setApplyHandler([this](
       grapple::foundation::NodeId clipNodeId,
-      grapple::foundation::Transform2D transform
+      grapple::ui::ClipTransformPanel::ClipEdit edit
     ) {
-      updateClipTransform(clipNodeId, transform, "Updated clip transform");
+      updateClip(clipNodeId, edit.transform, edit.playbackRate, "Updated clip");
     });
 
     effectParams_ = new grapple::ui::EffectParamPanel;
@@ -737,17 +738,17 @@ public:
     ) {
       adjustCameraControlsWithSteward(std::move(cameraNodeId), std::move(intent));
     });
-    steward_->setTransformSelectedClipHandler([this](
+    steward_->setEditSelectedClipHandler([this](
       grapple::foundation::NodeId clipNodeId,
       std::string intent
     ) {
-      transformSelectedClipWithSteward(std::move(clipNodeId), std::move(intent));
+      editSelectedClipWithSteward(std::move(clipNodeId), std::move(intent));
     });
-    steward_->setTryTransformSelectedClipHandler([this](
+    steward_->setTryEditSelectedClipHandler([this](
       grapple::foundation::NodeId clipNodeId,
       std::string intent
     ) {
-      return transformSelectedClipWithPrimaryIntent(std::move(clipNodeId), std::move(intent));
+      return editSelectedClipWithPrimaryIntent(std::move(clipNodeId), std::move(intent));
     });
     steward_->setSelectEditTargetHandler([this](grapple::foundation::NodeId targetNodeId) {
       selectNode(std::move(targetNodeId));
@@ -2055,7 +2056,7 @@ public:
     grapple::timeline::Transform2D transform = selectedClip.value().transform;
     transform.position.x += delta.x;
     transform.position.y += delta.y;
-    updateSelectedClipTransform(selectedClip.value(), transform, "Nudged clip");
+    updateSelectedClip(selectedClip.value(), transform, selectedClip.value().playbackRate, "Nudged clip");
   }
 
   void setSelectedClipUniformScale(double scale) {
@@ -2067,7 +2068,7 @@ public:
 
     grapple::timeline::Transform2D transform = selectedClip.value().transform;
     transform.scale = grapple::foundation::Vec2{scale, scale};
-    updateSelectedClipTransform(selectedClip.value(), transform, "Scaled clip");
+    updateSelectedClip(selectedClip.value(), transform, selectedClip.value().playbackRate, "Scaled clip");
   }
 
   void setSelectedClipOpacity(double opacity) {
@@ -2079,12 +2080,13 @@ public:
 
     grapple::timeline::Transform2D transform = selectedClip.value().transform;
     transform.opacity = opacity;
-    updateSelectedClipTransform(selectedClip.value(), transform, "Updated clip opacity");
+    updateSelectedClip(selectedClip.value(), transform, selectedClip.value().playbackRate, "Updated clip opacity");
   }
 
-  void updateSelectedClipTransform(
+  void updateSelectedClip(
     const grapple::app::AppClipRow& selectedClip,
     grapple::timeline::Transform2D transform,
+    double playbackRate,
     const QString& logMessage
   ) {
     const auto updated = workspace_.commandWriter().apply(
@@ -2094,7 +2096,7 @@ public:
           selectedClip.clipKind,
           selectedClip.timelineRange,
           selectedClip.sourceRange,
-          selectedClip.playbackRate,
+          playbackRate,
           selectedClip.assetId,
           transform
         }
@@ -2110,9 +2112,10 @@ public:
     log_->append(logMessage);
   }
 
-  void updateClipTransform(
+  void updateClip(
     const grapple::foundation::NodeId& clipNodeId,
     grapple::timeline::Transform2D transform,
+    double playbackRate,
     const QString& logMessage
   ) {
     const auto viewModel = workspace_.project().buildViewModel();
@@ -2129,7 +2132,7 @@ public:
 
     selectedNodeId_ = clipNodeId;
     selectedAssetId_ = std::nullopt;
-    updateSelectedClipTransform(*selectedClip, transform, logMessage);
+    updateSelectedClip(*selectedClip, transform, playbackRate, logMessage);
   }
 
   grapple::foundation::Result<grapple::app::AppClipRow> selectedClipRowForAction(const std::string& actionName) {
@@ -2383,11 +2386,11 @@ public:
     log_->append("Steward applied camera edit");
   }
 
-  void transformSelectedClipWithSteward(
+  void editSelectedClipWithSteward(
     grapple::foundation::NodeId clipNodeId,
     std::string intent
   ) {
-    const auto transformed = workspace_.steward().transformClip(clipNodeId, std::move(intent));
+    const auto transformed = workspace_.steward().editClip(clipNodeId, std::move(intent));
     if (!transformed) {
       appendError(transformed.error());
       refreshViewModel();
@@ -2398,18 +2401,18 @@ public:
     selectedAssetId_ = std::nullopt;
     refreshViewModelAndPreview();
     steward_->setIntent({});
-    log_->append("Steward transformed selected clip");
+    log_->append("Steward edited selected clip");
   }
 
-  bool transformSelectedClipWithPrimaryIntent(
+  bool editSelectedClipWithPrimaryIntent(
     grapple::foundation::NodeId clipNodeId,
     std::string intent
   ) {
-    if (!workspace_.steward().clipTransformIntentTargetsClip(intent)) {
+    if (!workspace_.steward().clipEditIntentTargetsClip(intent)) {
       return false;
     }
 
-    transformSelectedClipWithSteward(std::move(clipNodeId), std::move(intent));
+    editSelectedClipWithSteward(std::move(clipNodeId), std::move(intent));
     return true;
   }
 

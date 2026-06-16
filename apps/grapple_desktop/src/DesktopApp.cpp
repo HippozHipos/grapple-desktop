@@ -1171,6 +1171,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     window.setSelectedClipTransformControlValue("clipTransformScaleX", 1.25);
     window.setSelectedClipTransformControlValue("clipTransformScaleY", 1.25);
     window.setSelectedClipTransformControlValue("clipTransformOpacity", 0.5);
+    window.setSelectedClipTransformControlValue("clipPlaybackRate", 1.5);
     const auto viewModel = workspace.value().project().buildViewModel();
     if (!viewModel) {
       printError(viewModel.error());
@@ -1188,19 +1189,22 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "scaleX=" << clip.transform.scale.x << '\n';
     std::cout << "scaleY=" << clip.transform.scale.y << '\n';
     std::cout << "opacity=" << clip.transform.opacity << '\n';
+    std::cout << "playbackRate=" << clip.playbackRate << '\n';
     std::cout << "inspector=" << inspector << '\n';
-    return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_10"} &&
+    return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_11"} &&
            clip.transform.position.x == 0.25 &&
            clip.transform.position.y == 0.5 &&
            clip.transform.scale.x == 1.25 &&
            clip.transform.scale.y == 1.25 &&
            clip.transform.opacity == 0.5 &&
+           clip.playbackRate == 1.5 &&
            clip.timelineRange.start == grapple::foundation::TimeSeconds{0.0} &&
            clip.timelineRange.end == grapple::foundation::TimeSeconds{10.0} &&
            clip.sourceRange.start == grapple::foundation::TimeSeconds{0.0} &&
            clip.sourceRange.end == grapple::foundation::TimeSeconds{10.0} &&
            inspector.find("Position: 0.25, 0.50") != std::string::npos &&
            inspector.find("Scale: 1.25, 1.25") != std::string::npos &&
+           inspector.find("Speed: 1.50x") != std::string::npos &&
            inspector.find("Opacity: 0.50") != std::string::npos
       ? 0
       : 1;
@@ -2481,7 +2485,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     const auto clipBeforeTransform = beforeTransformViewModel.value().timeline.clips.front().transform;
     const std::string selectedClipActionText = window.stewardSelectedClipActionText();
     const bool selectedClipActionEnabledBeforeIntent = window.stewardSelectedClipActionEnabled();
-    window.setStewardIntent("Move selected clip right, rotate slightly left, make it smaller, and make it invisible.");
+    window.setStewardIntent("Move selected clip right, rotate slightly left, make it smaller, make it faster, and make it invisible.");
     const bool selectedClipActionEnabledAfterIntent = window.stewardSelectedClipActionEnabled();
     window.clickStewardPrimaryAction();
     const auto viewModel = workspace.value().project().buildViewModel();
@@ -2509,6 +2513,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "clipScaleY=" << clip.transform.scale.y << '\n';
     std::cout << "clipRotation=" << clip.transform.rotationDegrees << '\n';
     std::cout << "clipOpacity=" << clip.transform.opacity << '\n';
+    std::cout << "clipPlaybackRate=" << clip.playbackRate << '\n';
     std::cout << "selectedClipActionText=" << selectedClipActionText << '\n';
     std::cout << "selectedClipActionEnabledBeforeIntent=" << (selectedClipActionEnabledBeforeIntent ? "true" : "false") << '\n';
     std::cout << "selectedClipActionEnabledAfterIntent=" << (selectedClipActionEnabledAfterIntent ? "true" : "false") << '\n';
@@ -2517,26 +2522,29 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "stewardIntent=" << stewardIntent << '\n';
     std::cout << "inspector=" << inspector << '\n';
     std::cout << "log=" << log << '\n';
-    return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_3"} &&
+    return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_4"} &&
            clip.transform.position.x == clipBeforeTransform.position.x + 0.25 &&
            clip.transform.position.y == clipBeforeTransform.position.y &&
            clip.transform.scale.x == clipBeforeTransform.scale.x * 0.75 &&
            clip.transform.scale.y == clipBeforeTransform.scale.y * 0.75 &&
            clip.transform.rotationDegrees == clipBeforeTransform.rotationDegrees - 7.5 &&
            clip.transform.opacity == 0.0 &&
-           selectedClipActionText == "Type Request To Transform Clip" &&
+           clip.playbackRate == 1.25 &&
+           selectedClipActionText == "Type Request To Edit Clip" &&
            !selectedClipActionEnabledBeforeIntent &&
            selectedClipActionEnabledAfterIntent &&
            !window.stewardSelectedClipActionEnabled() &&
 	           stewardIntent.empty() &&
-	           steward.find("Next: type a camera request, or mention clip/video to transform the selected clip.") != std::string::npos &&
+	           steward.find("Next: type a camera request, or mention clip/video to edit the selected clip.") != std::string::npos &&
            steward.find("Clip target: starter-gradient") != std::string::npos &&
-	           steward.find("Clip route: mention clip/video, or use the clip action, to update transform parameters.") != std::string::npos &&
+	           steward.find("Clip route: mention clip/video, or use the clip action, to update clip parameters.") != std::string::npos &&
            steward.find("Rotation=-7.5") != std::string::npos &&
            inspector.find("Rotation: -7.50") != std::string::npos &&
+           inspector.find("Speed: 1.25x") != std::string::npos &&
            inspector.find("Opacity: 0.00") != std::string::npos &&
            steward.find("Update Clip Transform -> succeeded") != std::string::npos &&
-           log.find("Steward transformed selected clip") != std::string::npos
+           steward.find("Update Clip Playback Rate -> succeeded") != std::string::npos &&
+           log.find("Steward edited selected clip") != std::string::npos
       ? 0
       : 1;
   }
