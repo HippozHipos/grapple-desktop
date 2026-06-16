@@ -1026,6 +1026,12 @@ public:
   }
 
   ~DesktopWindowImpl() override {
+    playbackRenderGeneration_.fetch_add(1);
+    pendingPlaybackRenderPlayhead_ = std::nullopt;
+    if (playbackRenderThread_.joinable()) {
+      playbackRenderThread_.request_stop();
+      playbackRenderThread_.join();
+    }
     workspace_.jobs().cancelAll();
     workspace_.jobs().waitUntilIdle();
     drainJobDispatch();
@@ -1192,9 +1198,11 @@ public:
   ) {
     playbackRenderInFlight_.store(false);
     if (generation != playbackRenderGeneration_.load()) {
+      pendingPlaybackRenderPlayhead_ = std::nullopt;
       return;
     }
     if (!frame) {
+      pendingPlaybackRenderPlayhead_ = std::nullopt;
       appendError(frame.error());
       return;
     }
@@ -1204,10 +1212,17 @@ public:
       false,
       workspace_.preview().state().playhead
     );
+    if (pendingPlaybackRenderPlayhead_.has_value() &&
+        workspace_.preview().state().playback == grapple::render::PreviewPlaybackState::Playing) {
+      const grapple::foundation::TimeSeconds playhead = pendingPlaybackRenderPlayhead_.value();
+      pendingPlaybackRenderPlayhead_ = std::nullopt;
+      renderPlaybackFrameAsync(playhead);
+    }
   }
 
   void renderPlaybackFrameAsync(grapple::foundation::TimeSeconds playhead) {
     if (playbackRenderInFlight_.exchange(true)) {
+      pendingPlaybackRenderPlayhead_ = playhead;
       return;
     }
     if (playbackRenderThread_.joinable()) {
@@ -1243,6 +1258,7 @@ public:
 
   void seekTo(grapple::foundation::TimeSeconds time, bool updateEditControls = true) {
     playbackRenderGeneration_.fetch_add(1);
+    pendingPlaybackRenderPlayhead_ = std::nullopt;
     const auto seek = workspace_.preview().seek(time);
     if (!seek) {
       appendError(seek.error());
@@ -1769,6 +1785,7 @@ public:
     playbackStartPlayhead_ = workspace_.preview().state().playhead;
     playbackClock_.restart();
     playbackRenderGeneration_.fetch_add(1);
+    pendingPlaybackRenderPlayhead_ = std::nullopt;
     playbackTimer_->start();
     renderCurrentFrame();
     updateActionAvailability();
@@ -1799,6 +1816,7 @@ public:
   void pausePlayback() {
     playbackTimer_->stop();
     playbackRenderGeneration_.fetch_add(1);
+    pendingPlaybackRenderPlayhead_ = std::nullopt;
     const auto pause = workspace_.preview().pause();
     if (!pause) {
       appendError(pause.error());
@@ -4220,6 +4238,7 @@ private:
   grapple::foundation::TimeSeconds playbackStartPlayhead_;
   std::atomic_bool playbackRenderInFlight_{false};
   std::atomic_uint64_t playbackRenderGeneration_{0};
+  std::optional<grapple::foundation::TimeSeconds> pendingPlaybackRenderPlayhead_;
   std::jthread playbackRenderThread_;
   grapple::jobs::MainThreadDispatcher jobDispatcher_;
   bool exportInProgress_ = false;
