@@ -75,6 +75,11 @@ struct OpenVideo {
   int streamIndex = -1;
 };
 
+struct DecodedAvFrame {
+  FramePtr frame;
+  foundation::TimeSeconds time;
+};
+
 foundation::Result<OpenVideo> openVideo(const foundation::FilePath& path) {
   AVFormatContext* rawFormat = nullptr;
   if (avformat_open_input(&rawFormat, path.value.c_str(), nullptr, nullptr) < 0) {
@@ -129,7 +134,66 @@ foundation::Resolution outputResolutionFor(
   };
 }
 
-foundation::Result<FramePtr> decodeFrame(OpenVideo& video, foundation::TimeSeconds time) {
+foundation::TimeSeconds decodedFrameTime(
+  const OpenVideo& video,
+  const AVFrame& frame,
+  foundation::TimeSeconds requestedTime
+) {
+  if (frame.best_effort_timestamp == AV_NOPTS_VALUE) {
+    return requestedTime;
+  }
+
+  const AVStream* stream = video.format->streams[video.streamIndex];
+  return foundation::TimeSeconds{
+    static_cast<double>(frame.best_effort_timestamp) * av_q2d(stream->time_base)
+  };
+}
+
+foundation::Result<DecodedAvFrame> decodeFrameForward(OpenVideo& video, foundation::TimeSeconds time) {
+  PacketPtr packet{av_packet_alloc()};
+  FramePtr frame{av_frame_alloc()};
+  if (!packet || !frame) {
+    return ffmpegError("media.video_decode_alloc_failed", "Could not allocate video decode buffers.");
+  }
+
+  constexpr double TimestampEpsilon = 0.000001;
+  while (true) {
+    while (true) {
+      const int receiveResult = avcodec_receive_frame(video.codec.get(), frame.get());
+      if (receiveResult == 0) {
+        const foundation::TimeSeconds frameTime = decodedFrameTime(video, *frame, time);
+        if (frameTime.value + TimestampEpsilon >= time.value) {
+          return DecodedAvFrame{std::move(frame), frameTime};
+        }
+        av_frame_unref(frame.get());
+        continue;
+      }
+      if (receiveResult == AVERROR(EAGAIN)) {
+        break;
+      }
+      if (receiveResult == AVERROR_EOF) {
+        return ffmpegError("media.video_frame_decode_failed", "Could not decode requested video frame.");
+      }
+      return ffmpegError("media.video_frame_decode_failed", "Could not decode requested video frame.");
+    }
+
+    const int readResult = av_read_frame(video.format.get(), packet.get());
+    if (readResult < 0) {
+      return ffmpegError("media.video_frame_decode_failed", "Could not decode requested video frame.");
+    }
+    if (packet->stream_index == video.streamIndex) {
+      const int sendResult = avcodec_send_packet(video.codec.get(), packet.get());
+      av_packet_unref(packet.get());
+      if (sendResult < 0) {
+        return ffmpegError("media.video_frame_decode_failed", "Could not decode requested video frame.");
+      }
+      continue;
+    }
+    av_packet_unref(packet.get());
+  }
+}
+
+foundation::Result<DecodedAvFrame> decodeFrameAfterSeek(OpenVideo& video, foundation::TimeSeconds time) {
   const AVStream* stream = video.format->streams[video.streamIndex];
   const std::int64_t timestamp = static_cast<std::int64_t>(
     std::llround(time.value / av_q2d(stream->time_base))
@@ -138,32 +202,7 @@ foundation::Result<FramePtr> decodeFrame(OpenVideo& video, foundation::TimeSecon
     return ffmpegError("media.video_seek_failed", "Could not seek requested video frame.");
   }
   avcodec_flush_buffers(video.codec.get());
-
-  PacketPtr packet{av_packet_alloc()};
-  FramePtr frame{av_frame_alloc()};
-  if (!packet || !frame) {
-    return ffmpegError("media.video_decode_alloc_failed", "Could not allocate video decode buffers.");
-  }
-
-  while (av_read_frame(video.format.get(), packet.get()) >= 0) {
-    if (packet->stream_index == video.streamIndex && avcodec_send_packet(video.codec.get(), packet.get()) >= 0) {
-      while (true) {
-        const int receiveResult = avcodec_receive_frame(video.codec.get(), frame.get());
-        if (receiveResult == 0) {
-          av_packet_unref(packet.get());
-          return frame;
-        }
-        if (receiveResult == AVERROR(EAGAIN) || receiveResult == AVERROR_EOF) {
-          break;
-        }
-        av_packet_unref(packet.get());
-        return ffmpegError("media.video_frame_decode_failed", "Could not decode requested video frame.");
-      }
-    }
-    av_packet_unref(packet.get());
-  }
-
-  return ffmpegError("media.video_frame_decode_failed", "Could not decode requested video frame.");
+  return decodeFrameForward(video, time);
 }
 
 foundation::FrameRate frameRateFor(const AVStream& stream) {
@@ -263,6 +302,7 @@ struct VideoDecodeSession::Impl {
 
   foundation::FilePath path;
   OpenVideo video;
+  std::optional<foundation::TimeSeconds> lastDecodedFrameTime;
 };
 
 VideoDecodeSession::VideoDecodeSession(std::unique_ptr<Impl> impl)
@@ -309,12 +349,22 @@ foundation::Result<DecodedVideoFrame> VideoDecodeSession::frameAt(
   foundation::TimeSeconds time,
   std::optional<foundation::Resolution> targetResolution
 ) {
-  auto decoded = decodeFrame(impl_->video, time);
+  constexpr double ForwardDecodeWindowSeconds = 2.0;
+  constexpr double TimestampEpsilon = 0.000001;
+  const bool canDecodeForward =
+    impl_->lastDecodedFrameTime.has_value() &&
+    time.value > impl_->lastDecodedFrameTime->value + TimestampEpsilon &&
+    time.value - impl_->lastDecodedFrameTime->value <= ForwardDecodeWindowSeconds;
+
+  auto decoded = canDecodeForward
+    ? decodeFrameForward(impl_->video, time)
+    : decodeFrameAfterSeek(impl_->video, time);
   if (!decoded) {
     return decoded.error();
   }
 
-  return rgbaFrameFromDecoded(*decoded.value(), targetResolution);
+  impl_->lastDecodedFrameTime = decoded.value().time;
+  return rgbaFrameFromDecoded(*decoded.value().frame, targetResolution);
 }
 
 foundation::Result<VideoMetadata> inspectVideoFile(const foundation::FilePath& path) {
