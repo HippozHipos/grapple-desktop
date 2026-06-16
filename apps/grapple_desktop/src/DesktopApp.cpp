@@ -2659,6 +2659,13 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       grapple::effects::builtin_effect::ClipTintColorParam,
       grapple::foundation::Vec3{0.2, 1.0, 0.35}
     );
+    window.setStewardIntent("Add title \"Opening Title\".");
+    const std::string textCreatePrimaryActionText = window.stewardPrimaryActionText();
+    const bool textCreatePrimaryActionEnabled = window.stewardPrimaryActionEnabled();
+    window.clickStewardPrimaryAction();
+    window.setSelectedTextClipTextControlValue("MVP Opening");
+    window.setSelectedTextClipPropertyControlValue("textClipFontSize", 72.0);
+    window.setSelectedTextClipPropertyControlValue("textClipOpacity", 0.75);
     window.setStewardIntent("Center the subject with editable camera controls.");
     window.clickStewardPrimaryAction();
     window.setStewardIntent("Move the camera framing right.");
@@ -2693,7 +2700,11 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       tunedPreviewFrame.value().frame.mediaFrames.size() == 1 &&
       tunedPreviewFrame.value().frame.mediaFrames.front().tintColor.has_value() &&
       tunedPreviewFrame.value().frame.mediaFrames.front().tintColor.value() == grapple::foundation::Vec3{0.2, 1.0, 0.35} &&
-      tunedPreviewFrame.value().frame.mediaFrames.front().tintAmount == 0.6;
+      tunedPreviewFrame.value().frame.mediaFrames.front().tintAmount == 0.6 &&
+      tunedPreviewFrame.value().frame.textFrames.size() == 1 &&
+      tunedPreviewFrame.value().frame.textFrames.front().text == "MVP Opening" &&
+      tunedPreviewFrame.value().frame.textFrames.front().style.fontSize == 72.0 &&
+      tunedPreviewFrame.value().frame.textFrames.front().transform.opacity == 0.75;
     const bool previewPixelsChanged =
       basePreviewFrame.value().frame.image.has_value() &&
       tunedPreviewFrame.value().frame.image.has_value() &&
@@ -2810,6 +2821,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "revision=" << viewModel.value().project.revision.value() << '\n';
     std::cout << "assets=" << viewModel.value().assets.count << '\n';
     std::cout << "clips=" << viewModel.value().timeline.clips.size() << '\n';
+    std::cout << "textClips=" << viewModel.value().timeline.textClips.size() << '\n';
     std::cout << "cameras=" << viewModel.value().timeline.cameras.size() << '\n';
     std::cout << "effects=" << viewModel.value().timeline.effectCount << '\n';
     std::cout << "evaluatedTunedPreview=" << (hasEvaluatedTunedPreview ? "true" : "false") << '\n';
@@ -2836,12 +2848,18 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "clipTintPrimaryActionEnabled=" << (clipTintPrimaryActionEnabled ? "true" : "false") << '\n';
     std::cout << "clipTintUpdatePrimaryAction=" << clipTintUpdatePrimaryActionText << '\n';
     std::cout << "clipTintUpdatePrimaryActionEnabled=" << (clipTintUpdatePrimaryActionEnabled ? "true" : "false") << '\n';
+    std::cout << "textCreatePrimaryAction=" << textCreatePrimaryActionText << '\n';
+    std::cout << "textCreatePrimaryActionEnabled=" << (textCreatePrimaryActionEnabled ? "true" : "false") << '\n';
     std::cout << "effectParamTitle=" << effectParamTitle << '\n';
     std::cout << "effectParamPanel=" << effectParamPanel << '\n';
     std::cout << "exportStatus=" << exportStatus << '\n';
     std::cout << "log=" << log << '\n';
     return viewModel.value().assets.count == 1 &&
            viewModel.value().timeline.clips.size() == 1 &&
+           viewModel.value().timeline.textClips.size() == 1 &&
+           viewModel.value().timeline.textClips.front().text == "MVP Opening" &&
+           viewModel.value().timeline.textClips.front().style.fontSize == 72.0 &&
+           viewModel.value().timeline.textClips.front().transform.opacity == 0.75 &&
            viewModel.value().timeline.cameras.size() == 1 &&
            viewModel.value().timeline.effectCount == 2 &&
            hasTunedEditableEffect &&
@@ -2852,7 +2870,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            stewardActionEnabledAfterImport &&
            addMediaActionEnabledAfterImport &&
            exportActionEnabledAfterMediaPlacement &&
-           stewardRecentEdits == 7 &&
+           stewardRecentEdits == 8 &&
            stewardSelectedRecentEdit == 0 &&
            stewardSelectedRecentEditText.find("Recenter the subject.") != std::string::npos &&
            stewardSelectedRecentEditText.find("Camera Transform on Camera") != std::string::npos &&
@@ -2861,7 +2879,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            selectedAfterRecentEdit.value() == viewModel.value().timeline.cameras.front().sourceNodeId &&
            steward.find("1 assets | 1 clips | 1 cameras | 2 editable effects") != std::string::npos &&
            steward.find("Next: type the camera edit request, then apply it to the exposed controls.") != std::string::npos &&
-           steward.find("Latest result: Camera Transform on Camera (rev_10)") != std::string::npos &&
+           steward.find("Latest result: Camera Transform on Camera (rev_14)") != std::string::npos &&
            steward.find("Controls changed: Position X=0") != std::string::npos &&
            steward.find("Latest request: Recenter the subject.") != std::string::npos &&
            steward.find("Camera target: Camera") != std::string::npos &&
@@ -2879,6 +2897,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            clipTintPrimaryActionEnabled &&
            clipTintUpdatePrimaryActionText == "Apply Request To Clip" &&
            clipTintUpdatePrimaryActionEnabled &&
+           textCreatePrimaryActionText == "Create Text Clip" &&
+           textCreatePrimaryActionEnabled &&
            effectParamTitle == "Camera Transform on Camera" &&
            inspector.find("Position X (position_x)=0") != std::string::npos &&
            inspector.find("Zoom (zoom)=1.6") != std::string::npos &&
@@ -2893,6 +2913,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            log.find("Steward created clip tint controls") != std::string::npos &&
            log.find("Steward adjusted clip tint controls") != std::string::npos &&
            log.find("Updated effect parameter color") != std::string::npos &&
+           log.find("Steward created text clip") != std::string::npos &&
+           log.find("Updated text clip") != std::string::npos &&
            log.find("Updated effect parameter zoom") != std::string::npos &&
            log.find("Steward applied camera edit") != std::string::npos &&
            log.find("Steward adjusted camera controls") != std::string::npos &&
