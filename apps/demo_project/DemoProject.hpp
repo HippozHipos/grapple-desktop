@@ -8,6 +8,7 @@
 
 namespace grapple::demo {
 
+foundation::FilePath starterDemoVideoPath();
 foundation::Result<void> ensureStarterDemoVideo();
 
 foundation::Result<void> populateStarterDemo(

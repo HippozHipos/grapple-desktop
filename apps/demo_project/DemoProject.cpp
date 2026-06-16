@@ -32,10 +32,6 @@ project::CommandSource userSource() {
   };
 }
 
-foundation::FilePath starterDemoVideoPath() {
-  return foundation::FilePath{"/tmp/grapple-native-demo/starter-gradient.avi"};
-}
-
 foundation::FilePath starterDemoThumbnailPath() {
   return foundation::FilePath{"/tmp/grapple-native-demo/starter-gradient.jpg"};
 }
@@ -57,6 +53,10 @@ foundation::Result<void> ensureStarterDemoThumbnail() {
 }
 
 } // namespace
+
+foundation::FilePath starterDemoVideoPath() {
+  return foundation::FilePath{"/tmp/grapple-native-demo/starter-gradient.avi"};
+}
 
 foundation::Result<void> ensureStarterDemoVideo() {
   constexpr int width = 320;

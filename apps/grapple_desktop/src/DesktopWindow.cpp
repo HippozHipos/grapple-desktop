@@ -1,5 +1,7 @@
 #include "DesktopWindow.hpp"
 
+#include <DemoProject.hpp>
+
 #include <grapple/app/AppViewModel.hpp>
 #include <grapple/app/NativeWorkspaceSession.hpp>
 #include <grapple/effects/BuiltinEffects.hpp>
@@ -631,6 +633,8 @@ public:
     stepForwardButton_ = new QPushButton{"+1s"};
     auto* importMediaButton = new QPushButton{"Import"};
     importMediaButton->setToolTip("Import media (Ctrl+Shift+I)");
+    auto* sampleMediaButton = new QPushButton{"Sample"};
+    sampleMediaButton->setToolTip("Import the starter sample media");
     addSelectedMediaButton_ = new QPushButton{"Add To Timeline"};
     addSelectedMediaButton_->setEnabled(false);
     undoButton_ = new QPushButton{"Undo"};
@@ -678,6 +682,7 @@ public:
     actionRow->setSpacing(8);
     actionRow->addWidget(titleBlock, 1);
     actionRow->addWidget(importMediaButton);
+    actionRow->addWidget(sampleMediaButton);
     actionRow->addWidget(playheadLabel_);
     actionRow->addWidget(playButton_);
     actionRow->addWidget(pauseButton_);
@@ -743,6 +748,7 @@ public:
     connect(undoButton_, &QPushButton::clicked, this, [this] { undoLastEdit(); });
     connect(redoButton_, &QPushButton::clicked, this, [this] { redoLastEdit(); });
     connect(importMediaButton, &QPushButton::clicked, this, [this] { chooseAndImportMedia(); });
+    connect(sampleMediaButton, &QPushButton::clicked, this, [this] { importStarterSampleMedia(); });
     connect(addSelectedMediaButton_, &QPushButton::clicked, this, [this] { addSelectedMediaToTimeline(); });
     connect(newPackageAction, &QAction::triggered, this, [this] { chooseAndNewPackage(); });
     connect(openPackageAction, &QAction::triggered, this, [this] { chooseAndOpenPackage(); });
@@ -2035,6 +2041,15 @@ public:
     selectedAssetId_ = imported.value();
     refreshViewModelAndPreview();
     log_->append(QString{"Imported %1"}.arg(qString(std::filesystem::path{path.value}.stem().string())));
+  }
+
+  void importStarterSampleMedia() {
+    const auto video = grapple::demo::ensureStarterDemoVideo();
+    if (!video) {
+      appendError(video.error());
+      return;
+    }
+    importMediaFile(grapple::demo::starterDemoVideoPath());
   }
 
   void addSelectedMediaToTimeline() {
@@ -4090,6 +4105,10 @@ void DesktopWindow::updateSelectedNote(std::string title, std::string markdown) 
 
 void DesktopWindow::importMediaFile(const foundation::FilePath& path) {
   impl_->importMediaFile(path);
+}
+
+void DesktopWindow::importStarterSampleMedia() {
+  impl_->importStarterSampleMedia();
 }
 
 void DesktopWindow::addSelectedMediaToTimeline() {

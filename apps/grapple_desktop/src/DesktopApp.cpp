@@ -523,10 +523,24 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       std::filesystem::exists(currentPackageRoot / "manifest.json") &&
       std::filesystem::exists(currentPackageRoot / "agent" / "runs.json") &&
       std::filesystem::exists(currentPackageRoot / "agent" / "events.json");
+    window.importStarterSampleMedia();
+    const auto afterSampleImport = workspace.value().project().buildViewModel();
+    if (!afterSampleImport) {
+      printError(afterSampleImport.error());
+      return 1;
+    }
+    const bool sampleImportSelectedAsset = window.selectedAssetId().has_value();
+    const std::string stewardActionAfterSampleImport = window.stewardPrimaryActionText();
+    const bool addMediaActionEnabledAfterSampleImport = window.addSelectedMediaActionEnabled();
     std::cout << "revision=" << viewModel.value().project.revision.value() << '\n';
     std::cout << "assets=" << viewModel.value().assets.count << '\n';
     std::cout << "clips=" << viewModel.value().timeline.clips.size() << '\n';
     std::cout << "cameras=" << viewModel.value().timeline.cameras.size() << '\n';
+    std::cout << "sampleImportAssets=" << afterSampleImport.value().assets.count << '\n';
+    std::cout << "sampleImportClips=" << afterSampleImport.value().timeline.clips.size() << '\n';
+    std::cout << "sampleImportSelectedAsset=" << (sampleImportSelectedAsset ? "true" : "false") << '\n';
+    std::cout << "sampleImportStewardAction=" << stewardActionAfterSampleImport << '\n';
+    std::cout << "sampleImportAddMediaActionEnabled=" << (addMediaActionEnabledAfterSampleImport ? "true" : "false") << '\n';
     std::cout << "packageWritten=" << (packageWritten ? "true" : "false") << '\n';
     std::cout << "timelineEmptyPrompt=" << timelineEmptyPrompt << '\n';
     std::cout << "stewardIntent=" << stewardIntent << '\n';
@@ -548,6 +562,11 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     return viewModel.value().assets.count == 0 &&
            viewModel.value().timeline.clips.empty() &&
            viewModel.value().timeline.cameras.empty() &&
+           afterSampleImport.value().assets.count == 1 &&
+           afterSampleImport.value().timeline.clips.empty() &&
+           sampleImportSelectedAsset &&
+           stewardActionAfterSampleImport == "Add Selected Media To Timeline" &&
+           addMediaActionEnabledAfterSampleImport &&
            packageWritten &&
            stewardActionText == "Import Media" &&
            stewardActionEnabled &&
