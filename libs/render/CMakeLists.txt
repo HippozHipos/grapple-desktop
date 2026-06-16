@@ -1,3 +1,5 @@
+find_package(OpenCV REQUIRED COMPONENTS core imgproc)
+
 add_library(grapple_render
   src/FinalRenderShell.cpp
   src/LocalRenderCore.cpp
@@ -18,4 +20,11 @@ target_link_libraries(grapple_render
     Grapple::Foundation
     Grapple::Projection
     Grapple::Runtime
+  PRIVATE
+    ${OpenCV_LIBS}
+)
+
+target_include_directories(grapple_render
+  PRIVATE
+    ${OpenCV_INCLUDE_DIRS}
 )

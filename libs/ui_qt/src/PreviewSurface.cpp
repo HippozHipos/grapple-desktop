@@ -171,10 +171,6 @@ void PreviewSurface::drawRenderedImage(QPainter& painter, const render::RenderFr
   const QRect target = scaledRect(qImage.size(), rect().adjusted(30, 30, -30, -30));
   painter.drawImage(target, qImage);
 
-  for (const render::RenderedTextFrame& textFrame : frame.textFrames) {
-    drawTextFrame(painter, textFrame, target);
-  }
-
   painter.setPen(QColor{"#d8f3ff"});
   painter.setFont(QFont{"DejaVu Sans", 13, QFont::Bold});
   painter.drawText(rect().adjusted(18, 10, -18, -10), Qt::AlignTop | Qt::AlignHCenter, timeText(frame.time));

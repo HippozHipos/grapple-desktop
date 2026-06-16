@@ -633,6 +633,18 @@ grapple::render::ExportSettings makeExportSettings(grapple::foundation::Resoluti
   };
 }
 
+bool containsLightPixel(const grapple::render::RenderedImage& image) {
+  for (std::size_t index = 0; index + 3 < image.rgbaPixels.size(); index += 4) {
+    if (image.rgbaPixels[index] > 180 &&
+        image.rgbaPixels[index + 1] > 180 &&
+        image.rgbaPixels[index + 2] > 180 &&
+        image.rgbaPixels[index + 3] > 0) {
+      return true;
+    }
+  }
+  return false;
+}
+
 } // namespace
 
 int main() {
@@ -711,6 +723,43 @@ int main() {
   GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.audioClips[0].playbackRate == 1.0);
   GRAPPLE_REQUIRE(renderedActiveFrame.value().runtimeDiagnostics.empty());
   GRAPPLE_REQUIRE(renderedActiveFrame.value().renderDiagnostics.empty());
+
+  TestFrameSource textImageSource;
+  runtime::RuntimeEvaluator textImageRuntime;
+  render::LocalRenderCore textImageCore{textImageRuntime, textImageSource};
+  render::FinalRenderShell textImageFinal{textImageCore};
+  const auto textImageLoad = textImageCore.loadPlan(plan);
+  GRAPPLE_REQUIRE(textImageLoad);
+  CapturingRangeSink textImageSink;
+  const auto textImageExport = textImageFinal.render(render::FinalRenderRequest{
+    makeExportSettings(foundation::Resolution{160, 90}),
+    &textImageSink
+  });
+  GRAPPLE_REQUIRE(textImageExport);
+  GRAPPLE_REQUIRE(textImageSink.frameImages.size() == 2);
+  GRAPPLE_REQUIRE(textImageSink.frameImages[0].has_value());
+  const foundation::Resolution textImageResolution{160, 90};
+  GRAPPLE_REQUIRE(textImageSink.frameImages[0]->resolution == textImageResolution);
+  GRAPPLE_REQUIRE(containsLightPixel(textImageSink.frameImages[0].value()));
+
+  projection::RenderPlan textOnlyPlan = plan;
+  textOnlyPlan.clips.clear();
+  runtime::RuntimeEvaluator textOnlyRuntime;
+  render::LocalRenderCore textOnlyCore{textOnlyRuntime};
+  render::FinalRenderShell textOnlyFinal{textOnlyCore};
+  const auto textOnlyLoad = textOnlyCore.loadPlan(textOnlyPlan);
+  GRAPPLE_REQUIRE(textOnlyLoad);
+  CapturingRangeSink textOnlySink;
+  const auto textOnlyExport = textOnlyFinal.render(render::FinalRenderRequest{
+    makeExportSettings(foundation::Resolution{160, 90}),
+    &textOnlySink
+  });
+  GRAPPLE_REQUIRE(textOnlyExport);
+  GRAPPLE_REQUIRE(textOnlySink.frameImages.size() == 2);
+  GRAPPLE_REQUIRE(textOnlySink.frameImages[0].has_value());
+  const foundation::Resolution textOnlyResolution{160, 90};
+  GRAPPLE_REQUIRE(textOnlySink.frameImages[0]->resolution == textOnlyResolution);
+  GRAPPLE_REQUIRE(containsLightPixel(textOnlySink.frameImages[0].value()));
 
   const auto renderedInactiveFrame = preview.renderFrame(render::RenderFrameRequest{
     foundation::TimeSeconds{8.0},

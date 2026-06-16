@@ -3,6 +3,8 @@
 #include <grapple/projection/RenderPlanHashes.hpp>
 #include <grapple/effects/OutputNames.hpp>
 
+#include <opencv2/imgproc.hpp>
+
 #include <algorithm>
 #include <cstddef>
 #include <cmath>
@@ -274,6 +276,45 @@ void compositeImageOver(RenderedImage& destination, const RenderedImage& source)
   }
 }
 
+void compositeImageAt(RenderedImage& destination, const RenderedImage& source, int left, int top) {
+  for (int y = 0; y < source.resolution.height; ++y) {
+    const int destinationY = top + y;
+    if (destinationY < 0 || destinationY >= destination.resolution.height) {
+      continue;
+    }
+    for (int x = 0; x < source.resolution.width; ++x) {
+      const int destinationX = left + x;
+      if (destinationX < 0 || destinationX >= destination.resolution.width) {
+        continue;
+      }
+
+      const std::size_t sourceIndex = static_cast<std::size_t>((y * source.resolution.width + x) * 4);
+      const std::size_t destinationIndex =
+        static_cast<std::size_t>((destinationY * destination.resolution.width + destinationX) * 4);
+      const double sourceAlpha = static_cast<double>(source.rgbaPixels[sourceIndex + 3]) / 255.0;
+      if (sourceAlpha <= 0.0) {
+        continue;
+      }
+
+      const double destinationAlpha = static_cast<double>(destination.rgbaPixels[destinationIndex + 3]) / 255.0;
+      const double outputAlpha = sourceAlpha + (destinationAlpha * (1.0 - sourceAlpha));
+      if (outputAlpha <= 0.0) {
+        continue;
+      }
+
+      for (std::size_t channel = 0; channel < 3; ++channel) {
+        const double sourceColor = static_cast<double>(source.rgbaPixels[sourceIndex + channel]);
+        const double destinationColor = static_cast<double>(destination.rgbaPixels[destinationIndex + channel]);
+        const double outputColor =
+          ((sourceColor * sourceAlpha) + (destinationColor * destinationAlpha * (1.0 - sourceAlpha))) / outputAlpha;
+        destination.rgbaPixels[destinationIndex + channel] =
+          static_cast<std::uint8_t>(std::lround(std::clamp(outputColor, 0.0, 255.0)));
+      }
+      destination.rgbaPixels[destinationIndex + 3] = static_cast<std::uint8_t>(std::lround(outputAlpha * 255.0));
+    }
+  }
+}
+
 RenderedImage transformedMediaImage(
   const RenderedImage& image,
   const RenderedMediaFrame& mediaFrame,
@@ -298,13 +339,118 @@ RenderedImage transformedMediaImage(
   );
 }
 
+RenderedImage rasterizeTextFrame(const RenderedTextFrame& textFrame) {
+  const double scaleMultiplier =
+    std::max(0.01, (std::abs(textFrame.transform.scale.x) + std::abs(textFrame.transform.scale.y)) * 0.5);
+  const double fontScale = std::max(0.1, (textFrame.style.fontSize * scaleMultiplier) / 30.0);
+  const int thickness = std::max(1, static_cast<int>(std::lround(fontScale * 2.0)));
+  int baseline = 0;
+  const cv::Size textSize = cv::getTextSize(
+    textFrame.text,
+    cv::FONT_HERSHEY_SIMPLEX,
+    fontScale,
+    thickness,
+    &baseline
+  );
+  const int padding = std::max(4, thickness * 4);
+  const int localWidth = std::max(1, textSize.width + (padding * 2));
+  const int localHeight = std::max(1, textSize.height + baseline + (padding * 2));
+  RenderedImage local{
+    foundation::Resolution{localWidth, localHeight},
+    std::vector<std::uint8_t>(static_cast<std::size_t>(localWidth * localHeight * 4), 0)
+  };
+
+  cv::Mat localMat{
+    localHeight,
+    localWidth,
+    CV_8UC4,
+    local.rgbaPixels.data()
+  };
+  const cv::Scalar color{
+    std::clamp(textFrame.style.color.x, 0.0, 1.0) * 255.0,
+    std::clamp(textFrame.style.color.y, 0.0, 1.0) * 255.0,
+    std::clamp(textFrame.style.color.z, 0.0, 1.0) * 255.0,
+    std::clamp(textFrame.transform.opacity, 0.0, 1.0) * 255.0
+  };
+  cv::putText(
+    localMat,
+    textFrame.text,
+    cv::Point{padding, padding + textSize.height},
+    cv::FONT_HERSHEY_SIMPLEX,
+    fontScale,
+    color,
+    thickness,
+    cv::LINE_AA
+  );
+
+  if (std::abs(textFrame.transform.rotationDegrees) < 0.0001) {
+    return local;
+  }
+
+  const cv::Point2f center{static_cast<float>(localWidth) * 0.5F, static_cast<float>(localHeight) * 0.5F};
+  cv::Mat rotation = cv::getRotationMatrix2D(center, textFrame.transform.rotationDegrees, 1.0);
+  const cv::Rect2f bounds = cv::RotatedRect{center, localMat.size(), static_cast<float>(textFrame.transform.rotationDegrees)}.boundingRect2f();
+  rotation.at<double>(0, 2) += (static_cast<double>(bounds.width) * 0.5) - static_cast<double>(center.x);
+  rotation.at<double>(1, 2) += (static_cast<double>(bounds.height) * 0.5) - static_cast<double>(center.y);
+
+  const int rotatedWidth = std::max(1, static_cast<int>(std::ceil(bounds.width)));
+  const int rotatedHeight = std::max(1, static_cast<int>(std::ceil(bounds.height)));
+  RenderedImage rotated{
+    foundation::Resolution{rotatedWidth, rotatedHeight},
+    std::vector<std::uint8_t>(static_cast<std::size_t>(rotatedWidth * rotatedHeight * 4), 0)
+  };
+  cv::Mat rotatedMat{
+    rotatedHeight,
+    rotatedWidth,
+    CV_8UC4,
+    rotated.rgbaPixels.data()
+  };
+  cv::warpAffine(
+    localMat,
+    rotatedMat,
+    rotation,
+    rotatedMat.size(),
+    cv::INTER_LINEAR,
+    cv::BORDER_TRANSPARENT
+  );
+  return rotated;
+}
+
+void compositeTextFrames(RenderedImage& canvas, const std::vector<RenderedTextFrame>& textFrames) {
+  for (const RenderedTextFrame& textFrame : textFrames) {
+    if (textFrame.text.empty() || textFrame.transform.opacity <= 0.0) {
+      continue;
+    }
+
+    RenderedImage textImage = rasterizeTextFrame(textFrame);
+    const int centerX = static_cast<int>(std::lround(
+      (static_cast<double>(canvas.resolution.width) * 0.5) +
+      (textFrame.transform.position.x * static_cast<double>(canvas.resolution.width))
+    ));
+    const int centerY = static_cast<int>(std::lround(
+      (static_cast<double>(canvas.resolution.height) * 0.5) -
+      (textFrame.transform.position.y * static_cast<double>(canvas.resolution.height))
+    ));
+    compositeImageAt(
+      canvas,
+      textImage,
+      centerX - (textImage.resolution.width / 2),
+      centerY - (textImage.resolution.height / 2)
+    );
+  }
+}
+
 foundation::Result<std::optional<RenderedImage>> buildRenderedImage(
   const std::vector<RenderedMediaFrame>& mediaFrames,
+  const std::vector<RenderedTextFrame>& textFrames,
   RenderQuality quality,
   IRenderFrameSource* frameSource,
   std::optional<foundation::Resolution> outputResolution = std::nullopt
 ) {
-  if (frameSource == nullptr || mediaFrames.empty()) {
+  if (!mediaFrames.empty() && frameSource == nullptr) {
+    return std::optional<RenderedImage>{};
+  }
+  if (mediaFrames.empty() && (textFrames.empty() || !outputResolution.has_value())) {
     return std::optional<RenderedImage>{};
   }
 
@@ -337,6 +483,19 @@ foundation::Result<std::optional<RenderedImage>> buildRenderedImage(
 
     RenderedImage transformed = transformedMediaImage(image.value(), mediaFrame, canvas->resolution);
     compositeImageOver(canvas.value(), transformed);
+  }
+
+  if (!canvas.has_value() && outputResolution.has_value()) {
+    canvas = RenderedImage{
+      outputResolution.value(),
+      std::vector<std::uint8_t>(
+        static_cast<std::size_t>(outputResolution->width * outputResolution->height * 4),
+        0
+      )
+    };
+  }
+  if (canvas.has_value()) {
+    compositeTextFrames(canvas.value(), textFrames);
   }
 
   return canvas;
@@ -414,7 +573,7 @@ foundation::Result<RenderFrameResult> renderSampleFrame(
   const std::vector<RenderedTextFrame> textFrames = buildTextFrames(sample);
   const std::vector<RenderedAudioClip> audioClips = buildAudioClips(sample);
   const std::vector<RenderedCamera> cameras = buildRenderedCameras(sample);
-  auto image = buildRenderedImage(mediaFrames, request.quality, frameSource, outputResolution);
+  auto image = buildRenderedImage(mediaFrames, textFrames, request.quality, frameSource, outputResolution);
   if (!image) {
     return image.error();
   }
