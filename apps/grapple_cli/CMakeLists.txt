@@ -2,6 +2,10 @@ add_executable(grapple_cli
   main.cpp
 )
 
+set_target_properties(grapple_cli PROPERTIES
+  OUTPUT_NAME grapple-cli
+)
+
 target_link_libraries(grapple_cli
   PRIVATE
     Grapple::App

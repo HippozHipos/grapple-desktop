@@ -7,6 +7,10 @@ add_executable(grapple_desktop
   src/main.cpp
 )
 
+set_target_properties(grapple_desktop PROPERTIES
+  OUTPUT_NAME grapple
+)
+
 target_link_libraries(grapple_desktop
   PRIVATE
     Grapple::App

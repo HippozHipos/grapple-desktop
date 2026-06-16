@@ -33,5 +33,5 @@ ctest --test-dir build --output-on-failure
 
 ```bash
 cmake --install build --prefix /tmp/grapple-native
-/tmp/grapple-native/bin/grapple_desktop
+/tmp/grapple-native/bin/grapple
 ```
