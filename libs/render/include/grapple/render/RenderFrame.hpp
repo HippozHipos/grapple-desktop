@@ -93,6 +93,14 @@ struct RenderFrame {
   std::optional<RenderedImage> image;
 };
 
+struct RenderFrameMetrics {
+  double runtimeSampleMs = 0.0;
+  double composeMs = 0.0;
+  double sourceFrameMs = 0.0;
+  double totalMs = 0.0;
+  std::size_t sourceFrames = 0;
+};
+
 struct RenderFrameRequest {
   foundation::TimeSeconds time;
   RenderQuality quality = RenderQuality::Draft;
@@ -103,6 +111,7 @@ struct RenderFrameResult {
   RenderFrame frame;
   std::vector<runtime::RuntimeDiagnostic> runtimeDiagnostics;
   std::vector<RenderDiagnostic> renderDiagnostics;
+  RenderFrameMetrics metrics;
 };
 
 class IRenderRangeSink {

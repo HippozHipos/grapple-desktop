@@ -723,6 +723,10 @@ int main() {
   GRAPPLE_REQUIRE(renderedActiveFrame.value().frame.audioClips[0].playbackRate == 1.0);
   GRAPPLE_REQUIRE(renderedActiveFrame.value().runtimeDiagnostics.empty());
   GRAPPLE_REQUIRE(renderedActiveFrame.value().renderDiagnostics.empty());
+  GRAPPLE_REQUIRE(renderedActiveFrame.value().metrics.runtimeSampleMs >= 0.0);
+  GRAPPLE_REQUIRE(renderedActiveFrame.value().metrics.composeMs >= 0.0);
+  GRAPPLE_REQUIRE(renderedActiveFrame.value().metrics.totalMs >= 0.0);
+  GRAPPLE_REQUIRE(renderedActiveFrame.value().metrics.sourceFrames == 0);
 
   TestFrameSource textImageSource;
   runtime::RuntimeEvaluator textImageRuntime;
@@ -913,6 +917,11 @@ int main() {
   GRAPPLE_REQUIRE(frameSource.lastRequest->assetId == foundation::AssetId{"asset_video"});
   GRAPPLE_REQUIRE(frameSource.lastRequest->sourceTime == foundation::TimeSeconds{4.0});
   GRAPPLE_REQUIRE(!frameSource.lastRequest->targetResolution.has_value());
+  GRAPPLE_REQUIRE(imageFrame.value().metrics.runtimeSampleMs >= 0.0);
+  GRAPPLE_REQUIRE(imageFrame.value().metrics.composeMs >= 0.0);
+  GRAPPLE_REQUIRE(imageFrame.value().metrics.sourceFrameMs >= 0.0);
+  GRAPPLE_REQUIRE(imageFrame.value().metrics.totalMs >= imageFrame.value().metrics.runtimeSampleMs);
+  GRAPPLE_REQUIRE(imageFrame.value().metrics.sourceFrames == 1);
   const auto resizedImageFrame = imagePreview.renderFrame(render::RenderFrameRequest{
     foundation::TimeSeconds{4.0},
     render::RenderQuality::Draft,

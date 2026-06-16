@@ -2770,6 +2770,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     const bool duringSeekActionEnabled = window.seekActionEnabled();
     std::this_thread::sleep_for(std::chrono::milliseconds{60});
     window.advancePlaybackFrame();
+    std::this_thread::sleep_for(std::chrono::milliseconds{120});
+    QApplication::processEvents();
     window.pressPlaybackShortcut();
     const bool afterPausePlayActionEnabled = window.playActionEnabled();
     const bool afterPausePauseActionEnabled = window.pauseActionEnabled();
@@ -2788,6 +2790,23 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       printError(viewModel.error());
       return 1;
     }
+    const std::string log = window.logContents();
+    const std::string playbackSummaryPrefix = "Playback render:";
+    const std::size_t playbackSummaryOffset = log.find(playbackSummaryPrefix);
+    const bool playbackSummaryLogged = playbackSummaryOffset != std::string::npos;
+    std::string playbackSummary;
+    if (playbackSummaryLogged) {
+      const std::size_t playbackSummaryEnd = log.find('\n', playbackSummaryOffset);
+      playbackSummary = log.substr(
+        playbackSummaryOffset,
+        playbackSummaryEnd == std::string::npos
+          ? std::string::npos
+          : playbackSummaryEnd - playbackSummaryOffset
+      );
+    }
+    const bool playbackFrameCompleted =
+      playbackSummaryLogged &&
+      playbackSummary.find("completed=0") == std::string::npos;
     std::cout << "beforePlayActionEnabled=" << (beforePlayActionEnabled ? "true" : "false") << '\n';
     std::cout << "beforePauseActionEnabled=" << (beforePauseActionEnabled ? "true" : "false") << '\n';
     std::cout << "beforeSeekActionEnabled=" << (beforeSeekActionEnabled ? "true" : "false") << '\n';
@@ -2800,6 +2819,11 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "playhead=" << previewState.playhead.value << '\n';
     std::cout << "frameTime=" << frame.value().frame.time.value << '\n';
     std::cout << "frameRevision=" << frame.value().frame.sourceRevision.value() << '\n';
+    std::cout << "playbackSummaryLogged=" << (playbackSummaryLogged ? "true" : "false") << '\n';
+    std::cout << "playbackFrameCompleted=" << (playbackFrameCompleted ? "true" : "false") << '\n';
+    if (!playbackSummary.empty()) {
+      std::cout << playbackSummary << '\n';
+    }
     return beforePlayActionEnabled &&
            !beforePauseActionEnabled &&
            beforeSeekActionEnabled &&
@@ -2809,6 +2833,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            afterPausePlayActionEnabled &&
            !afterPausePauseActionEnabled &&
            afterPauseSeekActionEnabled &&
+           playbackSummaryLogged &&
+           playbackFrameCompleted &&
            previewState.playhead.value > 0.0 &&
            frame.value().frame.time == previewState.playhead &&
            frame.value().frame.sourceRevision == viewModel.value().project.revision

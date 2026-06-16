@@ -6,6 +6,7 @@
 #include <opencv2/imgproc.hpp>
 
 #include <algorithm>
+#include <chrono>
 #include <cstddef>
 #include <cmath>
 #include <sstream>
@@ -15,6 +16,12 @@
 namespace grapple::render {
 
 namespace {
+
+using Clock = std::chrono::steady_clock;
+
+double elapsedMilliseconds(Clock::time_point start, Clock::time_point end) {
+  return static_cast<double>(std::chrono::duration_cast<std::chrono::microseconds>(end - start).count()) / 1000.0;
+}
 
 runtime::RuntimeQuality runtimeQualityFor(RenderQuality quality) {
   return quality == RenderQuality::Final
@@ -605,7 +612,8 @@ foundation::Result<std::optional<RenderedImage>> buildRenderedImage(
   const std::vector<RenderedMediaFrame>& mediaFrames,
   const std::vector<RenderedTextFrame>& textFrames,
   IRenderFrameSource* frameSource,
-  std::optional<foundation::Resolution> outputResolution = std::nullopt
+  std::optional<foundation::Resolution> outputResolution = std::nullopt,
+  RenderFrameMetrics* metrics = nullptr
 ) {
   if (!mediaFrames.empty() && frameSource == nullptr) {
     return std::optional<RenderedImage>{};
@@ -616,11 +624,17 @@ foundation::Result<std::optional<RenderedImage>> buildRenderedImage(
 
   std::optional<RenderedImage> canvas;
   for (const RenderedMediaFrame& mediaFrame : mediaFrames) {
+    const Clock::time_point sourceStart = Clock::now();
     auto sourceFrame = frameSource->frameAt(SourceFrameRequest{
       mediaFrame.assetId,
       mediaFrame.sourceTime,
       outputResolution
     });
+    const Clock::time_point sourceEnd = Clock::now();
+    if (metrics != nullptr) {
+      metrics->sourceFrameMs += elapsedMilliseconds(sourceStart, sourceEnd);
+      ++metrics->sourceFrames;
+    }
     if (!sourceFrame) {
       return sourceFrame.error();
     }
@@ -690,7 +704,8 @@ foundation::Result<RenderFrameResult> renderSampleFrame(
   const runtime::PreparedRuntimePlan& prepared,
   IRenderFrameSource* frameSource,
   const RenderFrameRequest& request,
-  std::optional<foundation::Resolution> outputResolution = std::nullopt
+  std::optional<foundation::Resolution> outputResolution = std::nullopt,
+  RenderFrameMetrics metrics = {}
 );
 
 foundation::Result<RenderFrameResult> renderPreparedFrame(
@@ -699,14 +714,18 @@ foundation::Result<RenderFrameResult> renderPreparedFrame(
   IRenderFrameSource* frameSource,
   const RenderFrameRequest& request
 ) {
+  RenderFrameMetrics metrics;
+  const Clock::time_point sampleStart = Clock::now();
   auto sampleResult = runtime.sample(runtime::RuntimeSampleRequest{
     prepared,
     request.time,
     runtimeQualityFor(request.quality)
   });
+  const Clock::time_point sampleEnd = Clock::now();
   if (!sampleResult) {
     return sampleResult.error();
   }
+  metrics.runtimeSampleMs = elapsedMilliseconds(sampleStart, sampleEnd);
 
   runtime::RuntimeSample sample = std::move(sampleResult.value().sample);
   return renderSampleFrame(
@@ -714,7 +733,8 @@ foundation::Result<RenderFrameResult> renderPreparedFrame(
     prepared,
     frameSource,
     request,
-    request.outputResolution
+    request.outputResolution,
+    metrics
   );
 }
 
@@ -723,8 +743,10 @@ foundation::Result<RenderFrameResult> renderSampleFrame(
   const runtime::PreparedRuntimePlan& prepared,
   IRenderFrameSource* frameSource,
   const RenderFrameRequest& request,
-  std::optional<foundation::Resolution> outputResolution
+  std::optional<foundation::Resolution> outputResolution,
+  RenderFrameMetrics metrics
 ) {
+  const Clock::time_point composeStart = Clock::now();
   applyCameraTransformOutputs(
     sample,
     prepared.dependencyGraph.projectId,
@@ -739,11 +761,14 @@ foundation::Result<RenderFrameResult> renderSampleFrame(
   const std::vector<RenderedTextFrame> textFrames = buildTextFrames(sample);
   const std::vector<RenderedAudioClip> audioClips = buildAudioClips(sample);
   const std::vector<RenderedCamera> cameras = buildRenderedCameras(sample);
-  auto image = buildRenderedImage(mediaFrames, textFrames, frameSource, outputResolution);
+  auto image = buildRenderedImage(mediaFrames, textFrames, frameSource, outputResolution, &metrics);
   if (!image) {
     return image.error();
   }
   std::optional<RenderedImage> transformedImage = applyCameraTransformToImage(std::move(image.value()), cameras);
+  const Clock::time_point composeEnd = Clock::now();
+  metrics.composeMs = elapsedMilliseconds(composeStart, composeEnd);
+  metrics.totalMs = metrics.runtimeSampleMs + metrics.composeMs;
 
   return RenderFrameResult{
     RenderFrame{
@@ -758,7 +783,8 @@ foundation::Result<RenderFrameResult> renderSampleFrame(
       std::move(transformedImage)
     },
     sample.diagnostics,
-    {}
+    {},
+    metrics
   };
 }
 

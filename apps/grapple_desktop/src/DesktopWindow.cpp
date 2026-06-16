@@ -354,6 +354,15 @@ QString renderSeverityText(grapple::render::DiagnosticSeverity severity) {
   return "unknown";
 }
 
+QString frameMetricsText(const grapple::render::RenderFrameMetrics& metrics) {
+  return QString{"total=%1ms runtime=%2ms compose=%3ms source=%4ms sourceFrames=%5"}
+    .arg(metrics.totalMs, 0, 'f', 2)
+    .arg(metrics.runtimeSampleMs, 0, 'f', 2)
+    .arg(metrics.composeMs, 0, 'f', 2)
+    .arg(metrics.sourceFrameMs, 0, 'f', 2)
+    .arg(metrics.sourceFrames);
+}
+
 QString runtimeDiagnosticText(const grapple::runtime::RuntimeDiagnostic& diagnostic) {
   const QString node = diagnostic.location.nodeId.has_value()
     ? QString{" node=%1"}.arg(qString(diagnostic.location.nodeId->value()))
@@ -364,6 +373,19 @@ QString runtimeDiagnosticText(const grapple::runtime::RuntimeDiagnostic& diagnos
     .arg(node)
     .arg(qString(diagnostic.message));
 }
+
+struct PlaybackRenderStats {
+  std::uint64_t requested = 0;
+  std::uint64_t coalesced = 0;
+  std::uint64_t completed = 0;
+  std::uint64_t stale = 0;
+  std::uint64_t errors = 0;
+  double totalRenderMs = 0.0;
+  double maxRenderMs = 0.0;
+  double lastRenderMs = 0.0;
+  double lastSourceMs = 0.0;
+  std::size_t lastSourceFrames = 0;
+};
 
 QString renderDiagnosticText(const grapple::render::RenderDiagnostic& diagnostic) {
   const QString node = diagnostic.location.nodeId.has_value()
@@ -1198,15 +1220,18 @@ public:
   ) {
     playbackRenderInFlight_.store(false);
     if (generation != playbackRenderGeneration_.load()) {
+      ++playbackRenderStats_.stale;
       pendingPlaybackRenderPlayhead_ = std::nullopt;
       return;
     }
     if (!frame) {
+      ++playbackRenderStats_.errors;
       pendingPlaybackRenderPlayhead_ = std::nullopt;
       appendError(frame.error());
       return;
     }
 
+    recordPlaybackRenderMetrics(frame.value().metrics);
     presentRenderedFrame(
       std::move(frame.value()),
       false,
@@ -1221,7 +1246,9 @@ public:
   }
 
   void renderPlaybackFrameAsync(grapple::foundation::TimeSeconds playhead) {
+    ++playbackRenderStats_.requested;
     if (playbackRenderInFlight_.exchange(true)) {
+      ++playbackRenderStats_.coalesced;
       pendingPlaybackRenderPlayhead_ = playhead;
       return;
     }
@@ -1254,6 +1281,36 @@ public:
         );
       }
     };
+  }
+
+  void recordPlaybackRenderMetrics(const grapple::render::RenderFrameMetrics& metrics) {
+    ++playbackRenderStats_.completed;
+    playbackRenderStats_.totalRenderMs += metrics.totalMs;
+    playbackRenderStats_.maxRenderMs = std::max(playbackRenderStats_.maxRenderMs, metrics.totalMs);
+    playbackRenderStats_.lastRenderMs = metrics.totalMs;
+    playbackRenderStats_.lastSourceMs = metrics.sourceFrameMs;
+    playbackRenderStats_.lastSourceFrames = metrics.sourceFrames;
+  }
+
+  void appendPlaybackRenderSummary() {
+    if (playbackRenderStats_.requested == 0 && playbackRenderStats_.completed == 0) {
+      return;
+    }
+
+    const double averageRenderMs = playbackRenderStats_.completed == 0
+      ? 0.0
+      : playbackRenderStats_.totalRenderMs / static_cast<double>(playbackRenderStats_.completed);
+    log_->append(QString{"Playback render: requested=%1 completed=%2 coalesced=%3 stale=%4 errors=%5 avg=%6ms max=%7ms last=%8ms source=%9ms sourceFrames=%10"}
+      .arg(playbackRenderStats_.requested)
+      .arg(playbackRenderStats_.completed)
+      .arg(playbackRenderStats_.coalesced)
+      .arg(playbackRenderStats_.stale)
+      .arg(playbackRenderStats_.errors)
+      .arg(averageRenderMs, 0, 'f', 2)
+      .arg(playbackRenderStats_.maxRenderMs, 0, 'f', 2)
+      .arg(playbackRenderStats_.lastRenderMs, 0, 'f', 2)
+      .arg(playbackRenderStats_.lastSourceMs, 0, 'f', 2)
+      .arg(playbackRenderStats_.lastSourceFrames));
   }
 
   void seekTo(grapple::foundation::TimeSeconds time, bool updateEditControls = true) {
@@ -1786,6 +1843,7 @@ public:
     playbackClock_.restart();
     playbackRenderGeneration_.fetch_add(1);
     pendingPlaybackRenderPlayhead_ = std::nullopt;
+    playbackRenderStats_ = PlaybackRenderStats{};
     playbackTimer_->start();
     renderCurrentFrame();
     updateActionAvailability();
@@ -1824,6 +1882,7 @@ public:
     }
 
     renderCurrentFrame();
+    appendPlaybackRenderSummary();
     refreshPlayheadEditControls();
     updateActionAvailability();
   }
@@ -3911,6 +3970,7 @@ private:
   }
 
   void appendDiagnostics(const grapple::render::RenderFrameResult& result) {
+    log_->append(QString{"Render metrics: %1"}.arg(frameMetricsText(result.metrics)));
     for (const grapple::runtime::RuntimeDiagnostic& diagnostic : result.runtimeDiagnostics) {
       log_->append(runtimeDiagnosticText(diagnostic));
     }
@@ -4239,6 +4299,7 @@ private:
   std::atomic_bool playbackRenderInFlight_{false};
   std::atomic_uint64_t playbackRenderGeneration_{0};
   std::optional<grapple::foundation::TimeSeconds> pendingPlaybackRenderPlayhead_;
+  PlaybackRenderStats playbackRenderStats_;
   std::jthread playbackRenderThread_;
   grapple::jobs::MainThreadDispatcher jobDispatcher_;
   bool exportInProgress_ = false;
