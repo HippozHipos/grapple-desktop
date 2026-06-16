@@ -171,6 +171,40 @@ void appendLastEditedRow(QVBoxLayout* layout, const app::AppEffectParamRow& para
   layout->addWidget(lastEdited);
 }
 
+bool containsCamera(const app::AppViewModel& viewModel, const foundation::NodeId& nodeId) {
+  return std::any_of(viewModel.timeline.cameras.begin(), viewModel.timeline.cameras.end(), [&](const app::AppCameraRow& camera) {
+    return camera.sourceNodeId == nodeId;
+  });
+}
+
+bool containsVisualClip(const app::AppViewModel& viewModel, const foundation::NodeId& nodeId) {
+  return std::any_of(viewModel.timeline.clips.begin(), viewModel.timeline.clips.end(), [&](const app::AppClipRow& clip) {
+    return clip.sourceNodeId == nodeId;
+  });
+}
+
+bool containsTextClip(const app::AppViewModel& viewModel, const foundation::NodeId& nodeId) {
+  return std::any_of(viewModel.timeline.textClips.begin(), viewModel.timeline.textClips.end(), [&](const app::AppTextClipRow& clip) {
+    return clip.sourceNodeId == nodeId;
+  });
+}
+
+QString emptyControlMessage(
+  const app::AppViewModel& viewModel,
+  const foundation::NodeId& selectedNodeId
+) {
+  if (containsCamera(viewModel, selectedNodeId)) {
+    return "No editable controls yet. Use Steward to create editable camera controls for this camera.";
+  }
+  if (containsVisualClip(viewModel, selectedNodeId)) {
+    return "No editable controls yet. Mention tint/color in Steward to create editable Clip Tint controls for this clip.";
+  }
+  if (containsTextClip(viewModel, selectedNodeId)) {
+    return "No editable effect controls yet. Use the Text panel to edit this text clip.";
+  }
+  return "No editable controls yet for this selection.";
+}
+
 QDoubleSpinBox* makeVectorComponentEditor(
   const foundation::NodeId& effectNodeId,
   const std::string& paramName,
@@ -642,7 +676,7 @@ void EffectParamPanel::setSelection(
   }
 
   if (!hasAttachedEffect) {
-    addMessage("No editable controls yet. Use Steward to create editable camera controls for this selection.");
+    addMessage(emptyControlMessage(viewModel, selectedNodeId.value()));
   }
   layout_->addStretch(1);
 }

@@ -2091,6 +2091,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     app.processEvents();
     window.clickFirstTimelineClip();
     const auto selectedClipBeforeCreate = window.selectedNodeId();
+    const std::string clipEffectParamPanelBeforeCreate = window.effectParamPanelText();
     window.setStewardIntent("Center the walking subject with exposed controls.");
     window.clickStewardPrimaryAction();
     const auto selectedAfterCreate = window.selectedNodeId();
@@ -2191,6 +2192,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            steward.find("- Center the walking subject with exposed controls.") != std::string::npos &&
            selectedClipBeforeCreate.has_value() &&
            selectedClipBeforeCreate.value() == expectedClipNodeId &&
+           clipEffectParamPanelBeforeCreate.find("editable Clip Tint controls") != std::string::npos &&
+           clipEffectParamPanelBeforeCreate.find("camera controls") == std::string::npos &&
            selectedAfterCreate.has_value() &&
            selectedAfterCreate.value() == expectedCameraNodeId &&
            selectedClipBeforeShowControls.has_value() &&
