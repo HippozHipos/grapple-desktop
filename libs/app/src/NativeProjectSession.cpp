@@ -841,6 +841,16 @@ foundation::Result<AppCommandProvenance> appCommandProvenance(
           intent,
           "Kind=" + trackKindName(createTrack->kind)
         });
+      } else if (const auto* createCamera = std::get_if<project::CreateCameraCommand>(&parsedCommand.value())) {
+        provenance.stewardEdits.push_back(AppStewardEditRow{
+          command.id,
+          command.afterRevision,
+          createCamera->nodeId,
+          createCamera->payload.name,
+          "Camera",
+          intent,
+          "Focal Length=" + numberDisplayText(createCamera->payload.state.lens.focalLength)
+        });
       } else if (const auto* deleteEffect = std::get_if<project::DeleteEffectCommand>(&parsedCommand.value())) {
         auto targetDisplay = effectTargetDisplayAtRevision(snapshotDocuments, command.beforeRevision, deleteEffect->nodeId);
         if (!targetDisplay) {

@@ -765,7 +765,7 @@ public:
       }
     });
     steward_->setImportMediaHandler([this] { chooseAndImportMedia(); });
-    steward_->setAddCameraHandler([this] { addCamera(); });
+    steward_->setAddCameraHandler([this] { createCameraWithSteward(); });
     steward_->setAddSelectedMediaHandler([this] { placeSelectedMediaWithSteward(); });
     steward_->setShowCameraControlsHandler([this](grapple::foundation::NodeId cameraNodeId) {
       selectNode(std::move(cameraNodeId));
@@ -2831,6 +2831,21 @@ public:
     steward_->setIntent({});
     log_->append("Steward created timeline track");
     return true;
+  }
+
+  void createCameraWithSteward() {
+    const auto created = workspace_.steward().createCamera();
+    if (!created) {
+      appendError(created.error());
+      refreshViewModel();
+      return;
+    }
+
+    selectedNodeId_ = created.value().cameraNodeId;
+    selectedAssetId_ = std::nullopt;
+    refreshViewModelAndPreview();
+    steward_->setIntent({});
+    log_->append("Steward created timeline camera");
   }
 
   void editSelectedTextClipWithSteward(

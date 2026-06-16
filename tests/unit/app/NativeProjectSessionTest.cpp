@@ -3405,6 +3405,52 @@ int main() {
   GRAPPLE_REQUIRE(stewardTrackCreateConversation.runs[0].toolCalls[0].toolCallId == foundation::ToolId{"tool_steward_create_track_1"});
   GRAPPLE_REQUIRE(stewardTrackCreateConversation.runs[0].toolCalls[0].observedRevision == foundation::RevisionId{"rev_2"});
 
+  app::NativeProjectSession cameraCreateSession{
+    foundation::ProjectId{"proj_app_steward_camera_create"},
+    "Steward Camera Create",
+    storage::ProjectPackage{
+      foundation::ProjectId{"proj_app_steward_camera_create"},
+      foundation::FilePath{"steward-camera-create.grapple"},
+      storage::CurrentProjectPackageSchemaVersion
+    }
+  };
+  app::NativeProjectCommandWriter cameraCreateWriter{cameraCreateSession};
+  const foundation::NodeId cameraCreateCompositionNodeId = cameraCreateWriter.nextNodeId("composition");
+  const auto cameraCreateComposition = cameraCreateWriter.apply(
+    project::CreateCompositionCommand{cameraCreateCompositionNodeId, "Main"},
+    userSource()
+  );
+  GRAPPLE_REQUIRE(cameraCreateComposition);
+  app::NativeStewardSession cameraCreateSteward{cameraCreateSession, cameraCreateWriter};
+  auto stewardCameraCreate = cameraCreateSteward.createCamera();
+  GRAPPLE_REQUIRE(stewardCameraCreate);
+  GRAPPLE_REQUIRE(stewardCameraCreate.value().cameraNodeId == foundation::NodeId{"node_camera_2"});
+  GRAPPLE_REQUIRE(stewardCameraCreate.value().packageResult.snapshot.revision == foundation::RevisionId{"rev_2"});
+  const auto stewardCameraCreateViewModel = cameraCreateSession.buildViewModel();
+  GRAPPLE_REQUIRE(stewardCameraCreateViewModel);
+  GRAPPLE_REQUIRE(stewardCameraCreateViewModel.value().timeline.cameras.size() == 1);
+  GRAPPLE_REQUIRE(stewardCameraCreateViewModel.value().timeline.cameras[0].sourceNodeId == stewardCameraCreate.value().cameraNodeId);
+  GRAPPLE_REQUIRE(stewardCameraCreateViewModel.value().timeline.cameras[0].name == "Camera 1");
+  GRAPPLE_REQUIRE(stewardCameraCreateViewModel.value().timeline.cameras[0].state.lens.focalLength == 35.0);
+  GRAPPLE_REQUIRE(stewardCameraCreateViewModel.value().steward.edits.size() == 1);
+  GRAPPLE_REQUIRE(stewardCameraCreateViewModel.value().steward.edits[0].editName == "Camera");
+  GRAPPLE_REQUIRE(stewardCameraCreateViewModel.value().steward.edits[0].targetName == "Camera 1");
+  GRAPPLE_REQUIRE(stewardCameraCreateViewModel.value().steward.edits[0].intent == "Add camera.");
+  GRAPPLE_REQUIRE(stewardCameraCreateViewModel.value().steward.edits[0].controlSummary == "Focal Length=35");
+  const history::CommandRecord& cameraCreateCommand = cameraCreateSession.packageState().commandLog.records().back();
+  GRAPPLE_REQUIRE(cameraCreateCommand.serializedName == "project.create_camera");
+  GRAPPLE_REQUIRE(cameraCreateCommand.sourceKind == "agent");
+  GRAPPLE_REQUIRE(cameraCreateCommand.sourceActorName == "steward");
+  GRAPPLE_REQUIRE(cameraCreateCommand.sourceRunId == foundation::RunId{"run_steward_1"});
+  const auto stewardCameraCreateConversation = cameraCreateSteward.conversationState();
+  GRAPPLE_REQUIRE(stewardCameraCreateConversation.runs.size() == 1);
+  GRAPPLE_REQUIRE(stewardCameraCreateConversation.runs[0].status == agent::AgentRunStatus::Succeeded);
+  GRAPPLE_REQUIRE(stewardCameraCreateConversation.runs[0].toolCalls.size() == 1);
+  GRAPPLE_REQUIRE(stewardCameraCreateConversation.runs[0].toolCalls[0].toolSerializedId == "camera.create");
+  GRAPPLE_REQUIRE(stewardCameraCreateConversation.runs[0].toolCalls[0].toolDisplayName == "Create Camera");
+  GRAPPLE_REQUIRE(stewardCameraCreateConversation.runs[0].toolCalls[0].toolCallId == foundation::ToolId{"tool_steward_create_camera_1"});
+  GRAPPLE_REQUIRE(stewardCameraCreateConversation.runs[0].toolCalls[0].observedRevision == foundation::RevisionId{"rev_2"});
+
   const std::string workspacePackageStem =
     "grapple_workspace_package_" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count());
   const std::filesystem::path workspacePackageRoot = std::filesystem::temp_directory_path() / workspacePackageStem;

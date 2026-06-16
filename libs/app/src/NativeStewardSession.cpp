@@ -28,6 +28,7 @@ constexpr const char CanonicalEffectCreateNodeToolId[] = "effect.create_node";
 constexpr const char CanonicalEffectDeleteNodeToolId[] = "effect.delete_node";
 constexpr const char CanonicalEffectCreateParamKeyframeToolId[] = "effect.create_param_keyframe";
 constexpr const char CanonicalEffectUpdateParamKeyframeToolId[] = "effect.update_param_keyframe";
+constexpr const char CanonicalCreateCameraToolId[] = "camera.create";
 constexpr const char CanonicalPlaceAssetToolId[] = "timeline.place_asset";
 constexpr const char CanonicalCreateTrackToolId[] = "timeline.create_track";
 constexpr const char CanonicalCreateTextClipToolId[] = "timeline.create_text_clip";
@@ -213,6 +214,10 @@ foundation::ToolId stewardPlaceAssetToolCallIdForRun(const foundation::RunId& ru
   return foundation::ToolId{"tool_steward_place_asset_" + std::to_string(stewardRunNumber(runId))};
 }
 
+foundation::ToolId stewardCreateCameraToolCallIdForRun(const foundation::RunId& runId) {
+  return foundation::ToolId{"tool_steward_create_camera_" + std::to_string(stewardRunNumber(runId))};
+}
+
 foundation::ToolId stewardCreateTextClipToolCallIdForRun(const foundation::RunId& runId) {
   return foundation::ToolId{"tool_steward_create_text_clip_" + std::to_string(stewardRunNumber(runId))};
 }
@@ -385,6 +390,29 @@ std::string clipDeleteArgumentsPayload(const foundation::NodeId& clipNodeId) {
   std::ostringstream arguments;
   arguments << '{';
   foundation::writeJsonStringProperty(arguments, "clipNodeId", clipNodeId.value());
+  arguments << '}';
+  return arguments.str();
+}
+
+std::size_t cameraCount(const project::ProjectSnapshot& snapshot) {
+  return static_cast<std::size_t>(
+    std::count_if(snapshot.graph.nodes().begin(), snapshot.graph.nodes().end(), [](const graph::GraphNode& node) {
+      return node.kind == graph::NodeKind::Camera;
+    })
+  );
+}
+
+std::string cameraCreateArgumentsPayload(
+  const foundation::NodeId& compositionNodeId,
+  const std::string& name,
+  double focalLength
+) {
+  std::ostringstream arguments;
+  arguments << '{';
+  foundation::writeJsonStringProperty(arguments, "compositionNodeId", compositionNodeId.value());
+  arguments << ',';
+  foundation::writeJsonStringProperty(arguments, "name", name);
+  arguments << ",\"focalLength\":" << focalLength;
   arguments << '}';
   return arguments.str();
 }
@@ -574,6 +602,8 @@ public:
         *createdNodeId_ = placement->clip.nodeId;
       } else if (const auto* track = std::get_if<project::CreateTrackCommand>(&command.payload)) {
         *createdNodeId_ = track->nodeId;
+      } else if (const auto* camera = std::get_if<project::CreateCameraCommand>(&command.payload)) {
+        *createdNodeId_ = camera->nodeId;
       } else if (const auto* textClip = std::get_if<project::CreateTextClipCommand>(&command.payload)) {
         *createdNodeId_ = textClip->nodeId;
       } else if (const auto* note = std::get_if<project::CreateNoteCommand>(&command.payload)) {
@@ -1137,6 +1167,98 @@ foundation::Result<NativeStewardTrackResult> NativeStewardSession::createTrack(s
 
   markRunStatus(runId.value(), agent::AgentRunStatus::Succeeded);
   return NativeStewardTrackResult{packageResult.value(), trackNodeId.value()};
+}
+
+foundation::Result<NativeStewardCameraResult> NativeStewardSession::createCamera() {
+  auto snapshot = project_.snapshot();
+  if (!snapshot) {
+    return snapshot.error();
+  }
+
+  const std::optional<foundation::NodeId> compositionNodeId = firstCompositionNodeId(snapshot.value());
+  if (!compositionNodeId.has_value()) {
+    return foundation::Error{
+      "steward.composition_missing",
+      "Steward camera creation requires an existing composition."
+    };
+  }
+
+  const std::string intent = "Add camera.";
+  auto runId = startRun(snapshot.value(), intent);
+  if (!runId) {
+    return runId.error();
+  }
+
+  const std::string cameraName = "Camera " + std::to_string(cameraCount(snapshot.value()) + 1);
+  constexpr double DefaultCameraFocalLength = 35.0;
+  auto message = appendEvent(
+    runId.value(),
+    agent::AgentRunEventKind::ModelMessage,
+    modelMessagePayload("assistant", "Creating an editable timeline camera.")
+  );
+  if (!message) {
+    return message.error();
+  }
+
+  std::optional<storage::ProjectPackageSessionResult> packageResult;
+  std::optional<foundation::NodeId> cameraNodeId;
+  CommittingAgentCommandService stewardCommands{
+    project_,
+    commandWriter_,
+    intent,
+    packageResult,
+    &cameraNodeId
+  };
+  agent::AgentToolRegistry registry;
+  auto registered = agent::registerProjectTools(registry);
+  if (!registered) {
+    auto finished = finishRunWithError(runId.value(), registered.error());
+    if (!finished) {
+      return finished.error();
+    }
+    return registered.error();
+  }
+
+  agent::AgentToolContext toolContext{stewardCommands, project_, commandWriter_};
+  agent::AgentBridge bridge{registry, toolContext, events_, nextSequence_};
+  auto dispatched = bridge.dispatchToolCall(agent::AgentToolDispatchRequest{
+    runId.value(),
+    snapshot.value().info.id,
+    snapshot.value().revision,
+    stewardCreateCameraToolCallIdForRun(runId.value()),
+    CanonicalCreateCameraToolId,
+    cameraCreateArgumentsPayload(compositionNodeId.value(), cameraName, DefaultCameraFocalLength)
+  });
+  if (!dispatched) {
+    auto finished = finishRunWithError(runId.value(), dispatched.error());
+    if (!finished) {
+      return finished.error();
+    }
+    return dispatched.error();
+  }
+  if (!packageResult.has_value() || !cameraNodeId.has_value()) {
+    const foundation::Error error{
+      "steward.camera_create_result_missing",
+      "Steward camera creation tool succeeded without a committed camera result."
+    };
+    auto finished = finishRunWithError(runId.value(), error);
+    if (!finished) {
+      return finished.error();
+    }
+    return error;
+  }
+
+  auto runFinished = appendEvent(
+    runId.value(),
+    agent::AgentRunEventKind::RunFinished,
+    runFinishedPayload("succeeded", "Created editable timeline camera.")
+  );
+  if (!runFinished) {
+    return runFinished.error();
+  }
+
+  markRunStatus(runId.value(), agent::AgentRunStatus::Succeeded);
+  return NativeStewardCameraResult{packageResult.value(), cameraNodeId.value()};
 }
 
 foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::editClip(

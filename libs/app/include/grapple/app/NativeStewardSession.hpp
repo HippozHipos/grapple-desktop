@@ -36,6 +36,11 @@ struct NativeStewardTrackResult {
   foundation::NodeId trackNodeId;
 };
 
+struct NativeStewardCameraResult {
+  storage::ProjectPackageSessionResult packageResult;
+  foundation::NodeId cameraNodeId;
+};
+
 class NativeStewardSession final {
 public:
   NativeStewardSession(NativeProjectSession& project, NativeProjectCommandWriter& commandWriter);
@@ -61,6 +66,7 @@ public:
   );
   foundation::Result<NativeStewardNoteResult> createNote(std::string intent);
   foundation::Result<NativeStewardTrackResult> createTrack(std::string intent);
+  foundation::Result<NativeStewardCameraResult> createCamera();
   foundation::Result<storage::ProjectPackageSessionResult> editClip(
     foundation::NodeId clipNodeId,
     std::string intent
