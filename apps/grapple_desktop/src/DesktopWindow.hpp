@@ -82,6 +82,7 @@ public:
   void advancePlaybackFrame();
   void addTrack();
   void addCamera();
+  void addTextClip();
   void updateSelectedCameraName(std::string name);
   void updateSelectedCameraFocalLength(double focalLength);
   void setSelectedCameraNameControlValue(std::string name);
@@ -99,6 +100,8 @@ public:
   void setSelectedClipUniformScale(double scale);
   void setSelectedClipOpacity(double opacity);
   void setSelectedClipPropertyControlValue(std::string controlName, double value);
+  void setSelectedTextClipTextControlValue(std::string text);
+  void setSelectedTextClipPropertyControlValue(std::string controlName, double value);
   void undoLastEdit();
   void redoLastEdit();
   void newPackageRoot(const foundation::FilePath& rootPath, std::string projectName);

@@ -9,6 +9,7 @@ add_library(grapple_ui_qt
   src/ExportSettingsPanel.cpp
   src/PreviewSurface.cpp
   src/StewardPanel.cpp
+  src/TextClipPropertyPanel.cpp
   src/TimelinePanel.cpp
 )
 

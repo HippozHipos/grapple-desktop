@@ -17,6 +17,7 @@
 #include <grapple/ui_qt/ExportSettingsPanel.hpp>
 #include <grapple/ui_qt/PreviewSurface.hpp>
 #include <grapple/ui_qt/StewardPanel.hpp>
+#include <grapple/ui_qt/TextClipPropertyPanel.hpp>
 #include <grapple/ui_qt/TimelinePanel.hpp>
 
 #include <QAction>
@@ -373,6 +374,18 @@ const grapple::app::AppClipRow* findClipRow(
   return nullptr;
 }
 
+const grapple::app::AppTextClipRow* findTextClipRow(
+  const grapple::app::AppViewModel& viewModel,
+  const grapple::foundation::NodeId& nodeId
+) {
+  for (const grapple::app::AppTextClipRow& clip : viewModel.timeline.textClips) {
+    if (clip.sourceNodeId == nodeId) {
+      return &clip;
+    }
+  }
+  return nullptr;
+}
+
 bool actionsEnabled(std::initializer_list<const QAction*> actions) {
   return std::all_of(actions.begin(), actions.end(), [](const QAction* action) {
     return action != nullptr && action->isEnabled();
@@ -527,6 +540,14 @@ public:
       updateClip(clipNodeId, std::move(edit), "Updated clip");
     });
 
+    textClipProperties_ = new grapple::ui::TextClipPropertyPanel;
+    textClipProperties_->setApplyHandler([this](
+      grapple::foundation::NodeId clipNodeId,
+      grapple::timeline::TextClipPayload payload
+    ) {
+      updateTextClip(clipNodeId, std::move(payload));
+    });
+
     effectParams_ = new grapple::ui::EffectParamPanel;
     effectParams_->setApplyHandler([this](
       grapple::foundation::NodeId effectNodeId,
@@ -672,6 +693,7 @@ public:
     detailTabs_->addTab(effectParamsScroll_, "Effects");
     detailTabs_->addTab(cameraProperties_, "Camera");
     detailTabs_->addTab(clipProperties_, "Clip");
+    detailTabs_->addTab(textClipProperties_, "Text");
     detailTabs_->addTab(exportSettings_, "Export");
     detailTabs_->addTab(inspector_, "Inspector");
     detailTabs_->addTab(summary_, "Project");
@@ -2262,6 +2284,25 @@ public:
     updateSelectedClip(*trimmedClip, edit.transform, edit.playbackRate, logMessage);
   }
 
+  void updateTextClip(
+    const grapple::foundation::NodeId& clipNodeId,
+    grapple::timeline::TextClipPayload payload
+  ) {
+    selectedNodeId_ = clipNodeId;
+    selectedAssetId_ = std::nullopt;
+    const auto updated = workspace_.commandWriter().apply(
+      grapple::project::UpdateTextClipCommand{clipNodeId, std::move(payload)},
+      userSource()
+    );
+    if (!updated) {
+      appendError(updated.error());
+      return;
+    }
+
+    refreshViewModelAndPreview();
+    log_->append("Updated text clip");
+  }
+
   grapple::foundation::Result<grapple::app::AppClipRow> selectedClipRowForAction(const std::string& actionName) {
     if (!selectedNodeId_.has_value()) {
       return grapple::foundation::Error{
@@ -2399,6 +2440,30 @@ public:
     auto* editor = findChild<QDoubleSpinBox*>(qString(controlName));
     if (editor == nullptr) {
       appendError(grapple::foundation::Error{"desktop.clip_property_control_missing", "Clip property control not found."});
+      return;
+    }
+
+    editor->setValue(value);
+    Q_EMIT editor->editingFinished();
+    QApplication::processEvents();
+  }
+
+  void setSelectedTextClipTextControlValue(std::string text) {
+    auto* editor = findChild<QLineEdit*>("textClipText");
+    if (editor == nullptr) {
+      appendError(grapple::foundation::Error{"desktop.text_clip_text_control_missing", "Text clip text control not found."});
+      return;
+    }
+
+    editor->setText(qString(text));
+    Q_EMIT editor->editingFinished();
+    QApplication::processEvents();
+  }
+
+  void setSelectedTextClipPropertyControlValue(std::string controlName, double value) {
+    auto* editor = findChild<QDoubleSpinBox*>(qString(controlName));
+    if (editor == nullptr) {
+      appendError(grapple::foundation::Error{"desktop.text_clip_property_control_missing", "Text clip property control not found."});
       return;
     }
 
@@ -3054,6 +3119,7 @@ private:
     inspector_->setPlainText(inspectorText(viewModel, selectedNodeId_, selectedAssetId_, workspace_.preview().state().playhead));
     cameraProperties_->setSelection(viewModel, selectedNodeId_);
     clipProperties_->setSelection(viewModel, selectedNodeId_);
+    textClipProperties_->setSelection(viewModel, selectedNodeId_);
     effectParams_->setSelection(viewModel, selectedNodeId_, workspace_.preview().state().playhead);
     selectRelevantDetailTab(viewModel);
   }
@@ -3095,6 +3161,11 @@ private:
     );
     if (selectedClip) {
       detailTabs_->setCurrentWidget(clipProperties_);
+      return;
+    }
+
+    if (findTextClipRow(viewModel, selectedNodeId) != nullptr) {
+      detailTabs_->setCurrentWidget(textClipProperties_);
     } else {
       detailTabs_->setCurrentWidget(inspector_);
     }
@@ -3278,6 +3349,7 @@ private:
   QTextEdit* inspector_ = nullptr;
   grapple::ui::CameraPropertyPanel* cameraProperties_ = nullptr;
   grapple::ui::ClipPropertyPanel* clipProperties_ = nullptr;
+  grapple::ui::TextClipPropertyPanel* textClipProperties_ = nullptr;
   grapple::ui::EffectParamPanel* effectParams_ = nullptr;
   QScrollArea* effectParamsScroll_ = nullptr;
   grapple::ui::ExportSettingsPanel* exportSettings_ = nullptr;
@@ -3498,6 +3570,10 @@ void DesktopWindow::addCamera() {
   impl_->addCamera();
 }
 
+void DesktopWindow::addTextClip() {
+  impl_->addTextClip();
+}
+
 void DesktopWindow::updateSelectedCameraName(std::string name) {
   impl_->updateSelectedCameraName(std::move(name));
 }
@@ -3564,6 +3640,14 @@ void DesktopWindow::setSelectedClipOpacity(double opacity) {
 
 void DesktopWindow::setSelectedClipPropertyControlValue(std::string controlName, double value) {
   impl_->setSelectedClipPropertyControlValue(std::move(controlName), value);
+}
+
+void DesktopWindow::setSelectedTextClipTextControlValue(std::string text) {
+  impl_->setSelectedTextClipTextControlValue(std::move(text));
+}
+
+void DesktopWindow::setSelectedTextClipPropertyControlValue(std::string controlName, double value) {
+  impl_->setSelectedTextClipPropertyControlValue(std::move(controlName), value);
 }
 
 void DesktopWindow::undoLastEdit() {
