@@ -652,8 +652,6 @@ public:
     auto* addTrackAction = moreMenu->addAction("Add Track");
     auto* addCameraAction = moreMenu->addAction("Add Camera");
     auto* addTextAction = moreMenu->addAction("Add Text");
-    renameCameraAction_ = moreMenu->addAction("Rename Camera");
-    setCameraFocalLengthAction_ = moreMenu->addAction("Set Camera Focal Length");
     auto* addNoteAction = moreMenu->addAction("Add Note");
     editNoteAction_ = moreMenu->addAction("Edit Note");
     deleteClipAction_ = moreMenu->addAction("Delete Clip");
@@ -751,8 +749,6 @@ public:
     connect(addTrackAction, &QAction::triggered, this, [this] { addTrack(); });
     connect(addCameraAction, &QAction::triggered, this, [this] { addCamera(); });
     connect(addTextAction, &QAction::triggered, this, [this] { addTextClip(); });
-    connect(renameCameraAction_, &QAction::triggered, this, [this] { renameSelectedCamera(); });
-    connect(setCameraFocalLengthAction_, &QAction::triggered, this, [this] { editSelectedCameraFocalLength(); });
     connect(addNoteAction, &QAction::triggered, this, [this] { addNote(); });
     connect(editNoteAction_, &QAction::triggered, this, [this] { editSelectedNote(); });
     connect(deleteClipAction_, &QAction::triggered, this, [this] { deleteSelectedClip(); });
@@ -1399,10 +1395,6 @@ public:
       stepForwardButton_->isEnabled();
   }
 
-  bool selectedCameraMenuActionsEnabled() const {
-    return actionsEnabled({renameCameraAction_, setCameraFocalLengthAction_});
-  }
-
   bool selectedClipMenuActionsEnabled() const {
     return actionsEnabled({
       deleteClipAction_
@@ -1681,63 +1673,6 @@ public:
     log_->append("Added text");
   }
 
-  void updateSelectedCameraName(std::string name) {
-    auto selectedCamera = selectedCameraRowForAction("Rename Camera");
-    if (!selectedCamera) {
-      appendError(selectedCamera.error());
-      return;
-    }
-
-    const auto result = workspace_.commandWriter().apply(
-      grapple::project::UpdateCameraCommand{
-        selectedCamera.value().sourceNodeId,
-        grapple::timeline::CameraPayload{
-          std::move(name),
-          selectedCamera.value().state
-        }
-      },
-      userSource()
-    );
-    if (!result) {
-      appendError(result.error());
-      return;
-    }
-
-    selectedAssetId_ = std::nullopt;
-    refreshViewModelAndPreview();
-    log_->append("Renamed camera");
-  }
-
-  void updateSelectedCameraFocalLength(double focalLength) {
-    auto selectedCamera = selectedCameraRowForAction("Set Camera Focal Length");
-    if (!selectedCamera) {
-      appendError(selectedCamera.error());
-      return;
-    }
-
-    const auto result = workspace_.commandWriter().apply(
-      grapple::project::UpdateCameraCommand{
-        selectedCamera.value().sourceNodeId,
-        grapple::timeline::CameraPayload{
-          selectedCamera.value().name,
-          grapple::timeline::CameraState{
-            selectedCamera.value().state.transform,
-            grapple::timeline::CameraLens{focalLength}
-          }
-        }
-      },
-      userSource()
-    );
-    if (!result) {
-      appendError(result.error());
-      return;
-    }
-
-    selectedAssetId_ = std::nullopt;
-    refreshViewModelAndPreview();
-    log_->append("Updated camera focal length");
-  }
-
   void updateCameraProperties(
     const grapple::foundation::NodeId& cameraNodeId,
     std::string name,
@@ -1783,78 +1718,6 @@ public:
     selectedAssetId_ = std::nullopt;
     refreshViewModelAndPreview();
     log_->append("Updated camera properties");
-  }
-
-  void renameSelectedCamera() {
-    auto selectedCamera = selectedCameraRowForAction("Rename Camera");
-    if (!selectedCamera) {
-      appendError(selectedCamera.error());
-      return;
-    }
-
-    bool accepted = false;
-    const QString name = QInputDialog::getText(
-      this,
-      "Rename Camera",
-      "Name",
-      QLineEdit::Normal,
-      qString(selectedCamera.value().name),
-      &accepted
-    );
-    if (!accepted) {
-      return;
-    }
-
-    updateSelectedCameraName(name.toStdString());
-  }
-
-  void editSelectedCameraFocalLength() {
-    auto selectedCamera = selectedCameraRowForAction("Set Camera Focal Length");
-    if (!selectedCamera) {
-      appendError(selectedCamera.error());
-      return;
-    }
-
-    bool accepted = false;
-    const double focalLength = QInputDialog::getDouble(
-      this,
-      "Set Camera Focal Length",
-      "Focal length",
-      selectedCamera.value().state.lens.focalLength,
-      1.0,
-      1000.0,
-      1,
-      &accepted
-    );
-    if (!accepted) {
-      return;
-    }
-
-    updateSelectedCameraFocalLength(focalLength);
-  }
-
-  grapple::foundation::Result<grapple::app::AppCameraRow> selectedCameraRowForAction(const std::string& actionName) {
-    if (!selectedNodeId_.has_value()) {
-      return grapple::foundation::Error{
-        "desktop.selection_missing",
-        actionName + " requires a selected camera."
-      };
-    }
-
-    const auto viewModel = workspace_.project().buildViewModel();
-    if (!viewModel) {
-      return viewModel.error();
-    }
-
-    const grapple::app::AppCameraRow* selectedCamera = selectedCameraRow(viewModel.value());
-    if (selectedCamera == nullptr) {
-      return grapple::foundation::Error{
-        "desktop.selected_node_not_camera",
-        actionName + " only applies to selected cameras."
-      };
-    }
-
-    return *selectedCamera;
   }
 
   const grapple::app::AppCameraRow* selectedCameraRow(const grapple::app::AppViewModel& viewModel) const {
@@ -3522,7 +3385,6 @@ private:
         }
       );
     }
-    setActionsEnabled({renameCameraAction_, setCameraFocalLengthAction_}, selectedCamera);
     setActionsEnabled({editNoteAction_}, selectedNote);
     setActionsEnabled({deleteClipAction_}, selectedClip);
     setActionsEnabled({deleteTrackAction_}, selectedTrack);
@@ -3897,8 +3759,6 @@ private:
   QPushButton* redoButton_ = nullptr;
   QPushButton* saveButton_ = nullptr;
   QPushButton* exportButton_ = nullptr;
-  QAction* renameCameraAction_ = nullptr;
-  QAction* setCameraFocalLengthAction_ = nullptr;
   QAction* editNoteAction_ = nullptr;
   QAction* deleteClipAction_ = nullptr;
   QAction* deleteTrackAction_ = nullptr;
@@ -4087,14 +3947,6 @@ void DesktopWindow::addTextClip() {
   impl_->addTextClip();
 }
 
-void DesktopWindow::updateSelectedCameraName(std::string name) {
-  impl_->updateSelectedCameraName(std::move(name));
-}
-
-void DesktopWindow::updateSelectedCameraFocalLength(double focalLength) {
-  impl_->updateSelectedCameraFocalLength(focalLength);
-}
-
 void DesktopWindow::setSelectedCameraNameControlValue(std::string name) {
   impl_->setSelectedCameraNameControlValue(std::move(name));
 }
@@ -4237,10 +4089,6 @@ bool DesktopWindow::pauseActionEnabled() const {
 
 bool DesktopWindow::seekActionEnabled() const {
   return impl_->seekActionEnabled();
-}
-
-bool DesktopWindow::selectedCameraMenuActionsEnabled() const {
-  return impl_->selectedCameraMenuActionsEnabled();
 }
 
 bool DesktopWindow::selectedClipMenuActionsEnabled() const {

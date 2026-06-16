@@ -516,7 +516,6 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     const bool playActionEnabled = window.playActionEnabled();
     const bool pauseActionEnabled = window.pauseActionEnabled();
     const bool seekActionEnabled = window.seekActionEnabled();
-    const bool selectedCameraMenuActionsEnabled = window.selectedCameraMenuActionsEnabled();
     const bool selectedClipMenuActionsEnabled = window.selectedClipMenuActionsEnabled();
     const bool selectedTrackMenuActionEnabled = window.selectedTrackMenuActionEnabled();
     const bool selectedNoteMenuActionEnabled = window.selectedNoteMenuActionEnabled();
@@ -544,7 +543,6 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "playActionEnabled=" << (playActionEnabled ? "true" : "false") << '\n';
     std::cout << "pauseActionEnabled=" << (pauseActionEnabled ? "true" : "false") << '\n';
     std::cout << "seekActionEnabled=" << (seekActionEnabled ? "true" : "false") << '\n';
-    std::cout << "selectedCameraMenuActionsEnabled=" << (selectedCameraMenuActionsEnabled ? "true" : "false") << '\n';
     std::cout << "selectedClipMenuActionsEnabled=" << (selectedClipMenuActionsEnabled ? "true" : "false") << '\n';
     std::cout << "selectedTrackMenuActionEnabled=" << (selectedTrackMenuActionEnabled ? "true" : "false") << '\n';
     std::cout << "selectedNoteMenuActionEnabled=" << (selectedNoteMenuActionEnabled ? "true" : "false") << '\n';
@@ -562,7 +560,6 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            !playActionEnabled &&
            !pauseActionEnabled &&
            !seekActionEnabled &&
-           !selectedCameraMenuActionsEnabled &&
            !selectedClipMenuActionsEnabled &&
            !selectedTrackMenuActionEnabled &&
            !selectedNoteMenuActionEnabled &&
@@ -890,7 +887,6 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       return 1;
     }
     const std::string log = window.logContents();
-    const bool selectedCameraMenuActionsEnabled = window.selectedCameraMenuActionsEnabled();
     const bool selectedClipMenuActionsEnabled = window.selectedClipMenuActionsEnabled();
     const bool selectedTrackMenuActionEnabled = window.selectedTrackMenuActionEnabled();
     const auto viewModel = workspace.value().project().buildViewModel();
@@ -900,12 +896,10 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     }
     std::cout << "selected=" << selectedNodeId->value() << '\n';
     std::cout << "runs=" << workspace.value().steward().conversationState().runs.size() << '\n';
-    std::cout << "selectedCameraMenuActionsEnabled=" << (selectedCameraMenuActionsEnabled ? "true" : "false") << '\n';
     std::cout << "selectedClipMenuActionsEnabled=" << (selectedClipMenuActionsEnabled ? "true" : "false") << '\n';
     std::cout << "selectedTrackMenuActionEnabled=" << (selectedTrackMenuActionEnabled ? "true" : "false") << '\n';
     return !viewModel.value().timeline.clips.empty() &&
            selectedNodeId.value() == viewModel.value().timeline.clips.front().sourceNodeId &&
-           !selectedCameraMenuActionsEnabled &&
            selectedClipMenuActionsEnabled &&
            !selectedTrackMenuActionEnabled &&
            workspace.value().steward().conversationState().runs.empty() &&
@@ -984,20 +978,17 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
 
     const std::string inspector = window.inspectorContents();
     const auto selectedNodeId = window.selectedNodeId();
-    const bool selectedCameraMenuActionsEnabled = window.selectedCameraMenuActionsEnabled();
     const bool selectedClipMenuActionsEnabled = window.selectedClipMenuActionsEnabled();
     const bool selectedTrackMenuActionEnabled = window.selectedTrackMenuActionEnabled();
     std::cout << "inspector=" << inspector << '\n';
     if (selectedNodeId.has_value()) {
       std::cout << "selected=" << selectedNodeId->value() << '\n';
     }
-    std::cout << "selectedCameraMenuActionsEnabled=" << (selectedCameraMenuActionsEnabled ? "true" : "false") << '\n';
     std::cout << "selectedClipMenuActionsEnabled=" << (selectedClipMenuActionsEnabled ? "true" : "false") << '\n';
     std::cout << "selectedTrackMenuActionEnabled=" << (selectedTrackMenuActionEnabled ? "true" : "false") << '\n';
     std::filesystem::remove(audioPath);
     return selectedNodeId.has_value() &&
            selectedNodeId.value() == viewModel.value().timeline.audioTracks.front().sourceNodeId &&
-           !selectedCameraMenuActionsEnabled &&
            !selectedClipMenuActionsEnabled &&
            selectedTrackMenuActionEnabled &&
            inspector.find("Inspector\nAudio Track") != std::string::npos &&
@@ -1022,19 +1013,19 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     }
     const std::string inspector = window.inspectorContents();
     const std::string log = window.logContents();
-    const bool selectedCameraMenuActionsEnabled = window.selectedCameraMenuActionsEnabled();
     const bool selectedClipMenuActionsEnabled = window.selectedClipMenuActionsEnabled();
     const bool selectedTrackMenuActionEnabled = window.selectedTrackMenuActionEnabled();
+    const std::string currentDetailTab = window.currentDetailTabText();
     std::cout << "selected=" << selectedNodeId->value() << '\n';
     std::cout << "inspector=" << inspector << '\n';
-    std::cout << "selectedCameraMenuActionsEnabled=" << (selectedCameraMenuActionsEnabled ? "true" : "false") << '\n';
     std::cout << "selectedClipMenuActionsEnabled=" << (selectedClipMenuActionsEnabled ? "true" : "false") << '\n';
     std::cout << "selectedTrackMenuActionEnabled=" << (selectedTrackMenuActionEnabled ? "true" : "false") << '\n';
+    std::cout << "currentDetailTab=" << currentDetailTab << '\n';
     return !viewModel.value().timeline.cameras.empty() &&
            selectedNodeId.value() == viewModel.value().timeline.cameras.front().sourceNodeId &&
-           selectedCameraMenuActionsEnabled &&
            !selectedClipMenuActionsEnabled &&
            !selectedTrackMenuActionEnabled &&
+           currentDetailTab == "Camera" &&
            inspector.find("Camera\nName: Camera") != std::string::npos &&
            inspector.find("No effects attached.") != std::string::npos
       ? 0
@@ -1433,13 +1424,11 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       return 1;
     }
     const std::string inspector = window.inspectorContents();
-    const bool selectedCameraMenuActionsEnabled = window.selectedCameraMenuActionsEnabled();
     const bool selectedClipMenuActionsEnabled = window.selectedClipMenuActionsEnabled();
     const bool selectedTrackMenuActionEnabled = window.selectedTrackMenuActionEnabled();
     const bool selectedNoteMenuActionEnabled = window.selectedNoteMenuActionEnabled();
     std::cout << "revision=" << viewModel.value().project.revision.value() << '\n';
     std::cout << "notes=" << viewModel.value().notes.rows.size() << '\n';
-    std::cout << "selectedCameraMenuActionsEnabled=" << (selectedCameraMenuActionsEnabled ? "true" : "false") << '\n';
     std::cout << "selectedClipMenuActionsEnabled=" << (selectedClipMenuActionsEnabled ? "true" : "false") << '\n';
     std::cout << "selectedTrackMenuActionEnabled=" << (selectedTrackMenuActionEnabled ? "true" : "false") << '\n';
     std::cout << "selectedNoteMenuActionEnabled=" << (selectedNoteMenuActionEnabled ? "true" : "false") << '\n';
@@ -1447,7 +1436,6 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_6"} &&
            viewModel.value().notes.rows.size() == 1 &&
            viewModel.value().notes.rows.front().title == "Note 1" &&
-           !selectedCameraMenuActionsEnabled &&
            !selectedClipMenuActionsEnabled &&
            !selectedTrackMenuActionEnabled &&
            selectedNoteMenuActionEnabled &&

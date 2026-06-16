@@ -65,7 +65,6 @@ public:
   [[nodiscard]] bool playActionEnabled() const;
   [[nodiscard]] bool pauseActionEnabled() const;
   [[nodiscard]] bool seekActionEnabled() const;
-  [[nodiscard]] bool selectedCameraMenuActionsEnabled() const;
   [[nodiscard]] bool selectedClipMenuActionsEnabled() const;
   [[nodiscard]] bool selectedTrackMenuActionEnabled() const;
   [[nodiscard]] bool selectedNoteMenuActionEnabled() const;
@@ -82,8 +81,6 @@ public:
   void addTrack();
   void addCamera();
   void addTextClip();
-  void updateSelectedCameraName(std::string name);
-  void updateSelectedCameraFocalLength(double focalLength);
   void setSelectedCameraNameControlValue(std::string name);
   void setSelectedCameraFocalLengthControlValue(double focalLength);
   void addNote();
