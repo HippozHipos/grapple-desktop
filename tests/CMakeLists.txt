@@ -29,6 +29,11 @@ add_test(NAME grapple_cli_render_plan_json COMMAND grapple_cli --render-plan-jso
 add_test(NAME grapple_cli_preview_frame COMMAND grapple_cli --preview-frame)
 set_tests_properties(grapple_cli_preview_frame PROPERTIES PASS_REGULAR_EXPRESSION "audioClips=0")
 add_test(NAME grapple_cli_export_smoke COMMAND grapple_cli --export-smoke)
+add_test(
+  NAME grapple_cli_import_media_export
+  COMMAND bash -c "rm -f /tmp/grapple-cli-import-media-export.mp4 && \"$1\" --export-smoke >/dev/null && \"$1\" --import-media /tmp/grapple-native-demo/starter-gradient.avi --export /tmp/grapple-cli-import-media-export.mp4" bash $<TARGET_FILE:grapple_cli>
+)
+set_tests_properties(grapple_cli_import_media_export PROPERTIES PASS_REGULAR_EXPRESSION "output=/tmp/grapple-cli-import-media-export\\.mp4")
 add_test(NAME grapple_cli_save_package COMMAND grapple_cli --save-package /tmp/grapple-cli-save-package)
 add_test(NAME grapple_cli_open_package_smoke COMMAND grapple_cli --open-package-smoke /tmp/grapple-cli-open-package)
 add_test(NAME grapple_desktop_smoke COMMAND grapple_desktop --smoke)

@@ -35,3 +35,15 @@ ctest --test-dir build --output-on-failure
 cmake --install build --prefix /tmp/grapple-native
 /tmp/grapple-native/bin/grapple
 ```
+
+Open directly with media:
+
+```bash
+/tmp/grapple-native/bin/grapple --import-media /path/to/video.mp4
+```
+
+Export imported media from the CLI:
+
+```bash
+/tmp/grapple-native/bin/grapple-cli --import-media /path/to/video.mp4 --export /tmp/grapple-export.mp4
+```

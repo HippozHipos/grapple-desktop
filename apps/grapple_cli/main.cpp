@@ -3,12 +3,14 @@
 #include <grapple/app/NativeProjectSession.hpp>
 #include <grapple/app/NativePreviewSession.hpp>
 #include <grapple/app/NativeWorkspaceSession.hpp>
+#include <grapple/project/ProjectMediaPlacement.hpp>
 #include <grapple/projection/RenderPlanSerializer.hpp>
 #include <grapple/render/LocalRenderCore.hpp>
 #include <grapple/render/LocalRenderSystem.hpp>
 #include <grapple/runtime/RuntimeEvaluator.hpp>
 #include <grapple/storage/ProjectCommitBuilder.hpp>
 
+#include <chrono>
 #include <filesystem>
 #include <iostream>
 #include <optional>
@@ -31,11 +33,128 @@ void printHelp(std::ostream& output) {
     << "  grapple-cli\n"
     << "  grapple-cli --version\n"
     << "  grapple-cli --help\n"
+    << "  grapple-cli --import-media <file> --export <file>\n"
     << "  grapple-cli --render-plan-json\n"
     << "  grapple-cli --preview-frame\n"
     << "  grapple-cli --export-smoke\n"
     << "  grapple-cli --save-package <dir>\n"
     << "  grapple-cli --open-package-smoke <dir>\n";
+}
+
+grapple::project::CommandSource cliUserSource() {
+  return grapple::project::CommandSource{
+    grapple::project::CommandSourceKind::User,
+    std::nullopt,
+    "cli"
+  };
+}
+
+grapple::foundation::Result<void> placeImportedMediaOnTimeline(
+  grapple::app::NativeWorkspaceSession& workspace,
+  const grapple::foundation::AssetId& assetId
+) {
+  auto snapshot = workspace.project().snapshot();
+  if (!snapshot) {
+    return snapshot.error();
+  }
+  const grapple::asset::Asset* asset = snapshot.value().assets.find(assetId);
+  if (asset == nullptr) {
+    return grapple::foundation::Error{
+      "cli.imported_asset_missing",
+      "Imported media asset is not present in the project snapshot."
+    };
+  }
+  auto compositions = grapple::project::inspectCompositions(snapshot.value());
+  if (!compositions) {
+    return compositions.error();
+  }
+  auto placement = grapple::project::buildMediaPlacementDraft(
+    workspace.commandWriter(),
+    *asset,
+    std::nullopt,
+    std::nullopt,
+    compositions.value().compositions
+  );
+  if (!placement) {
+    return placement.error();
+  }
+  auto applied = workspace.commandWriter().apply(
+    placement.value().command,
+    cliUserSource()
+  );
+  if (!applied) {
+    return applied.error();
+  }
+  return {};
+}
+
+grapple::foundation::Result<grapple::render::ExportSettings> exportSettingsForImportedTimeline(
+  const grapple::app::AppViewModel& viewModel,
+  grapple::foundation::FilePath outputPath
+) {
+  if (viewModel.timeline.duration.value <= 0.0) {
+    return grapple::foundation::Error{
+      "cli.export_timeline_empty",
+      "CLI export requires imported visual media on the timeline."
+    };
+  }
+  if (viewModel.assets.rows.empty() || !viewModel.assets.rows.front().dimensions.has_value()) {
+    return grapple::foundation::Error{
+      "cli.export_visual_asset_missing",
+      "CLI export requires imported visual media with dimensions."
+    };
+  }
+  return grapple::render::ExportSettings{
+    grapple::foundation::TimeRange{
+      grapple::foundation::TimeSeconds{0.0},
+      viewModel.timeline.duration
+    },
+    grapple::foundation::FrameRate{30, 1},
+    viewModel.assets.rows.front().dimensions.value(),
+    grapple::render::Codec{"mp4v"},
+    grapple::render::RenderQuality::Final,
+    std::move(outputPath)
+  };
+}
+
+grapple::foundation::Result<grapple::render::FinalRenderResult> exportImportedMedia(
+  const grapple::foundation::FilePath& mediaPath,
+  grapple::foundation::FilePath outputPath
+) {
+  auto workspace = grapple::app::NativeWorkspaceSession::createPackageRoot(
+    grapple::foundation::FilePath{(
+      std::filesystem::temp_directory_path() /
+      ("grapple-cli-import-export-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()))
+    ).string()},
+    "CLI Export"
+  );
+  if (!workspace) {
+    return workspace.error();
+  }
+  auto imported = workspace.value().importMediaFile(mediaPath);
+  if (!imported) {
+    return imported.error();
+  }
+  auto placement = placeImportedMediaOnTimeline(workspace.value(), imported.value());
+  if (!placement) {
+    return placement.error();
+  }
+  auto viewModel = workspace.value().project().buildViewModel();
+  if (!viewModel) {
+    return viewModel.error();
+  }
+  auto renderPlan = workspace.value().project().buildRenderPlan();
+  if (!renderPlan) {
+    return renderPlan.error();
+  }
+  auto settings = exportSettingsForImportedTimeline(viewModel.value(), std::move(outputPath));
+  if (!settings) {
+    return settings.error();
+  }
+  return workspace.value().exportSession().renderPlanToVideo(
+    renderPlan.value().plan,
+    std::move(settings.value())
+  );
 }
 
 const char* mediaKindText(grapple::render::RenderedMediaKind kind) {
@@ -68,8 +187,15 @@ int main(int argc, char* argv[]) {
   bool runExportSmoke = false;
   bool savePackage = false;
   bool openPackageSmoke = false;
+  bool exportImported = false;
   std::optional<foundation::FilePath> packagePath;
-  if (argc == 2 || argc == 3) {
+  std::optional<foundation::FilePath> importMediaPath;
+  std::optional<foundation::FilePath> exportPath;
+  if (argc == 5 && std::string{argv[1]} == "--import-media" && std::string{argv[3]} == "--export") {
+    exportImported = true;
+    importMediaPath = foundation::FilePath{argv[2]};
+    exportPath = foundation::FilePath{argv[4]};
+  } else if (argc == 2 || argc == 3) {
     const std::string argument{argv[1]};
     if (argument == "--render-plan-json") {
       if (argc != 2) {
@@ -111,6 +237,23 @@ int main(int argc, char* argv[]) {
   } else if (argc > 2) {
     std::cerr << "Invalid arguments.\nRun `grapple-cli --help` for usage.\n";
     return 1;
+  }
+
+  if (exportImported) {
+    auto result = exportImportedMedia(importMediaPath.value(), exportPath.value());
+    if (!result) {
+      printError(result.error());
+      return 1;
+    }
+    if (!std::filesystem::exists(result.value().outputPath.value) ||
+        std::filesystem::file_size(result.value().outputPath.value) == 0) {
+      std::cerr << "Export did not write a video artifact.\n";
+      return 1;
+    }
+    std::cout << "output=" << result.value().outputPath.value << '\n';
+    std::cout << "revision=" << result.value().sourceRevision.value() << '\n';
+    std::cout << "frames=" << result.value().framesEvaluated << '\n';
+    return 0;
   }
 
   app::NativeProjectSession session{
