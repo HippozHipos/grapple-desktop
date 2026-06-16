@@ -23,6 +23,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstdint>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -146,6 +147,27 @@ std::filesystem::path uniqueDesktopSmokeRoot() {
          ("grapple-desktop-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
 }
 
+std::filesystem::path defaultInteractivePackageRoot() {
+  const char* home = std::getenv("HOME");
+  const std::filesystem::path base = home == nullptr || std::string{home}.empty()
+    ? std::filesystem::temp_directory_path() / "Grapple"
+    : std::filesystem::path{home} / "Documents" / "Grapple";
+  const std::filesystem::path first = base / "Untitled";
+  std::error_code existsError;
+  if (!std::filesystem::exists(first, existsError)) {
+    return first;
+  }
+
+  for (int index = 2; index < 1000; ++index) {
+    const std::filesystem::path candidate = base / ("Untitled " + std::to_string(index));
+    existsError.clear();
+    if (!std::filesystem::exists(candidate, existsError)) {
+      return candidate;
+    }
+  }
+
+  return base / ("Untitled " + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+}
 
 } // namespace
 
@@ -425,9 +447,15 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     }
 
     if (!populateStarterDemo) {
+      const std::filesystem::path defaultPackageRoot = argc == 1
+        ? defaultInteractivePackageRoot()
+        : packageRoot;
+      const std::string defaultProjectName = argc == 1
+        ? defaultPackageRoot.filename().string()
+        : std::string{"Untitled"};
       auto created = grapple::app::NativeWorkspaceSession::createPackageRoot(
-        grapple::foundation::FilePath{packageRoot.string()},
-        "Untitled"
+        grapple::foundation::FilePath{defaultPackageRoot.string()},
+        defaultProjectName
       );
       if (!created) {
         return created.error();
