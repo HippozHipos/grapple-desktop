@@ -922,6 +922,12 @@ void StewardPanel::updateActionLabels() {
              cameraUpdateIntentTargetsCameraHandler_ &&
              cameraUpdateIntentTargetsCameraHandler_(intent())) {
     primaryActionButton_->setText("Update Camera");
+  } else if (!hasIntent &&
+             (selectedClipTargetNodeId_.has_value() ||
+              selectedTextClipTargetNodeId_.has_value() ||
+              selectedTrackTargetNodeId_.has_value() ||
+              selectedNoteTargetNodeId_.has_value())) {
+    primaryActionButton_->setText("Choose Or Type Request");
   } else {
     switch (primaryAction_) {
       case PrimaryAction::StartSample:

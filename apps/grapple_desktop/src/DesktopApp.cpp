@@ -642,7 +642,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            selectedClip &&
            detailTab == "Clip" &&
            currentPreview &&
-           stewardAction == "Type Request To Create Camera Controls" &&
+           stewardAction == "Choose Or Type Request" &&
            !stewardActionEnabled &&
            playActionEnabled &&
            exportActionEnabled &&
@@ -3122,7 +3122,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            hasEvaluatedTunedPreview &&
            previewPixelsChanged &&
            reopenedProductLoopMatches &&
-           stewardActionAfterSampleStart == "Type Request To Create Camera Controls" &&
+           stewardActionAfterSampleStart == "Choose Or Type Request" &&
            !stewardActionEnabledAfterSampleStart &&
            !addMediaActionEnabledAfterSampleStart &&
            exportActionEnabledAfterMediaPlacement &&
@@ -3324,7 +3324,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            clip.transform.rotationDegrees == clipBeforeTransform.rotationDegrees - 7.5 &&
            clip.transform.opacity == 0.0 &&
            clip.playbackRate == 1.25 &&
-           primaryActionTextBeforeIntent == "Type Request To Create Camera Controls" &&
+           primaryActionTextBeforeIntent == "Choose Or Type Request" &&
            stewardIntentPlaceholderBeforeIntent.find("speed up clip") != std::string::npos &&
            !primaryActionEnabledBeforeIntent &&
            primaryActionTextForTint == "Apply Request To Clip" &&
