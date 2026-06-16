@@ -85,6 +85,9 @@ public:
   void pressDeleteShortcut();
   void pressUndoShortcut();
   void pressRedoShortcut();
+  void pressSeekStartShortcut();
+  void pressStepBackShortcut();
+  void pressStepForwardShortcut();
   void startPlayback();
   void pausePlayback();
   void advancePlaybackFrame();

@@ -871,10 +871,23 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   }
 
   if (seekSmoke) {
-    window.seekTo(grapple::foundation::TimeSeconds{5.0});
-    const grapple::render::PreviewRenderShellState previewState = workspace.value().preview().state();
-    std::cout << "playhead=" << previewState.playhead.value << '\n';
-    return previewState.playhead == grapple::foundation::TimeSeconds{5.0} ? 0 : 1;
+    window.show();
+    app.processEvents();
+    window.pressStepForwardShortcut();
+    window.pressStepForwardShortcut();
+    const grapple::render::PreviewRenderShellState afterForward = workspace.value().preview().state();
+    window.pressStepBackShortcut();
+    const grapple::render::PreviewRenderShellState afterBack = workspace.value().preview().state();
+    window.pressSeekStartShortcut();
+    const grapple::render::PreviewRenderShellState afterStart = workspace.value().preview().state();
+    std::cout << "afterForward=" << afterForward.playhead.value << '\n';
+    std::cout << "afterBack=" << afterBack.playhead.value << '\n';
+    std::cout << "afterStart=" << afterStart.playhead.value << '\n';
+    return afterForward.playhead == grapple::foundation::TimeSeconds{2.0} &&
+           afterBack.playhead == grapple::foundation::TimeSeconds{1.0} &&
+           afterStart.playhead == grapple::foundation::TimeSeconds{0.0}
+      ? 0
+      : 1;
   }
 
   if (timelineSeekSmoke) {

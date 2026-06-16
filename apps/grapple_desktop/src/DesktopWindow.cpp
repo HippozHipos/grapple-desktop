@@ -80,12 +80,13 @@ QString qString(const std::string& value) {
   return QString::fromStdString(value);
 }
 
-bool focusedWidgetConsumesSpace() {
+bool focusedWidgetConsumesEditorShortcut() {
   const QWidget* focus = QApplication::focusWidget();
   return focus != nullptr &&
     (focus->inherits("QLineEdit") ||
      focus->inherits("QTextEdit") ||
      focus->inherits("QPlainTextEdit") ||
+     focus->inherits("QAbstractSlider") ||
      focus->inherits("QAbstractSpinBox") ||
      focus->inherits("QComboBox"));
 }
@@ -1531,6 +1532,26 @@ public:
     QApplication::processEvents();
   }
 
+  void pressTimelineNavigationKey(Qt::Key key) {
+    QKeyEvent press{QEvent::KeyPress, key, Qt::NoModifier};
+    QApplication::sendEvent(this, &press);
+    QKeyEvent release{QEvent::KeyRelease, key, Qt::NoModifier};
+    QApplication::sendEvent(this, &release);
+    QApplication::processEvents();
+  }
+
+  void pressSeekStartShortcut() {
+    pressTimelineNavigationKey(Qt::Key_Home);
+  }
+
+  void pressStepBackShortcut() {
+    pressTimelineNavigationKey(Qt::Key_Left);
+  }
+
+  void pressStepForwardShortcut() {
+    pressTimelineNavigationKey(Qt::Key_Right);
+  }
+
   void pressShortcut(const QKeySequence& sequence) {
     if (sequence.isEmpty()) {
       appendError(grapple::foundation::Error{"desktop.shortcut_missing", "Shortcut has no key binding."});
@@ -1644,16 +1665,31 @@ public:
   }
 
   void keyPressEvent(QKeyEvent* event) override {
-    if (event->key() == Qt::Key_Space && !event->isAutoRepeat() && !focusedWidgetConsumesSpace()) {
+    if (event->key() == Qt::Key_Space && !event->isAutoRepeat() && !focusedWidgetConsumesEditorShortcut()) {
       togglePlayback();
       event->accept();
       return;
     }
-    if (event->key() == Qt::Key_Delete && !event->isAutoRepeat() && !focusedWidgetConsumesSpace()) {
+    if (event->key() == Qt::Key_Delete && !event->isAutoRepeat() && !focusedWidgetConsumesEditorShortcut()) {
       if (deleteSelectedTimelineItem()) {
         event->accept();
         return;
       }
+    }
+    if (event->key() == Qt::Key_Home && !event->isAutoRepeat() && !focusedWidgetConsumesEditorShortcut()) {
+      seekTo(grapple::foundation::TimeSeconds{0.0});
+      event->accept();
+      return;
+    }
+    if (event->key() == Qt::Key_Left && !event->isAutoRepeat() && !focusedWidgetConsumesEditorShortcut()) {
+      stepPlayhead(-1.0);
+      event->accept();
+      return;
+    }
+    if (event->key() == Qt::Key_Right && !event->isAutoRepeat() && !focusedWidgetConsumesEditorShortcut()) {
+      stepPlayhead(1.0);
+      event->accept();
+      return;
     }
     QMainWindow::keyPressEvent(event);
   }
@@ -4239,6 +4275,18 @@ void DesktopWindow::pressUndoShortcut() {
 
 void DesktopWindow::pressRedoShortcut() {
   impl_->pressRedoShortcut();
+}
+
+void DesktopWindow::pressSeekStartShortcut() {
+  impl_->pressSeekStartShortcut();
+}
+
+void DesktopWindow::pressStepBackShortcut() {
+  impl_->pressStepBackShortcut();
+}
+
+void DesktopWindow::pressStepForwardShortcut() {
+  impl_->pressStepForwardShortcut();
 }
 
 void DesktopWindow::startPlayback() {
