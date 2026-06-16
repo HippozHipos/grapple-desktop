@@ -349,6 +349,20 @@ int main() {
     stewardPlanner.clipEditForIntent(plannedClipInput, "make it cinematic");
   GRAPPLE_REQUIRE(!unknownClipEdit);
   GRAPPLE_REQUIRE(unknownClipEdit.error().code == "steward.clip_edit_intent_unknown");
+  GRAPPLE_REQUIRE(stewardPlanner.textClipIntentTargetsText("add title \"Opening Title\""));
+  GRAPPLE_REQUIRE(stewardPlanner.textClipIntentTargetsText("create lower third saying Jane Doe"));
+  GRAPPLE_REQUIRE(!stewardPlanner.textClipIntentTargetsText("slowly pan right"));
+  const app::TextClipIntentDefaults titleTextDefaults =
+    stewardPlanner.textClipDefaultsForIntent("add title \"Opening Title\"");
+  GRAPPLE_REQUIRE(titleTextDefaults.text == "Opening Title");
+  GRAPPLE_REQUIRE(titleTextDefaults.duration == foundation::TimeSeconds{3.0});
+  GRAPPLE_REQUIRE(titleTextDefaults.transform.position.y == 0.35);
+  GRAPPLE_REQUIRE(titleTextDefaults.style.fontSize == 64.0);
+  const app::TextClipIntentDefaults lowerThirdDefaults =
+    stewardPlanner.textClipDefaultsForIntent("create lower third saying Jane Doe");
+  GRAPPLE_REQUIRE(lowerThirdDefaults.text == "Jane Doe");
+  GRAPPLE_REQUIRE(lowerThirdDefaults.transform.position.y == -0.35);
+  GRAPPLE_REQUIRE(lowerThirdDefaults.style.fontSize == 44.0);
 
   const std::filesystem::path appPackageRoot =
     std::filesystem::temp_directory_path() /
@@ -1434,6 +1448,42 @@ int main() {
   GRAPPLE_REQUIRE(stewardClipTrimViewModel.value().steward.edits[4].editName == "Clip Timing");
   GRAPPLE_REQUIRE(stewardClipTrimViewModel.value().steward.edits[4].intent == "Shorten selected clip.");
   GRAPPLE_REQUIRE(stewardClipTrimViewModel.value().steward.edits[4].controlSummary == "Range=1s - 6s, Source=0s - 4.75s");
+  const auto stewardTextClip = stewardMediaWorkspace.value().steward().createTextClip(
+    "Add title \"Opening Title\".",
+    foundation::TimeSeconds{1.0}
+  );
+  GRAPPLE_REQUIRE(stewardTextClip);
+  GRAPPLE_REQUIRE(stewardTextClip.value().textClipNodeId == foundation::NodeId{"node_text_clip_5"});
+  const agent::AgentConversationState stewardTextConversation =
+    stewardMediaWorkspace.value().steward().conversationState();
+  GRAPPLE_REQUIRE(stewardTextConversation.diagnostics.empty());
+  GRAPPLE_REQUIRE(stewardTextConversation.runs.size() == 6);
+  GRAPPLE_REQUIRE(stewardTextConversation.runs[5].status == agent::AgentRunStatus::Succeeded);
+  GRAPPLE_REQUIRE(stewardTextConversation.runs[5].toolCalls.size() == 1);
+  GRAPPLE_REQUIRE(stewardTextConversation.runs[5].toolCalls[0].toolSerializedId == "timeline.create_text_clip");
+  GRAPPLE_REQUIRE(stewardTextConversation.runs[5].toolCalls[0].toolDisplayName == "Create Text Clip");
+  GRAPPLE_REQUIRE(stewardTextConversation.runs[5].toolCalls[0].toolCallId == foundation::ToolId{"tool_steward_create_text_clip_6"});
+  GRAPPLE_REQUIRE(stewardTextConversation.runs[5].toolCalls[0].observedRevision == foundation::RevisionId{"rev_7"});
+  GRAPPLE_REQUIRE(stewardTextClip.value().packageResult.snapshot.revision == foundation::RevisionId{"rev_7"});
+  GRAPPLE_REQUIRE(stewardMediaWorkspace.value().project().packageState().commandLog.records().back().sourceRunId.has_value());
+  GRAPPLE_REQUIRE(
+    stewardMediaWorkspace.value().project().packageState().commandLog.records().back().sourceRunId.value() ==
+    stewardTextConversation.runs[5].runId
+  );
+  const auto stewardTextViewModel = stewardMediaWorkspace.value().project().buildViewModel();
+  GRAPPLE_REQUIRE(stewardTextViewModel);
+  GRAPPLE_REQUIRE(stewardTextViewModel.value().timeline.textClips.size() == 1);
+  GRAPPLE_REQUIRE(stewardTextViewModel.value().timeline.textClips[0].sourceNodeId == stewardTextClip.value().textClipNodeId);
+  GRAPPLE_REQUIRE(stewardTextViewModel.value().timeline.textClips[0].text == "Opening Title");
+  GRAPPLE_REQUIRE((stewardTextViewModel.value().timeline.textClips[0].timelineRange == foundation::TimeRange{foundation::TimeSeconds{1.0}, foundation::TimeSeconds{4.0}}));
+  GRAPPLE_REQUIRE(stewardTextViewModel.value().timeline.textClips[0].transform.position.y == 0.35);
+  GRAPPLE_REQUIRE(stewardTextViewModel.value().timeline.textClips[0].style.fontSize == 64.0);
+  GRAPPLE_REQUIRE(stewardTextViewModel.value().steward.edits.size() == 6);
+  GRAPPLE_REQUIRE(stewardTextViewModel.value().steward.edits[5].targetNodeId == stewardTextClip.value().textClipNodeId);
+  GRAPPLE_REQUIRE(stewardTextViewModel.value().steward.edits[5].targetName == "Opening Title");
+  GRAPPLE_REQUIRE(stewardTextViewModel.value().steward.edits[5].editName == "Text Clip");
+  GRAPPLE_REQUIRE(stewardTextViewModel.value().steward.edits[5].intent == "Add title \"Opening Title\".");
+  GRAPPLE_REQUIRE(stewardTextViewModel.value().steward.edits[5].controlSummary == "Start=1s, Duration=3s, Font=64");
   const auto stewardMediaWrite = stewardMediaWorkspace.value().writePackage();
   GRAPPLE_REQUIRE(stewardMediaWrite);
   auto reopenedStewardMediaWorkspace =
@@ -1442,7 +1492,7 @@ int main() {
   const agent::AgentConversationState reopenedStewardMediaConversation =
     reopenedStewardMediaWorkspace.value().steward().conversationState();
   GRAPPLE_REQUIRE(reopenedStewardMediaConversation.diagnostics.empty());
-  GRAPPLE_REQUIRE(reopenedStewardMediaConversation.runs.size() == 5);
+  GRAPPLE_REQUIRE(reopenedStewardMediaConversation.runs.size() == 6);
   GRAPPLE_REQUIRE(reopenedStewardMediaConversation.runs[0].title == "Add Steward Video to the timeline.");
   GRAPPLE_REQUIRE(reopenedStewardMediaConversation.runs[0].toolCalls.size() == 1);
   GRAPPLE_REQUIRE(reopenedStewardMediaConversation.runs[0].toolCalls[0].toolSerializedId == "timeline.place_asset");
@@ -1462,16 +1512,22 @@ int main() {
   GRAPPLE_REQUIRE(reopenedStewardMediaConversation.runs[4].toolCalls.size() == 1);
   GRAPPLE_REQUIRE(reopenedStewardMediaConversation.runs[4].toolCalls[0].toolSerializedId == "timeline.trim_clip");
   GRAPPLE_REQUIRE(reopenedStewardMediaConversation.runs[4].toolCalls[0].observedRevision == foundation::RevisionId{"rev_6"});
+  GRAPPLE_REQUIRE(reopenedStewardMediaConversation.runs[5].title == "Add title \"Opening Title\".");
+  GRAPPLE_REQUIRE(reopenedStewardMediaConversation.runs[5].toolCalls.size() == 1);
+  GRAPPLE_REQUIRE(reopenedStewardMediaConversation.runs[5].toolCalls[0].toolSerializedId == "timeline.create_text_clip");
+  GRAPPLE_REQUIRE(reopenedStewardMediaConversation.runs[5].toolCalls[0].observedRevision == foundation::RevisionId{"rev_7"});
   const auto reopenedStewardMediaViewModel = reopenedStewardMediaWorkspace.value().project().buildViewModel();
   GRAPPLE_REQUIRE(reopenedStewardMediaViewModel);
-  GRAPPLE_REQUIRE(reopenedStewardMediaViewModel.value().project.revision == foundation::RevisionId{"rev_6"});
+  GRAPPLE_REQUIRE(reopenedStewardMediaViewModel.value().project.revision == foundation::RevisionId{"rev_7"});
   GRAPPLE_REQUIRE(reopenedStewardMediaViewModel.value().timeline.clips.size() == 1);
+  GRAPPLE_REQUIRE(reopenedStewardMediaViewModel.value().timeline.textClips.size() == 1);
+  GRAPPLE_REQUIRE(reopenedStewardMediaViewModel.value().timeline.textClips[0].text == "Opening Title");
   GRAPPLE_REQUIRE(reopenedStewardMediaViewModel.value().timeline.clips[0].transform.position.x == 0.25);
   GRAPPLE_REQUIRE(reopenedStewardMediaViewModel.value().timeline.clips[0].transform.scale.x == 0.75);
   GRAPPLE_REQUIRE(reopenedStewardMediaViewModel.value().timeline.clips[0].playbackRate == 1.25);
   GRAPPLE_REQUIRE((reopenedStewardMediaViewModel.value().timeline.clips[0].timelineRange == foundation::TimeRange{foundation::TimeSeconds{1.0}, foundation::TimeSeconds{6.0}}));
   GRAPPLE_REQUIRE((reopenedStewardMediaViewModel.value().timeline.clips[0].sourceRange == foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{4.75}}));
-  GRAPPLE_REQUIRE(reopenedStewardMediaViewModel.value().steward.edits.size() == 5);
+  GRAPPLE_REQUIRE(reopenedStewardMediaViewModel.value().steward.edits.size() == 6);
   GRAPPLE_REQUIRE(reopenedStewardMediaViewModel.value().steward.edits[0].editName == "Timeline Placement");
   GRAPPLE_REQUIRE(reopenedStewardMediaViewModel.value().steward.edits[1].editName == "Clip Transform");
   GRAPPLE_REQUIRE(reopenedStewardMediaViewModel.value().steward.edits[1].intent == "Move clip right and make it smaller.");
@@ -1481,6 +1537,8 @@ int main() {
   GRAPPLE_REQUIRE(reopenedStewardMediaViewModel.value().steward.edits[3].intent == "Move selected clip later.");
   GRAPPLE_REQUIRE(reopenedStewardMediaViewModel.value().steward.edits[4].editName == "Clip Timing");
   GRAPPLE_REQUIRE(reopenedStewardMediaViewModel.value().steward.edits[4].intent == "Shorten selected clip.");
+  GRAPPLE_REQUIRE(reopenedStewardMediaViewModel.value().steward.edits[5].editName == "Text Clip");
+  GRAPPLE_REQUIRE(reopenedStewardMediaViewModel.value().steward.edits[5].intent == "Add title \"Opening Title\".");
   std::filesystem::remove_all(stewardMediaPackageRoot);
 
   app::NativeProjectSession runtimeProject{

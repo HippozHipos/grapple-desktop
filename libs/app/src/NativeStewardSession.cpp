@@ -27,6 +27,7 @@ constexpr const char CanonicalEffectCreateNodeToolId[] = "effect.create_node";
 constexpr const char CanonicalEffectCreateParamKeyframeToolId[] = "effect.create_param_keyframe";
 constexpr const char CanonicalEffectUpdateParamKeyframeToolId[] = "effect.update_param_keyframe";
 constexpr const char CanonicalPlaceAssetToolId[] = "timeline.place_asset";
+constexpr const char CanonicalCreateTextClipToolId[] = "timeline.create_text_clip";
 constexpr const char CanonicalMoveClipToolId[] = "timeline.move_clip";
 constexpr const char CanonicalTrimClipToolId[] = "timeline.trim_clip";
 constexpr const char CanonicalUpdateClipTransformToolId[] = "timeline.update_clip_transform";
@@ -192,6 +193,10 @@ foundation::ToolId stewardPlaceAssetToolCallIdForRun(const foundation::RunId& ru
   return foundation::ToolId{"tool_steward_place_asset_" + std::to_string(stewardRunNumber(runId))};
 }
 
+foundation::ToolId stewardCreateTextClipToolCallIdForRun(const foundation::RunId& runId) {
+  return foundation::ToolId{"tool_steward_create_text_clip_" + std::to_string(stewardRunNumber(runId))};
+}
+
 foundation::ToolId stewardClipMoveToolCallIdForRun(const foundation::RunId& runId) {
   return foundation::ToolId{"tool_steward_clip_move_" + std::to_string(stewardRunNumber(runId))};
 }
@@ -231,14 +236,11 @@ std::string placeAssetArgumentsPayload(
   return arguments.str();
 }
 
-std::string clipTransformArgumentsPayload(
-  const foundation::NodeId& clipNodeId,
+void writeTransformArguments(
+  std::ostringstream& arguments,
   const timeline::Transform2D& transform
 ) {
-  std::ostringstream arguments;
-  arguments << '{';
-  foundation::writeJsonStringProperty(arguments, "clipNodeId", clipNodeId.value());
-  arguments << ",\"position\":{";
+  arguments << "\"position\":{";
   arguments << "\"x\":" << transform.position.x;
   arguments << ",\"y\":" << transform.position.y;
   arguments << "}";
@@ -248,8 +250,59 @@ std::string clipTransformArgumentsPayload(
   arguments << "}";
   arguments << ",\"rotationDegrees\":" << transform.rotationDegrees;
   arguments << ",\"opacity\":" << transform.opacity;
+}
+
+std::string textClipArgumentsPayload(
+  const foundation::NodeId& trackNodeId,
+  const timeline::TextClipPayload& payload
+) {
+  std::ostringstream arguments;
+  arguments << '{';
+  foundation::writeJsonStringProperty(arguments, "trackNodeId", trackNodeId.value());
+  arguments << ',';
+  foundation::writeJsonStringProperty(arguments, "text", payload.text);
+  arguments << ",\"timelineRange\":{";
+  arguments << "\"start\":" << payload.timelineRange.start.value;
+  arguments << ",\"end\":" << payload.timelineRange.end.value;
+  arguments << "}";
+  arguments << ",\"transform\":{";
+  writeTransformArguments(arguments, payload.transform);
+  arguments << "}";
+  arguments << ",\"style\":{";
+  arguments << "\"fontSize\":" << payload.style.fontSize;
+  arguments << ",\"color\":{";
+  arguments << "\"x\":" << payload.style.color.x;
+  arguments << ",\"y\":" << payload.style.color.y;
+  arguments << ",\"z\":" << payload.style.color.z;
+  arguments << "}}";
   arguments << '}';
   return arguments.str();
+}
+
+std::string clipTransformArgumentsPayload(
+  const foundation::NodeId& clipNodeId,
+  const timeline::Transform2D& transform
+) {
+  std::ostringstream arguments;
+  arguments << '{';
+  foundation::writeJsonStringProperty(arguments, "clipNodeId", clipNodeId.value());
+  arguments << ',';
+  writeTransformArguments(arguments, transform);
+  arguments << '}';
+  return arguments.str();
+}
+
+std::optional<foundation::NodeId> firstVisualTrackNodeId(const project::ProjectSnapshot& snapshot) {
+  for (const graph::GraphNode& node : snapshot.graph.nodes()) {
+    if (node.kind != graph::NodeKind::Track) {
+      continue;
+    }
+    const auto* payload = std::get_if<timeline::TrackPayload>(&node.payload);
+    if (payload != nullptr && payload->kind == timeline::TrackKind::Visual) {
+      return node.id;
+    }
+  }
+  return std::nullopt;
 }
 
 std::string clipMoveArgumentsPayload(
@@ -365,20 +418,22 @@ public:
     NativeProjectCommandWriter& commandWriter,
     std::string snapshotLabel,
     std::optional<storage::ProjectPackageSessionResult>& packageResult,
-    std::optional<foundation::NodeId>* placedClipNodeId = nullptr
+    std::optional<foundation::NodeId>* createdClipNodeId = nullptr
   )
     : project_{project},
       commandWriter_{commandWriter},
       snapshotLabel_{std::move(snapshotLabel)},
       packageResult_{packageResult},
-      placedClipNodeId_{placedClipNodeId} {}
+      createdClipNodeId_{createdClipNodeId} {}
 
   foundation::Result<project::ProjectCommandResult> apply(
     const project::ProjectCommandEnvelope& command
   ) override {
-    if (placedClipNodeId_ != nullptr) {
+    if (createdClipNodeId_ != nullptr) {
       if (const auto* placement = std::get_if<project::AddMediaToTimelineCommand>(&command.payload)) {
-        *placedClipNodeId_ = placement->clip.nodeId;
+        *createdClipNodeId_ = placement->clip.nodeId;
+      } else if (const auto* textClip = std::get_if<project::CreateTextClipCommand>(&command.payload)) {
+        *createdClipNodeId_ = textClip->nodeId;
       }
     }
 
@@ -414,7 +469,7 @@ private:
   NativeProjectCommandWriter& commandWriter_;
   std::string snapshotLabel_;
   std::optional<storage::ProjectPackageSessionResult>& packageResult_;
-  std::optional<foundation::NodeId>* placedClipNodeId_;
+  std::optional<foundation::NodeId>* createdClipNodeId_;
 };
 
 } // namespace
@@ -531,6 +586,113 @@ foundation::Result<NativeStewardMediaPlacementResult> NativeStewardSession::plac
 
   markRunStatus(runId.value(), agent::AgentRunStatus::Succeeded);
   return NativeStewardMediaPlacementResult{packageResult.value(), placedClipNodeId.value()};
+}
+
+foundation::Result<NativeStewardTextClipResult> NativeStewardSession::createTextClip(
+  std::string intent,
+  foundation::TimeSeconds start
+) {
+  auto snapshot = project_.snapshot();
+  if (!snapshot) {
+    return snapshot.error();
+  }
+
+  if (!planner_.textClipIntentTargetsText(intent)) {
+    return foundation::Error{
+      "steward.text_clip_intent_mismatch",
+      "Steward text creation requires a text, title, caption, label, or lower third request."
+    };
+  }
+
+  const std::optional<foundation::NodeId> trackNodeId = firstVisualTrackNodeId(snapshot.value());
+  if (!trackNodeId.has_value()) {
+    return foundation::Error{
+      "steward.visual_track_missing",
+      "Steward text creation requires an existing visual track."
+    };
+  }
+
+  auto runId = startRun(snapshot.value(), intent);
+  if (!runId) {
+    return runId.error();
+  }
+
+  TextClipIntentDefaults defaults = planner_.textClipDefaultsForIntent(intent);
+  const timeline::TextClipPayload payload{
+    defaults.text,
+    foundation::TimeRange{start, foundation::TimeSeconds{start.value + defaults.duration.value}},
+    defaults.transform,
+    defaults.style
+  };
+
+  auto message = appendEvent(
+    runId.value(),
+    agent::AgentRunEventKind::ModelMessage,
+    modelMessagePayload("assistant", "Creating an editable text clip.")
+  );
+  if (!message) {
+    return message.error();
+  }
+
+  std::optional<storage::ProjectPackageSessionResult> packageResult;
+  std::optional<foundation::NodeId> textClipNodeId;
+  CommittingAgentCommandService stewardCommands{
+    project_,
+    commandWriter_,
+    intent,
+    packageResult,
+    &textClipNodeId
+  };
+  agent::AgentToolRegistry registry;
+  auto registered = agent::registerProjectTools(registry);
+  if (!registered) {
+    auto finished = finishRunWithError(runId.value(), registered.error());
+    if (!finished) {
+      return finished.error();
+    }
+    return registered.error();
+  }
+
+  agent::AgentToolContext toolContext{stewardCommands, project_, commandWriter_};
+  agent::AgentBridge bridge{registry, toolContext, events_, nextSequence_};
+  auto dispatched = bridge.dispatchToolCall(agent::AgentToolDispatchRequest{
+    runId.value(),
+    snapshot.value().info.id,
+    snapshot.value().revision,
+    stewardCreateTextClipToolCallIdForRun(runId.value()),
+    CanonicalCreateTextClipToolId,
+    textClipArgumentsPayload(trackNodeId.value(), payload)
+  });
+  if (!dispatched) {
+    auto finished = finishRunWithError(runId.value(), dispatched.error());
+    if (!finished) {
+      return finished.error();
+    }
+    return dispatched.error();
+  }
+  if (!packageResult.has_value() || !textClipNodeId.has_value()) {
+    const foundation::Error error{
+      "steward.text_clip_result_missing",
+      "Steward text creation tool succeeded without a committed text clip result."
+    };
+    auto finished = finishRunWithError(runId.value(), error);
+    if (!finished) {
+      return finished.error();
+    }
+    return error;
+  }
+
+  auto runFinished = appendEvent(
+    runId.value(),
+    agent::AgentRunEventKind::RunFinished,
+    runFinishedPayload("succeeded", "Created editable text clip.")
+  );
+  if (!runFinished) {
+    return runFinished.error();
+  }
+
+  markRunStatus(runId.value(), agent::AgentRunStatus::Succeeded);
+  return NativeStewardTextClipResult{packageResult.value(), textClipNodeId.value()};
 }
 
 foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::editClip(
@@ -706,6 +868,10 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::e
 
 bool NativeStewardSession::clipEditIntentTargetsClip(const std::string& intent) const {
   return planner_.clipEditIntentTargetsClip(intent);
+}
+
+bool NativeStewardSession::textClipIntentTargetsText(const std::string& intent) const {
+  return planner_.textClipIntentTargetsText(intent);
 }
 
 foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::adjustCameraTransformControls(

@@ -179,6 +179,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   bool addEffectSmoke = false;
   bool clipEffectControlsSmoke = false;
   bool stewardSubmitShortcutSmoke = false;
+  bool stewardTextClipSmoke = false;
   bool setEffectParamSmoke = false;
   bool effectKeyframeSmoke = false;
   bool stewardMotionSmoke = false;
@@ -259,6 +260,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       clipEffectControlsSmoke = true;
     } else if (argument == "--steward-submit-shortcut-smoke") {
       stewardSubmitShortcutSmoke = true;
+    } else if (argument == "--steward-text-clip-smoke") {
+      stewardTextClipSmoke = true;
     } else if (argument == "--set-effect-param-smoke") {
       setEffectParamSmoke = true;
     } else if (argument == "--effect-keyframe-smoke") {
@@ -300,7 +303,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     } else if (argument == "--effect-screenshot" && index + 1 < argc) {
       effectScreenshotPath = argv[++index];
     } else {
-      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --select-audio-clip-smoke, --select-audio-track-smoke, --select-camera-smoke, --select-second-camera-smoke, --steward-smoke, --import-smoke, --import-media-types-smoke, --add-video-smoke, --empty-add-video-smoke, --empty-add-video-undo-smoke, --empty-add-text-smoke, --empty-add-track-smoke, --empty-add-camera-smoke, --update-camera-smoke, --add-note-smoke, --update-note-smoke, --move-clip-smoke, --trim-clip-smoke, --clip-timing-panel-smoke, --nudge-clip-smoke, --undo-redo-smoke, --add-effect-smoke, --clip-effect-controls-smoke, --steward-submit-shortcut-smoke, --set-effect-param-smoke, --effect-keyframe-smoke, --steward-motion-smoke, --steward-zoom-motion-smoke, --steward-clip-transform-smoke, --delete-effect-smoke, --delete-smoke, --delete-track-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, --new-package-smoke, --export-settings-smoke, --product-loop-smoke, --empty-launch-smoke, --empty-save-smoke, --open-package <path>, --new-package <path>, --screenshot <path>, or --effect-screenshot <path>.\n";
+      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --select-audio-clip-smoke, --select-audio-track-smoke, --select-camera-smoke, --select-second-camera-smoke, --steward-smoke, --import-smoke, --import-media-types-smoke, --add-video-smoke, --empty-add-video-smoke, --empty-add-video-undo-smoke, --empty-add-text-smoke, --empty-add-track-smoke, --empty-add-camera-smoke, --update-camera-smoke, --add-note-smoke, --update-note-smoke, --move-clip-smoke, --trim-clip-smoke, --clip-timing-panel-smoke, --nudge-clip-smoke, --undo-redo-smoke, --add-effect-smoke, --clip-effect-controls-smoke, --steward-submit-shortcut-smoke, --steward-text-clip-smoke, --set-effect-param-smoke, --effect-keyframe-smoke, --steward-motion-smoke, --steward-zoom-motion-smoke, --steward-clip-transform-smoke, --delete-effect-smoke, --delete-smoke, --delete-track-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, --new-package-smoke, --export-settings-smoke, --product-loop-smoke, --empty-launch-smoke, --empty-save-smoke, --open-package <path>, --new-package <path>, --screenshot <path>, or --effect-screenshot <path>.\n";
       return 1;
     }
   }
@@ -344,6 +347,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     addEffectSmoke ||
     clipEffectControlsSmoke ||
     stewardSubmitShortcutSmoke ||
+    stewardTextClipSmoke ||
     setEffectParamSmoke ||
     effectKeyframeSmoke ||
     stewardMotionSmoke ||
@@ -555,6 +559,39 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            clip.style.fontSize == 72.0 &&
            clip.transform.opacity == 0.5 &&
            window.currentDetailTabText() == "Text"
+      ? 0
+      : 1;
+  }
+
+  if (stewardTextClipSmoke) {
+    window.setStewardIntent("Add title \"Opening Title\".");
+    window.clickStewardPrimaryAction();
+    const auto viewModel = workspace.value().project().buildViewModel();
+    if (!viewModel) {
+      printError(viewModel.error());
+      return 1;
+    }
+    if (viewModel.value().timeline.textClips.empty()) {
+      std::cerr << "No Steward text clip was created.\n";
+      return 1;
+    }
+
+    const grapple::app::AppTextClipRow& clip = viewModel.value().timeline.textClips.back();
+    const auto conversation = workspace.value().steward().conversationState();
+    std::cout << "text=" << clip.text << '\n';
+    std::cout << "fontSize=" << clip.style.fontSize << '\n';
+    std::cout << "positionY=" << clip.transform.position.y << '\n';
+    std::cout << "tab=" << window.currentDetailTabText() << '\n';
+    std::cout << "runs=" << conversation.runs.size() << '\n';
+    return viewModel.value().timeline.textClips.size() == 1 &&
+           clip.text == "Opening Title" &&
+           clip.style.fontSize == 64.0 &&
+           clip.transform.position.y == 0.35 &&
+           window.currentDetailTabText() == "Text" &&
+           window.stewardIntent().empty() &&
+           conversation.runs.size() == 1 &&
+           conversation.runs[0].toolCalls.size() == 1 &&
+           conversation.runs[0].toolCalls[0].toolSerializedId == "timeline.create_text_clip"
       ? 0
       : 1;
   }

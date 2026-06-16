@@ -194,6 +194,9 @@ StewardPanel::StewardPanel(QWidget* parent)
     if (tryEditSelectedClipFromPrimaryAction()) {
       return;
     }
+    if (tryCreateTextClipFromPrimaryAction()) {
+      return;
+    }
 
     switch (primaryAction_) {
       case PrimaryAction::AddCamera:
@@ -311,6 +314,10 @@ void StewardPanel::setEditSelectedClipHandler(EditSelectedClipHandler handler) {
 
 void StewardPanel::setTryEditSelectedClipHandler(TryEditSelectedClipHandler handler) {
   tryEditSelectedClipHandler_ = std::move(handler);
+}
+
+void StewardPanel::setTryCreateTextClipHandler(TryCreateTextClipHandler handler) {
+  tryCreateTextClipHandler_ = std::move(handler);
 }
 
 void StewardPanel::setSelectEditTargetHandler(SelectEditTargetHandler handler) {
@@ -599,33 +606,33 @@ void StewardPanel::updateIntentPlaceholder() {
   const bool selectedClipActionAvailable = selectedClipTargetNodeId_.has_value();
   switch (primaryAction_) {
     case PrimaryAction::ImportMedia:
-      intent_->setPlaceholderText("Import media to start. Then try: \"slowly zoom in\", \"speed up clip\", or \"shorten clip\".");
+      intent_->setPlaceholderText("Import media to start. Then try: \"slowly zoom in\", \"add title \\\"Opening\\\"\", \"speed up clip\", or \"shorten clip\".");
       return;
     case PrimaryAction::AddSelectedMedia:
-      intent_->setPlaceholderText("Add selected media to the timeline. Then try: \"center the subject\".");
+      intent_->setPlaceholderText("Add selected media to the timeline. Then try: \"center the subject\" or \"add title \\\"Opening\\\"\".");
       return;
     case PrimaryAction::AddCamera:
-      intent_->setPlaceholderText("Add a camera first. Then try: \"center the subject and zoom in a little\".");
+      intent_->setPlaceholderText("Try: \"add title \\\"Opening\\\"\", or add a camera for editable framing.");
       return;
     case PrimaryAction::ShowCameraControls:
       intent_->setPlaceholderText(
         selectedClipActionAvailable
-          ? "Try: \"zoom in a little\", \"slowly pan right\", or use the clip action for \"rotate clip slightly left\"."
-          : "Show camera controls, then try: \"zoom in a little\" or \"slowly pan left\"."
+          ? "Try: \"add title \\\"Opening\\\"\", \"zoom in a little\", or use the clip action for \"rotate clip slightly left\"."
+          : "Try: \"add title \\\"Opening\\\"\", or show camera controls for \"zoom in a little\"."
       );
       return;
     case PrimaryAction::CreateCameraEffect:
       intent_->setPlaceholderText(
         selectedClipActionAvailable
-          ? "Try: \"center the subject\", \"zoom in a little\", or use the clip action for \"speed up clip\"."
-          : "Try: \"center the subject\", \"zoom in a little\", or \"slowly pan right\"."
+          ? "Try: \"add title \\\"Opening\\\"\", \"center the subject\", or use the clip action for \"speed up clip\"."
+          : "Try: \"add title \\\"Opening\\\"\", \"center the subject\", or \"slowly pan right\"."
       );
       return;
     case PrimaryAction::AdjustCameraControls:
       intent_->setPlaceholderText(
         selectedClipActionAvailable
-          ? "Try: \"move far right\", \"zoom in a little\", \"reset camera\", or use the clip action for \"move clip later\"."
-          : "Try: \"move far right\", \"zoom in a little\", \"reset camera\", or \"slowly pan left\"."
+          ? "Try: \"add title \\\"Opening\\\"\", \"move far right\", \"zoom in a little\", or use the clip action for \"move clip later\"."
+          : "Try: \"add title \\\"Opening\\\"\", \"move far right\", \"zoom in a little\", \"reset camera\", or \"slowly pan left\"."
       );
       return;
     case PrimaryAction::Disabled:
@@ -642,6 +649,19 @@ bool StewardPanel::tryEditSelectedClipFromPrimaryAction() {
   }
 
   return tryEditSelectedClipHandler_(selectedClipTargetNodeId_.value(), intent());
+}
+
+bool StewardPanel::tryCreateTextClipFromPrimaryAction() {
+  if (!intentHasText() || !tryCreateTextClipHandler_) {
+    return false;
+  }
+  if (primaryAction_ == PrimaryAction::ImportMedia ||
+      primaryAction_ == PrimaryAction::AddSelectedMedia ||
+      primaryAction_ == PrimaryAction::Disabled) {
+    return false;
+  }
+
+  return tryCreateTextClipHandler_(intent());
 }
 
 bool StewardPanel::intentHasText() const {

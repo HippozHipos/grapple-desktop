@@ -26,6 +26,7 @@ public:
   using AdjustCameraControlsHandler = std::function<void(foundation::NodeId, std::string)>;
   using EditSelectedClipHandler = std::function<void(foundation::NodeId, std::string)>;
   using TryEditSelectedClipHandler = std::function<bool(foundation::NodeId, std::string)>;
+  using TryCreateTextClipHandler = std::function<bool(std::string)>;
   using SelectEditTargetHandler = std::function<void(foundation::NodeId)>;
 
   explicit StewardPanel(QWidget* parent = nullptr);
@@ -38,6 +39,7 @@ public:
   void setAdjustCameraControlsHandler(AdjustCameraControlsHandler handler);
   void setEditSelectedClipHandler(EditSelectedClipHandler handler);
   void setTryEditSelectedClipHandler(TryEditSelectedClipHandler handler);
+  void setTryCreateTextClipHandler(TryCreateTextClipHandler handler);
   void setSelectEditTargetHandler(SelectEditTargetHandler handler);
   void setViewModel(
     const app::AppViewModel& viewModel,
@@ -75,6 +77,7 @@ private:
   void updateActionLabels();
   void updateIntentPlaceholder();
   [[nodiscard]] bool tryEditSelectedClipFromPrimaryAction();
+  [[nodiscard]] bool tryCreateTextClipFromPrimaryAction();
   [[nodiscard]] bool intentHasText() const;
   [[nodiscard]] bool primaryActionCanRun() const;
   [[nodiscard]] bool selectedClipActionCanRun() const;
@@ -87,6 +90,7 @@ private:
   AdjustCameraControlsHandler adjustCameraControlsHandler_;
   EditSelectedClipHandler editSelectedClipHandler_;
   TryEditSelectedClipHandler tryEditSelectedClipHandler_;
+  TryCreateTextClipHandler tryCreateTextClipHandler_;
   SelectEditTargetHandler selectEditTargetHandler_;
   PrimaryAction primaryAction_ = PrimaryAction::Disabled;
   std::optional<foundation::NodeId> primaryTargetCameraNodeId_;

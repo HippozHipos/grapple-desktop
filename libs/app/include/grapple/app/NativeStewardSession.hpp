@@ -21,6 +21,11 @@ struct NativeStewardMediaPlacementResult {
   foundation::NodeId clipNodeId;
 };
 
+struct NativeStewardTextClipResult {
+  storage::ProjectPackageSessionResult packageResult;
+  foundation::NodeId textClipNodeId;
+};
+
 class NativeStewardSession final {
 public:
   NativeStewardSession(NativeProjectSession& project, NativeProjectCommandWriter& commandWriter);
@@ -34,11 +39,16 @@ public:
     foundation::AssetId assetId,
     std::optional<foundation::TimeSeconds> duration = std::nullopt
   );
+  foundation::Result<NativeStewardTextClipResult> createTextClip(
+    std::string intent,
+    foundation::TimeSeconds start
+  );
   foundation::Result<storage::ProjectPackageSessionResult> editClip(
     foundation::NodeId clipNodeId,
     std::string intent
   );
   [[nodiscard]] bool clipEditIntentTargetsClip(const std::string& intent) const;
+  [[nodiscard]] bool textClipIntentTargetsText(const std::string& intent) const;
   foundation::Result<storage::ProjectPackageSessionResult> adjustCameraTransformControls(
     foundation::NodeId cameraNodeId,
     std::string intent,

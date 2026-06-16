@@ -57,6 +57,13 @@ struct ClipEditIntent {
   bool playbackRateChanged = false;
 };
 
+struct TextClipIntentDefaults {
+  std::string text;
+  foundation::TimeSeconds duration{3.0};
+  timeline::Transform2D transform;
+  timeline::TextClipStyle style;
+};
+
 class NativeStewardPlanner final {
 public:
   [[nodiscard]] CameraTransformIntentDefaults cameraTransformDefaultsForIntent(
@@ -68,6 +75,8 @@ public:
   ) const;
   [[nodiscard]] bool cameraIntentRequestsExplicitMotion(const std::string& intent) const;
   [[nodiscard]] bool clipEditIntentTargetsClip(const std::string& intent) const;
+  [[nodiscard]] bool textClipIntentTargetsText(const std::string& intent) const;
+  [[nodiscard]] TextClipIntentDefaults textClipDefaultsForIntent(const std::string& intent) const;
   [[nodiscard]] foundation::Result<ClipEditIntent> clipEditForIntent(
     const timeline::ClipPayload& current,
     const std::string& intent

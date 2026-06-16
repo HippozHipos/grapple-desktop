@@ -790,6 +790,9 @@ public:
     ) {
       return editSelectedClipWithPrimaryIntent(std::move(clipNodeId), std::move(intent));
     });
+    steward_->setTryCreateTextClipHandler([this](std::string intent) {
+      return createTextClipWithPrimaryIntent(std::move(intent));
+    });
     steward_->setSelectEditTargetHandler([this](grapple::foundation::NodeId targetNodeId) {
       selectNode(std::move(targetNodeId));
     });
@@ -2605,6 +2608,29 @@ public:
     }
 
     editSelectedClipWithSteward(std::move(clipNodeId), std::move(intent));
+    return true;
+  }
+
+  bool createTextClipWithPrimaryIntent(std::string intent) {
+    if (!workspace_.steward().textClipIntentTargetsText(intent)) {
+      return false;
+    }
+
+    const auto created = workspace_.steward().createTextClip(
+      std::move(intent),
+      workspace_.preview().state().playhead
+    );
+    if (!created) {
+      appendError(created.error());
+      refreshViewModel();
+      return true;
+    }
+
+    selectedNodeId_ = created.value().textClipNodeId;
+    selectedAssetId_ = std::nullopt;
+    refreshViewModelAndPreview();
+    steward_->setIntent({});
+    log_->append("Steward created text clip");
     return true;
   }
 

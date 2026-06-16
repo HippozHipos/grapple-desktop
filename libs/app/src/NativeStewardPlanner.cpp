@@ -6,6 +6,8 @@
 #include <algorithm>
 #include <cctype>
 #include <initializer_list>
+#include <optional>
+#include <string>
 #include <string_view>
 #include <variant>
 
@@ -22,6 +24,10 @@ constexpr double CameraTransformZoomInStep = 0.25;
 constexpr double CameraTransformZoomOutStep = 0.2;
 constexpr double ClipRotationStepDegrees = 15.0;
 constexpr double ClipTimingStepSeconds = 1.0;
+constexpr double TitleTextPositionY = 0.35;
+constexpr double LowerThirdTextPositionY = -0.35;
+constexpr double TitleTextFontSize = 64.0;
+constexpr double LowerThirdTextFontSize = 44.0;
 
 std::string lowercaseAscii(std::string value) {
   for (char& character : value) {
@@ -59,6 +65,29 @@ bool startsWithText(std::string_view value, std::string_view text) {
 std::string_view trimLeft(std::string_view value) {
   while (!value.empty() && std::isspace(static_cast<unsigned char>(value.front())) != 0) {
     value.remove_prefix(1);
+  }
+  return value;
+}
+
+std::string trimCopy(std::string_view value) {
+  while (!value.empty() && std::isspace(static_cast<unsigned char>(value.front())) != 0) {
+    value.remove_prefix(1);
+  }
+  while (!value.empty() && std::isspace(static_cast<unsigned char>(value.back())) != 0) {
+    value.remove_suffix(1);
+  }
+  return std::string{value};
+}
+
+std::string stripLeadingTextSeparators(std::string value) {
+  value = trimCopy(value);
+  while (!value.empty() && (value.front() == ':' || value.front() == '-' || value.front() == '"' || value.front() == '\'')) {
+    value.erase(value.begin());
+    value = trimCopy(value);
+  }
+  while (!value.empty() && (value.back() == '"' || value.back() == '\'' || value.back() == '.')) {
+    value.pop_back();
+    value = trimCopy(value);
   }
   return value;
 }
@@ -150,6 +179,60 @@ bool cameraIntentRequestsCenter(const std::string& normalized) {
 
 bool cameraIntentRequestsReset(const std::string& normalized) {
   return containsAsciiWord(normalized, "reset");
+}
+
+bool textIntentRequestsText(const std::string& normalized) {
+  return containsAsciiWord(normalized, "title") ||
+         containsAsciiWord(normalized, "text") ||
+         containsAsciiWord(normalized, "caption") ||
+         containsText(normalized, "lower third") ||
+         containsAsciiWord(normalized, "label");
+}
+
+bool textIntentRequestsLowerThird(const std::string& normalized) {
+  return containsText(normalized, "lower third") ||
+         containsAsciiWord(normalized, "caption");
+}
+
+std::optional<std::string> quotedTextFromIntent(const std::string& intent) {
+  for (char quote : {'"', '\''}) {
+    const std::size_t start = intent.find(quote);
+    if (start == std::string::npos) {
+      continue;
+    }
+    const std::size_t end = intent.find(quote, start + 1);
+    if (end == std::string::npos || end == start + 1) {
+      continue;
+    }
+    return intent.substr(start + 1, end - start - 1);
+  }
+  return std::nullopt;
+}
+
+std::string unquotedTextFromIntent(const std::string& intent, const std::string& normalized) {
+  for (std::string_view marker : {
+         std::string_view{"that says"},
+         std::string_view{"saying"},
+         std::string_view{"called"},
+         std::string_view{"title"},
+         std::string_view{"caption"},
+         std::string_view{"lower third"},
+         std::string_view{"text"},
+         std::string_view{"label"}
+       }) {
+    const std::size_t markerPosition = normalized.find(marker);
+    if (markerPosition == std::string::npos) {
+      continue;
+    }
+    const std::size_t textStart = markerPosition + marker.size();
+    if (textStart < intent.size()) {
+      const std::string text = stripLeadingTextSeparators(intent.substr(textStart));
+      if (!text.empty()) {
+        return text;
+      }
+    }
+  }
+  return "Title";
 }
 
 bool clipIntentRequestsRotation(const std::string& normalized) {
@@ -558,6 +641,24 @@ bool NativeStewardPlanner::clipEditIntentTargetsClip(const std::string& intent) 
     },
     intent
   ));
+}
+
+bool NativeStewardPlanner::textClipIntentTargetsText(const std::string& intent) const {
+  return textIntentRequestsText(lowercaseAscii(intent));
+}
+
+TextClipIntentDefaults NativeStewardPlanner::textClipDefaultsForIntent(const std::string& intent) const {
+  const std::string normalized = lowercaseAscii(intent);
+  TextClipIntentDefaults defaults;
+  defaults.text = quotedTextFromIntent(intent).value_or(unquotedTextFromIntent(intent, normalized));
+  defaults.transform.position.y = textIntentRequestsLowerThird(normalized)
+    ? LowerThirdTextPositionY
+    : TitleTextPositionY;
+  defaults.style.fontSize = textIntentRequestsLowerThird(normalized)
+    ? LowerThirdTextFontSize
+    : TitleTextFontSize;
+  defaults.style.color = foundation::Vec3{1.0, 1.0, 1.0};
+  return defaults;
 }
 
 foundation::Result<ClipEditIntent> NativeStewardPlanner::clipEditForIntent(

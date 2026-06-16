@@ -148,6 +148,9 @@ foundation::Result<std::string> nodeDisplayName(
     }
     return assetName.value();
   }
+  if (const auto* textClip = std::get_if<timeline::TextClipPayload>(&node->payload)) {
+    return textClip->text;
+  }
 
   return nodeId.value();
 }
@@ -240,6 +243,12 @@ std::string effectParamValueSummary(
 std::string timeDisplayText(foundation::TimeSeconds time) {
   std::ostringstream output;
   output << time.value;
+  return output.str();
+}
+
+std::string numberDisplayText(double value) {
+  std::ostringstream output;
+  output << value;
   return output.str();
 }
 
@@ -706,6 +715,22 @@ foundation::Result<AppCommandProvenance> appCommandProvenance(
           "Start=" + timeDisplayText(addMedia->clip.payload.timelineRange.start) +
             "s, Duration=" + timeDisplayText(foundation::TimeSeconds{addMedia->clip.payload.timelineRange.duration()}) +
             "s"
+        });
+      } else if (const auto* createText = std::get_if<project::CreateTextClipCommand>(&parsedCommand.value())) {
+        auto targetName = nodeDisplayName(snapshot, createText->nodeId);
+        if (!targetName) {
+          return targetName.error();
+        }
+        provenance.stewardEdits.push_back(AppStewardEditRow{
+          command.id,
+          command.afterRevision,
+          createText->nodeId,
+          targetName.value(),
+          "Text Clip",
+          intent,
+          "Start=" + timeDisplayText(createText->payload.timelineRange.start) +
+            "s, Duration=" + timeDisplayText(foundation::TimeSeconds{createText->payload.timelineRange.duration()}) +
+            "s, Font=" + numberDisplayText(createText->payload.style.fontSize)
         });
       }
     }
