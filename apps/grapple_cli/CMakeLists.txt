@@ -8,3 +8,7 @@ target_link_libraries(grapple_cli
     Grapple::DemoProject
     Grapple::Projection
 )
+
+install(TARGETS grapple_cli
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)

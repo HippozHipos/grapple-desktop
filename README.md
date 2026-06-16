@@ -28,3 +28,10 @@ cmake -S . -B build
 cmake --build build
 ctest --test-dir build --output-on-failure
 ```
+
+## Install Locally
+
+```bash
+cmake --install build --prefix /tmp/grapple-native
+/tmp/grapple-native/bin/grapple_desktop
+```

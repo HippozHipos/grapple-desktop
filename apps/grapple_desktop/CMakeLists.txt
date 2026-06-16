@@ -21,3 +21,7 @@ target_include_directories(grapple_desktop
   PRIVATE
     ${OpenCV_INCLUDE_DIRS}
 )
+
+install(TARGETS grapple_desktop
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
