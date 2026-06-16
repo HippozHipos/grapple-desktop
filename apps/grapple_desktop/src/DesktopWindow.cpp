@@ -656,12 +656,6 @@ public:
     setCameraFocalLengthAction_ = moreMenu->addAction("Set Camera Focal Length");
     auto* addNoteAction = moreMenu->addAction("Add Note");
     editNoteAction_ = moreMenu->addAction("Edit Note");
-    moveClipAction_ = moreMenu->addAction("Move Clip +1s");
-    trimClipAction_ = moreMenu->addAction("Trim Clip End -1s");
-    nudgeClipXAction_ = moreMenu->addAction("Nudge Clip X +0.1");
-    nudgeClipYAction_ = moreMenu->addAction("Nudge Clip Y +0.1");
-    scaleClipAction_ = moreMenu->addAction("Scale Clip 1.25x");
-    opacityClipAction_ = moreMenu->addAction("Set Clip Opacity 0.5");
     deleteClipAction_ = moreMenu->addAction("Delete Clip");
     deleteTrackAction_ = moreMenu->addAction("Delete Track");
     moreButton->setMenu(moreMenu);
@@ -761,12 +755,6 @@ public:
     connect(setCameraFocalLengthAction_, &QAction::triggered, this, [this] { editSelectedCameraFocalLength(); });
     connect(addNoteAction, &QAction::triggered, this, [this] { addNote(); });
     connect(editNoteAction_, &QAction::triggered, this, [this] { editSelectedNote(); });
-    connect(moveClipAction_, &QAction::triggered, this, [this] { moveSelectedClip(grapple::foundation::TimeSeconds{1.0}); });
-    connect(trimClipAction_, &QAction::triggered, this, [this] { trimSelectedClipEnd(grapple::foundation::TimeSeconds{-1.0}); });
-    connect(nudgeClipXAction_, &QAction::triggered, this, [this] { nudgeSelectedClipX(0.1); });
-    connect(nudgeClipYAction_, &QAction::triggered, this, [this] { nudgeSelectedClipY(0.1); });
-    connect(scaleClipAction_, &QAction::triggered, this, [this] { setSelectedClipUniformScale(1.25); });
-    connect(opacityClipAction_, &QAction::triggered, this, [this] { setSelectedClipOpacity(0.5); });
     connect(deleteClipAction_, &QAction::triggered, this, [this] { deleteSelectedClip(); });
     connect(deleteTrackAction_, &QAction::triggered, this, [this] { deleteSelectedTrack(); });
     connect(exportButton_, &QPushButton::clicked, this, [this] { chooseAndExportVideo(); });
@@ -1417,12 +1405,6 @@ public:
 
   bool selectedClipMenuActionsEnabled() const {
     return actionsEnabled({
-      moveClipAction_,
-      trimClipAction_,
-      nudgeClipXAction_,
-      nudgeClipYAction_,
-      scaleClipAction_,
-      opacityClipAction_,
       deleteClipAction_
     });
   }
@@ -3542,15 +3524,7 @@ private:
     }
     setActionsEnabled({renameCameraAction_, setCameraFocalLengthAction_}, selectedCamera);
     setActionsEnabled({editNoteAction_}, selectedNote);
-    setActionsEnabled({
-      moveClipAction_,
-      trimClipAction_,
-      nudgeClipXAction_,
-      nudgeClipYAction_,
-      scaleClipAction_,
-      opacityClipAction_,
-      deleteClipAction_
-    }, selectedClip);
+    setActionsEnabled({deleteClipAction_}, selectedClip);
     setActionsEnabled({deleteTrackAction_}, selectedTrack);
     const bool unsaved =
       currentProjectRevision_.has_value() &&
@@ -3926,12 +3900,6 @@ private:
   QAction* renameCameraAction_ = nullptr;
   QAction* setCameraFocalLengthAction_ = nullptr;
   QAction* editNoteAction_ = nullptr;
-  QAction* moveClipAction_ = nullptr;
-  QAction* trimClipAction_ = nullptr;
-  QAction* nudgeClipXAction_ = nullptr;
-  QAction* nudgeClipYAction_ = nullptr;
-  QAction* scaleClipAction_ = nullptr;
-  QAction* opacityClipAction_ = nullptr;
   QAction* deleteClipAction_ = nullptr;
   QAction* deleteTrackAction_ = nullptr;
   QTimer* playbackTimer_ = nullptr;
