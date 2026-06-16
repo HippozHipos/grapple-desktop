@@ -524,10 +524,10 @@ foundation::Result<void> ProjectController::handleTrimClip(const TrimClipCommand
   if (payload == nullptr) {
     return foundation::Error{"project.clip_payload_invalid", "Clip trim requires a clip payload."};
   }
-  if (command.timelineRange.start.value < 0.0 || command.timelineRange.end.value < command.timelineRange.start.value) {
+  if (command.timelineRange.start.value < 0.0 || command.timelineRange.end.value <= command.timelineRange.start.value) {
     return foundation::Error{"project.clip_timeline_range_invalid", "Clip trim requires a non-negative timeline range with end after start."};
   }
-  if (command.sourceRange.start.value < 0.0 || command.sourceRange.end.value < command.sourceRange.start.value) {
+  if (command.sourceRange.start.value < 0.0 || command.sourceRange.end.value <= command.sourceRange.start.value) {
     return foundation::Error{"project.clip_source_range_invalid", "Clip trim requires a non-negative source range with end after start."};
   }
 

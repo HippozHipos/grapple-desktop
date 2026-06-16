@@ -1075,6 +1075,32 @@ int main() {
   });
   GRAPPLE_REQUIRE(!trimClipInvalidTimelineRange);
   GRAPPLE_REQUIRE(trimClipInvalidTimelineRange.error().code == "project.clip_timeline_range_invalid");
+  const auto trimClipZeroTimelineRange = moveClipProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_trim_clip_zero_timeline"},
+    foundation::ProjectId{"proj_move_clip"},
+    afterTrimClip.value().revision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::TrimClipCommand{
+      foundation::NodeId{"node_move_clip"},
+      foundation::TimeRange{foundation::TimeSeconds{5.0}, foundation::TimeSeconds{5.0}},
+      foundation::TimeRange{foundation::TimeSeconds{4.0}, foundation::TimeSeconds{7.0}}
+    }
+  });
+  GRAPPLE_REQUIRE(!trimClipZeroTimelineRange);
+  GRAPPLE_REQUIRE(trimClipZeroTimelineRange.error().code == "project.clip_timeline_range_invalid");
+  const auto trimClipZeroSourceRange = moveClipProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_trim_clip_zero_source"},
+    foundation::ProjectId{"proj_move_clip"},
+    afterTrimClip.value().revision,
+    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
+    project::TrimClipCommand{
+      foundation::NodeId{"node_move_clip"},
+      foundation::TimeRange{foundation::TimeSeconds{5.0}, foundation::TimeSeconds{8.0}},
+      foundation::TimeRange{foundation::TimeSeconds{4.0}, foundation::TimeSeconds{4.0}}
+    }
+  });
+  GRAPPLE_REQUIRE(!trimClipZeroSourceRange);
+  GRAPPLE_REQUIRE(trimClipZeroSourceRange.error().code == "project.clip_source_range_invalid");
   const auto trimMissingClip = moveClipProject.apply(project::ProjectCommandEnvelope{
     foundation::CommandId{"cmd_trim_missing_clip"},
     foundation::ProjectId{"proj_move_clip"},
