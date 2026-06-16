@@ -1051,7 +1051,7 @@ void StewardPanel::updateIntentPlaceholder() {
   }
   switch (primaryAction_) {
     case PrimaryAction::StartSample:
-      intent_->setPlaceholderText("Use Start Sample for the fastest editable demo, or use Import for your own media.");
+      intent_->setPlaceholderText("Use Start Sample for the fastest editable demo, or import/drop your own media.");
       return;
     case PrimaryAction::AddSelectedMedia:
       intent_->setPlaceholderText("Add selected media to the timeline. Then try: \"center the subject\", \"add audio track\", or \"add title \\\"Opening\\\"\".");

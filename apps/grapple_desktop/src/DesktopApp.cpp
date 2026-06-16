@@ -569,10 +569,10 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            !selectedNoteMenuActionEnabled &&
            stewardIntent.empty() &&
            timelineEmptyPrompt.find("Use Sample to start now") != std::string::npos &&
-           timelineEmptyPrompt.find("import media and add it") != std::string::npos &&
+           timelineEmptyPrompt.find("import/drop media, then double-click it") != std::string::npos &&
            timelineEmptyPrompt.find("Ask Steward for an editable change") != std::string::npos &&
            stewardIntentPlaceholder.find("Start Sample") != std::string::npos &&
-           stewardIntentPlaceholder.find("Import") != std::string::npos &&
+           stewardIntentPlaceholder.find("import/drop your own media") != std::string::npos &&
            steward.find("0 assets | 0 clips | 0 cameras | 0 editable effects") != std::string::npos &&
            steward.find("Next: start the sample, then try one suggested editable request.") != std::string::npos
       ? 0
