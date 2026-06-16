@@ -41,6 +41,7 @@
 #include <QListWidgetItem>
 #include <QMainWindow>
 #include <QMenu>
+#include <QMessageBox>
 #include <QMouseEvent>
 #include <QPushButton>
 #include <QScrollArea>
@@ -3836,6 +3837,9 @@ private:
     if (path.isEmpty()) {
       return;
     }
+    if (!confirmDiscardUnsavedChanges("Create New Package")) {
+      return;
+    }
     const std::string projectName = std::filesystem::path{path.toStdString()}.filename().string();
     newPackageRoot(grapple::foundation::FilePath{path.toStdString()}, projectName);
   }
@@ -3853,6 +3857,9 @@ private:
     if (path.isEmpty()) {
       return;
     }
+    if (!confirmDiscardUnsavedChanges("Open Package")) {
+      return;
+    }
     openPackageRoot(grapple::foundation::FilePath{path.toStdString()});
   }
 
@@ -3862,6 +3869,25 @@ private:
       return;
     }
     savePackageAs(grapple::foundation::FilePath{path.toStdString()});
+  }
+
+  [[nodiscard]] bool hasUnsavedChanges() const {
+    return currentProjectRevision_.has_value() &&
+           (!lastSavedRevision_.has_value() || lastSavedRevision_.value() != currentProjectRevision_.value());
+  }
+
+  [[nodiscard]] bool confirmDiscardUnsavedChanges(const char* title) {
+    if (!hasUnsavedChanges()) {
+      return true;
+    }
+    const QMessageBox::StandardButton choice = QMessageBox::warning(
+      this,
+      title,
+      "This package has unsaved changes. Discard them and continue?",
+      QMessageBox::Discard | QMessageBox::Cancel,
+      QMessageBox::Cancel
+    );
+    return choice == QMessageBox::Discard;
   }
 
   grapple::app::NativeWorkspaceSession& workspace_;
