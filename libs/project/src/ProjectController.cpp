@@ -450,45 +450,15 @@ foundation::Result<void> ProjectController::handleUpdateClip(const UpdateClipCom
   if (clip == nullptr || clip->kind != graph::NodeKind::Clip) {
     return foundation::Error{"project.clip_missing", "Clip updates require an existing clip node."};
   }
-  auto trackPayload = invariant::requireContainingTrackPayload(
-    document_.graph,
-    command.nodeId,
-    invariant::ContainingTrackPayloadErrors{
-      "project.clip_track_missing",
-      "Clip must be contained by a track.",
-      "project.clip_track_invalid",
-      "Clip containment source must be a track.",
-      "project.clip_track_invalid",
-      "Track node must carry a track payload."
-    }
-  );
-  if (!trackPayload) {
-    return trackPayload.error();
-  }
-  auto trackKind = invariant::requireClipMatchesTrackKind(
-    command.payload,
-    *trackPayload.value(),
-    "project.clip_track_kind_mismatch",
-    "Clip kind must match the containing track kind."
-  );
-  if (!trackKind) {
-    return trackKind.error();
-  }
-  const asset::Asset* asset = document_.assets.find(command.payload.assetId);
-  if (asset == nullptr) {
-    return foundation::Error{"project.clip_asset_missing", "Clip asset must be registered before a clip can reference it."};
-  }
-  auto assetKind = invariant::requireClipMatchesAssetMediaType(
-    command.payload,
-    *asset,
-    "project.clip_asset_kind_mismatch",
-    "Clip kind must match the registered asset media type."
-  );
-  if (!assetKind) {
-    return assetKind.error();
+  const auto* payload = std::get_if<timeline::ClipPayload>(&clip->payload);
+  if (payload == nullptr) {
+    return foundation::Error{"project.clip_payload_invalid", "Clip updates require a clip payload."};
   }
 
-  return document_.graph.replaceNodePayload(command.nodeId, command.payload);
+  timeline::ClipPayload updatedPayload = *payload;
+  updatedPayload.transform = command.transform;
+  updatedPayload.playbackRate = command.playbackRate;
+  return document_.graph.replaceNodePayload(command.nodeId, updatedPayload);
 }
 
 foundation::Result<void> ProjectController::handleMoveClip(const MoveClipCommand& command) {

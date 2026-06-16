@@ -137,7 +137,8 @@ std::string serializeCanonicalCommandPayload(const ProjectCommand& command) {
         stream << ",\"sourceRange\":" << timeline::serializeCanonicalTimeRange(typedCommand.sourceRange);
       } else if constexpr (std::is_same_v<Command, UpdateClipCommand>) {
         writeIdProperty(stream, "nodeId", typedCommand.nodeId.value());
-        stream << ",\"payload\":" << timeline::serializeCanonicalClipPayload(typedCommand.payload);
+        stream << ",\"transform\":" << timeline::serializeCanonicalTransform(typedCommand.transform);
+        stream << ",\"playbackRate\":" << typedCommand.playbackRate;
       } else if constexpr (std::is_same_v<Command, DeleteClipCommand>) {
         writeIdProperty(stream, "nodeId", typedCommand.nodeId.value());
       } else if constexpr (std::is_same_v<Command, CreateCameraCommand>) {

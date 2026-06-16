@@ -1694,7 +1694,7 @@ foundation::Result<ProjectCommand> deserializeCanonicalCommandPayload(
     return validatedCommand(ProjectCommand{TrimClipCommand{foundation::NodeId{nodeId.value()}, timelineRange.value(), sourceRange.value()}});
   }
   if (serializedName == "project.update_clip") {
-    auto members = requireOnlyMembers(root.value(), {"nodeId", "payload"}, "$");
+    auto members = requireOnlyMembers(root.value(), {"nodeId", "transform", "playbackRate"}, "$");
     if (!members) {
       return members.error();
     }
@@ -1702,15 +1702,19 @@ foundation::Result<ProjectCommand> deserializeCanonicalCommandPayload(
     if (!nodeId) {
       return nodeId.error();
     }
-    auto payloadObject = requiredObjectMember(root.value(), "payload", "$");
-    if (!payloadObject) {
-      return payloadObject.error();
+    auto transformObject = requiredObjectMember(root.value(), "transform", "$");
+    if (!transformObject) {
+      return transformObject.error();
     }
-    auto payload = parseClipPayload(payloadObject.value(), "$.payload");
-    if (!payload) {
-      return payload.error();
+    auto transform = parseTransform(transformObject.value(), "$.transform");
+    if (!transform) {
+      return transform.error();
     }
-    return validatedCommand(ProjectCommand{UpdateClipCommand{foundation::NodeId{nodeId.value()}, payload.value()}});
+    auto playbackRate = requiredDoubleMember(root.value(), "playbackRate", "$");
+    if (!playbackRate) {
+      return playbackRate.error();
+    }
+    return validatedCommand(ProjectCommand{UpdateClipCommand{foundation::NodeId{nodeId.value()}, transform.value(), playbackRate.value()}});
   }
   if (serializedName == "project.delete_clip") {
     auto members = requireOnlyMembers(root.value(), {"nodeId"}, "$");

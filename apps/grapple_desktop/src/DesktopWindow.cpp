@@ -2092,14 +2092,8 @@ public:
     const auto updated = workspace_.commandWriter().apply(
       grapple::project::UpdateClipCommand{
         selectedClip.sourceNodeId,
-        grapple::timeline::ClipPayload{
-          selectedClip.clipKind,
-          selectedClip.timelineRange,
-          selectedClip.sourceRange,
-          playbackRate,
-          selectedClip.assetId,
-          transform
-        }
+        transform,
+        playbackRate
       },
       userSource()
     );

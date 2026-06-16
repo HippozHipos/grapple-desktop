@@ -691,18 +691,11 @@ int main() {
   GRAPPLE_REQUIRE(mediaSnapshot.value().graph.hasNode(foundation::NodeId{"node_media_camera"}));
   GRAPPLE_REQUIRE(mediaSnapshot.value().graph.hasNode(foundation::NodeId{"node_media_clip"}));
 
-  const timeline::ClipPayload updatedClipPayload{
-    timeline::ClipKind::Video,
-    foundation::TimeRange{foundation::TimeSeconds{2.0}, foundation::TimeSeconds{12.0}},
-    foundation::TimeRange{foundation::TimeSeconds{1.0}, foundation::TimeSeconds{11.0}},
-    0.5,
-    foundation::AssetId{"asset_clip"},
-    timeline::Transform2D{
-      foundation::Vec2{3.0, 4.0},
-      foundation::Vec2{2.0, 2.0},
-      0.0,
-      1.0
-    }
+  const timeline::Transform2D updatedClipTransform{
+    foundation::Vec2{3.0, 4.0},
+    foundation::Vec2{2.0, 2.0},
+    0.0,
+    1.0
   };
   const project::ProjectCommandEnvelope updateClip{
     foundation::CommandId{"cmd_update_clip"},
@@ -711,50 +704,32 @@ int main() {
     project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
     project::UpdateClipCommand{
       foundation::NodeId{"node_clip"},
-      updatedClipPayload
+      updatedClipTransform,
+      0.5
     }
   };
   GRAPPLE_REQUIRE(project::commandKind(updateClip.payload) == project::CommandKind::UpdateClip);
-  GRAPPLE_REQUIRE(project::serializeCanonicalCommandPayload(updateClip.payload).find("\"nodeId\":\"node_clip\"") != std::string::npos);
-  GRAPPLE_REQUIRE(project::serializeCanonicalCommandPayload(updateClip.payload).find("\"end\":12") != std::string::npos);
-  const auto updateClipMissingAsset = clipProject.apply(project::ProjectCommandEnvelope{
-    foundation::CommandId{"cmd_update_clip_missing_asset"},
+  const std::string serializedUpdateClip = project::serializeCanonicalCommandPayload(updateClip.payload);
+  GRAPPLE_REQUIRE(serializedUpdateClip == "{\"nodeId\":\"node_clip\",\"transform\":{\"position\":{\"x\":3,\"y\":4},\"scale\":{\"x\":2,\"y\":2},\"rotationDegrees\":0,\"opacity\":1},\"playbackRate\":0.5}");
+  const auto parsedUpdateClip = project::deserializeCanonicalCommandPayload(
+    project::serializedCommandName(project::CommandKind::UpdateClip),
+    serializedUpdateClip
+  );
+  GRAPPLE_REQUIRE(parsedUpdateClip);
+  GRAPPLE_REQUIRE(project::serializeCanonicalCommandPayload(parsedUpdateClip.value()) == serializedUpdateClip);
+  const auto updateClipInvalidPlaybackRate = clipProject.apply(project::ProjectCommandEnvelope{
+    foundation::CommandId{"cmd_update_clip_invalid_playback_rate"},
     foundation::ProjectId{"proj_clip"},
     createClip.value().afterRevision,
     project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
     project::UpdateClipCommand{
       foundation::NodeId{"node_clip"},
-      timeline::ClipPayload{
-        timeline::ClipKind::Video,
-        foundation::TimeRange{foundation::TimeSeconds{2.0}, foundation::TimeSeconds{12.0}},
-        foundation::TimeRange{foundation::TimeSeconds{1.0}, foundation::TimeSeconds{11.0}},
-        0.5,
-        foundation::AssetId{"asset_missing_updated_clip"},
-        timeline::Transform2D{}
-      }
+      timeline::Transform2D{},
+      0.0
     }
   });
-  GRAPPLE_REQUIRE(!updateClipMissingAsset);
-  GRAPPLE_REQUIRE(updateClipMissingAsset.error().code == "project.clip_asset_missing");
-  const auto updateClipMismatchedAssetKind = clipProject.apply(project::ProjectCommandEnvelope{
-    foundation::CommandId{"cmd_update_clip_mismatched_asset_kind"},
-    foundation::ProjectId{"proj_clip"},
-    createClip.value().afterRevision,
-    project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
-    project::UpdateClipCommand{
-      foundation::NodeId{"node_clip"},
-      timeline::ClipPayload{
-        timeline::ClipKind::Image,
-        foundation::TimeRange{foundation::TimeSeconds{2.0}, foundation::TimeSeconds{12.0}},
-        foundation::TimeRange{foundation::TimeSeconds{1.0}, foundation::TimeSeconds{11.0}},
-        0.5,
-        foundation::AssetId{"asset_clip"},
-        timeline::Transform2D{}
-      }
-    }
-  });
-  GRAPPLE_REQUIRE(!updateClipMismatchedAssetKind);
-  GRAPPLE_REQUIRE(updateClipMismatchedAssetKind.error().code == "project.clip_asset_kind_mismatch");
+  GRAPPLE_REQUIRE(!updateClipInvalidPlaybackRate);
+  GRAPPLE_REQUIRE(updateClipInvalidPlaybackRate.error().code == "project.clip_playback_rate_invalid");
   const auto updateClipResult = clipProject.apply(updateClip);
   GRAPPLE_REQUIRE(updateClipResult);
   GRAPPLE_REQUIRE(updateClipResult.value().afterRevision == foundation::RevisionId{"rev_5"});
@@ -764,14 +739,19 @@ int main() {
   GRAPPLE_REQUIRE(updatedClipNode != nullptr);
   const auto* updatedClip = std::get_if<timeline::ClipPayload>(&updatedClipNode->payload);
   GRAPPLE_REQUIRE(updatedClip != nullptr);
-  GRAPPLE_REQUIRE(updatedClip->timelineRange.end == foundation::TimeSeconds{12.0});
+  GRAPPLE_REQUIRE(updatedClip->timelineRange.start == foundation::TimeSeconds{0.0});
+  GRAPPLE_REQUIRE(updatedClip->timelineRange.end == foundation::TimeSeconds{5.0});
+  GRAPPLE_REQUIRE(updatedClip->sourceRange.start == foundation::TimeSeconds{0.0});
+  GRAPPLE_REQUIRE(updatedClip->sourceRange.end == foundation::TimeSeconds{5.0});
+  GRAPPLE_REQUIRE(updatedClip->assetId == foundation::AssetId{"asset_clip"});
+  GRAPPLE_REQUIRE(updatedClip->kind == timeline::ClipKind::Video);
   GRAPPLE_REQUIRE(updatedClip->playbackRate == 0.5);
   const projection::TimelineProjector clipProjector;
   const auto clipTimeline = clipProjector.buildTimelineIR(projection::BuildTimelineIRRequest{
     afterClipUpdate.value()
   });
   GRAPPLE_REQUIRE(clipTimeline);
-  GRAPPLE_REQUIRE(clipTimeline.value().timeline.duration == foundation::TimeSeconds{12.0});
+  GRAPPLE_REQUIRE(clipTimeline.value().timeline.duration == foundation::TimeSeconds{5.0});
   const auto clipSnapshotRoundTrip = project::deserializeCanonicalProjectSnapshot(
     project::serializeCanonicalProjectSnapshot(afterClipUpdate.value())
   );
@@ -784,8 +764,8 @@ int main() {
   GRAPPLE_REQUIRE(roundTrippedClipNode != nullptr);
   const auto* roundTrippedClip = std::get_if<timeline::ClipPayload>(&roundTrippedClipNode->payload);
   GRAPPLE_REQUIRE(roundTrippedClip != nullptr);
-  GRAPPLE_REQUIRE(roundTrippedClip->timelineRange.end == foundation::TimeSeconds{12.0});
-  GRAPPLE_REQUIRE(roundTrippedClip->sourceRange.start == foundation::TimeSeconds{1.0});
+  GRAPPLE_REQUIRE(roundTrippedClip->timelineRange.end == foundation::TimeSeconds{5.0});
+  GRAPPLE_REQUIRE(roundTrippedClip->sourceRange.start == foundation::TimeSeconds{0.0});
   GRAPPLE_REQUIRE(roundTrippedClip->playbackRate == 0.5);
   GRAPPLE_REQUIRE(roundTrippedClip->transform.position.x == 3.0);
   GRAPPLE_REQUIRE(roundTrippedClip->transform.position.y == 4.0);
@@ -860,7 +840,8 @@ int main() {
     project::CommandSource{project::CommandSourceKind::User, std::nullopt, "test"},
     project::UpdateClipCommand{
       foundation::NodeId{"node_missing_clip"},
-      updatedClipPayload
+      updatedClipTransform,
+      0.5
     }
   });
   GRAPPLE_REQUIRE(!updateMissingClip);

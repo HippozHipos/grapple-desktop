@@ -622,8 +622,8 @@ foundation::Result<AppCommandProvenance> appCommandProvenance(
         if (!previousClip) {
           return previousClip.error();
         }
-        const bool transformChanged = updateClip->payload.transform != previousClip.value()->transform;
-        const bool playbackRateChanged = updateClip->payload.playbackRate != previousClip.value()->playbackRate;
+        const bool transformChanged = updateClip->transform != previousClip.value()->transform;
+        const bool playbackRateChanged = updateClip->playbackRate != previousClip.value()->playbackRate;
         if (!transformChanged && !playbackRateChanged) {
           continue;
         }
@@ -632,16 +632,16 @@ foundation::Result<AppCommandProvenance> appCommandProvenance(
         if (transformChanged) {
           appendSummaryPart(
             controlSummary,
-            "Position=" + paramValueDisplayText(updateClip->payload.transform.position) +
-              ", Scale=" + paramValueDisplayText(updateClip->payload.transform.scale) +
-              ", Rotation=" + paramValueDisplayText(updateClip->payload.transform.rotationDegrees) +
-              ", Opacity=" + paramValueDisplayText(updateClip->payload.transform.opacity)
+            "Position=" + paramValueDisplayText(updateClip->transform.position) +
+              ", Scale=" + paramValueDisplayText(updateClip->transform.scale) +
+              ", Rotation=" + paramValueDisplayText(updateClip->transform.rotationDegrees) +
+              ", Opacity=" + paramValueDisplayText(updateClip->transform.opacity)
           );
         }
         if (playbackRateChanged) {
           appendSummaryPart(
             controlSummary,
-            "Speed=" + playbackRateDisplayText(updateClip->payload.playbackRate)
+            "Speed=" + playbackRateDisplayText(updateClip->playbackRate)
           );
         }
 

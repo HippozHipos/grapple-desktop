@@ -20,12 +20,18 @@ foundation::Result<void> requireNonEmptyId(const Id& id, const char* code, const
   return requireNonEmpty(id.value(), code, message);
 }
 
+foundation::Result<void> validateClipPlaybackRate(double playbackRate);
+
 foundation::Result<void> validateClipPayload(const timeline::ClipPayload& payload) {
   auto assetId = requireNonEmptyId(payload.assetId, "project.clip_asset_id_empty", "Clip asset id must not be empty.");
   if (!assetId) {
     return assetId;
   }
-  if (!std::isfinite(payload.playbackRate) || payload.playbackRate <= 0.0) {
+  return validateClipPlaybackRate(payload.playbackRate);
+}
+
+foundation::Result<void> validateClipPlaybackRate(double playbackRate) {
+  if (!std::isfinite(playbackRate) || playbackRate <= 0.0) {
     return foundation::Error{"project.clip_playback_rate_invalid", "Clip playback rate must be a positive finite value."};
   }
   return {};
@@ -246,7 +252,7 @@ foundation::Result<void> validateProjectCommandShape(const ProjectCommand& comma
         if (!nodeId) {
           return nodeId;
         }
-        return validateClipPayload(typedCommand.payload);
+        return validateClipPlaybackRate(typedCommand.playbackRate);
       } else if constexpr (std::is_same_v<Command, DeleteClipCommand>) {
         return requireNonEmptyId(typedCommand.nodeId, "project.node_id_empty", "Command node id must not be empty.");
       } else if constexpr (std::is_same_v<Command, CreateCameraCommand>) {

@@ -2597,19 +2597,13 @@ AgentTool makeTimelineUpdateClipTransformTool() {
         project::CommandSource{project::CommandSourceKind::Agent, call.runId, "agent"},
         project::UpdateClipCommand{
           clipId,
-          timeline::ClipPayload{
-            currentPayload->kind,
-            currentPayload->timelineRange,
-            currentPayload->sourceRange,
-            currentPayload->playbackRate,
-            currentPayload->assetId,
-            timeline::Transform2D{
-              position.value(),
-              scale.value(),
-              rotationDegrees.value(),
-              opacity.value()
-            }
-          }
+          timeline::Transform2D{
+            position.value(),
+            scale.value(),
+            rotationDegrees.value(),
+            opacity.value()
+          },
+          currentPayload->playbackRate
         }
       });
       if (!command) {
@@ -2685,14 +2679,8 @@ AgentTool makeTimelineUpdateClipPlaybackRateTool() {
         project::CommandSource{project::CommandSourceKind::Agent, call.runId, "agent"},
         project::UpdateClipCommand{
           clipId,
-          timeline::ClipPayload{
-            currentPayload->kind,
-            currentPayload->timelineRange,
-            currentPayload->sourceRange,
-            playbackRate.value(),
-            currentPayload->assetId,
-            currentPayload->transform
-          }
+          currentPayload->transform,
+          playbackRate.value()
         }
       });
       if (!command) {

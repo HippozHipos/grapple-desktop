@@ -120,7 +120,8 @@ struct TrimClipCommand {
 
 struct UpdateClipCommand {
   foundation::NodeId nodeId;
-  timeline::ClipPayload payload;
+  timeline::Transform2D transform;
+  double playbackRate = 1.0;
 };
 
 struct DeleteClipCommand {
