@@ -38,6 +38,7 @@
 #include <QKeyEvent>
 #include <QLabel>
 #include <QLineEdit>
+#include <QList>
 #include <QListView>
 #include <QListWidget>
 #include <QListWidgetItem>
@@ -754,6 +755,12 @@ public:
     connect(deleteTrackAction_, &QAction::triggered, this, [this] { deleteSelectedTrack(); });
     connect(exportButton_, &QPushButton::clicked, this, [this] { chooseAndExportVideo(); });
     connect(saveButton_, &QPushButton::clicked, this, [this] { savePackage(); });
+    auto connectShortcut = [this](const QKeySequence& key, auto action) {
+      auto* shortcut = new QShortcut{key, this};
+      shortcut->setContext(Qt::WindowShortcut);
+      connect(shortcut, &QShortcut::activated, this, action);
+      connect(shortcut, &QShortcut::activatedAmbiguously, this, action);
+    };
     auto* saveShortcut = new QShortcut{QKeySequence::Save, this};
     saveShortcut->setContext(Qt::WindowShortcut);
     connect(saveShortcut, &QShortcut::activated, this, [this] {
@@ -761,6 +768,20 @@ public:
         savePackage();
       }
     });
+    for (const auto& key : QKeySequence::keyBindings(QKeySequence::Undo)) {
+      connectShortcut(key, [this] {
+        if (undoButton_ != nullptr && undoButton_->isEnabled()) {
+          undoLastEdit();
+        }
+      });
+    }
+    for (const auto& key : QKeySequence::keyBindings(QKeySequence::Redo)) {
+      connectShortcut(key, [this] {
+        if (redoButton_ != nullptr && redoButton_->isEnabled()) {
+          redoLastEdit();
+        }
+      });
+    }
     auto* refreshShortcut = new QShortcut{QKeySequence{QStringLiteral("Ctrl+R")}, this};
     refreshShortcut->setContext(Qt::WindowShortcut);
     connect(refreshShortcut, &QShortcut::activated, this, [this] { refreshPreview(true); });
@@ -1501,6 +1522,36 @@ public:
     };
     QApplication::sendEvent(this, &release);
     QApplication::processEvents();
+  }
+
+  void pressShortcut(const QKeySequence& sequence) {
+    if (sequence.isEmpty()) {
+      appendError(grapple::foundation::Error{"desktop.shortcut_missing", "Shortcut has no key binding."});
+      return;
+    }
+    activateWindow();
+    setFocus(Qt::ShortcutFocusReason);
+    QApplication::processEvents();
+    const int nativeKey = sequence[0];
+    const auto modifiers = Qt::KeyboardModifiers{nativeKey & Qt::KeyboardModifierMask};
+    const auto key = static_cast<Qt::Key>(nativeKey & ~Qt::KeyboardModifierMask);
+    QWidget* target = QApplication::focusWidget();
+    if (target == nullptr) {
+      target = this;
+    }
+    QKeyEvent press{QEvent::KeyPress, key, modifiers};
+    QApplication::sendEvent(target, &press);
+    QKeyEvent release{QEvent::KeyRelease, key, modifiers};
+    QApplication::sendEvent(target, &release);
+    QApplication::processEvents();
+  }
+
+  void pressUndoShortcut() {
+    pressShortcut(QKeySequence{QStringLiteral("Ctrl+Z")});
+  }
+
+  void pressRedoShortcut() {
+    pressShortcut(QKeySequence{QStringLiteral("Ctrl+Shift+Z")});
   }
 
   void clickStewardPrimaryAction() {
@@ -4149,6 +4200,14 @@ void DesktopWindow::pressPlaybackShortcut() {
 
 void DesktopWindow::pressDeleteShortcut() {
   impl_->pressDeleteShortcut();
+}
+
+void DesktopWindow::pressUndoShortcut() {
+  impl_->pressUndoShortcut();
+}
+
+void DesktopWindow::pressRedoShortcut() {
+  impl_->pressRedoShortcut();
 }
 
 void DesktopWindow::startPlayback() {

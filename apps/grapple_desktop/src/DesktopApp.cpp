@@ -1726,7 +1726,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       return 1;
     }
 
-    window.undoLastEdit();
+    window.pressUndoShortcut();
     const auto afterParamUndo = workspace.value().project().buildViewModel();
     if (!afterParamUndo) {
       printError(afterParamUndo.error());
@@ -1742,7 +1742,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       printError(undoneCameraX.error());
       return 1;
     }
-    window.redoLastEdit();
+    window.pressRedoShortcut();
     const auto afterParamRedo = workspace.value().project().buildViewModel();
     if (!afterParamRedo) {
       printError(afterParamRedo.error());

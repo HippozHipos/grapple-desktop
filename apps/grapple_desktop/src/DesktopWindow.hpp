@@ -82,6 +82,8 @@ public:
   void applyStewardSuggestedRequest(int row);
   void pressPlaybackShortcut();
   void pressDeleteShortcut();
+  void pressUndoShortcut();
+  void pressRedoShortcut();
   void startPlayback();
   void pausePlayback();
   void advancePlaybackFrame();
