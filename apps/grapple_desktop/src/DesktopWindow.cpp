@@ -47,7 +47,9 @@
 #include <QMessageBox>
 #include <QMimeData>
 #include <QMouseEvent>
+#include <QMetaObject>
 #include <QPushButton>
+#include <QPointer>
 #include <QScrollArea>
 #include <QKeySequence>
 #include <QStringList>
@@ -63,7 +65,9 @@
 #include <QWidget>
 
 #include <algorithm>
+#include <atomic>
 #include <cmath>
+#include <cstdint>
 #include <filesystem>
 #include <iomanip>
 #include <initializer_list>
@@ -71,6 +75,7 @@
 #include <optional>
 #include <sstream>
 #include <string_view>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -1147,6 +1152,26 @@ public:
     };
   }
 
+  void presentRenderedFrame(
+    grapple::render::RenderFrameResult frame,
+    bool logDiagnostics,
+    std::optional<grapple::foundation::TimeSeconds> uiPlayhead = std::nullopt
+  ) {
+    if (logDiagnostics) {
+      appendDiagnostics(frame);
+    }
+    auto renderedFrame = std::make_shared<const grapple::render::RenderFrame>(std::move(frame.frame));
+    const grapple::foundation::TimeSeconds displayedPlayhead = uiPlayhead.value_or(renderedFrame->time);
+    previewSurface_->setFrame(renderedFrame);
+    compositionViewport_->setFrame(renderedFrame);
+    const QString provenance = renderProvenanceText(*renderedFrame, currentProjectRevision_);
+    previewTitle_->setText(QString{"Player  %1"}.arg(provenance));
+    viewportTitle_->setText(QString{"Composition  %1"}.arg(provenance));
+    playheadLabel_->setText(QString{"Playhead: %1"}.arg(timeText(displayedPlayhead)));
+    timeline_->setPlayhead(displayedPlayhead);
+    refreshPlaybackEditControlsIfNeeded();
+  }
+
   void renderCurrentFrame(bool logDiagnostics = false) {
     const grapple::render::PreviewRenderShellState previewState = workspace_.preview().state();
     const auto frame = workspace_.preview().renderFrame(grapple::render::RenderFrameRequest{
@@ -1158,21 +1183,66 @@ public:
       appendError(frame.error());
       return;
     }
-    if (logDiagnostics) {
-      appendDiagnostics(frame.value());
+    presentRenderedFrame(std::move(frame.value()), logDiagnostics);
+  }
+
+  void finishPlaybackRender(
+    std::uint64_t generation,
+    grapple::foundation::Result<grapple::render::RenderFrameResult> frame
+  ) {
+    playbackRenderInFlight_.store(false);
+    if (generation != playbackRenderGeneration_.load()) {
+      return;
     }
-    auto renderedFrame = std::make_shared<const grapple::render::RenderFrame>(std::move(frame.value().frame));
-    previewSurface_->setFrame(renderedFrame);
-    compositionViewport_->setFrame(renderedFrame);
-    const QString provenance = renderProvenanceText(*renderedFrame, currentProjectRevision_);
-    previewTitle_->setText(QString{"Player  %1"}.arg(provenance));
-    viewportTitle_->setText(QString{"Composition  %1"}.arg(provenance));
-    playheadLabel_->setText(QString{"Playhead: %1"}.arg(timeText(renderedFrame->time)));
-    timeline_->setPlayhead(renderedFrame->time);
-    refreshPlaybackEditControlsIfNeeded();
+    if (!frame) {
+      appendError(frame.error());
+      return;
+    }
+
+    presentRenderedFrame(
+      std::move(frame.value()),
+      false,
+      workspace_.preview().state().playhead
+    );
+  }
+
+  void renderPlaybackFrameAsync(grapple::foundation::TimeSeconds playhead) {
+    if (playbackRenderInFlight_.exchange(true)) {
+      return;
+    }
+    if (playbackRenderThread_.joinable()) {
+      playbackRenderThread_.join();
+    }
+
+    const std::uint64_t generation = playbackRenderGeneration_.load();
+    const grapple::foundation::Resolution resolution = previewRenderResolution(playhead);
+    QPointer<DesktopWindowImpl> self{this};
+    playbackRenderThread_ = std::jthread{
+      [this, self, generation, playhead, resolution](std::stop_token stopToken) mutable {
+        auto frame = workspace_.preview().renderFrame(grapple::render::RenderFrameRequest{
+          playhead,
+          grapple::render::RenderQuality::Draft,
+          resolution
+        });
+        if (stopToken.stop_requested()) {
+          return;
+        }
+        QMetaObject::invokeMethod(
+          QApplication::instance(),
+          [self, generation, frame = std::move(frame)]() mutable {
+            if (self == nullptr) {
+              return;
+            }
+            self->finishPlaybackRender(generation, std::move(frame));
+          },
+          Qt::QueuedConnection
+        );
+      }
+    };
   }
 
   void seekTo(grapple::foundation::TimeSeconds time, bool updateEditControls = true) {
+    playbackRenderGeneration_.fetch_add(1);
     const auto seek = workspace_.preview().seek(time);
     if (!seek) {
       appendError(seek.error());
@@ -1698,6 +1768,7 @@ public:
 
     playbackStartPlayhead_ = workspace_.preview().state().playhead;
     playbackClock_.restart();
+    playbackRenderGeneration_.fetch_add(1);
     playbackTimer_->start();
     renderCurrentFrame();
     updateActionAvailability();
@@ -1727,6 +1798,7 @@ public:
 
   void pausePlayback() {
     playbackTimer_->stop();
+    playbackRenderGeneration_.fetch_add(1);
     const auto pause = workspace_.preview().pause();
     if (!pause) {
       appendError(pause.error());
@@ -1783,7 +1855,17 @@ public:
       return;
     }
 
-    seekTo(grapple::foundation::TimeSeconds{target}, false);
+    const grapple::foundation::TimeSeconds playhead{target};
+    const auto seek = workspace_.preview().seek(playhead);
+    if (!seek) {
+      appendError(seek.error());
+      pausePlayback();
+      return;
+    }
+    playheadLabel_->setText(QString{"Playhead: %1"}.arg(timeText(playhead)));
+    timeline_->setPlayhead(playhead);
+    refreshPlaybackEditControlsIfNeeded();
+    renderPlaybackFrameAsync(playhead);
   }
 
   grapple::foundation::Result<grapple::foundation::NodeId> ensureComposition() {
@@ -4136,6 +4218,9 @@ private:
   QTimer* jobDispatchTimer_ = nullptr;
   QElapsedTimer playbackClock_;
   grapple::foundation::TimeSeconds playbackStartPlayhead_;
+  std::atomic_bool playbackRenderInFlight_{false};
+  std::atomic_uint64_t playbackRenderGeneration_{0};
+  std::jthread playbackRenderThread_;
   grapple::jobs::MainThreadDispatcher jobDispatcher_;
   bool exportInProgress_ = false;
   int exportJobCounter_ = 0;
