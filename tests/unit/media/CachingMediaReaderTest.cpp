@@ -17,6 +17,7 @@ public:
     std::optional<grapple::foundation::Resolution> targetResolution = std::nullopt
   ) override {
     ++frameReads;
+    lastTime = time;
     lastTargetResolution = targetResolution;
     if (failFrames) {
       return grapple::foundation::Error{"test.frame_read_failed", "Frame read failed."};
@@ -50,6 +51,7 @@ public:
   int audioReads = 0;
   bool failFrames = false;
   std::optional<grapple::foundation::Resolution> lastTargetResolution;
+  std::optional<grapple::foundation::TimeSeconds> lastTime;
 };
 
 } // namespace
@@ -58,8 +60,15 @@ int main() {
   using namespace grapple;
 
   TestMediaReader source;
+  media::MediaSourceCatalog sources;
+  GRAPPLE_REQUIRE(sources.registerSource(media::MediaSource{
+    foundation::AssetId{"asset_video"},
+    media::MediaSourceKind::Video,
+    foundation::FilePath{"/tmp/source.mov"},
+    foundation::FrameRate{2, 1}
+  }));
   media::FrameCache frameCache{8};
-  media::CachingMediaReader reader{source, frameCache};
+  media::CachingMediaReader reader{source, sources, frameCache};
 
   const auto firstFrame = reader.frameAt(
     foundation::AssetId{"asset_video"},
@@ -69,7 +78,18 @@ int main() {
   GRAPPLE_REQUIRE(firstFrame.value().frameRef == "source_frame_1");
   GRAPPLE_REQUIRE((firstFrame.value().rgbaPixels == std::vector<std::uint8_t>{1, 0, 0, 255}));
   GRAPPLE_REQUIRE(source.frameReads == 1);
+  GRAPPLE_REQUIRE(source.lastTime == foundation::TimeSeconds{1.0});
   GRAPPLE_REQUIRE(frameCache.size() == 1);
+
+  const auto sameVideoFrameTime = reader.frameAt(
+    foundation::AssetId{"asset_video"},
+    foundation::TimeSeconds{1.2}
+  );
+  GRAPPLE_REQUIRE(sameVideoFrameTime);
+  GRAPPLE_REQUIRE(sameVideoFrameTime.value().frameRef == "source_frame_1");
+  GRAPPLE_REQUIRE(sameVideoFrameTime.value().time == foundation::TimeSeconds{1.0});
+  GRAPPLE_REQUIRE(source.frameReads == 1);
+  GRAPPLE_REQUIRE(source.lastTime == foundation::TimeSeconds{1.0});
 
   const auto cachedFrame = reader.frameAt(
     foundation::AssetId{"asset_video"},
@@ -116,7 +136,7 @@ int main() {
 
   TestMediaReader zeroCapacitySource;
   media::FrameCache zeroCapacityCache{0};
-  media::CachingMediaReader zeroCapacityReader{zeroCapacitySource, zeroCapacityCache};
+  media::CachingMediaReader zeroCapacityReader{zeroCapacitySource, sources, zeroCapacityCache};
   const auto uncachedFrame = zeroCapacityReader.frameAt(
     foundation::AssetId{"asset_video"},
     foundation::TimeSeconds{1.0}

@@ -73,7 +73,8 @@ foundation::Result<media::MediaSourceCatalog> buildMediaSources(const NativeProj
     auto registered = sources.registerSource(media::MediaSource{
       asset.id,
       mediaSourceKindForAssetMediaType(asset.metadata.mediaType),
-      mediaSourcePath.value()
+      mediaSourcePath.value(),
+      asset.metadata.frameRate
     });
     if (!registered) {
       return registered.error();
@@ -563,7 +564,7 @@ struct NativeWorkspaceSession::State {
       mediaSources{std::move(mediaSourceCatalog)},
       mediaReader{mediaSources},
       frameCache{MediaFrameCacheBytes},
-      cachedMediaReader{mediaReader, frameCache},
+      cachedMediaReader{mediaReader, mediaSources, frameCache},
       frameSource{cachedMediaReader},
       runtime{{&builtinEffectRuntime}},
       renderCore{runtime, frameSource},
@@ -785,7 +786,8 @@ foundation::Result<foundation::AssetId> NativeWorkspaceSession::importMediaFile(
   auto registeredSource = state_->mediaSources.registerSource(media::MediaSource{
     assetId,
     mediaSourceKindForAssetMediaType(mediaType),
-    mediaSourcePath.value()
+    mediaSourcePath.value(),
+    inspectedAsset.value().metadata.frameRate
   });
   if (!registeredSource) {
     return registeredSource.error();

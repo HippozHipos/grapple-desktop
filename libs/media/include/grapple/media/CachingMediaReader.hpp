@@ -2,6 +2,7 @@
 
 #include <grapple/media/FrameCache.hpp>
 #include <grapple/media/MediaReader.hpp>
+#include <grapple/media/MediaSource.hpp>
 
 #include <optional>
 
@@ -9,7 +10,7 @@ namespace grapple::media {
 
 class CachingMediaReader final : public IMediaReader {
 public:
-  CachingMediaReader(IMediaReader& source, FrameCache& frameCache);
+  CachingMediaReader(IMediaReader& source, const MediaSourceCatalog& sources, FrameCache& frameCache);
 
   foundation::Result<MediaFrame> frameAt(
     foundation::AssetId assetId,
@@ -24,6 +25,7 @@ public:
 
 private:
   IMediaReader& source_;
+  const MediaSourceCatalog& sources_;
   FrameCache& frameCache_;
 };
 

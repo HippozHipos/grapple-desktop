@@ -3,7 +3,9 @@
 #include <grapple/foundation/FilePath.hpp>
 #include <grapple/foundation/Result.hpp>
 #include <grapple/foundation/StrongId.hpp>
+#include <grapple/foundation/Time.hpp>
 
+#include <optional>
 #include <vector>
 
 namespace grapple::media {
@@ -18,6 +20,7 @@ struct MediaSource {
   foundation::AssetId assetId;
   MediaSourceKind kind = MediaSourceKind::Video;
   foundation::FilePath path;
+  std::optional<foundation::FrameRate> frameRate;
 };
 
 class MediaSourceCatalog {
