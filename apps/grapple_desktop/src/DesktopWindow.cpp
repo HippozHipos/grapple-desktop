@@ -1220,12 +1220,12 @@ public:
     return steward_->primaryActionEnabled();
   }
 
-  std::string stewardSelectedClipActionText() const {
-    return steward_->selectedClipActionText();
+  std::string stewardSelectedTargetActionText() const {
+    return steward_->selectedTargetActionText();
   }
 
-  bool stewardSelectedClipActionEnabled() const {
-    return steward_->selectedClipActionEnabled();
+  bool stewardSelectedTargetActionEnabled() const {
+    return steward_->selectedTargetActionEnabled();
   }
 
   bool addSelectedMediaActionEnabled() const {
@@ -1388,8 +1388,8 @@ public:
     steward_->triggerPrimaryAction();
   }
 
-  void clickStewardSelectedClipAction() {
-    steward_->triggerSelectedClipAction();
+  void clickStewardSelectedTargetAction() {
+    steward_->triggerSelectedTargetAction();
   }
 
   void clickStewardRecentEdit(int row) {
@@ -3611,12 +3611,12 @@ bool DesktopWindow::stewardPrimaryActionEnabled() const {
   return impl_->stewardPrimaryActionEnabled();
 }
 
-std::string DesktopWindow::stewardSelectedClipActionText() const {
-  return impl_->stewardSelectedClipActionText();
+std::string DesktopWindow::stewardSelectedTargetActionText() const {
+  return impl_->stewardSelectedTargetActionText();
 }
 
-bool DesktopWindow::stewardSelectedClipActionEnabled() const {
-  return impl_->stewardSelectedClipActionEnabled();
+bool DesktopWindow::stewardSelectedTargetActionEnabled() const {
+  return impl_->stewardSelectedTargetActionEnabled();
 }
 
 bool DesktopWindow::addSelectedMediaActionEnabled() const {
@@ -3675,8 +3675,8 @@ void DesktopWindow::clickStewardPrimaryAction() {
   impl_->clickStewardPrimaryAction();
 }
 
-void DesktopWindow::clickStewardSelectedClipAction() {
-  impl_->clickStewardSelectedClipAction();
+void DesktopWindow::clickStewardSelectedTargetAction() {
+  impl_->clickStewardSelectedTargetAction();
 }
 
 void DesktopWindow::clickStewardRecentEdit(int row) {

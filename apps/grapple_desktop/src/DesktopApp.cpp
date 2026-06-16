@@ -573,7 +573,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       return 1;
     }
     window.setStewardIntent("Change title to \"Final Title\", make font smaller, move text right and up, make it shorter, and fade it.");
-    window.clickStewardSelectedClipAction();
+    window.clickStewardSelectedTargetAction();
     const auto viewModel = workspace.value().project().buildViewModel();
     if (!viewModel) {
       printError(viewModel.error());
@@ -620,7 +620,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       return 1;
     }
     window.setStewardIntent("Update note to \"Keep zoom exposed as a user-editable control.\"");
-    window.clickStewardSelectedClipAction();
+    window.clickStewardSelectedTargetAction();
     const auto viewModel = workspace.value().project().buildViewModel();
     if (!viewModel) {
       printError(viewModel.error());
@@ -2660,11 +2660,11 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       return 1;
     }
     const auto clipBeforeTransform = beforeTransformViewModel.value().timeline.clips.front().transform;
-    const std::string selectedClipActionText = window.stewardSelectedClipActionText();
+    const std::string selectedTargetActionText = window.stewardSelectedTargetActionText();
     const std::string stewardIntentPlaceholderBeforeIntent = window.stewardIntentPlaceholder();
-    const bool selectedClipActionEnabledBeforeIntent = window.stewardSelectedClipActionEnabled();
+    const bool selectedTargetActionEnabledBeforeIntent = window.stewardSelectedTargetActionEnabled();
     window.setStewardIntent("Move selected clip right, rotate slightly left, make it smaller, make it faster, and make it invisible.");
-    const bool selectedClipActionEnabledAfterIntent = window.stewardSelectedClipActionEnabled();
+    const bool selectedTargetActionEnabledAfterIntent = window.stewardSelectedTargetActionEnabled();
     window.clickStewardPrimaryAction();
     const auto viewModel = workspace.value().project().buildViewModel();
     if (!viewModel) {
@@ -2692,11 +2692,11 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "clipRotation=" << clip.transform.rotationDegrees << '\n';
     std::cout << "clipOpacity=" << clip.transform.opacity << '\n';
     std::cout << "clipPlaybackRate=" << clip.playbackRate << '\n';
-    std::cout << "selectedClipActionText=" << selectedClipActionText << '\n';
+    std::cout << "selectedTargetActionText=" << selectedTargetActionText << '\n';
     std::cout << "stewardIntentPlaceholderBeforeIntent=" << stewardIntentPlaceholderBeforeIntent << '\n';
-    std::cout << "selectedClipActionEnabledBeforeIntent=" << (selectedClipActionEnabledBeforeIntent ? "true" : "false") << '\n';
-    std::cout << "selectedClipActionEnabledAfterIntent=" << (selectedClipActionEnabledAfterIntent ? "true" : "false") << '\n';
-    std::cout << "selectedClipActionEnabledAfterAction=" << (window.stewardSelectedClipActionEnabled() ? "true" : "false") << '\n';
+    std::cout << "selectedTargetActionEnabledBeforeIntent=" << (selectedTargetActionEnabledBeforeIntent ? "true" : "false") << '\n';
+    std::cout << "selectedTargetActionEnabledAfterIntent=" << (selectedTargetActionEnabledAfterIntent ? "true" : "false") << '\n';
+    std::cout << "selectedTargetActionEnabledAfterAction=" << (window.stewardSelectedTargetActionEnabled() ? "true" : "false") << '\n';
     std::cout << "steward=" << steward << '\n';
     std::cout << "stewardIntent=" << stewardIntent << '\n';
     std::cout << "inspector=" << inspector << '\n';
@@ -2709,11 +2709,11 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            clip.transform.rotationDegrees == clipBeforeTransform.rotationDegrees - 7.5 &&
            clip.transform.opacity == 0.0 &&
            clip.playbackRate == 1.25 &&
-           selectedClipActionText == "Type Request To Edit Clip" &&
+           selectedTargetActionText == "Type Request To Edit Clip" &&
            stewardIntentPlaceholderBeforeIntent.find("speed up clip") != std::string::npos &&
-           !selectedClipActionEnabledBeforeIntent &&
-           selectedClipActionEnabledAfterIntent &&
-           !window.stewardSelectedClipActionEnabled() &&
+           !selectedTargetActionEnabledBeforeIntent &&
+           selectedTargetActionEnabledAfterIntent &&
+           !window.stewardSelectedTargetActionEnabled() &&
 	           stewardIntent.empty() &&
 	           steward.find("Next: type a camera request, or mention clip/video to edit the selected clip.") != std::string::npos &&
            steward.find("Clip target: starter-gradient") != std::string::npos &&

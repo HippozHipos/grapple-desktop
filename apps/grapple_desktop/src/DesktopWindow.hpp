@@ -47,8 +47,8 @@ public:
   [[nodiscard]] std::string stewardContents() const;
   [[nodiscard]] std::string stewardPrimaryActionText() const;
   [[nodiscard]] bool stewardPrimaryActionEnabled() const;
-  [[nodiscard]] std::string stewardSelectedClipActionText() const;
-  [[nodiscard]] bool stewardSelectedClipActionEnabled() const;
+  [[nodiscard]] std::string stewardSelectedTargetActionText() const;
+  [[nodiscard]] bool stewardSelectedTargetActionEnabled() const;
   [[nodiscard]] bool addSelectedMediaActionEnabled() const;
   [[nodiscard]] int stewardRecentEditCount() const;
   [[nodiscard]] int stewardCurrentRecentEditRow() const;
@@ -75,7 +75,7 @@ public:
   void setStewardIntent(std::string intent);
   void pressStewardSubmitShortcut();
   void clickStewardPrimaryAction();
-  void clickStewardSelectedClipAction();
+  void clickStewardSelectedTargetAction();
   void clickStewardRecentEdit(int row);
   void startPlayback();
   void pausePlayback();
