@@ -592,13 +592,17 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
 
   if (stewardTextClipSmoke) {
     window.setStewardIntent("Add title \"Opening Title\".");
+    const std::string createTextPrimaryActionText = window.stewardPrimaryActionText();
+    const bool createTextPrimaryActionEnabled = window.stewardPrimaryActionEnabled();
     window.clickStewardPrimaryAction();
     if (window.currentDetailTabText() != "Text") {
       std::cerr << "Created Steward text clip was not selected.\n";
       return 1;
     }
     window.setStewardIntent("Change title to \"Final Title\", make font smaller, move text right and up, make it shorter, and fade it.");
-    window.clickStewardSelectedTargetAction();
+    const std::string updateTextPrimaryActionText = window.stewardPrimaryActionText();
+    const bool updateTextPrimaryActionEnabled = window.stewardPrimaryActionEnabled();
+    window.clickStewardPrimaryAction();
     const auto viewModel = workspace.value().project().buildViewModel();
     if (!viewModel) {
       printError(viewModel.error());
@@ -618,6 +622,10 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "opacity=" << clip.transform.opacity << '\n';
     std::cout << "end=" << clip.timelineRange.end.value << '\n';
     std::cout << "tab=" << window.currentDetailTabText() << '\n';
+    std::cout << "createTextPrimaryAction=" << createTextPrimaryActionText << '\n';
+    std::cout << "createTextPrimaryActionEnabled=" << (createTextPrimaryActionEnabled ? "true" : "false") << '\n';
+    std::cout << "updateTextPrimaryAction=" << updateTextPrimaryActionText << '\n';
+    std::cout << "updateTextPrimaryActionEnabled=" << (updateTextPrimaryActionEnabled ? "true" : "false") << '\n';
     std::cout << "runs=" << conversation.runs.size() << '\n';
     return viewModel.value().timeline.textClips.size() == 1 &&
            clip.text == "Final Title" &&
@@ -627,6 +635,10 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            clip.transform.opacity == 0.5 &&
            clip.timelineRange.end == grapple::foundation::TimeSeconds{2.0} &&
            window.currentDetailTabText() == "Text" &&
+           createTextPrimaryActionText == "Create Text Clip" &&
+           createTextPrimaryActionEnabled &&
+           updateTextPrimaryActionText == "Apply Request To Text" &&
+           updateTextPrimaryActionEnabled &&
            window.stewardIntent().empty() &&
            conversation.runs.size() == 2 &&
            conversation.runs[0].toolCalls.size() == 1 &&
@@ -639,13 +651,17 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
 
   if (stewardNoteSmoke) {
     window.setStewardIntent("Add note \"Camera rationale\" saying Keep zoom editable.");
+    const std::string createNotePrimaryActionText = window.stewardPrimaryActionText();
+    const bool createNotePrimaryActionEnabled = window.stewardPrimaryActionEnabled();
     window.clickStewardPrimaryAction();
     if (window.currentDetailTabText() != "Inspector") {
       std::cerr << "Created Steward note was not selected.\n";
       return 1;
     }
     window.setStewardIntent("Update note to \"Keep zoom exposed as a user-editable control.\"");
-    window.clickStewardSelectedTargetAction();
+    const std::string updateNotePrimaryActionText = window.stewardPrimaryActionText();
+    const bool updateNotePrimaryActionEnabled = window.stewardPrimaryActionEnabled();
+    window.clickStewardPrimaryAction();
     const auto viewModel = workspace.value().project().buildViewModel();
     if (!viewModel) {
       printError(viewModel.error());
@@ -662,6 +678,10 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "title=" << note.title << '\n';
     std::cout << "markdown=" << note.markdown << '\n';
     std::cout << "tab=" << window.currentDetailTabText() << '\n';
+    std::cout << "createNotePrimaryAction=" << createNotePrimaryActionText << '\n';
+    std::cout << "createNotePrimaryActionEnabled=" << (createNotePrimaryActionEnabled ? "true" : "false") << '\n';
+    std::cout << "updateNotePrimaryAction=" << updateNotePrimaryActionText << '\n';
+    std::cout << "updateNotePrimaryActionEnabled=" << (updateNotePrimaryActionEnabled ? "true" : "false") << '\n';
     std::cout << "runs=" << conversation.runs.size() << '\n';
     std::cout << "inspector=" << inspector << '\n';
     return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_2"} &&
@@ -669,6 +689,10 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            note.title == "Camera rationale" &&
            note.markdown == "Keep zoom exposed as a user-editable control." &&
            window.currentDetailTabText() == "Inspector" &&
+           createNotePrimaryActionText == "Create Note" &&
+           createNotePrimaryActionEnabled &&
+           updateNotePrimaryActionText == "Apply Request To Note" &&
+           updateNotePrimaryActionEnabled &&
            window.selectedNoteMenuActionEnabled() &&
            window.stewardIntent().empty() &&
            inspector.find("Inspector\nNote\nCamera rationale") != std::string::npos &&

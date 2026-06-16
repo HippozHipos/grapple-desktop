@@ -858,6 +858,16 @@ void StewardPanel::updateActionLabels() {
       trackCreateIntentTargetsTrackHandler_ &&
       trackCreateIntentTargetsTrackHandler_(intent())) {
     primaryActionButton_->setText("Create Timeline Track");
+  } else if (selectedTargetIntentTargetsSelection()) {
+    primaryActionButton_->setText(
+      selectedTextClipTargetNodeId_.has_value()
+        ? "Apply Request To Text"
+        : selectedNoteTargetNodeId_.has_value()
+          ? "Apply Request To Note"
+          : selectedTrackTargetNodeId_.has_value()
+            ? "Apply Request To Track"
+            : "Apply Request To Clip"
+    );
   } else if (hasIntent &&
              textClipIntentTargetsTextHandler_ &&
              textClipIntentTargetsTextHandler_(intent())) {
@@ -871,16 +881,6 @@ void StewardPanel::updateActionLabels() {
              cameraUpdateIntentTargetsCameraHandler_ &&
              cameraUpdateIntentTargetsCameraHandler_(intent())) {
     primaryActionButton_->setText("Update Camera");
-  } else if (selectedTargetIntentTargetsSelection()) {
-    primaryActionButton_->setText(
-      selectedTextClipTargetNodeId_.has_value()
-        ? "Apply Request To Text"
-        : selectedNoteTargetNodeId_.has_value()
-          ? "Apply Request To Note"
-          : selectedTrackTargetNodeId_.has_value()
-            ? "Apply Request To Track"
-            : "Apply Request To Clip"
-    );
   } else {
     switch (primaryAction_) {
       case PrimaryAction::ImportMedia:
