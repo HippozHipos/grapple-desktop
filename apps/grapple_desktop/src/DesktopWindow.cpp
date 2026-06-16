@@ -1577,6 +1577,21 @@ public:
     steward_->applySuggestedRequest(row);
   }
 
+  void pressStewardSuggestedRequestActivation(int row) {
+    auto* suggestions = findChild<QListWidget*>("stewardSuggestedRequests");
+    if (suggestions == nullptr) {
+      appendError(grapple::foundation::Error{"desktop.steward_suggestions_missing", "Steward suggestions list not found."});
+      return;
+    }
+    steward_->triggerSuggestedRequest(row);
+    suggestions->setFocus(Qt::ShortcutFocusReason);
+    QKeyEvent press{QEvent::KeyPress, Qt::Key_Return, Qt::NoModifier};
+    QApplication::sendEvent(suggestions, &press);
+    QKeyEvent release{QEvent::KeyRelease, Qt::Key_Return, Qt::NoModifier};
+    QApplication::sendEvent(suggestions, &release);
+    QApplication::processEvents();
+  }
+
   void showEffectControls() {
     detailTabs_->setCurrentWidget(effectParamsScroll_);
   }
@@ -4204,6 +4219,10 @@ void DesktopWindow::clickStewardSuggestedRequest(int row) {
 
 void DesktopWindow::applyStewardSuggestedRequest(int row) {
   impl_->applyStewardSuggestedRequest(row);
+}
+
+void DesktopWindow::pressStewardSuggestedRequestActivation(int row) {
+  impl_->pressStewardSuggestedRequestActivation(row);
 }
 
 void DesktopWindow::pressPlaybackShortcut() {
