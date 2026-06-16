@@ -43,6 +43,17 @@ void printError(const grapple::foundation::Error& error) {
   std::cerr << error.code << ": " << error.message << '\n';
 }
 
+void printHelp(std::ostream& output) {
+  output
+    << "Grapple " << GRAPPLE_NATIVE_VERSION << "\n\n"
+    << "Usage:\n"
+    << "  grapple\n"
+    << "  grapple --version\n"
+    << "  grapple --help\n"
+    << "  grapple --new-package <dir>\n"
+    << "  grapple --open-package <dir>\n";
+}
+
 grapple::foundation::Result<grapple::foundation::Resolution> encodedVideoResolution(
   const std::filesystem::path& path
 ) {
@@ -178,6 +189,10 @@ std::filesystem::path defaultInteractivePackageRoot() {
 int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   if (argc == 2 && std::string{argv[1]} == "--version") {
     std::cout << "Grapple " << GRAPPLE_NATIVE_VERSION << '\n';
+    return 0;
+  }
+  if (argc == 2 && std::string{argv[1]} == "--help") {
+    printHelp(std::cout);
     return 0;
   }
 
@@ -361,7 +376,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     } else if (argument == "--effect-screenshot" && index + 1 < argc) {
       effectScreenshotPath = argv[++index];
     } else {
-      std::cerr << "Expected --version, --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --select-audio-clip-smoke, --select-audio-track-smoke, --select-camera-smoke, --select-second-camera-smoke, --steward-smoke, --import-smoke, --import-media-types-smoke, --add-video-smoke, --empty-add-video-smoke, --empty-add-video-undo-smoke, --empty-add-text-smoke, --empty-add-track-smoke, --empty-add-camera-smoke, --update-camera-smoke, --add-note-smoke, --update-note-smoke, --move-clip-smoke, --trim-clip-smoke, --clip-timing-panel-smoke, --nudge-clip-smoke, --undo-redo-smoke, --add-effect-smoke, --clip-effect-controls-smoke, --steward-submit-shortcut-smoke, --steward-text-clip-smoke, --steward-note-smoke, --steward-suggestion-smoke, --set-effect-param-smoke, --effect-keyframe-smoke, --steward-motion-smoke, --steward-zoom-motion-smoke, --steward-clip-transform-smoke, --steward-undo-smoke, --steward-delete-track-smoke, --steward-delete-clip-smoke, --steward-delete-camera-controls-smoke, --delete-effect-smoke, --delete-smoke, --delete-track-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, --new-package-smoke, --export-settings-smoke, --product-loop-smoke, --empty-launch-smoke, --sample-start-smoke, --empty-save-smoke, --open-package <path>, --new-package <path>, --screenshot <path>, or --effect-screenshot <path>.\n";
+      std::cerr << "Unknown argument: " << argument << "\nRun `grapple --help` for usage.\n";
       return 1;
     }
   }
