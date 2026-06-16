@@ -224,6 +224,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   bool exportSettingsSmoke = false;
   bool productLoopSmoke = false;
   bool emptyLaunchSmoke = false;
+  bool sampleStartSmoke = false;
   bool emptySaveSmoke = false;
   std::optional<std::string> openPackageRootArg;
   std::optional<std::string> newPackageRootArg;
@@ -335,6 +336,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       productLoopSmoke = true;
     } else if (argument == "--empty-launch-smoke") {
       emptyLaunchSmoke = true;
+    } else if (argument == "--sample-start-smoke") {
+      sampleStartSmoke = true;
     } else if (argument == "--empty-save-smoke") {
       emptySaveSmoke = true;
     } else if (argument == "--open-package" && index + 1 < argc) {
@@ -346,7 +349,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     } else if (argument == "--effect-screenshot" && index + 1 < argc) {
       effectScreenshotPath = argv[++index];
     } else {
-      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --select-audio-clip-smoke, --select-audio-track-smoke, --select-camera-smoke, --select-second-camera-smoke, --steward-smoke, --import-smoke, --import-media-types-smoke, --add-video-smoke, --empty-add-video-smoke, --empty-add-video-undo-smoke, --empty-add-text-smoke, --empty-add-track-smoke, --empty-add-camera-smoke, --update-camera-smoke, --add-note-smoke, --update-note-smoke, --move-clip-smoke, --trim-clip-smoke, --clip-timing-panel-smoke, --nudge-clip-smoke, --undo-redo-smoke, --add-effect-smoke, --clip-effect-controls-smoke, --steward-submit-shortcut-smoke, --steward-text-clip-smoke, --steward-note-smoke, --set-effect-param-smoke, --effect-keyframe-smoke, --steward-motion-smoke, --steward-zoom-motion-smoke, --steward-clip-transform-smoke, --steward-undo-smoke, --steward-delete-track-smoke, --steward-delete-clip-smoke, --steward-delete-camera-controls-smoke, --delete-effect-smoke, --delete-smoke, --delete-track-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, --new-package-smoke, --export-settings-smoke, --product-loop-smoke, --empty-launch-smoke, --empty-save-smoke, --open-package <path>, --new-package <path>, --screenshot <path>, or --effect-screenshot <path>.\n";
+      std::cerr << "Expected --smoke, --mutate-smoke, --seek-smoke, --timeline-seek-smoke, --select-smoke, --select-audio-clip-smoke, --select-audio-track-smoke, --select-camera-smoke, --select-second-camera-smoke, --steward-smoke, --import-smoke, --import-media-types-smoke, --add-video-smoke, --empty-add-video-smoke, --empty-add-video-undo-smoke, --empty-add-text-smoke, --empty-add-track-smoke, --empty-add-camera-smoke, --update-camera-smoke, --add-note-smoke, --update-note-smoke, --move-clip-smoke, --trim-clip-smoke, --clip-timing-panel-smoke, --nudge-clip-smoke, --undo-redo-smoke, --add-effect-smoke, --clip-effect-controls-smoke, --steward-submit-shortcut-smoke, --steward-text-clip-smoke, --steward-note-smoke, --set-effect-param-smoke, --effect-keyframe-smoke, --steward-motion-smoke, --steward-zoom-motion-smoke, --steward-clip-transform-smoke, --steward-undo-smoke, --steward-delete-track-smoke, --steward-delete-clip-smoke, --steward-delete-camera-controls-smoke, --delete-effect-smoke, --delete-smoke, --delete-track-smoke, --playback-smoke, --open-package-smoke, --edit-save-smoke, --new-package-smoke, --export-settings-smoke, --product-loop-smoke, --empty-launch-smoke, --sample-start-smoke, --empty-save-smoke, --open-package <path>, --new-package <path>, --screenshot <path>, or --effect-screenshot <path>.\n";
       return 1;
     }
   }
@@ -411,6 +414,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     populateStarterDemo ||
     emptyAddVideoSmoke ||
     emptyAddVideoUndoSmoke ||
+    sampleStartSmoke ||
     productLoopSmoke ||
     stewardDeleteClipSmoke ||
     stewardDeleteCameraControlsSmoke ||
@@ -523,27 +527,10 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       std::filesystem::exists(currentPackageRoot / "manifest.json") &&
       std::filesystem::exists(currentPackageRoot / "agent" / "runs.json") &&
       std::filesystem::exists(currentPackageRoot / "agent" / "events.json");
-    window.startStarterSample();
-    const auto afterSampleStart = workspace.value().project().buildViewModel();
-    if (!afterSampleStart) {
-      printError(afterSampleStart.error());
-      return 1;
-    }
-    const bool sampleStartSelectedAsset = window.selectedAssetId().has_value();
-    const std::string stewardActionAfterSampleStart = window.stewardPrimaryActionText();
-    const bool stewardActionEnabledAfterSampleStart = window.stewardPrimaryActionEnabled();
-    const bool addMediaActionEnabledAfterSampleStart = window.addSelectedMediaActionEnabled();
     std::cout << "revision=" << viewModel.value().project.revision.value() << '\n';
     std::cout << "assets=" << viewModel.value().assets.count << '\n';
     std::cout << "clips=" << viewModel.value().timeline.clips.size() << '\n';
     std::cout << "cameras=" << viewModel.value().timeline.cameras.size() << '\n';
-    std::cout << "sampleStartAssets=" << afterSampleStart.value().assets.count << '\n';
-    std::cout << "sampleStartClips=" << afterSampleStart.value().timeline.clips.size() << '\n';
-    std::cout << "sampleStartCameras=" << afterSampleStart.value().timeline.cameras.size() << '\n';
-    std::cout << "sampleStartSelectedAsset=" << (sampleStartSelectedAsset ? "true" : "false") << '\n';
-    std::cout << "sampleStartStewardAction=" << stewardActionAfterSampleStart << '\n';
-    std::cout << "sampleStartStewardActionEnabled=" << (stewardActionEnabledAfterSampleStart ? "true" : "false") << '\n';
-    std::cout << "sampleStartAddMediaActionEnabled=" << (addMediaActionEnabledAfterSampleStart ? "true" : "false") << '\n';
     std::cout << "packageWritten=" << (packageWritten ? "true" : "false") << '\n';
     std::cout << "timelineEmptyPrompt=" << timelineEmptyPrompt << '\n';
     std::cout << "stewardIntent=" << stewardIntent << '\n';
@@ -565,13 +552,6 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     return viewModel.value().assets.count == 0 &&
            viewModel.value().timeline.clips.empty() &&
            viewModel.value().timeline.cameras.empty() &&
-           afterSampleStart.value().assets.count == 1 &&
-           afterSampleStart.value().timeline.clips.size() == 1 &&
-           afterSampleStart.value().timeline.cameras.size() == 1 &&
-           !sampleStartSelectedAsset &&
-           stewardActionAfterSampleStart == "Type Request To Create Camera Controls" &&
-           !stewardActionEnabledAfterSampleStart &&
-           !addMediaActionEnabledAfterSampleStart &&
            packageWritten &&
            stewardActionText == "Import Media" &&
            stewardActionEnabled &&
@@ -595,6 +575,85 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            stewardIntentPlaceholder.find("import media") != std::string::npos &&
            steward.find("0 assets | 0 clips | 0 cameras | 0 editable effects") != std::string::npos &&
            steward.find("Next: import media or use Sample to start the timeline.") != std::string::npos
+      ? 0
+      : 1;
+  }
+
+  if (sampleStartSmoke) {
+    window.startStarterSample();
+    const auto viewModel = workspace.value().project().buildViewModel();
+    if (!viewModel) {
+      printError(viewModel.error());
+      return 1;
+    }
+    const auto previewFrame = workspace.value().preview().renderFrame(grapple::render::RenderFrameRequest{
+      workspace.value().preview().state().playhead,
+      grapple::render::RenderQuality::Draft
+    });
+    if (!previewFrame) {
+      printError(previewFrame.error());
+      return 1;
+    }
+    const auto selectedNode = window.selectedNodeId();
+    const std::string steward = window.stewardContents();
+    const std::string log = window.logContents();
+    const std::string detailTab = window.currentDetailTabText();
+    const std::string stewardAction = window.stewardPrimaryActionText();
+    const bool stewardActionEnabled = window.stewardPrimaryActionEnabled();
+    const bool playActionEnabled = window.playActionEnabled();
+    const bool exportActionEnabled = window.exportActionEnabled();
+    const bool saveActionEnabled = window.saveActionEnabled();
+    const bool undoActionEnabled = window.undoActionEnabled();
+    const bool addMediaActionEnabled = window.addSelectedMediaActionEnabled();
+    const bool selectedClip =
+      selectedNode.has_value() &&
+      !viewModel.value().timeline.clips.empty() &&
+      selectedNode.value() == viewModel.value().timeline.clips.front().sourceNodeId;
+    const bool currentPreview =
+      previewFrame.value().frame.sourceRevision == viewModel.value().project.revision &&
+      previewFrame.value().frame.mediaFrames.size() == 1 &&
+      previewFrame.value().frame.cameras.size() == 1 &&
+      previewFrame.value().runtimeDiagnostics.empty() &&
+      previewFrame.value().renderDiagnostics.empty();
+
+    std::cout << "revision=" << viewModel.value().project.revision.value() << '\n';
+    std::cout << "assets=" << viewModel.value().assets.count << '\n';
+    std::cout << "clips=" << viewModel.value().timeline.clips.size() << '\n';
+    std::cout << "cameras=" << viewModel.value().timeline.cameras.size() << '\n';
+    std::cout << "selectedNode=" << (selectedNode.has_value() ? selectedNode->value() : "none") << '\n';
+    std::cout << "selectedClip=" << (selectedClip ? "true" : "false") << '\n';
+    std::cout << "detailTab=" << detailTab << '\n';
+    std::cout << "currentPreview=" << (currentPreview ? "true" : "false") << '\n';
+    std::cout << "mediaFrames=" << previewFrame.value().frame.mediaFrames.size() << '\n';
+    std::cout << "camerasInFrame=" << previewFrame.value().frame.cameras.size() << '\n';
+    std::cout << "stewardAction=" << stewardAction << '\n';
+    std::cout << "stewardActionEnabled=" << (stewardActionEnabled ? "true" : "false") << '\n';
+    std::cout << "playActionEnabled=" << (playActionEnabled ? "true" : "false") << '\n';
+    std::cout << "exportActionEnabled=" << (exportActionEnabled ? "true" : "false") << '\n';
+    std::cout << "saveActionEnabled=" << (saveActionEnabled ? "true" : "false") << '\n';
+    std::cout << "undoActionEnabled=" << (undoActionEnabled ? "true" : "false") << '\n';
+    std::cout << "addMediaActionEnabled=" << (addMediaActionEnabled ? "true" : "false") << '\n';
+    std::cout << "steward=" << steward << '\n';
+    std::cout << "log=" << log << '\n';
+
+    return viewModel.value().assets.count == 1 &&
+           viewModel.value().timeline.clips.size() == 1 &&
+           viewModel.value().timeline.cameras.size() == 1 &&
+           selectedClip &&
+           detailTab == "Clip" &&
+           currentPreview &&
+           stewardAction == "Type Request To Create Camera Controls" &&
+           !stewardActionEnabled &&
+           playActionEnabled &&
+           exportActionEnabled &&
+           saveActionEnabled &&
+           undoActionEnabled &&
+           !addMediaActionEnabled &&
+           steward.find("Project: 1 assets | 1 clips | 1 cameras | 0 editable effects") != std::string::npos &&
+           steward.find("Added selected media to the timeline.") != std::string::npos &&
+           steward.find("Place Asset On Timeline -> succeeded at ") != std::string::npos &&
+           log.find("Imported starter-gradient") != std::string::npos &&
+           log.find("Steward added selected media to timeline") != std::string::npos
       ? 0
       : 1;
   }
