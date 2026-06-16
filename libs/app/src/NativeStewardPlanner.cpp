@@ -619,8 +619,7 @@ bool clipDeleteIntentRequestsClip(const std::string& normalized) {
   if (!deleteRequested) {
     return false;
   }
-  return containsAsciiWord(normalized, "selected") ||
-         containsAsciiWord(normalized, "clip") ||
+  return containsAsciiWord(normalized, "clip") ||
          containsAsciiWord(normalized, "video") ||
          containsAsciiWord(normalized, "text") ||
          containsAsciiWord(normalized, "title") ||

@@ -324,6 +324,9 @@ int main() {
   GRAPPLE_REQUIRE(stewardPlanner.clipDeleteIntentTargetsClip("remove selected title"));
   GRAPPLE_REQUIRE(!stewardPlanner.clipEditIntentTargetsClip("delete selected clip"));
   GRAPPLE_REQUIRE(!stewardPlanner.clipDeleteIntentTargetsClip("make clip smaller"));
+  GRAPPLE_REQUIRE(!stewardPlanner.clipDeleteIntentTargetsClip("remove selected tint"));
+  GRAPPLE_REQUIRE(!stewardPlanner.clipDeleteIntentTargetsClip("remove selected exposure"));
+  GRAPPLE_REQUIRE(!stewardPlanner.clipDeleteIntentTargetsClip("delete selected effect"));
   GRAPPLE_REQUIRE(stewardPlanner.trackCreateIntentTargetsTrack("add video track"));
   GRAPPLE_REQUIRE(stewardPlanner.trackCreateIntentTargetsTrack("create audio layer"));
   GRAPPLE_REQUIRE(!stewardPlanner.trackCreateIntentTargetsTrack("delete selected track"));
