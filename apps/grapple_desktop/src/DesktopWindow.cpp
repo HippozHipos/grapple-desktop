@@ -422,24 +422,6 @@ bool targetHasEditableEffects(
   return false;
 }
 
-bool targetHasEffectEntrypoint(
-  const grapple::app::AppViewModel& viewModel,
-  const grapple::foundation::NodeId& targetNodeId,
-  std::string_view entrypoint
-) {
-  for (const grapple::app::AppEffectGraphRow& graph : viewModel.timeline.effectGraphs) {
-    if (graph.targetNodeId != targetNodeId) {
-      continue;
-    }
-    for (const grapple::app::AppEffectRow& effect : graph.effects) {
-      if (effect.entrypoint == entrypoint) {
-        return true;
-      }
-    }
-  }
-  return false;
-}
-
 template <typename Widget>
 Widget* uniqueEffectParamWidget(
   const QObject* root,
@@ -2787,7 +2769,7 @@ public:
       refreshViewModel();
       return true;
     }
-    const bool hasClipTint = targetHasEffectEntrypoint(
+    const bool hasClipTint = grapple::app::targetHasEffectEntrypoint(
       viewModel.value(),
       clipNodeId,
       grapple::effects::builtin_effect::ClipTintEntrypoint

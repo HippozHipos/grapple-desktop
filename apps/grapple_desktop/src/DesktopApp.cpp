@@ -1792,6 +1792,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     const std::string primaryActionText = window.stewardPrimaryActionText();
     const bool primaryActionEnabled = window.stewardPrimaryActionEnabled();
     window.clickStewardPrimaryAction();
+    const std::string firstSuggestionAfterEffect = window.stewardSuggestedRequestText(0);
     const auto viewModel = workspace.value().project().buildViewModel();
     if (!viewModel) {
       printError(viewModel.error());
@@ -1805,6 +1806,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "intentAfterSuggestion=" << intentAfterSuggestion << '\n';
     std::cout << "primaryAction=" << primaryActionText << '\n';
     std::cout << "primaryActionEnabled=" << (primaryActionEnabled ? "true" : "false") << '\n';
+    std::cout << "firstSuggestionAfterEffect=" << firstSuggestionAfterEffect << '\n';
     std::cout << "effects=" << viewModel.value().timeline.effectCount << '\n';
     std::cout << "effectParamTitle=" << effectParamTitle << '\n';
     std::cout << "inspector=" << inspector << '\n';
@@ -1814,6 +1816,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            intentAfterSuggestion == firstSuggestion &&
            primaryActionText == "Apply Request To Clip" &&
            primaryActionEnabled &&
+           firstSuggestionAfterEffect == "Make clip tint stronger and blue." &&
            viewModel.value().timeline.effectCount == 1 &&
            effectParamTitle == "Clip Tint on starter-gradient" &&
            inspector.find("Created by steward") != std::string::npos &&

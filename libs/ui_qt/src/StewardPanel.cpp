@@ -1,5 +1,7 @@
 #include <grapple/ui_qt/StewardPanel.hpp>
 
+#include <grapple/effects/BuiltinEffects.hpp>
+
 #include <QKeySequence>
 #include <QLabel>
 #include <QListWidget>
@@ -686,7 +688,16 @@ void StewardPanel::setViewModel(
 
   std::vector<std::string> suggestions;
   if (selectedClipTargetNodeId_.has_value()) {
-    suggestions.push_back("Tint selected clip red.");
+    const bool hasClipTint = app::targetHasEffectEntrypoint(
+      viewModel,
+      selectedClipTargetNodeId_.value(),
+      effects::builtin_effect::ClipTintEntrypoint
+    );
+    if (hasClipTint) {
+      suggestions.push_back("Make clip tint stronger and blue.");
+    } else {
+      suggestions.push_back("Tint selected clip red.");
+    }
     suggestions.push_back("Move selected clip right.");
     suggestions.push_back("Speed up selected clip.");
   } else if (selectedTextClipTargetNodeId_.has_value()) {

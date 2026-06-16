@@ -13,6 +13,7 @@
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace grapple::app {
@@ -183,6 +184,11 @@ std::optional<foundation::NodeId> stewardCameraTargetId(
 bool cameraHasTransformEffect(
   const AppViewModel& viewModel,
   const foundation::NodeId& cameraNodeId
+);
+bool targetHasEffectEntrypoint(
+  const AppViewModel& viewModel,
+  const foundation::NodeId& targetNodeId,
+  std::string_view entrypoint
 );
 
 } // namespace grapple::app

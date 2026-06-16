@@ -83,4 +83,22 @@ bool cameraHasTransformEffect(
   return false;
 }
 
+bool targetHasEffectEntrypoint(
+  const AppViewModel& viewModel,
+  const foundation::NodeId& targetNodeId,
+  std::string_view entrypoint
+) {
+  for (const AppEffectGraphRow& graph : viewModel.timeline.effectGraphs) {
+    if (graph.targetNodeId != targetNodeId) {
+      continue;
+    }
+    for (const AppEffectRow& effect : graph.effects) {
+      if (effect.entrypoint == entrypoint) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 } // namespace grapple::app
