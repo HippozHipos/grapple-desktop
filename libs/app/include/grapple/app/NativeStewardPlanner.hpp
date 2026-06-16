@@ -48,6 +48,11 @@ struct CameraTransformKeyframeAdjustment {
 struct ClipEditIntent {
   timeline::Transform2D transform;
   double playbackRate = 1.0;
+  std::optional<foundation::TimeSeconds> newStart;
+  std::optional<foundation::TimeRange> timelineRange;
+  std::optional<foundation::TimeRange> sourceRange;
+  bool moveChanged = false;
+  bool trimChanged = false;
   bool transformChanged = false;
   bool playbackRateChanged = false;
 };
@@ -64,8 +69,7 @@ public:
   [[nodiscard]] bool cameraIntentRequestsExplicitMotion(const std::string& intent) const;
   [[nodiscard]] bool clipEditIntentTargetsClip(const std::string& intent) const;
   [[nodiscard]] foundation::Result<ClipEditIntent> clipEditForIntent(
-    const timeline::Transform2D& current,
-    double currentPlaybackRate,
+    const timeline::ClipPayload& current,
     const std::string& intent
   ) const;
   [[nodiscard]] const timeline::EffectPayload* cameraTransformEffectPayload(

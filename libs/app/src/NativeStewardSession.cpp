@@ -27,6 +27,8 @@ constexpr const char CanonicalEffectCreateNodeToolId[] = "effect.create_node";
 constexpr const char CanonicalEffectCreateParamKeyframeToolId[] = "effect.create_param_keyframe";
 constexpr const char CanonicalEffectUpdateParamKeyframeToolId[] = "effect.update_param_keyframe";
 constexpr const char CanonicalPlaceAssetToolId[] = "timeline.place_asset";
+constexpr const char CanonicalMoveClipToolId[] = "timeline.move_clip";
+constexpr const char CanonicalTrimClipToolId[] = "timeline.trim_clip";
 constexpr const char CanonicalUpdateClipTransformToolId[] = "timeline.update_clip_transform";
 constexpr const char CanonicalUpdateClipPlaybackRateToolId[] = "timeline.update_clip_playback_rate";
 constexpr const char CanonicalUpdateEffectParamToolId[] = "effect.update_param_value";
@@ -190,6 +192,14 @@ foundation::ToolId stewardPlaceAssetToolCallIdForRun(const foundation::RunId& ru
   return foundation::ToolId{"tool_steward_place_asset_" + std::to_string(stewardRunNumber(runId))};
 }
 
+foundation::ToolId stewardClipMoveToolCallIdForRun(const foundation::RunId& runId) {
+  return foundation::ToolId{"tool_steward_clip_move_" + std::to_string(stewardRunNumber(runId))};
+}
+
+foundation::ToolId stewardClipTrimToolCallIdForRun(const foundation::RunId& runId) {
+  return foundation::ToolId{"tool_steward_clip_trim_" + std::to_string(stewardRunNumber(runId))};
+}
+
 foundation::ToolId stewardClipTransformToolCallIdForRun(const foundation::RunId& runId) {
   return foundation::ToolId{"tool_steward_clip_transform_" + std::to_string(stewardRunNumber(runId))};
 }
@@ -238,6 +248,43 @@ std::string clipTransformArgumentsPayload(
   arguments << "}";
   arguments << ",\"rotationDegrees\":" << transform.rotationDegrees;
   arguments << ",\"opacity\":" << transform.opacity;
+  arguments << '}';
+  return arguments.str();
+}
+
+std::string clipMoveArgumentsPayload(
+  const foundation::NodeId& clipNodeId,
+  foundation::TimeSeconds newStart
+) {
+  std::ostringstream arguments;
+  arguments << '{';
+  foundation::writeJsonStringProperty(arguments, "clipNodeId", clipNodeId.value());
+  arguments << ",\"newStart\":" << newStart.value;
+  arguments << '}';
+  return arguments.str();
+}
+
+void writeTimeRangeArguments(
+  std::ostringstream& arguments,
+  const char* propertyName,
+  foundation::TimeRange range
+) {
+  arguments << ",\"" << propertyName << "\":{"
+            << "\"start\":" << range.start.value
+            << ",\"end\":" << range.end.value
+            << '}';
+}
+
+std::string clipTrimArgumentsPayload(
+  const foundation::NodeId& clipNodeId,
+  foundation::TimeRange timelineRange,
+  foundation::TimeRange sourceRange
+) {
+  std::ostringstream arguments;
+  arguments << '{';
+  foundation::writeJsonStringProperty(arguments, "clipNodeId", clipNodeId.value());
+  writeTimeRangeArguments(arguments, "timelineRange", timelineRange);
+  writeTimeRangeArguments(arguments, "sourceRange", sourceRange);
   arguments << '}';
   return arguments.str();
 }
@@ -518,7 +565,7 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::e
     }
     return error;
   }
-  auto edit = planner_.clipEditForIntent(clipPayload->transform, clipPayload->playbackRate, intent);
+  auto edit = planner_.clipEditForIntent(*clipPayload, intent);
   if (!edit) {
     auto finished = finishRunWithError(runId.value(), edit.error());
     if (!finished) {
@@ -551,6 +598,50 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::e
   agent::AgentToolContext toolContext{stewardCommands, project_, commandWriter_};
   agent::AgentBridge bridge{registry, toolContext, events_, nextSequence_};
   foundation::RevisionId expectedRevision = snapshot.value().revision;
+  if (edit.value().moveChanged) {
+    auto dispatched = bridge.dispatchToolCall(agent::AgentToolDispatchRequest{
+      runId.value(),
+      snapshot.value().info.id,
+      expectedRevision,
+      stewardClipMoveToolCallIdForRun(runId.value()),
+      CanonicalMoveClipToolId,
+      clipMoveArgumentsPayload(clipNodeId, edit.value().newStart.value())
+    });
+    if (!dispatched) {
+      auto finished = finishRunWithError(runId.value(), dispatched.error());
+      if (!finished) {
+        return finished.error();
+      }
+      return dispatched.error();
+    }
+    if (packageResult.has_value()) {
+      expectedRevision = packageResult->snapshot.revision;
+    }
+  }
+  if (edit.value().trimChanged) {
+    auto dispatched = bridge.dispatchToolCall(agent::AgentToolDispatchRequest{
+      runId.value(),
+      snapshot.value().info.id,
+      expectedRevision,
+      stewardClipTrimToolCallIdForRun(runId.value()),
+      CanonicalTrimClipToolId,
+      clipTrimArgumentsPayload(
+        clipNodeId,
+        edit.value().timelineRange.value(),
+        edit.value().sourceRange.value()
+      )
+    });
+    if (!dispatched) {
+      auto finished = finishRunWithError(runId.value(), dispatched.error());
+      if (!finished) {
+        return finished.error();
+      }
+      return dispatched.error();
+    }
+    if (packageResult.has_value()) {
+      expectedRevision = packageResult->snapshot.revision;
+    }
+  }
   if (edit.value().transformChanged) {
     auto dispatched = bridge.dispatchToolCall(agent::AgentToolDispatchRequest{
       runId.value(),

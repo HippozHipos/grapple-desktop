@@ -21,6 +21,7 @@ constexpr double CameraTransformPositionYStep = 0.2;
 constexpr double CameraTransformZoomInStep = 0.25;
 constexpr double CameraTransformZoomOutStep = 0.2;
 constexpr double ClipRotationStepDegrees = 15.0;
+constexpr double ClipTimingStepSeconds = 1.0;
 
 std::string lowercaseAscii(std::string value) {
   for (char& character : value) {
@@ -240,6 +241,29 @@ bool clipIntentMentionsClipTarget(const std::string& normalized) {
   return containsAsciiWord(normalized, "clip") ||
          containsAsciiWord(normalized, "video") ||
          containsAsciiWord(normalized, "layer");
+}
+
+bool clipIntentRequestsMoveLater(const std::string& normalized) {
+  return containsAsciiWord(normalized, "later") ||
+         containsText(normalized, "move forward");
+}
+
+bool clipIntentRequestsMoveEarlier(const std::string& normalized) {
+  return containsAsciiWord(normalized, "earlier") ||
+         containsText(normalized, "move backward") ||
+         containsText(normalized, "move back");
+}
+
+bool clipIntentRequestsTrimShorter(const std::string& normalized) {
+  return containsAsciiWord(normalized, "shorter") ||
+         containsAsciiWord(normalized, "shorten") ||
+         containsText(normalized, "trim end") ||
+         containsText(normalized, "trim shorter");
+}
+
+bool clipIntentRequestsTrimLonger(const std::string& normalized) {
+  return containsAsciiWord(normalized, "longer") ||
+         containsAsciiWord(normalized, "extend");
 }
 
 double intentStrengthMultiplier(const std::string& normalized) {
@@ -523,12 +547,21 @@ bool NativeStewardPlanner::clipEditIntentTargetsClip(const std::string& intent) 
   if (!clipIntentMentionsClipTarget(normalized)) {
     return false;
   }
-  return static_cast<bool>(clipEditForIntent(timeline::Transform2D{}, 1.0, intent));
+  return static_cast<bool>(clipEditForIntent(
+    timeline::ClipPayload{
+      timeline::ClipKind::Video,
+      foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{2.0}},
+      foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{2.0}},
+      1.0,
+      foundation::AssetId{"asset_steward_planner_default"},
+      timeline::Transform2D{}
+    },
+    intent
+  ));
 }
 
 foundation::Result<ClipEditIntent> NativeStewardPlanner::clipEditForIntent(
-  const timeline::Transform2D& current,
-  double currentPlaybackRate,
+  const timeline::ClipPayload& current,
   const std::string& intent
 ) const {
   const std::string normalized = lowercaseAscii(intent);
@@ -537,10 +570,15 @@ foundation::Result<ClipEditIntent> NativeStewardPlanner::clipEditForIntent(
   const double movementStrength = clipMovementStrengthMultiplier(normalized, movementClause, mixedTransformRequest);
   const double scaleStrength = clipScaleStrengthMultiplier(normalized, mixedTransformRequest);
   const double rotationStrength = clipRotationStrengthMultiplier(normalized, mixedTransformRequest);
-  timeline::Transform2D transform = current;
+  timeline::Transform2D transform = current.transform;
   bool transformChanged = false;
-  double playbackRate = currentPlaybackRate;
+  double playbackRate = current.playbackRate;
   bool playbackRateChanged = false;
+  std::optional<foundation::TimeSeconds> newStart;
+  std::optional<foundation::TimeRange> timelineRange;
+  std::optional<foundation::TimeRange> sourceRange;
+  bool moveChanged = false;
+  bool trimChanged = false;
 
   if (clipIntentRequestsMovement(normalized)) {
     if (containsAsciiWord(movementClause, "left")) {
@@ -610,33 +648,74 @@ foundation::Result<ClipEditIntent> NativeStewardPlanner::clipEditForIntent(
       containsText(normalized, "regular speed") ||
       (containsAsciiWord(normalized, "reset") && clipIntentRequestsPlaybackRate(normalized))) {
     playbackRate = 1.0;
-    playbackRateChanged = playbackRate != currentPlaybackRate;
+    playbackRateChanged = playbackRate != current.playbackRate;
   } else if (containsText(normalized, "double speed")) {
     playbackRate = 2.0;
-    playbackRateChanged = playbackRate != currentPlaybackRate;
+    playbackRateChanged = playbackRate != current.playbackRate;
   } else if (containsText(normalized, "half speed")) {
     playbackRate = 0.5;
-    playbackRateChanged = playbackRate != currentPlaybackRate;
+    playbackRateChanged = playbackRate != current.playbackRate;
   } else if (containsText(normalized, "speed up") ||
              containsAsciiWord(normalized, "faster")) {
-    playbackRate = currentPlaybackRate * 1.25;
+    playbackRate = current.playbackRate * 1.25;
     playbackRateChanged = true;
   } else if (containsText(normalized, "slow down") ||
              containsAsciiWord(normalized, "slower")) {
-    playbackRate = currentPlaybackRate * 0.75;
+    playbackRate = current.playbackRate * 0.75;
     playbackRateChanged = true;
   }
 
-  if (!transformChanged && !playbackRateChanged) {
+  if (clipIntentRequestsMoveLater(normalized)) {
+    newStart = foundation::TimeSeconds{current.timelineRange.start.value + ClipTimingStepSeconds};
+    moveChanged = true;
+  } else if (clipIntentRequestsMoveEarlier(normalized)) {
+    newStart = foundation::TimeSeconds{current.timelineRange.start.value - ClipTimingStepSeconds};
+    if (newStart->value < 0.0) {
+      return foundation::Error{
+        "steward.clip_timing_before_zero",
+        "Clip timing edits cannot move a clip before the timeline start."
+      };
+    }
+    moveChanged = true;
+  }
+
+  if (clipIntentRequestsTrimShorter(normalized) || clipIntentRequestsTrimLonger(normalized)) {
+    const double timelineDelta = clipIntentRequestsTrimShorter(normalized)
+      ? -ClipTimingStepSeconds
+      : ClipTimingStepSeconds;
+    timelineRange = foundation::TimeRange{
+      current.timelineRange.start,
+      foundation::TimeSeconds{current.timelineRange.end.value + timelineDelta}
+    };
+    sourceRange = foundation::TimeRange{
+      current.sourceRange.start,
+      foundation::TimeSeconds{current.sourceRange.end.value + timelineDelta * current.playbackRate}
+    };
+    if (timelineRange->end.value <= timelineRange->start.value ||
+        sourceRange->end.value <= sourceRange->start.value) {
+      return foundation::Error{
+        "steward.clip_trim_range_invalid",
+        "Clip timing edits must leave positive timeline and source ranges."
+      };
+    }
+    trimChanged = true;
+  }
+
+  if (!moveChanged && !trimChanged && !transformChanged && !playbackRateChanged) {
     return foundation::Error{
       "steward.clip_edit_intent_unknown",
-      "Clip edit requests must explicitly mention movement, scale, rotation, opacity, or speed."
+      "Clip edit requests must explicitly mention timing, movement, scale, rotation, opacity, or speed."
     };
   }
 
   return ClipEditIntent{
     transform,
     playbackRate,
+    newStart,
+    timelineRange,
+    sourceRange,
+    moveChanged,
+    trimChanged,
     transformChanged,
     playbackRateChanged
   };

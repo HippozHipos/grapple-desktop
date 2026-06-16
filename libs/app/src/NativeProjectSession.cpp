@@ -380,6 +380,58 @@ struct StewardEditRowIndex {
   std::size_t rowIndex = 0;
 };
 
+void appendStewardClipEdit(
+  AppCommandProvenance& provenance,
+  std::vector<StewardEditRowIndex>& stewardClipEditRows,
+  const history::CommandRecord& command,
+  const foundation::NodeId& targetNodeId,
+  const std::string& targetName,
+  const std::string& editName,
+  const std::string& intent,
+  const std::string& controlSummary
+) {
+  auto existingClipEdit = command.sourceRunId.has_value()
+    ? std::find_if(
+        stewardClipEditRows.begin(),
+        stewardClipEditRows.end(),
+        [&](const StewardEditRowIndex& row) {
+          return row.runId == command.sourceRunId.value() &&
+                 row.targetNodeId == targetNodeId &&
+                 row.intent == intent;
+        }
+      )
+    : stewardClipEditRows.end();
+  if (existingClipEdit != stewardClipEditRows.end()) {
+    AppStewardEditRow& row = provenance.stewardEdits[existingClipEdit->rowIndex];
+    row.commandId = command.id;
+    row.revision = command.afterRevision;
+    if (row.editName != editName) {
+      row.editName = "Clip Edit";
+    }
+    appendControlSummary(row, controlSummary);
+    return;
+  }
+
+  provenance.stewardEdits.push_back(AppStewardEditRow{
+    command.id,
+    command.afterRevision,
+    targetNodeId,
+    targetName,
+    editName,
+    intent,
+    controlSummary
+  });
+  if (command.sourceRunId.has_value()) {
+    stewardClipEditRows.push_back(StewardEditRowIndex{
+      command.sourceRunId.value(),
+      targetNodeId,
+      std::string{},
+      intent,
+      provenance.stewardEdits.size() - 1
+    });
+  }
+}
+
 foundation::Result<AppCommandProvenance> appCommandProvenance(
   const std::vector<history::CommandRecord>& commands,
   const std::vector<history::SnapshotRecord>& snapshots,
@@ -593,45 +645,52 @@ foundation::Result<AppCommandProvenance> appCommandProvenance(
           );
         }
 
-        auto existingClipEdit = command.sourceRunId.has_value()
-          ? std::find_if(
-              stewardClipEditRows.begin(),
-              stewardClipEditRows.end(),
-              [&](const StewardEditRowIndex& row) {
-                return row.runId == command.sourceRunId.value() &&
-                       row.targetNodeId == updateClip->nodeId &&
-                       row.intent == intent;
-              }
-            )
-          : stewardClipEditRows.end();
-        if (existingClipEdit != stewardClipEditRows.end()) {
-          AppStewardEditRow& row = provenance.stewardEdits[existingClipEdit->rowIndex];
-          row.commandId = command.id;
-          row.revision = command.afterRevision;
-          row.editName = "Clip Edit";
-          appendControlSummary(row, controlSummary);
-        } else {
-          provenance.stewardEdits.push_back(AppStewardEditRow{
-            command.id,
-            command.afterRevision,
-            updateClip->nodeId,
-            targetName.value(),
-            transformChanged && playbackRateChanged
-              ? "Clip Edit"
-              : (playbackRateChanged ? "Clip Playback Rate" : "Clip Transform"),
-            intent,
-            controlSummary
-          });
-          if (command.sourceRunId.has_value()) {
-            stewardClipEditRows.push_back(StewardEditRowIndex{
-              command.sourceRunId.value(),
-              updateClip->nodeId,
-              std::string{},
-              intent,
-              provenance.stewardEdits.size() - 1
-            });
-          }
+        appendStewardClipEdit(
+          provenance,
+          stewardClipEditRows,
+          command,
+          updateClip->nodeId,
+          targetName.value(),
+          transformChanged && playbackRateChanged
+            ? "Clip Edit"
+            : (playbackRateChanged ? "Clip Playback Rate" : "Clip Transform"),
+          intent,
+          controlSummary
+        );
+      } else if (const auto* moveClip = std::get_if<project::MoveClipCommand>(&parsedCommand.value())) {
+        auto targetName = nodeDisplayName(snapshot, moveClip->nodeId);
+        if (!targetName) {
+          return targetName.error();
         }
+        appendStewardClipEdit(
+          provenance,
+          stewardClipEditRows,
+          command,
+          moveClip->nodeId,
+          targetName.value(),
+          "Clip Timing",
+          intent,
+          "Start=" + timeDisplayText(moveClip->newStart) + "s"
+        );
+      } else if (const auto* trimClip = std::get_if<project::TrimClipCommand>(&parsedCommand.value())) {
+        auto targetName = nodeDisplayName(snapshot, trimClip->nodeId);
+        if (!targetName) {
+          return targetName.error();
+        }
+        appendStewardClipEdit(
+          provenance,
+          stewardClipEditRows,
+          command,
+          trimClip->nodeId,
+          targetName.value(),
+          "Clip Timing",
+          intent,
+          "Range=" + timeDisplayText(trimClip->timelineRange.start) +
+            "s - " + timeDisplayText(trimClip->timelineRange.end) +
+            "s, Source=" + timeDisplayText(trimClip->sourceRange.start) +
+            "s - " + timeDisplayText(trimClip->sourceRange.end) +
+            "s"
+        );
       } else if (const auto* addMedia = std::get_if<project::AddMediaToTimelineCommand>(&parsedCommand.value())) {
         auto targetName = nodeDisplayName(snapshot, addMedia->clip.nodeId);
         if (!targetName) {
