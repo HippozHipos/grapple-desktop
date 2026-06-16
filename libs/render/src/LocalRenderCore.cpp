@@ -44,6 +44,10 @@ struct ClipTint {
   double amount = 0.0;
 };
 
+struct ClipExposure {
+  double exposure = 0.0;
+};
+
 std::uint8_t opacityAdjustedAlpha(std::uint8_t alpha, double opacity) {
   const double clampedOpacity = std::clamp(opacity, 0.0, 1.0);
   return static_cast<std::uint8_t>(std::lround(static_cast<double>(alpha) * clampedOpacity));
@@ -125,6 +129,41 @@ std::vector<ClipTint> clipTintsFor(
   return tints;
 }
 
+std::vector<ClipExposure> clipExposuresFor(
+  runtime::RuntimeSample& sample,
+  const foundation::NodeId& clipNodeId,
+  const foundation::ProjectId& projectId,
+  const foundation::RevisionId& revision
+) {
+  std::vector<ClipExposure> exposures;
+  for (const runtime::RuntimeEffectOutput& output : sample.effectOutputs) {
+    if (output.targetNodeId != clipNodeId) {
+      continue;
+    }
+
+    for (const runtime::RuntimeNamedValue& value : output.values) {
+      if (value.name != effects::output_name::ClipExposure) {
+        continue;
+      }
+      if (const auto* numeric = std::get_if<double>(&value.value)) {
+        exposures.push_back(ClipExposure{*numeric});
+      } else {
+        sample.diagnostics.push_back(runtime::RuntimeDiagnostic{
+          "runtime.clip_exposure_output_invalid",
+          runtime::DiagnosticSeverity::Error,
+          runtime::DiagnosticLocation{
+            projectId,
+            revision,
+            output.sourceNodeId
+          },
+          "Runtime clip exposure output requires a numeric clip_exposure value."
+        });
+      }
+    }
+  }
+  return exposures;
+}
+
 std::vector<RenderedMediaFrame> buildMediaFrames(
   runtime::RuntimeSample& sample,
   const foundation::ProjectId& projectId,
@@ -136,11 +175,16 @@ std::vector<RenderedMediaFrame> buildMediaFrames(
   for (const projection::RenderClip& clip : sample.clips) {
     const timeline::ClipPayload& payload = clip.payload;
     const std::vector<ClipTint> tints = clipTintsFor(sample, clip.sourceNodeId, projectId, revision);
+    const std::vector<ClipExposure> exposures = clipExposuresFor(sample, clip.sourceNodeId, projectId, revision);
     std::optional<foundation::Vec3> tintColor;
     double tintAmount = 0.0;
     for (const ClipTint& tint : tints) {
       tintColor = tint.color;
       tintAmount = std::clamp(tintAmount + tint.amount, 0.0, 1.0);
+    }
+    double exposure = 0.0;
+    for (const ClipExposure& clipExposure : exposures) {
+      exposure = std::clamp(exposure + clipExposure.exposure, -2.0, 2.0);
     }
 
     frames.push_back(RenderedMediaFrame{
@@ -153,7 +197,8 @@ std::vector<RenderedMediaFrame> buildMediaFrames(
       },
       payload.transform,
       tintColor,
-      tintAmount
+      tintAmount,
+      exposure
     });
   }
 
@@ -436,6 +481,25 @@ RenderedImage tintedImage(RenderedImage image, const RenderedMediaFrame& mediaFr
   return image;
 }
 
+RenderedImage exposedImage(RenderedImage image, const RenderedMediaFrame& mediaFrame) {
+  if (std::abs(mediaFrame.exposure) < 0.0001) {
+    return image;
+  }
+
+  const double multiplier = std::pow(2.0, std::clamp(mediaFrame.exposure, -2.0, 2.0));
+  const std::size_t pixelCount =
+    static_cast<std::size_t>(image.resolution.width * image.resolution.height);
+  for (std::size_t pixel = 0; pixel < pixelCount; ++pixel) {
+    const std::size_t index = pixel * 4;
+    for (std::size_t channel = 0; channel < 3; ++channel) {
+      const double source = static_cast<double>(image.rgbaPixels[index + channel]);
+      image.rgbaPixels[index + channel] =
+        static_cast<std::uint8_t>(std::lround(std::clamp(source * multiplier, 0.0, 255.0)));
+    }
+  }
+  return image;
+}
+
 RenderedImage rasterizeTextFrame(const RenderedTextFrame& textFrame) {
   const double scaleMultiplier =
     std::max(0.01, (std::abs(textFrame.transform.scale.x) + std::abs(textFrame.transform.scale.y)) * 0.5);
@@ -579,7 +643,8 @@ foundation::Result<std::optional<RenderedImage>> buildRenderedImage(
     }
 
     RenderedImage tinted = tintedImage(std::move(image.value()), mediaFrame);
-    RenderedImage transformed = transformedMediaImage(tinted, mediaFrame, canvas->resolution);
+    RenderedImage exposed = exposedImage(std::move(tinted), mediaFrame);
+    RenderedImage transformed = transformedMediaImage(exposed, mediaFrame, canvas->resolution);
     compositeImageOver(canvas.value(), transformed);
   }
 

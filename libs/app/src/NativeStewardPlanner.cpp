@@ -31,6 +31,8 @@ constexpr double TitleTextFontSize = 64.0;
 constexpr double LowerThirdTextFontSize = 44.0;
 constexpr std::string_view DefaultNoteTitle{"Project Note"};
 
+double intentStrengthMultiplier(const std::string& normalized);
+
 std::string lowercaseAscii(std::string value) {
   for (char& character : value) {
     character = static_cast<char>(std::tolower(static_cast<unsigned char>(character)));
@@ -639,6 +641,20 @@ bool clipTintIntentRequestsClip(const std::string& normalized) {
          containsAsciiWord(normalized, "green");
 }
 
+bool clipExposureIntentRequestsClip(const std::string& normalized) {
+  if (!clipIntentMentionsClipTarget(normalized)) {
+    return false;
+  }
+  return containsAsciiWord(normalized, "exposure") ||
+         containsAsciiWord(normalized, "expose") ||
+         containsAsciiWord(normalized, "bright") ||
+         containsAsciiWord(normalized, "brighter") ||
+         containsAsciiWord(normalized, "brighten") ||
+         containsAsciiWord(normalized, "dark") ||
+         containsAsciiWord(normalized, "darker") ||
+         containsAsciiWord(normalized, "darken");
+}
+
 foundation::Vec3 clipTintColorForIntent(const std::string& normalized) {
   if (containsAsciiWord(normalized, "blue") || containsAsciiWord(normalized, "cooler")) {
     return foundation::Vec3{0.2, 0.45, 1.0};
@@ -665,6 +681,21 @@ double clipTintAmountForIntent(const std::string& normalized) {
     return 0.6;
   }
   return 0.35;
+}
+
+double clipExposureForIntent(const std::string& normalized) {
+  if (containsAsciiWord(normalized, "reset") ||
+      containsAsciiWord(normalized, "normal") ||
+      containsAsciiWord(normalized, "neutral")) {
+    return 0.0;
+  }
+  const double magnitude = intentStrengthMultiplier(normalized) * 0.35;
+  if (containsAsciiWord(normalized, "dark") ||
+      containsAsciiWord(normalized, "darker") ||
+      containsAsciiWord(normalized, "darken")) {
+    return -magnitude;
+  }
+  return magnitude;
 }
 
 std::optional<timeline::ParamValue> effectParamValue(
@@ -699,6 +730,20 @@ bool clipTintIntentRequestsAmount(const std::string& normalized) {
          containsText(normalized, "a lot") ||
          containsAsciiWord(normalized, "amount") ||
          containsAsciiWord(normalized, "intensity");
+}
+
+bool clipExposureIntentRequestsAmount(const std::string& normalized) {
+  return containsAsciiWord(normalized, "exposure") ||
+         containsAsciiWord(normalized, "expose") ||
+         containsAsciiWord(normalized, "bright") ||
+         containsAsciiWord(normalized, "brighter") ||
+         containsAsciiWord(normalized, "brighten") ||
+         containsAsciiWord(normalized, "dark") ||
+         containsAsciiWord(normalized, "darker") ||
+         containsAsciiWord(normalized, "darken") ||
+         containsAsciiWord(normalized, "reset") ||
+         containsAsciiWord(normalized, "normal") ||
+         containsAsciiWord(normalized, "neutral");
 }
 
 bool clipIntentRequestsMoveLater(const std::string& normalized) {
@@ -1088,6 +1133,13 @@ bool NativeStewardPlanner::clipTintIntentTargetsClip(const std::string& intent) 
          clipTintIntentRequestsClip(normalized);
 }
 
+bool NativeStewardPlanner::clipExposureIntentTargetsClip(const std::string& intent) const {
+  const std::string normalized = lowercaseAscii(intent);
+  return !clipDeleteIntentRequestsClip(normalized) &&
+         !clipTintIntentRequestsClip(normalized) &&
+         clipExposureIntentRequestsClip(normalized);
+}
+
 ClipTintIntentDefaults NativeStewardPlanner::clipTintDefaultsForIntent(const std::string& intent) const {
   const std::string normalized = lowercaseAscii(intent);
   return ClipTintIntentDefaults{
@@ -1137,6 +1189,42 @@ foundation::Result<std::vector<ClipTintParamAdjustment>> NativeStewardPlanner::c
     return foundation::Error{
       "steward.clip_tint_noop",
       "Clip Tint controls already match the requested adjustment."
+    };
+  }
+
+  return adjustments;
+}
+
+ClipExposureIntentDefaults NativeStewardPlanner::clipExposureDefaultsForIntent(const std::string& intent) const {
+  return ClipExposureIntentDefaults{clipExposureForIntent(lowercaseAscii(intent))};
+}
+
+foundation::Result<std::vector<ClipExposureParamAdjustment>> NativeStewardPlanner::clipExposureParamAdjustmentsForIntent(
+  const timeline::EffectPayload& current,
+  const std::string& intent
+) const {
+  const std::string normalized = lowercaseAscii(intent);
+  std::vector<ClipExposureParamAdjustment> adjustments;
+
+  if (clipExposureIntentRequestsAmount(normalized)) {
+    const timeline::ParamValue value{clipExposureForIntent(normalized)};
+    const std::optional<timeline::ParamValue> currentValue =
+      effectParamValue(current, effects::builtin_effect::ClipExposureParam);
+    if (!currentValue.has_value()) {
+      return foundation::Error{
+        "steward.clip_exposure_param_missing",
+        "Clip Exposure controls are missing the exposure parameter."
+      };
+    }
+    if (currentValue.value() != value) {
+      adjustments.push_back(ClipExposureParamAdjustment{effects::builtin_effect::ClipExposureParam, value});
+    }
+  }
+
+  if (adjustments.empty()) {
+    return foundation::Error{
+      "steward.clip_exposure_noop",
+      "Clip Exposure controls already match the requested adjustment."
     };
   }
 

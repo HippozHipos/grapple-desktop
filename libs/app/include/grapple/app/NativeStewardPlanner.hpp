@@ -67,6 +67,15 @@ struct ClipTintParamAdjustment {
   timeline::ParamValue value;
 };
 
+struct ClipExposureIntentDefaults {
+  double exposure = 0.0;
+};
+
+struct ClipExposureParamAdjustment {
+  std::string paramName;
+  timeline::ParamValue value;
+};
+
 struct TextClipIntentDefaults {
   std::string text;
   foundation::TimeSeconds duration{3.0};
@@ -122,6 +131,12 @@ public:
   [[nodiscard]] bool clipTintIntentTargetsClip(const std::string& intent) const;
   [[nodiscard]] ClipTintIntentDefaults clipTintDefaultsForIntent(const std::string& intent) const;
   [[nodiscard]] foundation::Result<std::vector<ClipTintParamAdjustment>> clipTintParamAdjustmentsForIntent(
+    const timeline::EffectPayload& current,
+    const std::string& intent
+  ) const;
+  [[nodiscard]] bool clipExposureIntentTargetsClip(const std::string& intent) const;
+  [[nodiscard]] ClipExposureIntentDefaults clipExposureDefaultsForIntent(const std::string& intent) const;
+  [[nodiscard]] foundation::Result<std::vector<ClipExposureParamAdjustment>> clipExposureParamAdjustmentsForIntent(
     const timeline::EffectPayload& current,
     const std::string& intent
   ) const;

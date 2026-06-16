@@ -69,6 +69,22 @@ RuntimeDiagnostic makeClipTintParamDiagnostic(
   };
 }
 
+RuntimeDiagnostic makeClipExposureParamDiagnostic(
+  const EffectPrepareRequest& request,
+  const std::string& paramName
+) {
+  return RuntimeDiagnostic{
+    "runtime.builtin_clip_exposure_param_invalid",
+    DiagnosticSeverity::Error,
+    DiagnosticLocation{
+      request.projectId,
+      request.revision,
+      request.node.sourceNodeId
+    },
+    "Builtin clip_exposure effect requires numeric parameter " + paramName + "."
+  };
+}
+
 bool isCameraTransform(const projection::RenderEffectNode& node) {
   return node.payload.implementation.kind == timeline::EffectImplementationKind::Builtin &&
          node.payload.implementation.entrypoint == effects::builtin_effect::CameraTransformEntrypoint;
@@ -77,6 +93,11 @@ bool isCameraTransform(const projection::RenderEffectNode& node) {
 bool isClipTint(const projection::RenderEffectNode& node) {
   return node.payload.implementation.kind == timeline::EffectImplementationKind::Builtin &&
          node.payload.implementation.entrypoint == effects::builtin_effect::ClipTintEntrypoint;
+}
+
+bool isClipExposure(const projection::RenderEffectNode& node) {
+  return node.payload.implementation.kind == timeline::EffectImplementationKind::Builtin &&
+         node.payload.implementation.entrypoint == effects::builtin_effect::ClipExposureEntrypoint;
 }
 
 foundation::Result<EffectPrepareResult> prepareCameraTransform(const EffectPrepareRequest& request) {
@@ -152,15 +173,47 @@ foundation::Result<EffectPrepareResult> prepareClipTint(const EffectPrepareReque
   };
 }
 
+foundation::Result<EffectPrepareResult> prepareClipExposure(const EffectPrepareRequest& request) {
+  std::vector<RuntimeDiagnostic> diagnostics;
+  const RuntimeParamSet params = runtimeParamsFromEffectNode(request.node);
+  const std::optional<double> exposure = numericParam(params, effects::builtin_effect::ClipExposureParam);
+
+  if (!exposure.has_value()) {
+    diagnostics.push_back(makeClipExposureParamDiagnostic(request, effects::builtin_effect::ClipExposureParam));
+  }
+
+  RuntimeValueMap preparedValues;
+  if (exposure.has_value()) {
+    preparedValues.push_back(RuntimeNamedValue{effects::builtin_effect::ClipExposureParam, RuntimeValue{*exposure}});
+  }
+
+  return EffectPrepareResult{
+    PreparedEffectNode{
+      request.graph.id,
+      request.graph.targetNodeId,
+      request.node.sourceNodeId,
+      request.node.payload.activeRange,
+      nullptr,
+      params,
+      std::move(preparedValues),
+      effects::builtin_effect::ClipExposureEntrypoint
+    },
+    diagnostics
+  };
+}
+
 } // namespace
 
 bool BuiltinEffectRuntime::supports(const projection::RenderEffectNode& node) const {
-  return isCameraTransform(node) || isClipTint(node);
+  return isCameraTransform(node) || isClipTint(node) || isClipExposure(node);
 }
 
 foundation::Result<EffectPrepareResult> BuiltinEffectRuntime::prepare(const EffectPrepareRequest& request) {
   if (isCameraTransform(request.node)) {
     return prepareCameraTransform(request);
+  }
+  if (isClipExposure(request.node)) {
+    return prepareClipExposure(request);
   }
   return prepareClipTint(request);
 }
@@ -197,6 +250,32 @@ foundation::Result<EffectProcessResult> BuiltinEffectRuntime::process(const Effe
     if (color.has_value() && amount.has_value()) {
       outputValues.push_back(RuntimeNamedValue{effects::output_name::ClipTint, RuntimeValue{*color}});
       outputValues.push_back(RuntimeNamedValue{effects::output_name::ClipTintAmount, RuntimeValue{*amount}});
+    }
+    return EffectProcessResult{
+      RuntimeEffectOutput{
+        request.prepared.effectGraphId,
+        request.prepared.targetNodeId,
+        request.prepared.sourceNodeId,
+        std::move(outputValues)
+      },
+      {}
+    };
+  }
+
+  if (request.prepared.entrypoint == effects::builtin_effect::ClipExposureEntrypoint) {
+    std::optional<double> exposure;
+    for (const RuntimeNamedValue& value : request.params) {
+      if (value.name != effects::builtin_effect::ClipExposureParam) {
+        continue;
+      }
+      if (const auto* numeric = std::get_if<double>(&value.value)) {
+        exposure = *numeric;
+      }
+    }
+
+    RuntimeValueMap outputValues;
+    if (exposure.has_value()) {
+      outputValues.push_back(RuntimeNamedValue{effects::output_name::ClipExposure, RuntimeValue{*exposure}});
     }
     return EffectProcessResult{
       RuntimeEffectOutput{

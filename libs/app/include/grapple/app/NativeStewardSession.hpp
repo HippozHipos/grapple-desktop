@@ -84,6 +84,15 @@ public:
     foundation::NodeId clipNodeId,
     std::string intent
   );
+  foundation::Result<storage::ProjectPackageSessionResult> createClipExposureEffect(
+    foundation::NodeId clipNodeId,
+    std::string intent,
+    foundation::TimeRange activeRange
+  );
+  foundation::Result<storage::ProjectPackageSessionResult> adjustClipExposureControls(
+    foundation::NodeId clipNodeId,
+    std::string intent
+  );
   foundation::Result<storage::ProjectPackageSessionResult> deleteClip(
     foundation::NodeId clipNodeId,
     std::string intent
@@ -102,6 +111,7 @@ public:
   );
   [[nodiscard]] bool clipEditIntentTargetsClip(const std::string& intent) const;
   [[nodiscard]] bool clipTintIntentTargetsClip(const std::string& intent) const;
+  [[nodiscard]] bool clipExposureIntentTargetsClip(const std::string& intent) const;
   [[nodiscard]] bool clipDeleteIntentTargetsClip(const std::string& intent) const;
   [[nodiscard]] bool cameraUpdateIntentTargetsCamera(const std::string& intent) const;
   [[nodiscard]] bool trackCreateIntentTargetsTrack(const std::string& intent) const;

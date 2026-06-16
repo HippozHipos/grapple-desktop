@@ -353,6 +353,9 @@ StewardPanel::StewardPanel(QWidget* parent)
     if (tryCreateClipTintFromPrimaryAction()) {
       return;
     }
+    if (tryCreateClipExposureFromPrimaryAction()) {
+      return;
+    }
     if (tryEditSelectedClipFromPrimaryAction()) {
       return;
     }
@@ -542,6 +545,10 @@ void StewardPanel::setTryCreateClipTintHandler(TryCreateClipTintHandler handler)
   tryCreateClipTintHandler_ = std::move(handler);
 }
 
+void StewardPanel::setTryCreateClipExposureHandler(TryCreateClipExposureHandler handler) {
+  tryCreateClipExposureHandler_ = std::move(handler);
+}
+
 void StewardPanel::setTryEditSelectedClipHandler(TryEditSelectedClipHandler handler) {
   tryEditSelectedClipHandler_ = std::move(handler);
 }
@@ -715,7 +722,7 @@ void StewardPanel::setViewModel(
   }
   if (selectedClipTargetNodeId_.has_value()) {
     lines << QString{"Clip target: %1"}.arg(clipName(viewModel, selectedClipTargetNodeId_.value()));
-    lines << "Clip route: mention tint/color for editable Clip Tint, clip/video to update clip parameters, or delete/remove to delete it.";
+    lines << "Clip route: mention tint/color for editable Clip Tint, exposure/brighten/darken for editable Clip Exposure, clip/video to update clip parameters, or delete/remove to delete it.";
   }
   if (selectedTextClipTargetNodeId_.has_value()) {
     lines << QString{"Text target: %1"}.arg(textClipName(viewModel, selectedTextClipTargetNodeId_.value()));
@@ -733,10 +740,20 @@ void StewardPanel::setViewModel(
       selectedClipTargetNodeId_.value(),
       effects::builtin_effect::ClipTintEntrypoint
     );
+    const bool hasClipExposure = app::targetHasEffectEntrypoint(
+      viewModel,
+      selectedClipTargetNodeId_.value(),
+      effects::builtin_effect::ClipExposureEntrypoint
+    );
     if (hasClipTint) {
       suggestions.push_back("Make clip tint stronger and blue.");
     } else {
       suggestions.push_back("Tint selected clip red.");
+    }
+    if (hasClipExposure) {
+      suggestions.push_back("Make selected clip darker.");
+    } else {
+      suggestions.push_back("Brighten selected clip.");
     }
     suggestions.push_back("Move selected clip right.");
     suggestions.push_back("Speed up selected clip.");
@@ -1008,7 +1025,7 @@ void StewardPanel::updateActionLabels() {
 
 void StewardPanel::updateIntentPlaceholder() {
   if (selectedClipTargetNodeId_.has_value()) {
-    intent_->setPlaceholderText("Try: \"tint selected clip red\", \"move selected clip right\", \"speed up selected clip\", or \"delete selected clip\".");
+    intent_->setPlaceholderText("Try: \"tint selected clip red\", \"brighten selected clip\", \"move selected clip right\", \"speed up selected clip\", or \"delete selected clip\".");
     return;
   }
   if (selectedTextClipTargetNodeId_.has_value()) {
@@ -1094,6 +1111,16 @@ bool StewardPanel::tryCreateClipTintFromPrimaryAction() {
   }
 
   return tryCreateClipTintHandler_(selectedClipTargetNodeId_.value(), intent());
+}
+
+bool StewardPanel::tryCreateClipExposureFromPrimaryAction() {
+  if (!selectedClipTargetNodeId_.has_value() ||
+      !intentHasText() ||
+      !tryCreateClipExposureHandler_) {
+    return false;
+  }
+
+  return tryCreateClipExposureHandler_(selectedClipTargetNodeId_.value(), intent());
 }
 
 bool StewardPanel::tryApplyHistoryIntentFromPrimaryAction() {

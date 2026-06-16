@@ -32,6 +32,7 @@ struct RenderedMediaFrame {
   timeline::Transform2D transform;
   std::optional<foundation::Vec3> tintColor;
   double tintAmount = 0.0;
+  double exposure = 0.0;
 };
 
 struct RenderedAudioClip {

@@ -198,7 +198,7 @@ QString emptyControlMessage(
     return "No editable controls yet. Use Steward to create editable camera controls for this camera.";
   }
   if (containsVisualClip(viewModel, selectedNodeId)) {
-    return "No editable controls yet. Mention tint/color in Steward to create editable Clip Tint controls for this clip.";
+    return "No editable controls yet. Mention tint/color or exposure/brighten/darken in Steward to create editable clip controls.";
   }
   if (containsTextClip(viewModel, selectedNodeId)) {
     return "No editable effect controls yet. Use the Text panel to edit this text clip.";

@@ -43,6 +43,7 @@ public:
   using TryDeleteSelectedClipHandler = std::function<bool(foundation::NodeId, std::string)>;
   using TryDeleteSelectedTrackHandler = std::function<bool(foundation::NodeId, std::string)>;
   using TryCreateClipTintHandler = std::function<bool(foundation::NodeId, std::string)>;
+  using TryCreateClipExposureHandler = std::function<bool(foundation::NodeId, std::string)>;
   using TryEditSelectedClipHandler = std::function<bool(foundation::NodeId, std::string)>;
   using EditSelectedTextClipHandler = std::function<void(foundation::NodeId, std::string)>;
   using TextClipIntentTargetsTextHandler = std::function<bool(std::string)>;
@@ -74,6 +75,7 @@ public:
   void setTryDeleteSelectedClipHandler(TryDeleteSelectedClipHandler handler);
   void setTryDeleteSelectedTrackHandler(TryDeleteSelectedTrackHandler handler);
   void setTryCreateClipTintHandler(TryCreateClipTintHandler handler);
+  void setTryCreateClipExposureHandler(TryCreateClipExposureHandler handler);
   void setTryEditSelectedClipHandler(TryEditSelectedClipHandler handler);
   void setEditSelectedTextClipHandler(EditSelectedTextClipHandler handler);
   void setTextClipIntentTargetsTextHandler(TextClipIntentTargetsTextHandler handler);
@@ -128,6 +130,7 @@ private:
   [[nodiscard]] bool tryDeleteSelectedClipFromPrimaryAction();
   [[nodiscard]] bool tryDeleteSelectedTrackFromPrimaryAction();
   [[nodiscard]] bool tryCreateClipTintFromPrimaryAction();
+  [[nodiscard]] bool tryCreateClipExposureFromPrimaryAction();
   [[nodiscard]] bool tryEditSelectedClipFromPrimaryAction();
   [[nodiscard]] bool tryEditSelectedTextClipFromPrimaryAction();
   [[nodiscard]] bool tryEditSelectedNoteFromPrimaryAction();
@@ -154,6 +157,7 @@ private:
   TryDeleteSelectedClipHandler tryDeleteSelectedClipHandler_;
   TryDeleteSelectedTrackHandler tryDeleteSelectedTrackHandler_;
   TryCreateClipTintHandler tryCreateClipTintHandler_;
+  TryCreateClipExposureHandler tryCreateClipExposureHandler_;
   TryEditSelectedClipHandler tryEditSelectedClipHandler_;
   EditSelectedTextClipHandler editSelectedTextClipHandler_;
   TextClipIntentTargetsTextHandler textClipIntentTargetsTextHandler_;

@@ -277,6 +277,16 @@ foundation::ToolId stewardClipTintParamToolCallIdForRun(const foundation::RunId&
   };
 }
 
+foundation::ToolId stewardClipExposureToolCallIdForRun(const foundation::RunId& runId) {
+  return foundation::ToolId{"tool_steward_clip_exposure_" + std::to_string(stewardRunNumber(runId))};
+}
+
+foundation::ToolId stewardClipExposureParamToolCallIdForRun(const foundation::RunId& runId, std::int64_t index) {
+  return foundation::ToolId{
+    "tool_steward_clip_exposure_param_" + std::to_string(stewardRunNumber(runId)) + "_" + std::to_string(index)
+  };
+}
+
 foundation::ToolId stewardCameraTransformParamToolCallIdForRun(const foundation::RunId& runId, std::int64_t index) {
   return foundation::ToolId{
     "tool_steward_camera_transform_param_" +
@@ -334,6 +344,48 @@ std::string clipTintEffectCreateArgumentsPayload(
   arguments << foundation::jsonQuoted(effects::builtin_effect::ClipTintAmountLabel);
   arguments << ",\"value\":" << defaults.amount;
   arguments << ",\"numeric\":{\"min\":0,\"max\":1,\"step\":0.01}}";
+  arguments << "]";
+  arguments << '}';
+  return arguments.str();
+}
+
+std::string clipExposureEffectCreateArgumentsPayload(
+  const foundation::NodeId& clipNodeId,
+  foundation::TimeRange activeRange,
+  ClipExposureIntentDefaults defaults
+) {
+  std::ostringstream arguments;
+  arguments << '{';
+  foundation::writeJsonStringProperty(arguments, "targetNodeId", clipNodeId.value());
+  arguments << ',';
+  foundation::writeJsonStringProperty(arguments, "displayName", effects::builtin_effect::ClipExposureDisplayName);
+  arguments << ',';
+  foundation::writeJsonStringProperty(arguments, "implementationKind", "builtin");
+  arguments << ',';
+  foundation::writeJsonStringProperty(arguments, "language", "builtin");
+  arguments << ',';
+  foundation::writeJsonStringProperty(arguments, "entrypoint", effects::builtin_effect::ClipExposureEntrypoint);
+  arguments << ',';
+  foundation::writeJsonStringProperty(arguments, "source", effects::builtin_effect::ClipExposureSource);
+  arguments << ',';
+  foundation::writeJsonStringProperty(arguments, "sourcePort", effects::output_name::ClipExposure);
+  arguments << ',';
+  foundation::writeJsonStringProperty(arguments, "targetPort", "input");
+  arguments << ",\"inputPorts\":[\"frame\"]";
+  arguments << ",\"outputPorts\":[";
+  arguments << foundation::jsonQuoted(effects::output_name::ClipExposure);
+  arguments << "]";
+  arguments << ",\"activeRange\":{";
+  arguments << "\"start\":" << activeRange.start.value;
+  arguments << ",\"end\":" << activeRange.end.value;
+  arguments << "}";
+  arguments << ",\"params\":[";
+  arguments << "{\"name\":";
+  arguments << foundation::jsonQuoted(effects::builtin_effect::ClipExposureParam);
+  arguments << ",\"label\":";
+  arguments << foundation::jsonQuoted(effects::builtin_effect::ClipExposureLabel);
+  arguments << ",\"value\":" << defaults.exposure;
+  arguments << ",\"numeric\":{\"min\":-2,\"max\":2,\"step\":0.01}}";
   arguments << "]";
   arguments << '}';
   return arguments.str();
@@ -1882,6 +1934,212 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::a
   return packageResult.value();
 }
 
+foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::createClipExposureEffect(
+  foundation::NodeId clipNodeId,
+  std::string intent,
+  foundation::TimeRange activeRange
+) {
+  auto snapshot = project_.snapshot();
+  if (!snapshot) {
+    return snapshot.error();
+  }
+
+  if (!planner_.clipExposureIntentTargetsClip(intent)) {
+    return foundation::Error{
+      "steward.clip_exposure_intent_mismatch",
+      "Clip Exposure creation requires an explicit exposure, brighten, or darken request for a selected clip."
+    };
+  }
+
+  const graph::GraphNode* clipNode = snapshot.value().graph.findNode(clipNodeId);
+  if (clipNode == nullptr || clipNode->kind != graph::NodeKind::Clip) {
+    return foundation::Error{"steward.clip_missing", "Steward Clip Exposure creation requires an existing clip node."};
+  }
+  if (targetHasBuiltinEffect(snapshot.value(), clipNodeId, effects::builtin_effect::ClipExposureEntrypoint)) {
+    return foundation::Error{
+      "steward.clip_exposure_exists",
+      "Selected clip already has Clip Exposure controls."
+    };
+  }
+
+  auto runId = startRun(snapshot.value(), intent);
+  if (!runId) {
+    return runId.error();
+  }
+
+  auto message = appendEvent(
+    runId.value(),
+    agent::AgentRunEventKind::ModelMessage,
+    modelMessagePayload("assistant", "Creating editable Clip Exposure controls for the selected clip.")
+  );
+  if (!message) {
+    return message.error();
+  }
+
+  std::optional<storage::ProjectPackageSessionResult> packageResult;
+  CommittingAgentCommandService stewardCommands{project_, commandWriter_, intent, packageResult};
+  agent::AgentToolRegistry registry;
+  auto registered = agent::registerProjectTools(registry);
+  if (!registered) {
+    auto finished = finishRunWithError(runId.value(), registered.error());
+    if (!finished) {
+      return finished.error();
+    }
+    return registered.error();
+  }
+
+  agent::AgentToolContext toolContext{stewardCommands, project_, commandWriter_};
+  agent::AgentBridge bridge{registry, toolContext, events_, nextSequence_};
+  const ClipExposureIntentDefaults defaults = planner_.clipExposureDefaultsForIntent(intent);
+  auto dispatched = bridge.dispatchToolCall(agent::AgentToolDispatchRequest{
+    runId.value(),
+    snapshot.value().info.id,
+    snapshot.value().revision,
+    stewardClipExposureToolCallIdForRun(runId.value()),
+    CanonicalEffectCreateNodeToolId,
+    clipExposureEffectCreateArgumentsPayload(clipNodeId, activeRange, defaults)
+  });
+  if (!dispatched) {
+    auto finished = finishRunWithError(runId.value(), dispatched.error());
+    if (!finished) {
+      return finished.error();
+    }
+    return dispatched.error();
+  }
+  if (!packageResult.has_value()) {
+    const foundation::Error error{
+      "steward.clip_exposure_result_missing",
+      "Steward Clip Exposure creation succeeded without a committed package result."
+    };
+    auto finished = finishRunWithError(runId.value(), error);
+    if (!finished) {
+      return finished.error();
+    }
+    return error;
+  }
+
+  auto runFinished = appendEvent(
+    runId.value(),
+    agent::AgentRunEventKind::RunFinished,
+    runFinishedPayload("succeeded", "Created editable Clip Exposure parameter.")
+  );
+  if (!runFinished) {
+    return runFinished.error();
+  }
+
+  markRunStatus(runId.value(), agent::AgentRunStatus::Succeeded);
+  return packageResult.value();
+}
+
+foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::adjustClipExposureControls(
+  foundation::NodeId clipNodeId,
+  std::string intent
+) {
+  auto snapshot = project_.snapshot();
+  if (!snapshot) {
+    return snapshot.error();
+  }
+
+  if (!planner_.clipExposureIntentTargetsClip(intent)) {
+    return foundation::Error{
+      "steward.clip_exposure_intent_mismatch",
+      "Clip Exposure adjustment requires an explicit exposure, brighten, or darken request for a selected clip."
+    };
+  }
+
+  foundation::NodeId effectNodeId;
+  const timeline::EffectPayload* payload = builtinEffectPayloadForTarget(
+    snapshot.value(),
+    clipNodeId,
+    effects::builtin_effect::ClipExposureEntrypoint,
+    effectNodeId
+  );
+  if (payload == nullptr) {
+    return foundation::Error{
+      "steward.clip_exposure_missing",
+      "Steward Clip Exposure adjustment requires existing Clip Exposure controls."
+    };
+  }
+
+  auto adjustments = planner_.clipExposureParamAdjustmentsForIntent(*payload, intent);
+  if (!adjustments) {
+    return adjustments.error();
+  }
+
+  auto runId = startRun(snapshot.value(), intent);
+  if (!runId) {
+    return runId.error();
+  }
+
+  auto message = appendEvent(
+    runId.value(),
+    agent::AgentRunEventKind::ModelMessage,
+    modelMessagePayload("assistant", "Updating the existing Clip Exposure control as an editable parameter.")
+  );
+  if (!message) {
+    return message.error();
+  }
+
+  std::optional<storage::ProjectPackageSessionResult> packageResult;
+  CommittingAgentCommandService stewardCommands{project_, commandWriter_, intent, packageResult};
+  agent::AgentToolRegistry registry;
+  auto registered = agent::registerProjectTools(registry);
+  if (!registered) {
+    auto finished = finishRunWithError(runId.value(), registered.error());
+    if (!finished) {
+      return finished.error();
+    }
+    return registered.error();
+  }
+
+  agent::AgentToolContext toolContext{stewardCommands, project_, commandWriter_};
+  agent::AgentBridge bridge{registry, toolContext, events_, nextSequence_};
+  foundation::RevisionId latestRevision = snapshot.value().revision;
+  std::int64_t toolCallIndex = 1;
+  for (const ClipExposureParamAdjustment& adjustment : adjustments.value()) {
+    auto dispatched = bridge.dispatchToolCall(agent::AgentToolDispatchRequest{
+      runId.value(),
+      snapshot.value().info.id,
+      latestRevision,
+      stewardClipExposureParamToolCallIdForRun(runId.value(), toolCallIndex),
+      CanonicalUpdateEffectParamToolId,
+      effectParamValueArgumentsPayload(effectNodeId, adjustment.paramName, adjustment.value)
+    });
+    if (!dispatched) {
+      auto finished = finishRunWithError(runId.value(), dispatched.error());
+      if (!finished) {
+        return finished.error();
+      }
+      return dispatched.error();
+    }
+    latestRevision = dispatched.value().observedRevision;
+    ++toolCallIndex;
+  }
+  if (!packageResult.has_value()) {
+    const foundation::Error error{
+      "steward.clip_exposure_update_result_missing",
+      "Steward Clip Exposure update succeeded without a committed package result."
+    };
+    auto finished = finishRunWithError(runId.value(), error);
+    if (!finished) {
+      return finished.error();
+    }
+    return error;
+  }
+
+  auto runFinished = appendEvent(
+    runId.value(),
+    agent::AgentRunEventKind::RunFinished,
+    runFinishedPayload("succeeded", "Updated Clip Exposure control.")
+  );
+  if (!runFinished) {
+    return runFinished.error();
+  }
+
+  markRunStatus(runId.value(), agent::AgentRunStatus::Succeeded);
+  return packageResult.value();
+}
+
 foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::deleteClip(
   foundation::NodeId clipNodeId,
   std::string intent
@@ -2284,6 +2542,10 @@ bool NativeStewardSession::clipEditIntentTargetsClip(const std::string& intent) 
 
 bool NativeStewardSession::clipTintIntentTargetsClip(const std::string& intent) const {
   return planner_.clipTintIntentTargetsClip(intent);
+}
+
+bool NativeStewardSession::clipExposureIntentTargetsClip(const std::string& intent) const {
+  return planner_.clipExposureIntentTargetsClip(intent);
 }
 
 bool NativeStewardSession::clipDeleteIntentTargetsClip(const std::string& intent) const {

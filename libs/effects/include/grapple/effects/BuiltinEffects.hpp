@@ -22,4 +22,10 @@ inline constexpr char ClipTintAmountParam[] = "amount";
 inline constexpr char ClipTintColorLabel[] = "Tint Color";
 inline constexpr char ClipTintAmountLabel[] = "Tint Amount";
 
+inline constexpr char ClipExposureDisplayName[] = "Clip Exposure";
+inline constexpr char ClipExposureEntrypoint[] = "clip_exposure";
+inline constexpr char ClipExposureSource[] = "builtin:clip_exposure";
+inline constexpr char ClipExposureParam[] = "exposure";
+inline constexpr char ClipExposureLabel[] = "Exposure";
+
 } // namespace grapple::effects::builtin_effect

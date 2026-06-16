@@ -1811,7 +1811,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "effectParamTitle=" << effectParamTitle << '\n';
     std::cout << "inspector=" << inspector << '\n';
     std::cout << "steward=" << steward << '\n';
-    return suggestions == 3 &&
+    return suggestions == 4 &&
            firstSuggestion == "Tint selected clip red." &&
            intentAfterSuggestion == firstSuggestion &&
            primaryActionText == "Apply Request To Clip" &&
@@ -2391,7 +2391,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            steward.find("- Center the walking subject with exposed controls.") != std::string::npos &&
            selectedClipBeforeCreate.has_value() &&
            selectedClipBeforeCreate.value() == expectedClipNodeId &&
-           clipEffectParamPanelBeforeCreate.find("editable Clip Tint controls") != std::string::npos &&
+           clipEffectParamPanelBeforeCreate.find("editable clip controls") != std::string::npos &&
+           clipEffectParamPanelBeforeCreate.find("exposure/brighten/darken") != std::string::npos &&
            clipEffectParamPanelBeforeCreate.find("camera controls") == std::string::npos &&
            selectedAfterCreate.has_value() &&
            selectedAfterCreate.value() == expectedCameraNodeId &&
@@ -3232,6 +3233,14 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       grapple::effects::builtin_effect::ClipTintColorParam,
       grapple::foundation::Vec3{0.2, 1.0, 0.35}
     );
+    window.setStewardIntent("Brighten selected clip.");
+    const std::string primaryActionTextForExposure = window.stewardPrimaryActionText();
+    const bool primaryActionEnabledForExposure = window.stewardPrimaryActionEnabled();
+    window.clickStewardPrimaryAction();
+    window.setStewardIntent("Make selected clip darker.");
+    const std::string primaryActionTextForExposureUpdate = window.stewardPrimaryActionText();
+    const bool primaryActionEnabledForExposureUpdate = window.stewardPrimaryActionEnabled();
+    window.clickStewardPrimaryAction();
     window.setStewardIntent("Move selected clip right, rotate slightly left, make it smaller, make it faster, and make it invisible.");
     const std::string primaryActionTextAfterIntent = window.stewardPrimaryActionText();
     const bool primaryActionEnabledAfterIntent = window.stewardPrimaryActionEnabled();
@@ -3298,6 +3307,33 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
         );
       }
     );
+    const bool clipExposureUpdated = std::any_of(
+      viewModel.value().timeline.effectGraphs.begin(),
+      viewModel.value().timeline.effectGraphs.end(),
+      [](const grapple::app::AppEffectGraphRow& graph) {
+        return std::any_of(
+          graph.effects.begin(),
+          graph.effects.end(),
+          [](const grapple::app::AppEffectRow& effect) {
+            if (effect.entrypoint != grapple::effects::builtin_effect::ClipExposureEntrypoint ||
+                effect.params.size() != 1) {
+              return false;
+            }
+            const auto exposureParam = std::find_if(
+              effect.params.begin(),
+              effect.params.end(),
+              [](const grapple::app::AppEffectParamRow& row) {
+                return row.name == grapple::effects::builtin_effect::ClipExposureParam;
+              }
+            );
+            return exposureParam != effect.params.end() &&
+                   std::holds_alternative<double>(exposureParam->value) &&
+                   std::get<double>(exposureParam->value) == -0.35 &&
+                   exposureParam->lastEditedActorName == "steward";
+          }
+        );
+      }
+    );
     std::cout << "revision=" << viewModel.value().project.revision.value() << '\n';
     std::cout << "initialClipPositionX=" << clipBeforeTransform.position.x << '\n';
     std::cout << "initialClipScaleX=" << clipBeforeTransform.scale.x << '\n';
@@ -3318,6 +3354,10 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "primaryActionEnabledForTint=" << (primaryActionEnabledForTint ? "true" : "false") << '\n';
     std::cout << "primaryActionTextForTintUpdate=" << primaryActionTextForTintUpdate << '\n';
     std::cout << "primaryActionEnabledForTintUpdate=" << (primaryActionEnabledForTintUpdate ? "true" : "false") << '\n';
+    std::cout << "primaryActionTextForExposure=" << primaryActionTextForExposure << '\n';
+    std::cout << "primaryActionEnabledForExposure=" << (primaryActionEnabledForExposure ? "true" : "false") << '\n';
+    std::cout << "primaryActionTextForExposureUpdate=" << primaryActionTextForExposureUpdate << '\n';
+    std::cout << "primaryActionEnabledForExposureUpdate=" << (primaryActionEnabledForExposureUpdate ? "true" : "false") << '\n';
     std::cout << "primaryActionTextAfterIntent=" << primaryActionTextAfterIntent << '\n';
     std::cout << "primaryActionEnabledAfterIntent=" << (primaryActionEnabledAfterIntent ? "true" : "false") << '\n';
     std::cout << "effectParamTitle=" << effectParamTitle << '\n';
@@ -3326,17 +3366,19 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "stewardIntent=" << stewardIntent << '\n';
     std::cout << "inspector=" << inspector << '\n';
     std::cout << "log=" << log << '\n';
-    return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_8"} &&
-           viewModel.value().timeline.effectCount == 1 &&
+    return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_10"} &&
+           viewModel.value().timeline.effectCount == 2 &&
            viewModel.value().timeline.effectGraphs.size() == 1 &&
-           viewModel.value().timeline.effectGraphs[0].effects.size() == 1 &&
+           viewModel.value().timeline.effectGraphs[0].effects.size() == 2 &&
            viewModel.value().timeline.effectGraphs[0].effects[0].displayName == grapple::effects::builtin_effect::ClipTintDisplayName &&
            clipTintUpdated &&
+           clipExposureUpdated &&
            renderedFrame.value().frame.sourceRevision == viewModel.value().project.revision &&
            renderedFrame.value().frame.mediaFrames.size() == 1 &&
            renderedFrame.value().frame.mediaFrames[0].tintColor.has_value() &&
            renderedFrame.value().frame.mediaFrames[0].tintColor.value() == grapple::foundation::Vec3{0.2, 1.0, 0.35} &&
            renderedFrame.value().frame.mediaFrames[0].tintAmount == 0.6 &&
+           renderedFrame.value().frame.mediaFrames[0].exposure == -0.35 &&
            clip.transform.position.x == clipBeforeTransform.position.x + 0.25 &&
            clip.transform.position.y == clipBeforeTransform.position.y &&
            clip.transform.scale.x == clipBeforeTransform.scale.x * 0.75 &&
@@ -3346,6 +3388,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            clip.playbackRate == 1.25 &&
            primaryActionTextBeforeIntent == "Choose Or Type Request" &&
            stewardIntentPlaceholderBeforeIntent.find("tint selected clip red") != std::string::npos &&
+           stewardIntentPlaceholderBeforeIntent.find("brighten selected clip") != std::string::npos &&
            stewardIntentPlaceholderBeforeIntent.find("speed up selected clip") != std::string::npos &&
            stewardIntentPlaceholderBeforeIntent.find("delete selected clip") != std::string::npos &&
            !primaryActionEnabledBeforeIntent &&
@@ -3353,14 +3396,21 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            primaryActionEnabledForTint &&
            primaryActionTextForTintUpdate == "Apply Request To Clip" &&
            primaryActionEnabledForTintUpdate &&
+           primaryActionTextForExposure == "Apply Request To Clip" &&
+           primaryActionEnabledForExposure &&
+           primaryActionTextForExposureUpdate == "Apply Request To Clip" &&
+           primaryActionEnabledForExposureUpdate &&
            primaryActionTextAfterIntent == "Apply Request To Clip" &&
            primaryActionEnabledAfterIntent &&
            stewardIntent.empty() &&
            steward.find("Next: type a selected clip request, or type a camera request.") != std::string::npos &&
            steward.find("Clip target: starter-gradient") != std::string::npos &&
            steward.find("Clip route: mention tint/color for editable Clip Tint") != std::string::npos &&
+           steward.find("exposure/brighten/darken for editable Clip Exposure") != std::string::npos &&
            steward.find("Tint selected clip red.") != std::string::npos &&
            steward.find("Make clip tint stronger and blue.") != std::string::npos &&
+           steward.find("Brighten selected clip.") != std::string::npos &&
+           steward.find("Make selected clip darker.") != std::string::npos &&
            steward.find("Rotation=-7.5") != std::string::npos &&
            inspector.find("Rotation: -7.50") != std::string::npos &&
            inspector.find("Speed: 1.25x") != std::string::npos &&
@@ -3371,12 +3421,16 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            effectParamPanel.find("\nG\n") != std::string::npos &&
            effectParamPanel.find("\nB\n") != std::string::npos &&
            effectParamPanel.find("Tint Amount") != std::string::npos &&
+           effectParamPanel.find("Clip Exposure on starter-gradient") != std::string::npos &&
+           effectParamPanel.find("Exposure") != std::string::npos &&
            steward.find("Create Effect Node -> succeeded") != std::string::npos &&
            steward.find("Update Effect Parameter -> succeeded") != std::string::npos &&
            steward.find("Update Clip Transform -> succeeded") != std::string::npos &&
            steward.find("Update Clip Playback Rate -> succeeded") != std::string::npos &&
            log.find("Steward created clip tint controls") != std::string::npos &&
            log.find("Steward adjusted clip tint controls") != std::string::npos &&
+           log.find("Steward created clip exposure controls") != std::string::npos &&
+           log.find("Steward adjusted clip exposure controls") != std::string::npos &&
            log.find("Updated effect parameter color") != std::string::npos &&
            log.find("Steward edited selected clip") != std::string::npos
       ? 0

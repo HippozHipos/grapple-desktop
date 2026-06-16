@@ -806,6 +806,7 @@ public:
         case grapple::ui::StewardPanel::SelectedTargetKind::Clip:
           return workspace_.steward().clipDeleteIntentTargetsClip(intent) ||
                  workspace_.steward().clipTintIntentTargetsClip(intent) ||
+                 workspace_.steward().clipExposureIntentTargetsClip(intent) ||
                  workspace_.steward().clipEditIntentTargetsClip(intent);
         case grapple::ui::StewardPanel::SelectedTargetKind::TextClip:
           return workspace_.steward().clipDeleteIntentTargetsClip(intent) ||
@@ -834,6 +835,12 @@ public:
       std::string intent
     ) {
       return createClipTintWithPrimaryIntent(std::move(clipNodeId), std::move(intent));
+    });
+    steward_->setTryCreateClipExposureHandler([this](
+      grapple::foundation::NodeId clipNodeId,
+      std::string intent
+    ) {
+      return createClipExposureWithPrimaryIntent(std::move(clipNodeId), std::move(intent));
     });
     steward_->setTryEditSelectedClipHandler([this](
       grapple::foundation::NodeId clipNodeId,
@@ -2809,6 +2816,62 @@ public:
     refreshViewModelAndPreview();
     steward_->setIntent({});
     log_->append("Steward created clip tint controls");
+    return true;
+  }
+
+  bool createClipExposureWithPrimaryIntent(
+    grapple::foundation::NodeId clipNodeId,
+    std::string intent
+  ) {
+    if (!workspace_.steward().clipExposureIntentTargetsClip(intent)) {
+      return false;
+    }
+
+    const auto viewModel = workspace_.project().buildViewModel();
+    if (!viewModel) {
+      appendError(viewModel.error());
+      refreshViewModel();
+      return true;
+    }
+    const bool hasClipExposure = grapple::app::targetHasEffectEntrypoint(
+      viewModel.value(),
+      clipNodeId,
+      grapple::effects::builtin_effect::ClipExposureEntrypoint
+    );
+
+    if (hasClipExposure) {
+      const auto adjusted = workspace_.steward().adjustClipExposureControls(clipNodeId, std::move(intent));
+      if (!adjusted) {
+        appendError(adjusted.error());
+        refreshViewModel();
+        return true;
+      }
+      selectedNodeId_ = clipNodeId;
+      selectedAssetId_ = std::nullopt;
+      showEffectControls();
+      refreshViewModelAndPreview();
+      steward_->setIntent({});
+      log_->append("Steward adjusted clip exposure controls");
+      return true;
+    }
+
+    const auto created = workspace_.steward().createClipExposureEffect(
+      clipNodeId,
+      std::move(intent),
+      grapple::foundation::TimeRange{grapple::foundation::TimeSeconds{0.0}, timelineDuration_}
+    );
+    if (!created) {
+      appendError(created.error());
+      refreshViewModel();
+      return true;
+    }
+
+    selectedNodeId_ = clipNodeId;
+    selectedAssetId_ = std::nullopt;
+    showEffectControls();
+    refreshViewModelAndPreview();
+    steward_->setIntent({});
+    log_->append("Steward created clip exposure controls");
     return true;
   }
 

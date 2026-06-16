@@ -3619,6 +3619,68 @@ int main() {
   GRAPPLE_REQUIRE(adjustedTintConversation.runs[2].toolCalls[1].toolDisplayName == "Update Effect Parameter");
   GRAPPLE_REQUIRE(adjustedTintConversation.runs[2].toolCalls[1].toolCallId == foundation::ToolId{"tool_steward_clip_tint_param_3_2"});
   GRAPPLE_REQUIRE(adjustedTintConversation.runs[2].toolCalls[1].observedRevision == foundation::RevisionId{"rev_5"});
+  const auto exposureCreated = tintWorkspace.value().steward().createClipExposureEffect(
+    tintPlacement.value().clipNodeId,
+    "Brighten selected clip.",
+    foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{5.0}}
+  );
+  GRAPPLE_REQUIRE(exposureCreated);
+  const auto exposedRefresh = tintWorkspace.value().preview().refreshFromProject();
+  GRAPPLE_REQUIRE(exposedRefresh);
+  const auto exposedFrame = tintWorkspace.value().preview().renderFrame(render::RenderFrameRequest{
+    foundation::TimeSeconds{0.0},
+    render::RenderQuality::Draft
+  });
+  GRAPPLE_REQUIRE(exposedFrame);
+  GRAPPLE_REQUIRE(exposedFrame.value().frame.image.has_value());
+  GRAPPLE_REQUIRE(exposedFrame.value().frame.image->rgbaPixels != adjustedTintFrame.value().frame.image->rgbaPixels);
+  GRAPPLE_REQUIRE(exposedFrame.value().frame.mediaFrames.size() == 1);
+  GRAPPLE_REQUIRE(exposedFrame.value().frame.mediaFrames[0].exposure == 0.35);
+  const auto exposureAdjusted = tintWorkspace.value().steward().adjustClipExposureControls(
+    tintPlacement.value().clipNodeId,
+    "Make selected clip darker."
+  );
+  GRAPPLE_REQUIRE(exposureAdjusted);
+  const auto adjustedExposureRefresh = tintWorkspace.value().preview().refreshFromProject();
+  GRAPPLE_REQUIRE(adjustedExposureRefresh);
+  const auto adjustedExposureFrame = tintWorkspace.value().preview().renderFrame(render::RenderFrameRequest{
+    foundation::TimeSeconds{0.0},
+    render::RenderQuality::Draft
+  });
+  GRAPPLE_REQUIRE(adjustedExposureFrame);
+  GRAPPLE_REQUIRE(adjustedExposureFrame.value().frame.image.has_value());
+  GRAPPLE_REQUIRE(adjustedExposureFrame.value().frame.image->rgbaPixels != exposedFrame.value().frame.image->rgbaPixels);
+  GRAPPLE_REQUIRE(adjustedExposureFrame.value().frame.mediaFrames.size() == 1);
+  GRAPPLE_REQUIRE(adjustedExposureFrame.value().frame.mediaFrames[0].exposure == -0.35);
+  const auto adjustedExposureViewModel = tintWorkspace.value().project().buildViewModel();
+  GRAPPLE_REQUIRE(adjustedExposureViewModel);
+  GRAPPLE_REQUIRE(adjustedExposureViewModel.value().timeline.effectGraphs.size() == 1);
+  GRAPPLE_REQUIRE(adjustedExposureViewModel.value().timeline.effectGraphs[0].effects.size() == 2);
+  const auto exposureEffect = std::find_if(
+    adjustedExposureViewModel.value().timeline.effectGraphs[0].effects.begin(),
+    adjustedExposureViewModel.value().timeline.effectGraphs[0].effects.end(),
+    [](const app::AppEffectRow& effect) {
+      return effect.entrypoint == effects::builtin_effect::ClipExposureEntrypoint;
+    }
+  );
+  GRAPPLE_REQUIRE(exposureEffect != adjustedExposureViewModel.value().timeline.effectGraphs[0].effects.end());
+  GRAPPLE_REQUIRE(exposureEffect->displayName == effects::builtin_effect::ClipExposureDisplayName);
+  GRAPPLE_REQUIRE(exposureEffect->params.size() == 1);
+  GRAPPLE_REQUIRE(exposureEffect->params[0].name == effects::builtin_effect::ClipExposureParam);
+  GRAPPLE_REQUIRE(std::get<double>(exposureEffect->params[0].value) == -0.35);
+  GRAPPLE_REQUIRE(exposureEffect->params[0].lastEditedRevision == foundation::RevisionId{"rev_7"});
+  GRAPPLE_REQUIRE(exposureEffect->params[0].lastEditedSourceKind == "agent");
+  GRAPPLE_REQUIRE(exposureEffect->params[0].lastEditedActorName == "steward");
+  const agent::AgentConversationState adjustedExposureConversation = tintWorkspace.value().steward().conversationState();
+  GRAPPLE_REQUIRE(adjustedExposureConversation.diagnostics.empty());
+  GRAPPLE_REQUIRE(adjustedExposureConversation.runs.size() == 5);
+  GRAPPLE_REQUIRE(adjustedExposureConversation.runs[3].toolCalls.size() == 1);
+  GRAPPLE_REQUIRE(adjustedExposureConversation.runs[3].toolCalls[0].toolSerializedId == "effect.create_node");
+  GRAPPLE_REQUIRE(adjustedExposureConversation.runs[3].toolCalls[0].toolCallId == foundation::ToolId{"tool_steward_clip_exposure_4"});
+  GRAPPLE_REQUIRE(adjustedExposureConversation.runs[4].toolCalls.size() == 1);
+  GRAPPLE_REQUIRE(adjustedExposureConversation.runs[4].toolCalls[0].toolSerializedId == "effect.update_param_value");
+  GRAPPLE_REQUIRE(adjustedExposureConversation.runs[4].toolCalls[0].toolCallId == foundation::ToolId{"tool_steward_clip_exposure_param_5_1"});
+  GRAPPLE_REQUIRE(adjustedExposureConversation.runs[4].toolCalls[0].observedRevision == foundation::RevisionId{"rev_7"});
   std::filesystem::remove(tintImportSource);
   std::filesystem::remove_all(tintPackageRoot);
 

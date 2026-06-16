@@ -165,7 +165,10 @@ int main(int argc, char** argv) {
     std::nullopt
   );
   GRAPPLE_REQUIRE(containsText(panel.intentPlaceholder(), "tint selected clip red"));
+  GRAPPLE_REQUIRE(containsText(panel.intentPlaceholder(), "brighten selected clip"));
   GRAPPLE_REQUIRE(containsText(panel.intentPlaceholder(), "delete selected clip"));
+  GRAPPLE_REQUIRE(panel.suggestedRequestCount() == 4);
+  GRAPPLE_REQUIRE(panel.suggestedRequestText(1) == "Brighten selected clip.");
 
   panel.setViewModel(
     viewModelWithSelectedTextClip(),
