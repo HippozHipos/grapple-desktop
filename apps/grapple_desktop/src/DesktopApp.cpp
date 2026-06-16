@@ -1031,7 +1031,6 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     }
 
     window.importMediaFile(grapple::foundation::FilePath{audioPath.string()});
-    window.addSelectedMediaToTimeline();
     window.show();
     app.processEvents();
     window.clickFirstTimelineAudioClip();
@@ -1072,7 +1071,6 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     }
 
     window.importMediaFile(grapple::foundation::FilePath{audioPath.string()});
-    window.addSelectedMediaToTimeline();
     window.show();
     app.processEvents();
     window.clickFirstTimelineAudioTrack();
@@ -1301,7 +1299,6 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
 
   if (addVideoSmoke) {
     window.importMediaFile(grapple::foundation::FilePath{starterVideoPath.string()});
-    window.addMediaAssetAtRowToTimeline(1);
     const auto viewModel = workspace.value().project().buildViewModel();
     if (!viewModel) {
       printError(viewModel.error());
@@ -2842,7 +2839,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     return viewModel.value().project.projectId == grapple::foundation::ProjectId{"proj_desktop"} &&
            viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_5"} &&
            workspace.value().project().packageState().commandLog.records().size() == 5 &&
-           hadSelectedAssetBeforeOpen &&
+           !hadSelectedAssetBeforeOpen &&
            !window.selectedAssetId().has_value()
       ? 0
       : 1;
@@ -3316,7 +3313,6 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     window.show();
     app.processEvents();
     window.importMediaFile(grapple::foundation::FilePath{starterVideoPath.string()});
-    window.clickStewardPrimaryAction();
     const auto beforeTransformViewModel = workspace.value().project().buildViewModel();
     if (!beforeTransformViewModel) {
       printError(beforeTransformViewModel.error());
@@ -3550,7 +3546,6 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     window.show();
     app.processEvents();
     window.importMediaFile(grapple::foundation::FilePath{starterVideoPath.string()});
-    window.clickStewardPrimaryAction();
     window.setStewardIntent("Delete selected clip.");
     window.clickStewardPrimaryAction();
     const auto viewModel = workspace.value().project().buildViewModel();
@@ -3571,15 +3566,12 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            viewModel.value().timeline.clips.empty() &&
            !window.selectedNodeId().has_value() &&
            window.stewardIntent().empty() &&
-           conversation.runs.size() == 2 &&
+           conversation.runs.size() == 1 &&
            conversation.runs[0].toolCalls.size() == 1 &&
-           conversation.runs[0].toolCalls[0].toolSerializedId == "timeline.place_asset" &&
-           conversation.runs[1].toolCalls.size() == 1 &&
-           conversation.runs[1].toolCalls[0].toolSerializedId == "timeline.delete_clip" &&
+           conversation.runs[0].toolCalls[0].toolSerializedId == "timeline.delete_clip" &&
            steward.find("Clip Delete") != std::string::npos &&
            steward.find("Delete selected clip.") != std::string::npos &&
            steward.find("Delete Timeline Clip -> succeeded") != std::string::npos &&
-           log.find("Steward added selected media to timeline") != std::string::npos &&
            log.find("Steward deleted selected clip") != std::string::npos
       ? 0
       : 1;
@@ -3683,7 +3675,6 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     window.show();
     app.processEvents();
     window.importMediaFile(grapple::foundation::FilePath{starterVideoPath.string()});
-    window.clickStewardPrimaryAction();
     window.setStewardIntent("Create editable camera controls.");
     window.clickStewardPrimaryAction();
     window.setStewardIntent("Remove camera controls.");
@@ -3705,15 +3696,15 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "log=" << log << '\n';
     return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_4"} &&
            viewModel.value().timeline.effectGraphs.empty() &&
-           viewModel.value().steward.edits.size() == 3 &&
-           viewModel.value().steward.edits[2].editName == "Camera Transform Delete" &&
-           viewModel.value().steward.edits[2].controlSummary == "Deleted" &&
+           viewModel.value().steward.edits.size() == 2 &&
+           viewModel.value().steward.edits[1].editName == "Camera Transform Delete" &&
+           viewModel.value().steward.edits[1].controlSummary == "Deleted" &&
            window.stewardIntent().empty() &&
-           conversation.runs.size() == 3 &&
+           conversation.runs.size() == 2 &&
+           conversation.runs[0].toolCalls.size() == 1 &&
+           conversation.runs[0].toolCalls[0].toolSerializedId == "effect.create_node" &&
            conversation.runs[1].toolCalls.size() == 1 &&
-           conversation.runs[1].toolCalls[0].toolSerializedId == "effect.create_node" &&
-           conversation.runs[2].toolCalls.size() == 1 &&
-           conversation.runs[2].toolCalls[0].toolSerializedId == "effect.delete_node" &&
+           conversation.runs[1].toolCalls[0].toolSerializedId == "effect.delete_node" &&
            steward.find("Camera Transform Delete") != std::string::npos &&
            steward.find("Delete Effect Node -> succeeded") != std::string::npos &&
            inspector.find("Camera\nName: Camera") != std::string::npos &&
@@ -3726,7 +3717,6 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
 
   if (editSaveSmoke) {
     window.importMediaFile(grapple::foundation::FilePath{starterVideoPath.string()});
-    window.addSelectedMediaToTimeline();
     window.clickFirstTimelineCamera();
     window.setStewardIntent("Persist editable camera controls.");
     window.clickStewardPrimaryAction();
