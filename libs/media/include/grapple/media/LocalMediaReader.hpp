@@ -7,15 +7,15 @@
 
 namespace grapple::media {
 
-class OpenCVMediaReader final : public IMediaReader {
+class LocalMediaReader final : public IMediaReader {
 public:
-  explicit OpenCVMediaReader(const MediaSourceCatalog& sources);
-  ~OpenCVMediaReader() override;
+  explicit LocalMediaReader(const MediaSourceCatalog& sources);
+  ~LocalMediaReader() override;
 
-  OpenCVMediaReader(const OpenCVMediaReader&) = delete;
-  OpenCVMediaReader& operator=(const OpenCVMediaReader&) = delete;
-  OpenCVMediaReader(OpenCVMediaReader&&) noexcept;
-  OpenCVMediaReader& operator=(OpenCVMediaReader&&) noexcept;
+  LocalMediaReader(const LocalMediaReader&) = delete;
+  LocalMediaReader& operator=(const LocalMediaReader&) = delete;
+  LocalMediaReader(LocalMediaReader&&) noexcept;
+  LocalMediaReader& operator=(LocalMediaReader&&) noexcept;
 
   foundation::Result<MediaFrame> frameAt(
     foundation::AssetId assetId,

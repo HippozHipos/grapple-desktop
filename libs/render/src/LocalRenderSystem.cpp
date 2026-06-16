@@ -35,7 +35,8 @@ foundation::Result<PlaybackFrameResult> LocalRenderSystem::renderPlaybackFrame(
   std::lock_guard lock{mutex_};
   return preview_.renderFrame(RenderFrameRequest{
     request.time,
-    request.quality
+    request.quality,
+    request.outputResolution
   });
 }
 

@@ -1103,11 +1103,55 @@ public:
     }
   }
 
+  std::optional<grapple::foundation::Resolution> activeMediaPreviewResolution(
+    const grapple::foundation::TimeSeconds playhead
+  ) const {
+    if (!currentViewModel_.has_value()) {
+      return std::nullopt;
+    }
+
+    for (const grapple::app::AppClipRow& clip : currentViewModel_->timeline.clips) {
+      if (playhead.value < clip.timelineRange.start.value || playhead.value > clip.timelineRange.end.value) {
+        continue;
+      }
+      for (const grapple::app::AppAssetRow& asset : currentViewModel_->assets.rows) {
+        if (asset.assetId == clip.assetId && asset.dimensions.has_value()) {
+          return asset.dimensions.value();
+        }
+      }
+    }
+
+    return std::nullopt;
+  }
+
+  grapple::foundation::Resolution previewRenderResolution(grapple::foundation::TimeSeconds playhead) const {
+    const QSize surfaceSize = previewSurface_->contentsRect().size().isValid()
+      ? previewSurface_->contentsRect().size()
+      : previewSurface_->minimumSize();
+    const double pixelRatio = std::max(1.0, previewSurface_->devicePixelRatioF());
+    const int maxWidth = std::max(1, static_cast<int>(std::lround(static_cast<double>(surfaceSize.width()) * pixelRatio)));
+    const int maxHeight = std::max(1, static_cast<int>(std::lround(static_cast<double>(surfaceSize.height()) * pixelRatio)));
+    const std::optional<grapple::foundation::Resolution> mediaResolution = activeMediaPreviewResolution(playhead);
+    if (!mediaResolution.has_value() || mediaResolution->width <= 0 || mediaResolution->height <= 0) {
+      return grapple::foundation::Resolution{maxWidth, maxHeight};
+    }
+
+    const double scale = std::min(
+      static_cast<double>(maxWidth) / static_cast<double>(mediaResolution->width),
+      static_cast<double>(maxHeight) / static_cast<double>(mediaResolution->height)
+    );
+    return grapple::foundation::Resolution{
+      std::max(1, static_cast<int>(std::lround(static_cast<double>(mediaResolution->width) * scale))),
+      std::max(1, static_cast<int>(std::lround(static_cast<double>(mediaResolution->height) * scale)))
+    };
+  }
+
   void renderCurrentFrame(bool logDiagnostics = false) {
     const grapple::render::PreviewRenderShellState previewState = workspace_.preview().state();
     const auto frame = workspace_.preview().renderFrame(grapple::render::RenderFrameRequest{
       previewState.playhead,
-      grapple::render::RenderQuality::Draft
+      grapple::render::RenderQuality::Draft,
+      previewRenderResolution(previewState.playhead)
     });
     if (!frame) {
       appendError(frame.error());

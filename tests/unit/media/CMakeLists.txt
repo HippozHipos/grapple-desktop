@@ -32,20 +32,20 @@ target_include_directories(grapple_media_caching_reader_tests
 
 add_test(NAME grapple_media_caching_reader_tests COMMAND grapple_media_caching_reader_tests)
 
-add_executable(grapple_media_opencv_reader_tests
-  OpenCVMediaReaderTest.cpp
+add_executable(grapple_media_local_reader_tests
+  LocalMediaReaderTest.cpp
 )
 
-target_link_libraries(grapple_media_opencv_reader_tests
+target_link_libraries(grapple_media_local_reader_tests
   PRIVATE
     Grapple::Media
     ${OpenCV_LIBS}
 )
 
-target_include_directories(grapple_media_opencv_reader_tests
+target_include_directories(grapple_media_local_reader_tests
   PRIVATE
     ${CMAKE_SOURCE_DIR}/tests
     ${OpenCV_INCLUDE_DIRS}
 )
 
-add_test(NAME grapple_media_opencv_reader_tests COMMAND grapple_media_opencv_reader_tests)
+add_test(NAME grapple_media_local_reader_tests COMMAND grapple_media_local_reader_tests)

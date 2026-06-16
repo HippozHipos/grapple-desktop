@@ -715,7 +715,7 @@ foundation::Result<RenderFrameResult> renderPreparedFrame(
     prepared,
     frameSource,
     request,
-    std::nullopt
+    request.outputResolution
   );
 }
 

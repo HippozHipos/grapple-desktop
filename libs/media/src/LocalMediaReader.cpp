@@ -1,17 +1,40 @@
-#include <grapple/media/OpenCVMediaReader.hpp>
+#include <grapple/media/LocalMediaReader.hpp>
+#include <grapple/media/VideoDecoder.hpp>
 
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
-#include <opencv2/videoio.hpp>
 
+#include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <string>
-#include <unordered_map>
 #include <utility>
 
 namespace grapple::media {
 
 namespace {
+
+constexpr int ProxyMaxDimension = 720;
+
+cv::Mat scaledForQuality(const cv::Mat& input, MediaQuality quality) {
+  if (quality == MediaQuality::Full || input.empty()) {
+    return input;
+  }
+
+  const int longestEdge = std::max(input.cols, input.rows);
+  if (longestEdge <= ProxyMaxDimension) {
+    return input;
+  }
+
+  const double scale = static_cast<double>(ProxyMaxDimension) / static_cast<double>(longestEdge);
+  const cv::Size proxySize{
+    std::max(1, static_cast<int>(std::lround(static_cast<double>(input.cols) * scale))),
+    std::max(1, static_cast<int>(std::lround(static_cast<double>(input.rows) * scale)))
+  };
+  cv::Mat proxy;
+  cv::resize(input, proxy, proxySize, 0.0, 0.0, cv::INTER_AREA);
+  return proxy;
+}
 
 foundation::Result<std::vector<std::uint8_t>> rgbaPixelsFromMat(const cv::Mat& input) {
   if (input.empty()) {
@@ -47,7 +70,8 @@ foundation::Result<MediaFrame> imageFrame(
     return foundation::Error{"media.image_open_failed", "Could not decode image source " + source.path.value + "."};
   }
 
-  auto pixels = rgbaPixelsFromMat(decoded);
+  const cv::Mat scaled = scaledForQuality(decoded, quality);
+  auto pixels = rgbaPixelsFromMat(scaled);
   if (!pixels) {
     return pixels.error();
   }
@@ -55,7 +79,7 @@ foundation::Result<MediaFrame> imageFrame(
   return MediaFrame{
     source.assetId,
     time,
-    foundation::Resolution{decoded.cols, decoded.rows},
+    foundation::Resolution{scaled.cols, scaled.rows},
     quality,
     source.path.value,
     std::move(pixels.value())
@@ -65,67 +89,42 @@ foundation::Result<MediaFrame> imageFrame(
 foundation::Result<MediaFrame> videoFrame(
   const MediaSource& source,
   foundation::TimeSeconds time,
-  MediaQuality quality,
-  cv::VideoCapture& capture
+  MediaQuality quality
 ) {
-  if (!capture.isOpened()) {
-    return foundation::Error{"media.video_open_failed", "Could not open video source " + source.path.value + "."};
-  }
-
-  capture.set(cv::CAP_PROP_POS_MSEC, time.value * 1000.0);
-
-  cv::Mat decoded;
-  if (!capture.read(decoded) || decoded.empty()) {
-    return foundation::Error{"media.video_frame_decode_failed", "Could not decode requested video frame."};
-  }
-
-  auto pixels = rgbaPixelsFromMat(decoded);
-  if (!pixels) {
-    return pixels.error();
+  auto decoded = decodeVideoFrame(source.path, time, quality);
+  if (!decoded) {
+    return decoded.error();
   }
 
   return MediaFrame{
     source.assetId,
     time,
-    foundation::Resolution{decoded.cols, decoded.rows},
+    decoded.value().resolution,
     quality,
     source.path.value,
-    std::move(pixels.value())
+    std::move(decoded.value().rgbaPixels)
   };
 }
 
 } // namespace
 
-struct OpenCVMediaReader::Impl {
+struct LocalMediaReader::Impl {
   explicit Impl(const MediaSourceCatalog& sourceCatalog)
     : sources{sourceCatalog} {}
 
-  foundation::Result<cv::VideoCapture*> videoCaptureFor(const MediaSource& source) {
-    auto [iterator, inserted] = videoCaptures.try_emplace(source.assetId.value());
-    cv::VideoCapture& capture = iterator->second;
-    if (inserted || !capture.isOpened()) {
-      capture.open(source.path.value);
-    }
-    if (!capture.isOpened()) {
-      return foundation::Error{"media.video_open_failed", "Could not open video source " + source.path.value + "."};
-    }
-    return &capture;
-  }
-
   const MediaSourceCatalog& sources;
-  std::unordered_map<std::string, cv::VideoCapture> videoCaptures;
 };
 
-OpenCVMediaReader::OpenCVMediaReader(const MediaSourceCatalog& sources)
+LocalMediaReader::LocalMediaReader(const MediaSourceCatalog& sources)
   : impl_{std::make_unique<Impl>(sources)} {}
 
-OpenCVMediaReader::~OpenCVMediaReader() = default;
+LocalMediaReader::~LocalMediaReader() = default;
 
-OpenCVMediaReader::OpenCVMediaReader(OpenCVMediaReader&&) noexcept = default;
+LocalMediaReader::LocalMediaReader(LocalMediaReader&&) noexcept = default;
 
-OpenCVMediaReader& OpenCVMediaReader::operator=(OpenCVMediaReader&&) noexcept = default;
+LocalMediaReader& LocalMediaReader::operator=(LocalMediaReader&&) noexcept = default;
 
-foundation::Result<MediaFrame> OpenCVMediaReader::frameAt(
+foundation::Result<MediaFrame> LocalMediaReader::frameAt(
   foundation::AssetId assetId,
   foundation::TimeSeconds time,
   MediaQuality quality
@@ -143,14 +142,10 @@ foundation::Result<MediaFrame> OpenCVMediaReader::frameAt(
     return foundation::Error{"media.audio_frame_unsupported", "Audio sources do not provide video frames."};
   }
 
-  auto capture = impl_->videoCaptureFor(*source);
-  if (!capture) {
-    return capture.error();
-  }
-  return videoFrame(*source, time, quality, *capture.value());
+  return videoFrame(*source, time, quality);
 }
 
-foundation::Result<AudioBuffer> OpenCVMediaReader::audioRange(
+foundation::Result<AudioBuffer> LocalMediaReader::audioRange(
   foundation::AssetId assetId,
   foundation::TimeRange range,
   MediaQuality quality
@@ -167,7 +162,7 @@ foundation::Result<AudioBuffer> OpenCVMediaReader::audioRange(
     return foundation::Error{"media.audio_source_kind_invalid", "Audio ranges require an audio media source."};
   }
 
-  return foundation::Error{"media.audio_decode_unsupported", "OpenCVMediaReader does not decode audio for asset " + assetId.value() + "."};
+  return foundation::Error{"media.audio_decode_unsupported", "LocalMediaReader does not decode audio for asset " + assetId.value() + "."};
 }
 
 } // namespace grapple::media

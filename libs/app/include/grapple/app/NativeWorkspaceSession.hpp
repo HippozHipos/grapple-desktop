@@ -9,7 +9,7 @@
 #include <grapple/app/NativeStewardSession.hpp>
 #include <grapple/jobs/JobScheduler.hpp>
 #include <grapple/media/MediaSource.hpp>
-#include <grapple/media/OpenCVMediaReader.hpp>
+#include <grapple/media/LocalMediaReader.hpp>
 #include <grapple/foundation/Time.hpp>
 
 #include <memory>

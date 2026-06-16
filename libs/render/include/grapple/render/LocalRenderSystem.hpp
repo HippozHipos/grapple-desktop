@@ -14,6 +14,7 @@ namespace grapple::render {
 struct PlaybackFrameRequest {
   foundation::TimeSeconds time;
   RenderQuality quality = RenderQuality::Draft;
+  std::optional<foundation::Resolution> outputResolution;
 };
 
 using PlaybackFrameResult = RenderFrameResult;

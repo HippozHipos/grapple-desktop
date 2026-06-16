@@ -1,10 +1,13 @@
-find_package(OpenCV REQUIRED COMPONENTS core imgcodecs imgproc videoio)
+find_package(OpenCV REQUIRED COMPONENTS core imgcodecs imgproc)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(FFMPEG REQUIRED libavformat libavcodec libavutil libswscale)
 
 add_library(grapple_media
   src/CachingMediaReader.cpp
   src/FrameCache.cpp
   src/MediaSource.cpp
-  src/OpenCVMediaReader.cpp
+  src/LocalMediaReader.cpp
+  src/VideoDecoder.cpp
 )
 
 add_library(Grapple::Media ALIAS grapple_media)
@@ -19,9 +22,16 @@ target_link_libraries(grapple_media
     Grapple::Foundation
   PRIVATE
     ${OpenCV_LIBS}
+    ${FFMPEG_LIBRARIES}
 )
 
 target_include_directories(grapple_media
   PRIVATE
     ${OpenCV_INCLUDE_DIRS}
+    ${FFMPEG_INCLUDE_DIRS}
+)
+
+target_link_directories(grapple_media
+  PRIVATE
+    ${FFMPEG_LIBRARY_DIRS}
 )

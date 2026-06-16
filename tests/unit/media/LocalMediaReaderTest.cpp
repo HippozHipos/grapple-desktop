@@ -1,4 +1,4 @@
-#include <grapple/media/OpenCVMediaReader.hpp>
+#include <grapple/media/LocalMediaReader.hpp>
 
 #include <TestAssert.hpp>
 
@@ -36,14 +36,23 @@ int main() {
   const std::filesystem::path imagePath =
     std::filesystem::temp_directory_path() /
     ("grapple_opencv_media_" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".png");
+  const std::filesystem::path largeImagePath =
+    std::filesystem::temp_directory_path() /
+    ("grapple_opencv_media_large_" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".png");
   const std::filesystem::path videoPath =
     std::filesystem::temp_directory_path() /
     ("grapple_opencv_media_" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".avi");
+  const std::filesystem::path largeVideoPath =
+    std::filesystem::temp_directory_path() /
+    ("grapple_local_media_large_" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".avi");
 
   cv::Mat image(1, 2, CV_8UC3);
   image.at<cv::Vec3b>(0, 0) = cv::Vec3b{30, 20, 10};
   image.at<cv::Vec3b>(0, 1) = cv::Vec3b{60, 50, 40};
   GRAPPLE_REQUIRE(cv::imwrite(imagePath.string(), image));
+  cv::Mat largeImage(800, 1200, CV_8UC3);
+  largeImage.setTo(cv::Scalar{20, 120, 220});
+  GRAPPLE_REQUIRE(cv::imwrite(largeImagePath.string(), largeImage));
 
   cv::VideoWriter writer{
     videoPath.string(),
@@ -59,6 +68,17 @@ int main() {
   writer.write(redFrame);
   writer.write(greenFrame);
   writer.release();
+  cv::VideoWriter largeWriter{
+    largeVideoPath.string(),
+    cv::VideoWriter::fourcc('M', 'J', 'P', 'G'),
+    1.0,
+    cv::Size{1200, 800}
+  };
+  GRAPPLE_REQUIRE(largeWriter.isOpened());
+  cv::Mat largeVideoFrame(800, 1200, CV_8UC3);
+  largeVideoFrame.setTo(cv::Scalar{20, 80, 220});
+  largeWriter.write(largeVideoFrame);
+  largeWriter.release();
 
   media::MediaSourceCatalog sources;
   const auto registerSource = sources.registerSource(media::MediaSource{
@@ -73,13 +93,25 @@ int main() {
     foundation::FilePath{videoPath.string()}
   });
   GRAPPLE_REQUIRE(registerVideoSource);
+  const auto registerLargeImageSource = sources.registerSource(media::MediaSource{
+    foundation::AssetId{"asset_large_image"},
+    media::MediaSourceKind::Image,
+    foundation::FilePath{largeImagePath.string()}
+  });
+  GRAPPLE_REQUIRE(registerLargeImageSource);
+  const auto registerLargeVideoSource = sources.registerSource(media::MediaSource{
+    foundation::AssetId{"asset_large_video"},
+    media::MediaSourceKind::Video,
+    foundation::FilePath{largeVideoPath.string()}
+  });
+  GRAPPLE_REQUIRE(registerLargeVideoSource);
   const auto registerAudioSource = sources.registerSource(media::MediaSource{
     foundation::AssetId{"asset_audio"},
     media::MediaSourceKind::Audio,
     foundation::FilePath{"/tmp/grapple-audio.wav"}
   });
   GRAPPLE_REQUIRE(registerAudioSource);
-  GRAPPLE_REQUIRE(sources.sources().size() == 3);
+  GRAPPLE_REQUIRE(sources.sources().size() == 5);
   GRAPPLE_REQUIRE(sources.find(foundation::AssetId{"asset_image"}) != nullptr);
   GRAPPLE_REQUIRE(sources.find(foundation::AssetId{"asset_video"}) != nullptr);
   GRAPPLE_REQUIRE(sources.find(foundation::AssetId{"asset_audio"}) != nullptr);
@@ -93,7 +125,7 @@ int main() {
   GRAPPLE_REQUIRE(duplicate.error().code == "media.source_duplicate");
 
   {
-    media::OpenCVMediaReader reader{sources};
+    media::LocalMediaReader reader{sources};
     const auto frame = reader.frameAt(
       foundation::AssetId{"asset_image"},
       foundation::TimeSeconds{2.0},
@@ -107,6 +139,21 @@ int main() {
       10, 20, 30, 255,
       40, 50, 60, 255
     }));
+
+    const auto largeProxyFrame = reader.frameAt(
+      foundation::AssetId{"asset_large_image"},
+      foundation::TimeSeconds{0.0},
+      media::MediaQuality::Proxy
+    );
+    GRAPPLE_REQUIRE(largeProxyFrame);
+    GRAPPLE_REQUIRE((largeProxyFrame.value().resolution == foundation::Resolution{720, 480}));
+    const auto largeFullFrame = reader.frameAt(
+      foundation::AssetId{"asset_large_image"},
+      foundation::TimeSeconds{0.0},
+      media::MediaQuality::Full
+    );
+    GRAPPLE_REQUIRE(largeFullFrame);
+    GRAPPLE_REQUIRE((largeFullFrame.value().resolution == foundation::Resolution{1200, 800}));
 
     const auto firstVideoFrame = reader.frameAt(
       foundation::AssetId{"asset_video"},
@@ -127,6 +174,21 @@ int main() {
     GRAPPLE_REQUIRE(secondVideoFrame.value().assetId == foundation::AssetId{"asset_video"});
     GRAPPLE_REQUIRE((secondVideoFrame.value().resolution == foundation::Resolution{32, 24}));
     GRAPPLE_REQUIRE(greenDominant(secondVideoFrame.value().rgbaPixels));
+
+    const auto largeVideoProxyFrame = reader.frameAt(
+      foundation::AssetId{"asset_large_video"},
+      foundation::TimeSeconds{0.0},
+      media::MediaQuality::Proxy
+    );
+    GRAPPLE_REQUIRE(largeVideoProxyFrame);
+    GRAPPLE_REQUIRE((largeVideoProxyFrame.value().resolution == foundation::Resolution{720, 480}));
+    const auto largeVideoFullFrame = reader.frameAt(
+      foundation::AssetId{"asset_large_video"},
+      foundation::TimeSeconds{0.0},
+      media::MediaQuality::Full
+    );
+    GRAPPLE_REQUIRE(largeVideoFullFrame);
+    GRAPPLE_REQUIRE((largeVideoFullFrame.value().resolution == foundation::Resolution{1200, 800}));
 
     const auto missing = reader.frameAt(
       foundation::AssetId{"asset_missing"},
@@ -170,6 +232,8 @@ int main() {
   }
 
   std::filesystem::remove(imagePath);
+  std::filesystem::remove(largeImagePath);
   std::filesystem::remove(videoPath);
+  std::filesystem::remove(largeVideoPath);
   return 0;
 }

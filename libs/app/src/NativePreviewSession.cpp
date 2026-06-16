@@ -48,7 +48,8 @@ foundation::Result<void> NativePreviewSession::pause() {
 foundation::Result<render::RenderFrameResult> NativePreviewSession::renderFrame(render::RenderFrameRequest request) const {
   return renderSystem_.renderPlaybackFrame(render::PlaybackFrameRequest{
     request.time,
-    request.quality
+    request.quality,
+    request.outputResolution
   });
 }
 

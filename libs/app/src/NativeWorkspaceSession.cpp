@@ -576,7 +576,7 @@ struct NativeWorkspaceSession::State {
   NativeEffectSession effects;
   NativeStewardSession steward;
   media::MediaSourceCatalog mediaSources;
-  media::OpenCVMediaReader mediaReader;
+  media::LocalMediaReader mediaReader;
   media::FrameCache frameCache;
   media::CachingMediaReader cachedMediaReader;
   NativeMediaFrameSource frameSource;

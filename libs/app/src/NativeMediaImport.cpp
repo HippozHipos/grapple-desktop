@@ -1,8 +1,8 @@
 #include <grapple/app/NativeMediaImport.hpp>
+#include <grapple/media/VideoDecoder.hpp>
 
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
-#include <opencv2/videoio.hpp>
 
 #include <algorithm>
 #include <cctype>
@@ -146,16 +146,19 @@ foundation::Result<cv::Mat> decodeThumbnailSource(
       return decoded;
     }
     case asset::AssetMediaType::Video: {
-      cv::VideoCapture capture{mediaPath.value};
-      if (!capture.isOpened()) {
-        return foundation::Error{"app.thumbnail_video_open_failed", "Could not decode video thumbnail source " + mediaPath.value + "."};
+      auto decoded = media::decodeVideoFrame(mediaPath, foundation::TimeSeconds{0.0}, media::MediaQuality::Proxy);
+      if (!decoded) {
+        return decoded.error();
       }
-      cv::Mat frame;
-      capture.read(frame);
-      if (frame.empty()) {
-        return foundation::Error{"app.thumbnail_video_frame_missing", "Could not decode first video frame for " + mediaPath.value + "."};
-      }
-      return frame;
+      cv::Mat rgba{
+        decoded.value().resolution.height,
+        decoded.value().resolution.width,
+        CV_8UC4,
+        decoded.value().rgbaPixels.data()
+      };
+      cv::Mat bgr;
+      cv::cvtColor(rgba, bgr, cv::COLOR_RGBA2BGR);
+      return bgr;
     }
     case asset::AssetMediaType::Audio:
       return foundation::Error{"app.thumbnail_media_type_invalid", "Thumbnails require image or video media."};
@@ -180,17 +183,9 @@ foundation::Result<asset::Asset> inspectVideoAsset(
   const foundation::AssetId& assetId,
   const foundation::FilePath& path
 ) {
-  cv::VideoCapture capture{path.value};
-  if (!capture.isOpened()) {
-    return foundation::Error{"app.video_open_failed", "Could not inspect video file " + path.value + "."};
-  }
-
-  const int width = static_cast<int>(capture.get(cv::CAP_PROP_FRAME_WIDTH));
-  const int height = static_cast<int>(capture.get(cv::CAP_PROP_FRAME_HEIGHT));
-  const double frameCount = capture.get(cv::CAP_PROP_FRAME_COUNT);
-  const double framesPerSecond = capture.get(cv::CAP_PROP_FPS);
-  if (width <= 0 || height <= 0 || frameCount <= 0.0 || framesPerSecond <= 0.0) {
-    return foundation::Error{"app.video_metadata_invalid", "Video file metadata is incomplete for " + path.value + "."};
+  auto metadata = media::inspectVideoFile(path);
+  if (!metadata) {
+    return metadata.error();
   }
 
   const std::filesystem::path filesystemPath{path.value};
@@ -201,9 +196,9 @@ foundation::Result<asset::Asset> inspectVideoAsset(
       asset::AssetMediaType::Video,
       path,
       std::nullopt,
-      foundation::TimeSeconds{frameCount / framesPerSecond},
-      foundation::Resolution{width, height},
-      foundation::FrameRate{static_cast<std::int32_t>(framesPerSecond * 1000.0), 1000}
+      metadata.value().duration,
+      metadata.value().resolution,
+      metadata.value().frameRate
     }
   };
 }

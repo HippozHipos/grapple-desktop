@@ -96,6 +96,7 @@ struct RenderFrame {
 struct RenderFrameRequest {
   foundation::TimeSeconds time;
   RenderQuality quality = RenderQuality::Draft;
+  std::optional<foundation::Resolution> outputResolution;
 };
 
 struct RenderFrameResult {

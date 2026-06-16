@@ -913,6 +913,14 @@ int main() {
   GRAPPLE_REQUIRE(frameSource.lastRequest->assetId == foundation::AssetId{"asset_video"});
   GRAPPLE_REQUIRE(frameSource.lastRequest->sourceTime == foundation::TimeSeconds{4.0});
   GRAPPLE_REQUIRE(frameSource.lastRequest->quality == render::RenderQuality::Draft);
+  const auto resizedImageFrame = imagePreview.renderFrame(render::RenderFrameRequest{
+    foundation::TimeSeconds{4.0},
+    render::RenderQuality::Draft,
+    foundation::Resolution{1, 1}
+  });
+  GRAPPLE_REQUIRE(resizedImageFrame);
+  GRAPPLE_REQUIRE(resizedImageFrame.value().frame.image.has_value());
+  GRAPPLE_REQUIRE((resizedImageFrame.value().frame.image->resolution == foundation::Resolution{1, 1}));
 
   LayeredFrameSource layeredFrameSource;
   render::LocalRenderCore layeredImageCore{runtime, layeredFrameSource};
