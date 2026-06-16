@@ -2448,7 +2448,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     const std::string stewardActionAfterImport = window.stewardPrimaryActionText();
     const bool stewardActionEnabledAfterImport = window.stewardPrimaryActionEnabled();
     const bool addMediaActionEnabledAfterImport = window.addSelectedMediaActionEnabled();
-    window.addSelectedMediaToTimeline();
+    window.clickStewardPrimaryAction();
     const bool exportActionEnabledAfterMediaPlacement = window.exportActionEnabled();
     const auto basePreviewFrame = workspace.value().preview().renderFrame(grapple::render::RenderFrameRequest{
       workspace.value().preview().state().playhead,
@@ -2603,21 +2603,21 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            stewardActionEnabledAfterImport &&
            addMediaActionEnabledAfterImport &&
            exportActionEnabledAfterMediaPlacement &&
-           stewardRecentEdits == 4 &&
+           stewardRecentEdits == 5 &&
            stewardSelectedRecentEdit == 0 &&
            stewardSelectedRecentEditText.find("Recenter the subject.") != std::string::npos &&
            stewardSelectedRecentEditText.find("Camera Transform on Camera") != std::string::npos &&
            stewardSelectedRecentEditText.find("Position X=0") != std::string::npos &&
            selectedAfterRecentEdit.has_value() &&
-	           selectedAfterRecentEdit.value() == viewModel.value().timeline.cameras.front().sourceNodeId &&
-	           steward.find("1 assets | 1 clips | 1 cameras | 1 editable effects") != std::string::npos &&
-	           steward.find("Next: type the camera edit request, then apply it to the exposed controls.") != std::string::npos &&
-	           steward.find("Latest result: Camera Transform on Camera (" + viewModel.value().project.revision.value() + ")") != std::string::npos &&
-	           steward.find("Controls changed: Position X=0") != std::string::npos &&
-	           steward.find("Latest request: Recenter the subject.") != std::string::npos &&
+           selectedAfterRecentEdit.value() == viewModel.value().timeline.cameras.front().sourceNodeId &&
+           steward.find("1 assets | 1 clips | 1 cameras | 1 editable effects") != std::string::npos &&
+           steward.find("Next: type the camera edit request, then apply it to the exposed controls.") != std::string::npos &&
+           steward.find("Latest result: Camera Transform on Camera (" + viewModel.value().project.revision.value() + ")") != std::string::npos &&
+           steward.find("Controls changed: Position X=0") != std::string::npos &&
+           steward.find("Latest request: Recenter the subject.") != std::string::npos &&
            steward.find("Camera target: Camera") != std::string::npos &&
-	           steward.find("Applied edits: select one to inspect its target.") != std::string::npos &&
-           steward.find("Place Asset On Timeline") == std::string::npos &&
+           steward.find("Applied edits: select one to inspect its target.") != std::string::npos &&
+           steward.find("Place Asset On Timeline -> succeeded") != std::string::npos &&
            steward.find("- Recenter the subject. [succeeded]") != std::string::npos &&
            steward.find("- Make the subject bigger. [succeeded]") != std::string::npos &&
            steward.find("Update Effect Parameter -> succeeded") != std::string::npos &&
@@ -2633,8 +2633,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            effectParamPanel.find("Last changed by steward at ") != std::string::npos &&
            exportStatus == "Export complete: 100 frames, plan " + tunedPreviewFrame.value().frame.renderPlanHash.toHex().substr(0, 8) &&
            log.find("Imported starter-gradient") != std::string::npos &&
-           log.find("Added selected media to timeline") != std::string::npos &&
-           log.find("Steward added selected media to timeline") == std::string::npos &&
+           log.find("Added selected media to timeline") == std::string::npos &&
+           log.find("Steward added selected media to timeline") != std::string::npos &&
            log.find("Steward applied camera edit") != std::string::npos &&
            log.find("Steward adjusted camera controls") != std::string::npos &&
            log.find(expectedExportProvenance) != std::string::npos &&
