@@ -2787,7 +2787,9 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     const bool pauseActionEnabledDuringExport = window.pauseActionEnabled();
     const bool seekActionEnabledDuringExport = window.seekActionEnabled();
     const bool exportActionEnabledDuringExport = window.exportActionEnabled();
+    const std::string detailTabDuringExport = window.currentDetailTabText();
     window.waitForExportIdle();
+    const std::string detailTabAfterExport = window.currentDetailTabText();
     const bool playActionEnabledAfterExport = window.playActionEnabled();
     const bool pauseActionEnabledAfterExport = window.pauseActionEnabled();
     const bool seekActionEnabledAfterExport = window.seekActionEnabled();
@@ -2805,6 +2807,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "pauseActionEnabledDuringExport=" << (pauseActionEnabledDuringExport ? "true" : "false") << '\n';
     std::cout << "seekActionEnabledDuringExport=" << (seekActionEnabledDuringExport ? "true" : "false") << '\n';
     std::cout << "exportActionEnabledDuringExport=" << (exportActionEnabledDuringExport ? "true" : "false") << '\n';
+    std::cout << "detailTabDuringExport=" << detailTabDuringExport << '\n';
+    std::cout << "detailTabAfterExport=" << detailTabAfterExport << '\n';
     std::cout << "playActionEnabledAfterExport=" << (playActionEnabledAfterExport ? "true" : "false") << '\n';
     std::cout << "pauseActionEnabledAfterExport=" << (pauseActionEnabledAfterExport ? "true" : "false") << '\n';
     std::cout << "seekActionEnabledAfterExport=" << (seekActionEnabledAfterExport ? "true" : "false") << '\n';
@@ -2818,6 +2822,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            !pauseActionEnabledDuringExport &&
            !seekActionEnabledDuringExport &&
            !exportActionEnabledDuringExport &&
+           detailTabDuringExport == "Export" &&
+           detailTabAfterExport == "Export" &&
            playActionEnabledAfterExport &&
            !pauseActionEnabledAfterExport &&
            seekActionEnabledAfterExport &&

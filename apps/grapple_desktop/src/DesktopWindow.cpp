@@ -3189,6 +3189,7 @@ public:
     activeExportJobId_ = jobId;
     lastLoggedExportProgressPercent_ = -25;
     updateActionAvailability();
+    detailTabs_->setCurrentWidget(exportSettings_);
     log_->append(QString{"Export queued -> %1"}.arg(qString(path.value)));
     exportSettings_->setStatus("Export queued");
     auto enqueue = workspace_.jobs().enqueue(grapple::jobs::Job{
