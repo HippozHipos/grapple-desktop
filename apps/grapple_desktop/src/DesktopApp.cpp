@@ -425,10 +425,18 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     }
 
     if (!populateStarterDemo) {
-      return grapple::app::NativeWorkspaceSession::createPackageRoot(
+      auto created = grapple::app::NativeWorkspaceSession::createPackageRoot(
         grapple::foundation::FilePath{packageRoot.string()},
         "Untitled"
       );
+      if (!created) {
+        return created.error();
+      }
+      auto write = created.value().writePackage();
+      if (!write) {
+        return write.error();
+      }
+      return std::move(created.value());
     }
 
     grapple::app::NativeProjectSession session{
@@ -479,10 +487,18 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     const bool selectedClipMenuActionsEnabled = window.selectedClipMenuActionsEnabled();
     const bool selectedTrackMenuActionEnabled = window.selectedTrackMenuActionEnabled();
     const bool selectedNoteMenuActionEnabled = window.selectedNoteMenuActionEnabled();
+    const std::filesystem::path currentPackageRoot{
+      workspace.value().project().packageState().package.rootPath.value
+    };
+    const bool packageWritten =
+      std::filesystem::exists(currentPackageRoot / "manifest.json") &&
+      std::filesystem::exists(currentPackageRoot / "agent" / "runs.json") &&
+      std::filesystem::exists(currentPackageRoot / "agent" / "events.json");
     std::cout << "revision=" << viewModel.value().project.revision.value() << '\n';
     std::cout << "assets=" << viewModel.value().assets.count << '\n';
     std::cout << "clips=" << viewModel.value().timeline.clips.size() << '\n';
     std::cout << "cameras=" << viewModel.value().timeline.cameras.size() << '\n';
+    std::cout << "packageWritten=" << (packageWritten ? "true" : "false") << '\n';
     std::cout << "stewardIntent=" << stewardIntent << '\n';
     std::cout << "stewardIntentPlaceholder=" << stewardIntentPlaceholder << '\n';
     std::cout << "stewardAction=" << stewardActionText << '\n';
@@ -502,6 +518,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     return viewModel.value().assets.count == 0 &&
            viewModel.value().timeline.clips.empty() &&
            viewModel.value().timeline.cameras.empty() &&
+           packageWritten &&
            stewardActionText == "Import Media" &&
            stewardActionEnabled &&
            !exportActionEnabled &&
