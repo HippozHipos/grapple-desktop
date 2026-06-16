@@ -50,6 +50,7 @@ void printHelp(std::ostream& output) {
     << "  grapple\n"
     << "  grapple --version\n"
     << "  grapple --help\n"
+    << "  grapple --import-media <file>\n"
     << "  grapple --new-package <dir>\n"
     << "  grapple --open-package <dir>\n";
 }
@@ -251,8 +252,10 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   bool emptyLaunchSmoke = false;
   bool sampleStartSmoke = false;
   bool emptySaveSmoke = false;
+  bool launchImportMediaSmoke = false;
   std::optional<std::string> openPackageRootArg;
   std::optional<std::string> newPackageRootArg;
+  std::optional<std::string> importMediaPathArg;
   std::optional<std::string> screenshotPath;
   std::optional<std::string> effectScreenshotPath;
   for (int index = 1; index < argc; ++index) {
@@ -367,10 +370,14 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       sampleStartSmoke = true;
     } else if (argument == "--empty-save-smoke") {
       emptySaveSmoke = true;
+    } else if (argument == "--launch-import-media-smoke") {
+      launchImportMediaSmoke = true;
     } else if (argument == "--open-package" && index + 1 < argc) {
       openPackageRootArg = argv[++index];
     } else if (argument == "--new-package" && index + 1 < argc) {
       newPackageRootArg = argv[++index];
+    } else if (argument == "--import-media" && index + 1 < argc) {
+      importMediaPathArg = argv[++index];
     } else if (argument == "--screenshot" && index + 1 < argc) {
       screenshotPath = argv[++index];
     } else if (argument == "--effect-screenshot" && index + 1 < argc) {
@@ -442,6 +449,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     emptyAddVideoSmoke ||
     emptyAddVideoUndoSmoke ||
     sampleStartSmoke ||
+    launchImportMediaSmoke ||
     stewardSuggestionSmoke ||
     productLoopSmoke ||
     stewardDeleteClipSmoke ||
@@ -524,6 +532,58 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   }
 
   DesktopWindow window{workspace.value()};
+  if (importMediaPathArg.has_value()) {
+    window.importMediaFile(grapple::foundation::FilePath{*importMediaPathArg});
+    window.addSelectedMediaToTimeline();
+  }
+
+  if (launchImportMediaSmoke) {
+    const auto viewModel = workspace.value().project().buildViewModel();
+    if (!viewModel) {
+      printError(viewModel.error());
+      return 1;
+    }
+    const auto previewFrame = workspace.value().preview().renderFrame(grapple::render::RenderFrameRequest{
+      workspace.value().preview().state().playhead,
+      grapple::render::RenderQuality::Draft
+    });
+    if (!previewFrame) {
+      printError(previewFrame.error());
+      return 1;
+    }
+    const auto selectedNode = window.selectedNodeId();
+    const std::string detailTab = window.currentDetailTabText();
+    const std::string log = window.logContents();
+    const bool selectedClip =
+      selectedNode.has_value() &&
+      !viewModel.value().timeline.clips.empty() &&
+      selectedNode.value() == viewModel.value().timeline.clips.front().sourceNodeId;
+    const bool currentPreview =
+      previewFrame.value().frame.sourceRevision == viewModel.value().project.revision &&
+      previewFrame.value().frame.mediaFrames.size() == 1 &&
+      previewFrame.value().frame.cameras.size() == 1 &&
+      previewFrame.value().runtimeDiagnostics.empty() &&
+      previewFrame.value().renderDiagnostics.empty();
+
+    std::cout << "assets=" << viewModel.value().assets.count << '\n';
+    std::cout << "clips=" << viewModel.value().timeline.clips.size() << '\n';
+    std::cout << "cameras=" << viewModel.value().timeline.cameras.size() << '\n';
+    std::cout << "selectedClip=" << (selectedClip ? "true" : "false") << '\n';
+    std::cout << "detailTab=" << detailTab << '\n';
+    std::cout << "currentPreview=" << (currentPreview ? "true" : "false") << '\n';
+    std::cout << "log=" << log << '\n';
+
+    return viewModel.value().assets.count == 1 &&
+           viewModel.value().timeline.clips.size() == 1 &&
+           viewModel.value().timeline.cameras.size() == 1 &&
+           selectedClip &&
+           detailTab == "Clip" &&
+           currentPreview &&
+           log.find("Imported starter-gradient") != std::string::npos &&
+           log.find("Added selected media to timeline") != std::string::npos
+      ? 0
+      : 1;
+  }
 
   if (emptyLaunchSmoke) {
     const auto viewModel = workspace.value().project().buildViewModel();
