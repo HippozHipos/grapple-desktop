@@ -425,7 +425,7 @@ StewardPanel::StewardPanel(QWidget* parent)
     triggerPrimaryAction();
   });
 
-  suggestedRequestsLabel_ = new QLabel{"Suggested Requests (double-click to apply)"};
+  suggestedRequestsLabel_ = new QLabel{"Suggested Requests (Enter or double-click to apply)"};
   suggestedRequestsLabel_->setObjectName("panelTitle");
   layout->addWidget(suggestedRequestsLabel_);
 
