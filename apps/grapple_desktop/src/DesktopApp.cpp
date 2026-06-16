@@ -2671,6 +2671,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     window.clickStewardRecentEdit(0);
     const int stewardSelectedRecentEdit = window.stewardCurrentRecentEditRow();
     const std::string stewardSelectedRecentEditText = window.stewardRecentEditText(0);
+    window.setEffectParamControlValue(grapple::effects::builtin_effect::ZoomParam, 1.6);
     const auto tunedViewModel = workspace.value().project().buildViewModel();
     if (!tunedViewModel) {
       printError(tunedViewModel.error());
@@ -2688,7 +2689,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       tunedPreviewFrame.value().frame.sourceRevision == tunedViewModel.value().project.revision &&
       tunedPreviewFrame.value().frame.cameras.size() == 1 &&
       tunedPreviewFrame.value().frame.cameras.front().state.transform.position.x == 0.0 &&
-      tunedPreviewFrame.value().frame.cameras.front().state.transform.scale.x == 1.375 &&
+      tunedPreviewFrame.value().frame.cameras.front().state.transform.scale.x == 1.6 &&
       tunedPreviewFrame.value().frame.mediaFrames.size() == 1 &&
       tunedPreviewFrame.value().frame.mediaFrames.front().tintColor.has_value() &&
       tunedPreviewFrame.value().frame.mediaFrames.front().tintColor.value() == grapple::foundation::Vec3{0.2, 1.0, 0.35} &&
@@ -2761,8 +2762,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
                    positionParam->lastEditedActorName == "steward" &&
                    zoomParam != effect.params.end() &&
                    std::holds_alternative<double>(zoomParam->value) &&
-                   std::get<double>(zoomParam->value) == 1.375 &&
-                   zoomParam->lastEditedActorName == "steward";
+                   std::get<double>(zoomParam->value) == 1.6 &&
+                   zoomParam->lastEditedActorName == "desktop";
           }
         );
       }
@@ -2860,7 +2861,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            selectedAfterRecentEdit.value() == viewModel.value().timeline.cameras.front().sourceNodeId &&
            steward.find("1 assets | 1 clips | 1 cameras | 2 editable effects") != std::string::npos &&
            steward.find("Next: type the camera edit request, then apply it to the exposed controls.") != std::string::npos &&
-           steward.find("Latest result: Camera Transform on Camera (" + viewModel.value().project.revision.value() + ")") != std::string::npos &&
+           steward.find("Latest result: Camera Transform on Camera (rev_10)") != std::string::npos &&
            steward.find("Controls changed: Position X=0") != std::string::npos &&
            steward.find("Latest request: Recenter the subject.") != std::string::npos &&
            steward.find("Camera target: Camera") != std::string::npos &&
@@ -2880,11 +2881,11 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            clipTintUpdatePrimaryActionEnabled &&
            effectParamTitle == "Camera Transform on Camera" &&
            inspector.find("Position X (position_x)=0") != std::string::npos &&
-           inspector.find("Zoom (zoom)=1.375") != std::string::npos &&
-           inspector.find("last changed by steward at ") != std::string::npos &&
+           inspector.find("Zoom (zoom)=1.6") != std::string::npos &&
+           inspector.find("Zoom (zoom)=1.6 [0.25..4, step 0.01] last changed by desktop") != std::string::npos &&
            effectParamPanel.find("Position X") != std::string::npos &&
            effectParamPanel.find("Zoom") != std::string::npos &&
-           effectParamPanel.find("Last changed by steward at ") != std::string::npos &&
+           effectParamPanel.find("Last changed by desktop at ") != std::string::npos &&
            exportStatus == "Export complete: 100 frames, plan " + tunedPreviewFrame.value().frame.renderPlanHash.toHex().substr(0, 8) &&
            log.find("Imported starter-gradient") != std::string::npos &&
            log.find("Added selected media to timeline") == std::string::npos &&
@@ -2892,6 +2893,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            log.find("Steward created clip tint controls") != std::string::npos &&
            log.find("Steward adjusted clip tint controls") != std::string::npos &&
            log.find("Updated effect parameter color") != std::string::npos &&
+           log.find("Updated effect parameter zoom") != std::string::npos &&
            log.find("Steward applied camera edit") != std::string::npos &&
            log.find("Steward adjusted camera controls") != std::string::npos &&
            log.find(expectedExportProvenance) != std::string::npos &&
