@@ -649,6 +649,13 @@ public:
     auto* newPackageAction = moreMenu->addAction("New Package");
     auto* openPackageAction = moreMenu->addAction("Open Package");
     auto* saveAsPackageAction = moreMenu->addAction("Save As Package");
+    newPackageAction->setShortcut(QKeySequence::New);
+    openPackageAction->setShortcut(QKeySequence::Open);
+    saveAsPackageAction->setShortcut(QKeySequence::SaveAs);
+    newPackageAction->setShortcutContext(Qt::WindowShortcut);
+    openPackageAction->setShortcutContext(Qt::WindowShortcut);
+    saveAsPackageAction->setShortcutContext(Qt::WindowShortcut);
+    addActions({newPackageAction, openPackageAction, saveAsPackageAction});
     auto* addTrackAction = moreMenu->addAction("Add Track");
     auto* addCameraAction = moreMenu->addAction("Add Camera");
     auto* addTextAction = moreMenu->addAction("Add Text");
