@@ -34,6 +34,7 @@ void printHelp(std::ostream& output) {
     << "  grapple-cli --version\n"
     << "  grapple-cli --help\n"
     << "  grapple-cli --import-media <file> --export <file>\n"
+    << "  grapple-cli --open-package <dir> --export <file>\n"
     << "  grapple-cli --render-plan-json\n"
     << "  grapple-cli --preview-frame\n"
     << "  grapple-cli --export-smoke\n"
@@ -88,7 +89,7 @@ grapple::foundation::Result<void> placeImportedMediaOnTimeline(
   return {};
 }
 
-grapple::foundation::Result<grapple::render::ExportSettings> exportSettingsForImportedTimeline(
+grapple::foundation::Result<grapple::render::ExportSettings> exportSettingsForTimeline(
   const grapple::app::AppViewModel& viewModel,
   grapple::foundation::FilePath outputPath
 ) {
@@ -117,6 +118,28 @@ grapple::foundation::Result<grapple::render::ExportSettings> exportSettingsForIm
   };
 }
 
+grapple::foundation::Result<grapple::render::FinalRenderResult> exportWorkspaceTimeline(
+  grapple::app::NativeWorkspaceSession& workspace,
+  grapple::foundation::FilePath outputPath
+) {
+  auto viewModel = workspace.project().buildViewModel();
+  if (!viewModel) {
+    return viewModel.error();
+  }
+  auto renderPlan = workspace.project().buildRenderPlan();
+  if (!renderPlan) {
+    return renderPlan.error();
+  }
+  auto settings = exportSettingsForTimeline(viewModel.value(), std::move(outputPath));
+  if (!settings) {
+    return settings.error();
+  }
+  return workspace.exportSession().renderPlanToVideo(
+    renderPlan.value().plan,
+    std::move(settings.value())
+  );
+}
+
 grapple::foundation::Result<grapple::render::FinalRenderResult> exportImportedMedia(
   const grapple::foundation::FilePath& mediaPath,
   grapple::foundation::FilePath outputPath
@@ -139,22 +162,18 @@ grapple::foundation::Result<grapple::render::FinalRenderResult> exportImportedMe
   if (!placement) {
     return placement.error();
   }
-  auto viewModel = workspace.value().project().buildViewModel();
-  if (!viewModel) {
-    return viewModel.error();
+  return exportWorkspaceTimeline(workspace.value(), std::move(outputPath));
+}
+
+grapple::foundation::Result<grapple::render::FinalRenderResult> exportPackage(
+  const grapple::foundation::FilePath& packageRoot,
+  grapple::foundation::FilePath outputPath
+) {
+  auto workspace = grapple::app::NativeWorkspaceSession::openPackageRoot(packageRoot);
+  if (!workspace) {
+    return workspace.error();
   }
-  auto renderPlan = workspace.value().project().buildRenderPlan();
-  if (!renderPlan) {
-    return renderPlan.error();
-  }
-  auto settings = exportSettingsForImportedTimeline(viewModel.value(), std::move(outputPath));
-  if (!settings) {
-    return settings.error();
-  }
-  return workspace.value().exportSession().renderPlanToVideo(
-    renderPlan.value().plan,
-    std::move(settings.value())
-  );
+  return exportWorkspaceTimeline(workspace.value(), std::move(outputPath));
 }
 
 const char* mediaKindText(grapple::render::RenderedMediaKind kind) {
@@ -188,12 +207,17 @@ int main(int argc, char* argv[]) {
   bool savePackage = false;
   bool openPackageSmoke = false;
   bool exportImported = false;
+  bool exportOpenedPackage = false;
   std::optional<foundation::FilePath> packagePath;
   std::optional<foundation::FilePath> importMediaPath;
   std::optional<foundation::FilePath> exportPath;
   if (argc == 5 && std::string{argv[1]} == "--import-media" && std::string{argv[3]} == "--export") {
     exportImported = true;
     importMediaPath = foundation::FilePath{argv[2]};
+    exportPath = foundation::FilePath{argv[4]};
+  } else if (argc == 5 && std::string{argv[1]} == "--open-package" && std::string{argv[3]} == "--export") {
+    exportOpenedPackage = true;
+    packagePath = foundation::FilePath{argv[2]};
     exportPath = foundation::FilePath{argv[4]};
   } else if (argc == 2 || argc == 3) {
     const std::string argument{argv[1]};
@@ -239,8 +263,10 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
-  if (exportImported) {
-    auto result = exportImportedMedia(importMediaPath.value(), exportPath.value());
+  if (exportImported || exportOpenedPackage) {
+    auto result = exportImported
+      ? exportImportedMedia(importMediaPath.value(), exportPath.value())
+      : exportPackage(packagePath.value(), exportPath.value());
     if (!result) {
       printError(result.error());
       return 1;

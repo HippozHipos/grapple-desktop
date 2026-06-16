@@ -47,3 +47,9 @@ Export imported media from the CLI:
 ```bash
 /tmp/grapple-native/bin/grapple-cli --import-media /path/to/video.mp4 --export /tmp/grapple-export.mp4
 ```
+
+Export a saved package from the CLI:
+
+```bash
+/tmp/grapple-native/bin/grapple-cli --open-package /path/to/project.grapple --export /tmp/grapple-export.mp4
+```

@@ -34,6 +34,11 @@ add_test(
   COMMAND bash -c "rm -f /tmp/grapple-cli-import-media-export.mp4 && \"$1\" --export-smoke >/dev/null && \"$1\" --import-media /tmp/grapple-native-demo/starter-gradient.avi --export /tmp/grapple-cli-import-media-export.mp4" bash $<TARGET_FILE:grapple_cli>
 )
 set_tests_properties(grapple_cli_import_media_export PROPERTIES PASS_REGULAR_EXPRESSION "output=/tmp/grapple-cli-import-media-export\\.mp4")
+add_test(
+  NAME grapple_cli_package_export
+  COMMAND bash -c "rm -rf /tmp/grapple-cli-package-export-package && rm -f /tmp/grapple-cli-package-export.mp4 && \"$1\" --save-package /tmp/grapple-cli-package-export-package >/dev/null && \"$1\" --open-package /tmp/grapple-cli-package-export-package --export /tmp/grapple-cli-package-export.mp4" bash $<TARGET_FILE:grapple_cli>
+)
+set_tests_properties(grapple_cli_package_export PROPERTIES PASS_REGULAR_EXPRESSION "output=/tmp/grapple-cli-package-export\\.mp4")
 add_test(NAME grapple_cli_save_package COMMAND grapple_cli --save-package /tmp/grapple-cli-save-package)
 add_test(NAME grapple_cli_open_package_smoke COMMAND grapple_cli --open-package-smoke /tmp/grapple-cli-open-package)
 add_test(NAME grapple_desktop_smoke COMMAND grapple_desktop --smoke)
