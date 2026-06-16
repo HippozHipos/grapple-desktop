@@ -2966,6 +2966,9 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            inspector.find("Opacity: 0.00") != std::string::npos &&
            effectParamTitle == "Clip Tint on starter-gradient" &&
            effectParamPanel.find("Tint Color") != std::string::npos &&
+           effectParamPanel.find("\nR\n") != std::string::npos &&
+           effectParamPanel.find("\nG\n") != std::string::npos &&
+           effectParamPanel.find("\nB\n") != std::string::npos &&
            effectParamPanel.find("Tint Amount") != std::string::npos &&
            steward.find("Create Effect Node -> succeeded") != std::string::npos &&
            steward.find("Update Effect Parameter -> succeeded") != std::string::npos &&

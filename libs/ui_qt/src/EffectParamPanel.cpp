@@ -14,6 +14,7 @@
 #include <QVariant>
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <sstream>
 #include <utility>
@@ -203,6 +204,15 @@ QString emptyControlMessage(
     return "No editable effect controls yet. Use the Text panel to edit this text clip.";
   }
   return "No editable controls yet for this selection.";
+}
+
+std::array<QString, 3> vec3ComponentLabels(const std::string& paramName) {
+  if (paramName.find("color") != std::string::npos ||
+      paramName.find("colour") != std::string::npos ||
+      paramName.find("tint") != std::string::npos) {
+    return {QString{"R"}, QString{"G"}, QString{"B"}};
+  }
+  return {QString{"X"}, QString{"Y"}, QString{"Z"}};
 }
 
 QDoubleSpinBox* makeVectorComponentEditor(
@@ -591,6 +601,7 @@ void EffectParamPanel::setSelection(
         }
 
         if (const auto* vec3Value = std::get_if<foundation::Vec3>(&displayedValue)) {
+          const std::array<QString, 3> componentLabels = vec3ComponentLabels(param.name);
           auto* controlRow = new QWidget;
           auto* controlLayout = new QHBoxLayout{controlRow};
           controlLayout->setContentsMargins(0, 0, 0, 0);
@@ -631,11 +642,11 @@ void EffectParamPanel::setSelection(
             }
           });
 
-          controlLayout->addWidget(new QLabel{"X"});
+          controlLayout->addWidget(new QLabel{componentLabels[0]});
           controlLayout->addWidget(xEditor);
-          controlLayout->addWidget(new QLabel{"Y"});
+          controlLayout->addWidget(new QLabel{componentLabels[1]});
           controlLayout->addWidget(yEditor);
-          controlLayout->addWidget(new QLabel{"Z"});
+          controlLayout->addWidget(new QLabel{componentLabels[2]});
           controlLayout->addWidget(zEditor);
           controlLayout->addWidget(setKeyframe);
           rowLayout->addWidget(controlRow);
