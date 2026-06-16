@@ -2623,6 +2623,14 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       printError(basePreviewFrame.error());
       return 1;
     }
+    window.setStewardIntent("Tint selected clip red.");
+    window.clickStewardSelectedTargetAction();
+    window.setStewardIntent("Make clip tint stronger and blue.");
+    window.clickStewardSelectedTargetAction();
+    window.setEffectParamVec3ControlValue(
+      grapple::effects::builtin_effect::ClipTintColorParam,
+      grapple::foundation::Vec3{0.2, 1.0, 0.35}
+    );
     window.setStewardIntent("Center the subject with editable camera controls.");
     window.clickStewardPrimaryAction();
     window.setStewardIntent("Move the camera framing right.");
@@ -2652,7 +2660,11 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       tunedPreviewFrame.value().frame.sourceRevision == tunedViewModel.value().project.revision &&
       tunedPreviewFrame.value().frame.cameras.size() == 1 &&
       tunedPreviewFrame.value().frame.cameras.front().state.transform.position.x == 0.0 &&
-      tunedPreviewFrame.value().frame.cameras.front().state.transform.scale.x == 1.375;
+      tunedPreviewFrame.value().frame.cameras.front().state.transform.scale.x == 1.375 &&
+      tunedPreviewFrame.value().frame.mediaFrames.size() == 1 &&
+      tunedPreviewFrame.value().frame.mediaFrames.front().tintColor.has_value() &&
+      tunedPreviewFrame.value().frame.mediaFrames.front().tintColor.value() == grapple::foundation::Vec3{0.2, 1.0, 0.35} &&
+      tunedPreviewFrame.value().frame.mediaFrames.front().tintAmount == 0.6;
     const bool previewPixelsChanged =
       basePreviewFrame.value().frame.image.has_value() &&
       tunedPreviewFrame.value().frame.image.has_value() &&
@@ -2727,6 +2739,44 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
         );
       }
     );
+    const bool hasTunedClipTintEffect = std::any_of(
+      viewModel.value().timeline.effectGraphs.begin(),
+      viewModel.value().timeline.effectGraphs.end(),
+      [](const grapple::app::AppEffectGraphRow& graph) {
+        return std::any_of(
+          graph.effects.begin(),
+          graph.effects.end(),
+          [](const grapple::app::AppEffectRow& effect) {
+            if (effect.entrypoint != grapple::effects::builtin_effect::ClipTintEntrypoint ||
+                effect.params.size() != 2) {
+              return false;
+            }
+            const auto colorParam = std::find_if(
+              effect.params.begin(),
+              effect.params.end(),
+              [](const grapple::app::AppEffectParamRow& row) {
+                return row.name == grapple::effects::builtin_effect::ClipTintColorParam;
+              }
+            );
+            const auto amountParam = std::find_if(
+              effect.params.begin(),
+              effect.params.end(),
+              [](const grapple::app::AppEffectParamRow& row) {
+                return row.name == grapple::effects::builtin_effect::ClipTintAmountParam;
+              }
+            );
+            return colorParam != effect.params.end() &&
+                   std::holds_alternative<grapple::foundation::Vec3>(colorParam->value) &&
+                   std::get<grapple::foundation::Vec3>(colorParam->value) == grapple::foundation::Vec3{0.2, 1.0, 0.35} &&
+                   colorParam->lastEditedActorName == "desktop" &&
+                   amountParam != effect.params.end() &&
+                   std::holds_alternative<double>(amountParam->value) &&
+                   std::get<double>(amountParam->value) == 0.6 &&
+                   amountParam->lastEditedActorName == "steward";
+          }
+        );
+      }
+    );
 
     std::cout << "revision=" << viewModel.value().project.revision.value() << '\n';
     std::cout << "assets=" << viewModel.value().assets.count << '\n';
@@ -2760,22 +2810,23 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     return viewModel.value().assets.count == 1 &&
            viewModel.value().timeline.clips.size() == 1 &&
            viewModel.value().timeline.cameras.size() == 1 &&
-           viewModel.value().timeline.effectCount == 1 &&
+           viewModel.value().timeline.effectCount == 2 &&
            hasTunedEditableEffect &&
+           hasTunedClipTintEffect &&
            hasEvaluatedTunedPreview &&
            previewPixelsChanged &&
            stewardActionAfterImport == "Add Selected Media To Timeline" &&
            stewardActionEnabledAfterImport &&
            addMediaActionEnabledAfterImport &&
            exportActionEnabledAfterMediaPlacement &&
-           stewardRecentEdits == 5 &&
+           stewardRecentEdits == 7 &&
            stewardSelectedRecentEdit == 0 &&
            stewardSelectedRecentEditText.find("Recenter the subject.") != std::string::npos &&
            stewardSelectedRecentEditText.find("Camera Transform on Camera") != std::string::npos &&
            stewardSelectedRecentEditText.find("Position X=0") != std::string::npos &&
            selectedAfterRecentEdit.has_value() &&
            selectedAfterRecentEdit.value() == viewModel.value().timeline.cameras.front().sourceNodeId &&
-           steward.find("1 assets | 1 clips | 1 cameras | 1 editable effects") != std::string::npos &&
+           steward.find("1 assets | 1 clips | 1 cameras | 2 editable effects") != std::string::npos &&
            steward.find("Next: type the camera edit request, then apply it to the exposed controls.") != std::string::npos &&
            steward.find("Latest result: Camera Transform on Camera (" + viewModel.value().project.revision.value() + ")") != std::string::npos &&
            steward.find("Controls changed: Position X=0") != std::string::npos &&
@@ -2783,6 +2834,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            steward.find("Camera target: Camera") != std::string::npos &&
            steward.find("Applied edits: select one to inspect its target.") != std::string::npos &&
            steward.find("Place Asset On Timeline -> succeeded") != std::string::npos &&
+           steward.find("- Make clip tint stronger and blue. [succeeded]") != std::string::npos &&
+           steward.find("- Tint selected clip red. [succeeded]") != std::string::npos &&
            steward.find("- Recenter the subject. [succeeded]") != std::string::npos &&
            steward.find("- Make the subject bigger. [succeeded]") != std::string::npos &&
            steward.find("Update Effect Parameter -> succeeded") != std::string::npos &&
@@ -2800,6 +2853,9 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            log.find("Imported starter-gradient") != std::string::npos &&
            log.find("Added selected media to timeline") == std::string::npos &&
            log.find("Steward added selected media to timeline") != std::string::npos &&
+           log.find("Steward created clip tint controls") != std::string::npos &&
+           log.find("Steward adjusted clip tint controls") != std::string::npos &&
+           log.find("Updated effect parameter color") != std::string::npos &&
            log.find("Steward applied camera edit") != std::string::npos &&
            log.find("Steward adjusted camera controls") != std::string::npos &&
            log.find(expectedExportProvenance) != std::string::npos &&
