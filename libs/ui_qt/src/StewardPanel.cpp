@@ -655,11 +655,11 @@ void StewardPanel::setViewModel(
   }
   if (selectedTextClipTargetNodeId_.has_value()) {
     lines << QString{"Text target: %1"}.arg(textClipName(viewModel, selectedTextClipTargetNodeId_.value()));
-    lines << "Text route: use the text action to update text clip parameters, or delete/remove to delete it.";
+    lines << "Text route: type a selected text request to update parameters, or delete/remove to delete it.";
   }
   if (selectedNoteTargetNodeId_.has_value()) {
     lines << QString{"Note target: %1"}.arg(noteName(viewModel, selectedNoteTargetNodeId_.value()));
-    lines << "Note route: use the note action to update the note title or body.";
+    lines << "Note route: type a selected note request to update the title or body.";
   }
 
   recentEdits_->blockSignals(true);
