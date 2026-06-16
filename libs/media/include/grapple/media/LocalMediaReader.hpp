@@ -4,6 +4,7 @@
 #include <grapple/media/MediaSource.hpp>
 
 #include <memory>
+#include <optional>
 
 namespace grapple::media {
 
@@ -20,13 +21,12 @@ public:
   foundation::Result<MediaFrame> frameAt(
     foundation::AssetId assetId,
     foundation::TimeSeconds time,
-    MediaQuality quality
+    std::optional<foundation::Resolution> targetResolution = std::nullopt
   ) override;
 
   foundation::Result<AudioBuffer> audioRange(
     foundation::AssetId assetId,
-    foundation::TimeRange range,
-    MediaQuality quality
+    foundation::TimeRange range
   ) override;
 
 private:

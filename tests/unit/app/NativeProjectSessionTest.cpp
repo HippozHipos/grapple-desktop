@@ -1072,13 +1072,13 @@ int main() {
   GRAPPLE_REQUIRE(firstCachedFrame);
   GRAPPLE_REQUIRE(firstCachedFrame.value().frame.image.has_value());
   GRAPPLE_REQUIRE(firstCachedFrame.value().frame.image->rgbaPixels == exportOnlySink.frameImages[0]->rgbaPixels);
-  GRAPPLE_REQUIRE(cacheWorkspace.value().cachedMediaFrameCount() == 3);
+  GRAPPLE_REQUIRE(cacheWorkspace.value().cachedMediaFrameCount() == 4);
   const auto secondCachedFrame = cacheWorkspace.value().preview().renderFrame(render::RenderFrameRequest{
     foundation::TimeSeconds{0.0},
     render::RenderQuality::Draft
   });
   GRAPPLE_REQUIRE(secondCachedFrame);
-  GRAPPLE_REQUIRE(cacheWorkspace.value().cachedMediaFrameCount() == 3);
+  GRAPPLE_REQUIRE(cacheWorkspace.value().cachedMediaFrameCount() == 4);
   const auto cacheWorkspaceWrite = cacheWorkspace.value().writePackage();
   GRAPPLE_REQUIRE(cacheWorkspaceWrite);
   auto reopenedCacheWorkspace = app::NativeWorkspaceSession::openPackageRoot(foundation::FilePath{cachePackageRoot.string()});

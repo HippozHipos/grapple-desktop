@@ -13,15 +13,13 @@ int main() {
   GRAPPLE_REQUIRE(cache.usedBytes() == 0);
   const media::FrameCacheKey key{
     foundation::AssetId{"asset_video"},
-    foundation::TimeSeconds{1.25},
-    media::MediaQuality::Proxy
+    foundation::TimeSeconds{1.25}
   };
 
   const auto put = cache.put(key, media::MediaFrame{
     foundation::AssetId{"asset_video"},
     foundation::TimeSeconds{1.25},
     foundation::Resolution{640, 360},
-    media::MediaQuality::Proxy,
     "frame_1",
     {1, 2, 3, 4}
   });
@@ -41,7 +39,6 @@ int main() {
     foundation::AssetId{"asset_other"},
     foundation::TimeSeconds{1.25},
     foundation::Resolution{640, 360},
-    media::MediaQuality::Proxy,
     "bad",
     {9, 9, 9, 9}
   });
@@ -51,21 +48,18 @@ int main() {
 
   const auto missing = cache.get(media::FrameCacheKey{
     foundation::AssetId{"asset_video"},
-    foundation::TimeSeconds{2.0},
-    media::MediaQuality::Proxy
+    foundation::TimeSeconds{2.0}
   });
   GRAPPLE_REQUIRE(!missing.has_value());
 
   const media::FrameCacheKey secondKey{
     foundation::AssetId{"asset_video"},
-    foundation::TimeSeconds{2.0},
-    media::MediaQuality::Proxy
+    foundation::TimeSeconds{2.0}
   };
   const auto putSecond = cache.put(secondKey, media::MediaFrame{
     foundation::AssetId{"asset_video"},
     foundation::TimeSeconds{2.0},
     foundation::Resolution{640, 360},
-    media::MediaQuality::Proxy,
     "frame_2",
     {2, 2, 2, 2}
   });
@@ -75,14 +69,12 @@ int main() {
 
   const media::FrameCacheKey thirdKey{
     foundation::AssetId{"asset_video"},
-    foundation::TimeSeconds{3.0},
-    media::MediaQuality::Proxy
+    foundation::TimeSeconds{3.0}
   };
   const auto putThird = cache.put(thirdKey, media::MediaFrame{
     foundation::AssetId{"asset_video"},
     foundation::TimeSeconds{3.0},
     foundation::Resolution{640, 360},
-    media::MediaQuality::Proxy,
     "frame_3",
     {3, 3, 3, 3}
   });
@@ -97,7 +89,6 @@ int main() {
     foundation::AssetId{"asset_video"},
     foundation::TimeSeconds{2.0},
     foundation::Resolution{640, 360},
-    media::MediaQuality::Proxy,
     "frame_2_replaced",
     {4, 4, 4, 4}
   });
@@ -113,7 +104,6 @@ int main() {
     foundation::AssetId{"asset_video"},
     foundation::TimeSeconds{1.25},
     foundation::Resolution{640, 360},
-    media::MediaQuality::Proxy,
     "frame_1",
     {1, 2, 3, 4}
   });
@@ -126,7 +116,6 @@ int main() {
     foundation::AssetId{"asset_video"},
     foundation::TimeSeconds{1.25},
     foundation::Resolution{640, 360},
-    media::MediaQuality::Proxy,
     "frame_1",
     {1, 2, 3, 4}
   });

@@ -13,7 +13,7 @@ namespace grapple::media {
 struct FrameCacheKey {
   foundation::AssetId assetId;
   foundation::TimeSeconds time;
-  MediaQuality quality = MediaQuality::Proxy;
+  std::optional<foundation::Resolution> targetResolution;
 };
 
 class FrameCache {

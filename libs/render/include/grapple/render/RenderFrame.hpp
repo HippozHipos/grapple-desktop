@@ -65,7 +65,7 @@ struct RenderedCamera {
 struct SourceFrameRequest {
   foundation::AssetId assetId;
   foundation::TimeSeconds sourceTime;
-  RenderQuality quality = RenderQuality::Draft;
+  std::optional<foundation::Resolution> targetResolution;
 };
 
 struct SourceFrame {

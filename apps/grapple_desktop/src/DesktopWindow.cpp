@@ -28,6 +28,7 @@
 #include <QDragEnterEvent>
 #include <QDoubleSpinBox>
 #include <QDropEvent>
+#include <QElapsedTimer>
 #include <QFileDialog>
 #include <QFrame>
 #include <QGridLayout>
@@ -1695,6 +1696,8 @@ public:
       return;
     }
 
+    playbackStartPlayhead_ = workspace_.preview().state().playhead;
+    playbackClock_.restart();
     playbackTimer_->start();
     renderCurrentFrame();
     updateActionAvailability();
@@ -1772,14 +1775,15 @@ public:
     }
 
     const double duration = std::max(0.0, timelineDuration_.value);
-    const double next = workspace_.preview().state().playhead.value + (1.0 / 30.0);
-    if (duration <= 0.0 || next >= duration) {
+    const double elapsedSeconds = static_cast<double>(playbackClock_.elapsed()) / 1000.0;
+    const double target = playbackStartPlayhead_.value + elapsedSeconds;
+    if (duration <= 0.0 || target >= duration) {
       seekTo(grapple::foundation::TimeSeconds{duration}, false);
       pausePlayback();
       return;
     }
 
-    seekTo(grapple::foundation::TimeSeconds{next}, false);
+    seekTo(grapple::foundation::TimeSeconds{target}, false);
   }
 
   grapple::foundation::Result<grapple::foundation::NodeId> ensureComposition() {
@@ -4130,6 +4134,8 @@ private:
   QAction* deleteTrackAction_ = nullptr;
   QTimer* playbackTimer_ = nullptr;
   QTimer* jobDispatchTimer_ = nullptr;
+  QElapsedTimer playbackClock_;
+  grapple::foundation::TimeSeconds playbackStartPlayhead_;
   grapple::jobs::MainThreadDispatcher jobDispatcher_;
   bool exportInProgress_ = false;
   int exportJobCounter_ = 0;

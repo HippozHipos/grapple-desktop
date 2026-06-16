@@ -30,6 +30,7 @@
 #include <optional>
 #include <string>
 #include <system_error>
+#include <thread>
 #include <utility>
 #include <variant>
 
@@ -2192,25 +2193,22 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
 	      effectPanel.find("0s = 0 last changed by steward at ") != std::string::npos &&
 	      effectPanel.find("10s = 0.25 last changed by steward at ") != std::string::npos;
 
-	    window.seekTo(grapple::foundation::TimeSeconds{0.0});
-	    window.startPlayback();
-	    for (int frameIndex = 0; frameIndex < 150; ++frameIndex) {
-	      window.advancePlaybackFrame();
-	    }
-	    const std::string playbackInspector = window.inspectorContents();
-	    const std::optional<double> playbackEffectControlValue =
-	      window.effectParamControlValue(grapple::effects::builtin_effect::PositionXParam);
-	    const bool editControlsUpdatedDuringPlayback =
-	      playbackInspector.find("Position X (position_x)=0.125") != std::string::npos &&
-	      playbackEffectControlValue.has_value() &&
-	      approx(playbackEffectControlValue.value(), 0.125);
-	    window.pausePlayback();
-	    std::cout << "playbackInspector=" << playbackInspector << '\n';
-	    if (playbackEffectControlValue.has_value()) {
-	      std::cout << "playbackEffectControlValue=" << playbackEffectControlValue.value() << '\n';
-	    }
+    window.seekTo(grapple::foundation::TimeSeconds{5.0});
+    window.startPlayback();
+    const std::string playbackInspector = window.inspectorContents();
+    const std::optional<double> playbackEffectControlValue =
+      window.effectParamControlValue(grapple::effects::builtin_effect::PositionXParam);
+    const bool editControlsUpdatedDuringPlayback =
+      playbackInspector.find("Position X (position_x)=0.125") != std::string::npos &&
+      playbackEffectControlValue.has_value() &&
+      approx(playbackEffectControlValue.value(), 0.125);
+    window.pausePlayback();
+    std::cout << "playbackInspector=" << playbackInspector << '\n';
+    if (playbackEffectControlValue.has_value()) {
+      std::cout << "playbackEffectControlValue=" << playbackEffectControlValue.value() << '\n';
+    }
 
-	    window.seekTo(grapple::foundation::TimeSeconds{10.0});
+    window.seekTo(grapple::foundation::TimeSeconds{10.0});
     window.setEffectParamControlValue(grapple::effects::builtin_effect::PositionXParam, 0.5);
     window.setEffectParamKeyframeAtPlayhead(grapple::effects::builtin_effect::PositionXParam);
     window.seekTo(grapple::foundation::TimeSeconds{5.0});
@@ -2770,6 +2768,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     const bool duringPlayActionEnabled = window.playActionEnabled();
     const bool duringPauseActionEnabled = window.pauseActionEnabled();
     const bool duringSeekActionEnabled = window.seekActionEnabled();
+    std::this_thread::sleep_for(std::chrono::milliseconds{60});
     window.advancePlaybackFrame();
     window.pressPlaybackShortcut();
     const bool afterPausePlayActionEnabled = window.playActionEnabled();

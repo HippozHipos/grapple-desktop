@@ -22,15 +22,14 @@ public:
   grapple::foundation::Result<grapple::media::MediaFrame> frameAt(
     grapple::foundation::AssetId,
     grapple::foundation::TimeSeconds,
-    grapple::media::MediaQuality
+    std::optional<grapple::foundation::Resolution>
   ) override {
     return grapple::foundation::Error{"test.media_unused", "Test media reader should not be called."};
   }
 
   grapple::foundation::Result<grapple::media::AudioBuffer> audioRange(
     grapple::foundation::AssetId,
-    grapple::foundation::TimeRange,
-    grapple::media::MediaQuality
+    grapple::foundation::TimeRange
   ) override {
     return grapple::foundation::Error{"test.media_unused", "Test media reader should not be called."};
   }

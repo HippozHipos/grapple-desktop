@@ -7,7 +7,7 @@ namespace grapple::media {
 bool operator==(const FrameCacheKey& left, const FrameCacheKey& right) {
   return left.assetId == right.assetId &&
          left.time == right.time &&
-         left.quality == right.quality;
+         left.targetResolution == right.targetResolution;
 }
 
 namespace {
@@ -26,7 +26,7 @@ foundation::Result<void> FrameCache::put(FrameCacheKey key, MediaFrame frame) {
     return foundation::Error{"media.cache_asset_id_empty", "Frame cache key asset id must not be empty."};
   }
 
-  if (frame.assetId != key.assetId || frame.time != key.time || frame.quality != key.quality) {
+  if (frame.assetId != key.assetId || frame.time != key.time) {
     return foundation::Error{"media.cache_frame_key_mismatch", "Frame must match its cache key."};
   }
 

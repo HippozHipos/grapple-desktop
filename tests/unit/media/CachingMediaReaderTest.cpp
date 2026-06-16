@@ -3,6 +3,7 @@
 #include <TestAssert.hpp>
 
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -13,18 +14,20 @@ public:
   grapple::foundation::Result<grapple::media::MediaFrame> frameAt(
     grapple::foundation::AssetId assetId,
     grapple::foundation::TimeSeconds time,
-    grapple::media::MediaQuality quality
+    std::optional<grapple::foundation::Resolution> targetResolution = std::nullopt
   ) override {
     ++frameReads;
+    lastTargetResolution = targetResolution;
     if (failFrames) {
       return grapple::foundation::Error{"test.frame_read_failed", "Frame read failed."};
     }
 
+    const grapple::foundation::Resolution resolution =
+      targetResolution.value_or(grapple::foundation::Resolution{640, 360});
     return grapple::media::MediaFrame{
       assetId,
       time,
-      grapple::foundation::Resolution{640, 360},
-      quality,
+      resolution,
       "source_frame_" + std::to_string(frameReads),
       {static_cast<std::uint8_t>(frameReads), 0, 0, 255}
     };
@@ -32,14 +35,12 @@ public:
 
   grapple::foundation::Result<grapple::media::AudioBuffer> audioRange(
     grapple::foundation::AssetId assetId,
-    grapple::foundation::TimeRange range,
-    grapple::media::MediaQuality quality
+    grapple::foundation::TimeRange range
   ) override {
     ++audioReads;
     return grapple::media::AudioBuffer{
       assetId,
       range,
-      quality,
       48000,
       {1.0F, -1.0F}
     };
@@ -48,6 +49,7 @@ public:
   int frameReads = 0;
   int audioReads = 0;
   bool failFrames = false;
+  std::optional<grapple::foundation::Resolution> lastTargetResolution;
 };
 
 } // namespace
@@ -61,8 +63,7 @@ int main() {
 
   const auto firstFrame = reader.frameAt(
     foundation::AssetId{"asset_video"},
-    foundation::TimeSeconds{1.0},
-    media::MediaQuality::Proxy
+    foundation::TimeSeconds{1.0}
   );
   GRAPPLE_REQUIRE(firstFrame);
   GRAPPLE_REQUIRE(firstFrame.value().frameRef == "source_frame_1");
@@ -72,8 +73,7 @@ int main() {
 
   const auto cachedFrame = reader.frameAt(
     foundation::AssetId{"asset_video"},
-    foundation::TimeSeconds{1.0},
-    media::MediaQuality::Proxy
+    foundation::TimeSeconds{1.0}
   );
   GRAPPLE_REQUIRE(cachedFrame);
   GRAPPLE_REQUIRE(cachedFrame.value().frameRef == "source_frame_1");
@@ -82,8 +82,7 @@ int main() {
 
   const auto secondFrame = reader.frameAt(
     foundation::AssetId{"asset_video"},
-    foundation::TimeSeconds{2.0},
-    media::MediaQuality::Proxy
+    foundation::TimeSeconds{2.0}
   );
   GRAPPLE_REQUIRE(secondFrame);
   GRAPPLE_REQUIRE(secondFrame.value().frameRef == "source_frame_2");
@@ -91,8 +90,7 @@ int main() {
 
   const auto audio = reader.audioRange(
     foundation::AssetId{"asset_video"},
-    foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}},
-    media::MediaQuality::Proxy
+    foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}}
   );
   GRAPPLE_REQUIRE(audio);
   GRAPPLE_REQUIRE(source.audioReads == 1);
@@ -100,19 +98,28 @@ int main() {
   source.failFrames = true;
   const auto failedRead = reader.frameAt(
     foundation::AssetId{"asset_other"},
-    foundation::TimeSeconds{1.0},
-    media::MediaQuality::Proxy
+    foundation::TimeSeconds{1.0}
   );
   GRAPPLE_REQUIRE(!failedRead);
   GRAPPLE_REQUIRE(failedRead.error().code == "test.frame_read_failed");
+  source.failFrames = false;
+
+  const auto targetedFrame = reader.frameAt(
+    foundation::AssetId{"asset_video"},
+    foundation::TimeSeconds{1.0},
+    foundation::Resolution{320, 180}
+  );
+  GRAPPLE_REQUIRE(targetedFrame);
+  GRAPPLE_REQUIRE(source.frameReads == 4);
+  GRAPPLE_REQUIRE((targetedFrame.value().resolution == foundation::Resolution{320, 180}));
+  GRAPPLE_REQUIRE((source.lastTargetResolution == foundation::Resolution{320, 180}));
 
   TestMediaReader zeroCapacitySource;
   media::FrameCache zeroCapacityCache{0};
   media::CachingMediaReader zeroCapacityReader{zeroCapacitySource, zeroCapacityCache};
   const auto uncachedFrame = zeroCapacityReader.frameAt(
     foundation::AssetId{"asset_video"},
-    foundation::TimeSeconds{1.0},
-    media::MediaQuality::Proxy
+    foundation::TimeSeconds{1.0}
   );
   GRAPPLE_REQUIRE(uncachedFrame);
   GRAPPLE_REQUIRE(uncachedFrame.value().frameRef == "source_frame_1");

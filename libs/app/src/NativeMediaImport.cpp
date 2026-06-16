@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
@@ -133,6 +134,18 @@ foundation::Result<asset::AssetMediaType> mediaTypeForPath(const foundation::Fil
   return foundation::Error{"app.media_type_unsupported", "Unsupported media file extension for " + path.value + "."};
 }
 
+foundation::Resolution fitWithinLargestEdge(foundation::Resolution source, int largestEdge) {
+  const int sourceLargestEdge = std::max(source.width, source.height);
+  if (sourceLargestEdge <= 0 || sourceLargestEdge <= largestEdge) {
+    return source;
+  }
+  const double scale = static_cast<double>(largestEdge) / static_cast<double>(sourceLargestEdge);
+  return foundation::Resolution{
+    std::max(1, static_cast<int>(std::lround(static_cast<double>(source.width) * scale))),
+    std::max(1, static_cast<int>(std::lround(static_cast<double>(source.height) * scale)))
+  };
+}
+
 foundation::Result<cv::Mat> decodeThumbnailSource(
   asset::AssetMediaType mediaType,
   const foundation::FilePath& mediaPath
@@ -146,7 +159,15 @@ foundation::Result<cv::Mat> decodeThumbnailSource(
       return decoded;
     }
     case asset::AssetMediaType::Video: {
-      auto decoded = media::decodeVideoFrame(mediaPath, foundation::TimeSeconds{0.0}, media::MediaQuality::Proxy);
+      auto metadata = media::inspectVideoFile(mediaPath);
+      if (!metadata) {
+        return metadata.error();
+      }
+      auto decoded = media::decodeVideoFrame(
+        mediaPath,
+        foundation::TimeSeconds{0.0},
+        fitWithinLargestEdge(metadata.value().resolution, ThumbnailMaxEdge)
+      );
       if (!decoded) {
         return decoded.error();
       }

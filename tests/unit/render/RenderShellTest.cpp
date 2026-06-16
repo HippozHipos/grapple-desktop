@@ -912,7 +912,7 @@ int main() {
   GRAPPLE_REQUIRE(frameSource.lastRequest.has_value());
   GRAPPLE_REQUIRE(frameSource.lastRequest->assetId == foundation::AssetId{"asset_video"});
   GRAPPLE_REQUIRE(frameSource.lastRequest->sourceTime == foundation::TimeSeconds{4.0});
-  GRAPPLE_REQUIRE(frameSource.lastRequest->quality == render::RenderQuality::Draft);
+  GRAPPLE_REQUIRE(!frameSource.lastRequest->targetResolution.has_value());
   const auto resizedImageFrame = imagePreview.renderFrame(render::RenderFrameRequest{
     foundation::TimeSeconds{4.0},
     render::RenderQuality::Draft,
@@ -921,6 +921,8 @@ int main() {
   GRAPPLE_REQUIRE(resizedImageFrame);
   GRAPPLE_REQUIRE(resizedImageFrame.value().frame.image.has_value());
   GRAPPLE_REQUIRE((resizedImageFrame.value().frame.image->resolution == foundation::Resolution{1, 1}));
+  GRAPPLE_REQUIRE(frameSource.lastRequest.has_value());
+  GRAPPLE_REQUIRE((frameSource.lastRequest->targetResolution == foundation::Resolution{1, 1}));
 
   LayeredFrameSource layeredFrameSource;
   render::LocalRenderCore layeredImageCore{runtime, layeredFrameSource};
@@ -1123,7 +1125,7 @@ int main() {
   GRAPPLE_REQUIRE(finalRangeFrameSource.lastRequest.has_value());
   GRAPPLE_REQUIRE(finalRangeFrameSource.lastRequest->assetId == foundation::AssetId{"asset_video"});
   GRAPPLE_REQUIRE(finalRangeFrameSource.lastRequest->sourceTime == foundation::TimeSeconds{0.5});
-  GRAPPLE_REQUIRE(finalRangeFrameSource.lastRequest->quality == render::RenderQuality::Final);
+  GRAPPLE_REQUIRE((finalRangeFrameSource.lastRequest->targetResolution == foundation::Resolution{4, 2}));
 
   CameraTransformRuntime cameraRuntime;
   runtime::RuntimeEvaluator cameraEvaluator{{&cameraRuntime}};

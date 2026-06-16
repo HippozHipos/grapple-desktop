@@ -5,7 +5,8 @@
 #include <grapple/foundation/Time.hpp>
 #include <grapple/media/AudioBuffer.hpp>
 #include <grapple/media/MediaFrame.hpp>
-#include <grapple/media/MediaQuality.hpp>
+
+#include <optional>
 
 namespace grapple::media {
 
@@ -16,15 +17,13 @@ public:
   virtual foundation::Result<MediaFrame> frameAt(
     foundation::AssetId assetId,
     foundation::TimeSeconds time,
-    MediaQuality quality
+    std::optional<foundation::Resolution> targetResolution = std::nullopt
   ) = 0;
 
   virtual foundation::Result<AudioBuffer> audioRange(
     foundation::AssetId assetId,
-    foundation::TimeRange range,
-    MediaQuality quality
+    foundation::TimeRange range
   ) = 0;
 };
 
 } // namespace grapple::media
-

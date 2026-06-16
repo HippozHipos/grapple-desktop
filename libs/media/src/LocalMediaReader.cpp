@@ -5,7 +5,6 @@
 #include <opencv2/imgproc.hpp>
 
 #include <algorithm>
-#include <cmath>
 #include <cstddef>
 #include <string>
 #include <utility>
@@ -14,26 +13,26 @@ namespace grapple::media {
 
 namespace {
 
-constexpr int ProxyMaxDimension = 720;
-
-cv::Mat scaledForQuality(const cv::Mat& input, MediaQuality quality) {
-  if (quality == MediaQuality::Full || input.empty()) {
+cv::Mat scaledToTarget(
+  const cv::Mat& input,
+  std::optional<foundation::Resolution> targetResolution
+) {
+  if (!targetResolution.has_value() || input.empty()) {
     return input;
   }
-
-  const int longestEdge = std::max(input.cols, input.rows);
-  if (longestEdge <= ProxyMaxDimension) {
+  if (targetResolution->width == input.cols && targetResolution->height == input.rows) {
     return input;
   }
-
-  const double scale = static_cast<double>(ProxyMaxDimension) / static_cast<double>(longestEdge);
-  const cv::Size proxySize{
-    std::max(1, static_cast<int>(std::lround(static_cast<double>(input.cols) * scale))),
-    std::max(1, static_cast<int>(std::lround(static_cast<double>(input.rows) * scale)))
+  const cv::Size targetSize{
+    std::max(1, targetResolution->width),
+    std::max(1, targetResolution->height)
   };
-  cv::Mat proxy;
-  cv::resize(input, proxy, proxySize, 0.0, 0.0, cv::INTER_AREA);
-  return proxy;
+  cv::Mat scaled;
+  const int interpolation = targetSize.width < input.cols || targetSize.height < input.rows
+    ? cv::INTER_AREA
+    : cv::INTER_LINEAR;
+  cv::resize(input, scaled, targetSize, 0.0, 0.0, interpolation);
+  return scaled;
 }
 
 foundation::Result<std::vector<std::uint8_t>> rgbaPixelsFromMat(const cv::Mat& input) {
@@ -63,14 +62,14 @@ foundation::Result<std::vector<std::uint8_t>> rgbaPixelsFromMat(const cv::Mat& i
 foundation::Result<MediaFrame> imageFrame(
   const MediaSource& source,
   foundation::TimeSeconds time,
-  MediaQuality quality
+  std::optional<foundation::Resolution> targetResolution
 ) {
   const cv::Mat decoded = cv::imread(source.path.value, cv::IMREAD_UNCHANGED);
   if (decoded.empty()) {
     return foundation::Error{"media.image_open_failed", "Could not decode image source " + source.path.value + "."};
   }
 
-  const cv::Mat scaled = scaledForQuality(decoded, quality);
+  const cv::Mat scaled = scaledToTarget(decoded, targetResolution);
   auto pixels = rgbaPixelsFromMat(scaled);
   if (!pixels) {
     return pixels.error();
@@ -80,7 +79,6 @@ foundation::Result<MediaFrame> imageFrame(
     source.assetId,
     time,
     foundation::Resolution{scaled.cols, scaled.rows},
-    quality,
     source.path.value,
     std::move(pixels.value())
   };
@@ -89,9 +87,9 @@ foundation::Result<MediaFrame> imageFrame(
 foundation::Result<MediaFrame> videoFrame(
   const MediaSource& source,
   foundation::TimeSeconds time,
-  MediaQuality quality
+  std::optional<foundation::Resolution> targetResolution
 ) {
-  auto decoded = decodeVideoFrame(source.path, time, quality);
+  auto decoded = decodeVideoFrame(source.path, time, targetResolution);
   if (!decoded) {
     return decoded.error();
   }
@@ -100,7 +98,6 @@ foundation::Result<MediaFrame> videoFrame(
     source.assetId,
     time,
     decoded.value().resolution,
-    quality,
     source.path.value,
     std::move(decoded.value().rgbaPixels)
   };
@@ -127,7 +124,7 @@ LocalMediaReader& LocalMediaReader::operator=(LocalMediaReader&&) noexcept = def
 foundation::Result<MediaFrame> LocalMediaReader::frameAt(
   foundation::AssetId assetId,
   foundation::TimeSeconds time,
-  MediaQuality quality
+  std::optional<foundation::Resolution> targetResolution
 ) {
   const MediaSource* source = impl_->sources.find(assetId);
   if (source == nullptr) {
@@ -135,23 +132,21 @@ foundation::Result<MediaFrame> LocalMediaReader::frameAt(
   }
 
   if (source->kind == MediaSourceKind::Image) {
-    return imageFrame(*source, time, quality);
+    return imageFrame(*source, time, targetResolution);
   }
 
   if (source->kind == MediaSourceKind::Audio) {
     return foundation::Error{"media.audio_frame_unsupported", "Audio sources do not provide video frames."};
   }
 
-  return videoFrame(*source, time, quality);
+  return videoFrame(*source, time, targetResolution);
 }
 
 foundation::Result<AudioBuffer> LocalMediaReader::audioRange(
   foundation::AssetId assetId,
-  foundation::TimeRange range,
-  MediaQuality quality
+  foundation::TimeRange range
 ) {
   (void)range;
-  (void)quality;
 
   const MediaSource* source = impl_->sources.find(assetId);
   if (source == nullptr) {

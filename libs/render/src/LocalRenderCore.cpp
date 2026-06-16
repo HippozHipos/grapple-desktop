@@ -604,7 +604,6 @@ void compositeTextFrames(RenderedImage& canvas, const std::vector<RenderedTextFr
 foundation::Result<std::optional<RenderedImage>> buildRenderedImage(
   const std::vector<RenderedMediaFrame>& mediaFrames,
   const std::vector<RenderedTextFrame>& textFrames,
-  RenderQuality quality,
   IRenderFrameSource* frameSource,
   std::optional<foundation::Resolution> outputResolution = std::nullopt
 ) {
@@ -620,7 +619,7 @@ foundation::Result<std::optional<RenderedImage>> buildRenderedImage(
     auto sourceFrame = frameSource->frameAt(SourceFrameRequest{
       mediaFrame.assetId,
       mediaFrame.sourceTime,
-      quality
+      outputResolution
     });
     if (!sourceFrame) {
       return sourceFrame.error();
@@ -740,7 +739,7 @@ foundation::Result<RenderFrameResult> renderSampleFrame(
   const std::vector<RenderedTextFrame> textFrames = buildTextFrames(sample);
   const std::vector<RenderedAudioClip> audioClips = buildAudioClips(sample);
   const std::vector<RenderedCamera> cameras = buildRenderedCameras(sample);
-  auto image = buildRenderedImage(mediaFrames, textFrames, request.quality, frameSource, outputResolution);
+  auto image = buildRenderedImage(mediaFrames, textFrames, frameSource, outputResolution);
   if (!image) {
     return image.error();
   }

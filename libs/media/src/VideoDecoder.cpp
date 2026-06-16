@@ -17,8 +17,6 @@ namespace grapple::media {
 
 namespace {
 
-constexpr int ProxyMaxDimension = 720;
-
 struct FormatContextDeleter {
   void operator()(AVFormatContext* context) const noexcept {
     if (context != nullptr) {
@@ -119,21 +117,14 @@ foundation::Result<OpenVideo> openVideo(const foundation::FilePath& path) {
 
 foundation::Resolution outputResolutionFor(
   const foundation::Resolution& sourceResolution,
-  MediaQuality quality
+  std::optional<foundation::Resolution> targetResolution
 ) {
-  if (quality == MediaQuality::Full) {
+  if (!targetResolution.has_value()) {
     return sourceResolution;
   }
-
-  const int longestEdge = std::max(sourceResolution.width, sourceResolution.height);
-  if (longestEdge <= ProxyMaxDimension) {
-    return sourceResolution;
-  }
-
-  const double scale = static_cast<double>(ProxyMaxDimension) / static_cast<double>(longestEdge);
   return foundation::Resolution{
-    std::max(1, static_cast<int>(std::lround(static_cast<double>(sourceResolution.width) * scale))),
-    std::max(1, static_cast<int>(std::lround(static_cast<double>(sourceResolution.height) * scale)))
+    std::max(1, targetResolution->width),
+    std::max(1, targetResolution->height)
   };
 }
 
@@ -228,7 +219,7 @@ foundation::Result<VideoMetadata> inspectVideoFile(const foundation::FilePath& p
 foundation::Result<DecodedVideoFrame> decodeVideoFrame(
   const foundation::FilePath& path,
   foundation::TimeSeconds time,
-  MediaQuality quality
+  std::optional<foundation::Resolution> targetResolution
 ) {
   auto opened = openVideo(path);
   if (!opened) {
@@ -241,7 +232,7 @@ foundation::Result<DecodedVideoFrame> decodeVideoFrame(
   }
 
   const foundation::Resolution sourceResolution{decoded.value()->width, decoded.value()->height};
-  const foundation::Resolution outputResolution = outputResolutionFor(sourceResolution, quality);
+  const foundation::Resolution outputResolution = outputResolutionFor(sourceResolution, targetResolution);
   AvImageBuffer scaledImage;
   if (av_image_alloc(
     scaledImage.data,

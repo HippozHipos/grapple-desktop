@@ -5,9 +5,9 @@
 #include <grapple/foundation/Result.hpp>
 #include <grapple/foundation/StrongId.hpp>
 #include <grapple/foundation/Time.hpp>
-#include <grapple/media/MediaQuality.hpp>
 
 #include <cstdint>
+#include <optional>
 #include <vector>
 
 namespace grapple::media {
@@ -28,7 +28,7 @@ foundation::Result<VideoMetadata> inspectVideoFile(const foundation::FilePath& p
 foundation::Result<DecodedVideoFrame> decodeVideoFrame(
   const foundation::FilePath& path,
   foundation::TimeSeconds time,
-  MediaQuality quality
+  std::optional<foundation::Resolution> targetResolution = std::nullopt
 );
 
 } // namespace grapple::media

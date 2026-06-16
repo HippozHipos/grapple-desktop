@@ -128,8 +128,7 @@ int main() {
     media::LocalMediaReader reader{sources};
     const auto frame = reader.frameAt(
       foundation::AssetId{"asset_image"},
-      foundation::TimeSeconds{2.0},
-      media::MediaQuality::Proxy
+      foundation::TimeSeconds{2.0}
     );
     GRAPPLE_REQUIRE(frame);
     GRAPPLE_REQUIRE(frame.value().assetId == foundation::AssetId{"asset_image"});
@@ -140,25 +139,23 @@ int main() {
       40, 50, 60, 255
     }));
 
-    const auto largeProxyFrame = reader.frameAt(
+    const auto largeFrame = reader.frameAt(
+      foundation::AssetId{"asset_large_image"},
+      foundation::TimeSeconds{0.0}
+    );
+    GRAPPLE_REQUIRE(largeFrame);
+    GRAPPLE_REQUIRE((largeFrame.value().resolution == foundation::Resolution{1200, 800}));
+    const auto largeTargetedFrame = reader.frameAt(
       foundation::AssetId{"asset_large_image"},
       foundation::TimeSeconds{0.0},
-      media::MediaQuality::Proxy
+      foundation::Resolution{720, 480}
     );
-    GRAPPLE_REQUIRE(largeProxyFrame);
-    GRAPPLE_REQUIRE((largeProxyFrame.value().resolution == foundation::Resolution{720, 480}));
-    const auto largeFullFrame = reader.frameAt(
-      foundation::AssetId{"asset_large_image"},
-      foundation::TimeSeconds{0.0},
-      media::MediaQuality::Full
-    );
-    GRAPPLE_REQUIRE(largeFullFrame);
-    GRAPPLE_REQUIRE((largeFullFrame.value().resolution == foundation::Resolution{1200, 800}));
+    GRAPPLE_REQUIRE(largeTargetedFrame);
+    GRAPPLE_REQUIRE((largeTargetedFrame.value().resolution == foundation::Resolution{720, 480}));
 
     const auto firstVideoFrame = reader.frameAt(
       foundation::AssetId{"asset_video"},
-      foundation::TimeSeconds{0.0},
-      media::MediaQuality::Proxy
+      foundation::TimeSeconds{0.0}
     );
     GRAPPLE_REQUIRE(firstVideoFrame);
     GRAPPLE_REQUIRE(firstVideoFrame.value().assetId == foundation::AssetId{"asset_video"});
@@ -167,65 +164,58 @@ int main() {
 
     const auto secondVideoFrame = reader.frameAt(
       foundation::AssetId{"asset_video"},
-      foundation::TimeSeconds{0.5},
-      media::MediaQuality::Proxy
+      foundation::TimeSeconds{0.5}
     );
     GRAPPLE_REQUIRE(secondVideoFrame);
     GRAPPLE_REQUIRE(secondVideoFrame.value().assetId == foundation::AssetId{"asset_video"});
     GRAPPLE_REQUIRE((secondVideoFrame.value().resolution == foundation::Resolution{32, 24}));
     GRAPPLE_REQUIRE(greenDominant(secondVideoFrame.value().rgbaPixels));
 
-    const auto largeVideoProxyFrame = reader.frameAt(
+    const auto largeVideoFrame = reader.frameAt(
+      foundation::AssetId{"asset_large_video"},
+      foundation::TimeSeconds{0.0}
+    );
+    GRAPPLE_REQUIRE(largeVideoFrame);
+    GRAPPLE_REQUIRE((largeVideoFrame.value().resolution == foundation::Resolution{1200, 800}));
+    const auto largeVideoTargetedFrame = reader.frameAt(
       foundation::AssetId{"asset_large_video"},
       foundation::TimeSeconds{0.0},
-      media::MediaQuality::Proxy
+      foundation::Resolution{720, 480}
     );
-    GRAPPLE_REQUIRE(largeVideoProxyFrame);
-    GRAPPLE_REQUIRE((largeVideoProxyFrame.value().resolution == foundation::Resolution{720, 480}));
-    const auto largeVideoFullFrame = reader.frameAt(
-      foundation::AssetId{"asset_large_video"},
-      foundation::TimeSeconds{0.0},
-      media::MediaQuality::Full
-    );
-    GRAPPLE_REQUIRE(largeVideoFullFrame);
-    GRAPPLE_REQUIRE((largeVideoFullFrame.value().resolution == foundation::Resolution{1200, 800}));
+    GRAPPLE_REQUIRE(largeVideoTargetedFrame);
+    GRAPPLE_REQUIRE((largeVideoTargetedFrame.value().resolution == foundation::Resolution{720, 480}));
 
     const auto missing = reader.frameAt(
       foundation::AssetId{"asset_missing"},
-      foundation::TimeSeconds{0.0},
-      media::MediaQuality::Proxy
+      foundation::TimeSeconds{0.0}
     );
     GRAPPLE_REQUIRE(!missing);
     GRAPPLE_REQUIRE(missing.error().code == "media.source_missing");
 
     const auto audioFrame = reader.frameAt(
       foundation::AssetId{"asset_audio"},
-      foundation::TimeSeconds{0.0},
-      media::MediaQuality::Proxy
+      foundation::TimeSeconds{0.0}
     );
     GRAPPLE_REQUIRE(!audioFrame);
     GRAPPLE_REQUIRE(audioFrame.error().code == "media.audio_frame_unsupported");
 
     const auto missingAudio = reader.audioRange(
       foundation::AssetId{"asset_missing"},
-      foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}},
-      media::MediaQuality::Proxy
+      foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}}
     );
     GRAPPLE_REQUIRE(!missingAudio);
     GRAPPLE_REQUIRE(missingAudio.error().code == "media.source_missing");
 
     const auto imageAudio = reader.audioRange(
       foundation::AssetId{"asset_image"},
-      foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}},
-      media::MediaQuality::Proxy
+      foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}}
     );
     GRAPPLE_REQUIRE(!imageAudio);
     GRAPPLE_REQUIRE(imageAudio.error().code == "media.audio_source_kind_invalid");
 
     const auto audio = reader.audioRange(
       foundation::AssetId{"asset_audio"},
-      foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}},
-      media::MediaQuality::Proxy
+      foundation::TimeRange{foundation::TimeSeconds{0.0}, foundation::TimeSeconds{1.0}}
     );
     GRAPPLE_REQUIRE(!audio);
     GRAPPLE_REQUIRE(audio.error().code == "media.audio_decode_unsupported");

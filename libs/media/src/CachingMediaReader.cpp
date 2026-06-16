@@ -11,14 +11,14 @@ CachingMediaReader::CachingMediaReader(IMediaReader& source, FrameCache& frameCa
 foundation::Result<MediaFrame> CachingMediaReader::frameAt(
   foundation::AssetId assetId,
   foundation::TimeSeconds time,
-  MediaQuality quality
+  std::optional<foundation::Resolution> targetResolution
 ) {
-  const FrameCacheKey key{assetId, time, quality};
+  const FrameCacheKey key{assetId, time, targetResolution};
   if (auto cached = frameCache_.get(key); cached.has_value()) {
     return *cached;
   }
 
-  auto frame = source_.frameAt(assetId, time, quality);
+  auto frame = source_.frameAt(assetId, time, targetResolution);
   if (!frame) {
     return frame.error();
   }
@@ -33,10 +33,9 @@ foundation::Result<MediaFrame> CachingMediaReader::frameAt(
 
 foundation::Result<AudioBuffer> CachingMediaReader::audioRange(
   foundation::AssetId assetId,
-  foundation::TimeRange range,
-  MediaQuality quality
+  foundation::TimeRange range
 ) {
-  return source_.audioRange(assetId, range, quality);
+  return source_.audioRange(assetId, range);
 }
 
 } // namespace grapple::media
