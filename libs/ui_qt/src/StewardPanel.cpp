@@ -310,6 +310,9 @@ StewardPanel::StewardPanel(QWidget* parent)
     if (tryApplyHistoryIntentFromPrimaryAction()) {
       return;
     }
+    if (tryUpdateCameraFromPrimaryAction()) {
+      return;
+    }
     if (tryDeleteSelectedClipFromPrimaryAction()) {
       return;
     }
@@ -466,6 +469,14 @@ void StewardPanel::setHistoryIntentTargetsEditHandler(HistoryIntentTargetsEditHa
 
 void StewardPanel::setTryApplyHistoryIntentHandler(TryApplyHistoryIntentHandler handler) {
   tryApplyHistoryIntentHandler_ = std::move(handler);
+}
+
+void StewardPanel::setCameraUpdateIntentTargetsCameraHandler(CameraUpdateIntentTargetsCameraHandler handler) {
+  cameraUpdateIntentTargetsCameraHandler_ = std::move(handler);
+}
+
+void StewardPanel::setTryUpdateCameraHandler(TryUpdateCameraHandler handler) {
+  tryUpdateCameraHandler_ = std::move(handler);
 }
 
 void StewardPanel::setTryDeleteCameraControlsHandler(TryDeleteCameraControlsHandler handler) {
@@ -824,6 +835,11 @@ void StewardPanel::updateActionLabels() {
       trackCreateIntentTargetsTrackHandler_ &&
       trackCreateIntentTargetsTrackHandler_(intent())) {
     primaryActionButton_->setText("Create Timeline Track");
+  } else if (hasIntent &&
+             primaryTargetCameraNodeId_.has_value() &&
+             cameraUpdateIntentTargetsCameraHandler_ &&
+             cameraUpdateIntentTargetsCameraHandler_(intent())) {
+    primaryActionButton_->setText("Update Camera");
   } else {
     switch (primaryAction_) {
       case PrimaryAction::ImportMedia:
@@ -880,22 +896,22 @@ void StewardPanel::updateIntentPlaceholder() {
     case PrimaryAction::ShowCameraControls:
       intent_->setPlaceholderText(
         selectedTargetActionAvailable
-          ? "Try: \"add audio track\", \"add title \\\"Opening\\\"\", \"zoom in a little\", or use the clip action for \"rotate clip slightly left\"."
-          : "Try: \"add audio track\", \"add title \\\"Opening\\\"\", or show camera controls for \"zoom in a little\"."
+          ? "Try: \"rename camera to \\\"Closeup\\\"\", \"add title \\\"Opening\\\"\", \"zoom in a little\", or use the clip action for \"rotate clip slightly left\"."
+          : "Try: \"rename camera to \\\"Closeup\\\"\", \"add title \\\"Opening\\\"\", or show camera controls for \"zoom in a little\"."
       );
       return;
     case PrimaryAction::CreateCameraEffect:
       intent_->setPlaceholderText(
         selectedTargetActionAvailable
-          ? "Try: \"add audio track\", \"add title \\\"Opening\\\"\", \"center the subject\", or use the clip action for \"speed up clip\"."
-          : "Try: \"add audio track\", \"add title \\\"Opening\\\"\", \"center the subject\", or \"slowly pan right\"."
+          ? "Try: \"rename camera to \\\"Closeup\\\"\", \"add title \\\"Opening\\\"\", \"center the subject\", or use the clip action for \"speed up clip\"."
+          : "Try: \"rename camera to \\\"Closeup\\\"\", \"add title \\\"Opening\\\"\", \"center the subject\", or \"slowly pan right\"."
       );
       return;
     case PrimaryAction::AdjustCameraControls:
       intent_->setPlaceholderText(
         selectedTargetActionAvailable
-          ? "Try: \"add audio track\", \"add title \\\"Opening\\\"\", \"move far right\", \"zoom in a little\", or use the clip action for \"move clip later\"."
-          : "Try: \"add audio track\", \"add title \\\"Opening\\\"\", \"move far right\", \"zoom in a little\", \"reset camera\", or \"slowly pan left\"."
+          ? "Try: \"rename camera to \\\"Closeup\\\"\", \"set camera focal length to 50\", \"zoom in a little\", or use the clip action for \"move clip later\"."
+          : "Try: \"rename camera to \\\"Closeup\\\"\", \"set camera focal length to 50\", \"zoom in a little\", \"reset camera\", or \"slowly pan left\"."
       );
       return;
     case PrimaryAction::Disabled:
@@ -932,6 +948,18 @@ bool StewardPanel::tryApplyHistoryIntentFromPrimaryAction() {
     return false;
   }
   return tryApplyHistoryIntentHandler_(intent());
+}
+
+bool StewardPanel::tryUpdateCameraFromPrimaryAction() {
+  if (!intentHasText() ||
+      !primaryTargetCameraNodeId_.has_value() ||
+      !cameraUpdateIntentTargetsCameraHandler_ ||
+      !tryUpdateCameraHandler_ ||
+      !cameraUpdateIntentTargetsCameraHandler_(intent())) {
+    return false;
+  }
+
+  return tryUpdateCameraHandler_(primaryTargetCameraNodeId_.value(), intent());
 }
 
 bool StewardPanel::tryDeleteCameraControlsFromPrimaryAction() {
@@ -1024,6 +1052,13 @@ bool StewardPanel::primaryActionCanRun() const {
       trackCreateIntentTargetsTrackHandler_ &&
       tryCreateTrackHandler_ &&
       trackCreateIntentTargetsTrackHandler_(intent())) {
+    return true;
+  }
+  if (intentHasText() &&
+      primaryTargetCameraNodeId_.has_value() &&
+      cameraUpdateIntentTargetsCameraHandler_ &&
+      tryUpdateCameraHandler_ &&
+      cameraUpdateIntentTargetsCameraHandler_(intent())) {
     return true;
   }
 

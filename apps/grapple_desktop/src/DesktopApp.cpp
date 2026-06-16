@@ -187,6 +187,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
   bool stewardZoomMotionSmoke = false;
   bool stewardClipTransformSmoke = false;
   bool stewardUndoSmoke = false;
+  bool stewardUpdateCameraSmoke = false;
   bool stewardCreateTrackSmoke = false;
   bool stewardDeleteTrackSmoke = false;
   bool stewardDeleteClipSmoke = false;
@@ -282,6 +283,8 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       stewardClipTransformSmoke = true;
     } else if (argument == "--steward-undo-smoke") {
       stewardUndoSmoke = true;
+    } else if (argument == "--steward-update-camera-smoke") {
+      stewardUpdateCameraSmoke = true;
     } else if (argument == "--steward-create-track-smoke") {
       stewardCreateTrackSmoke = true;
     } else if (argument == "--steward-delete-track-smoke") {
@@ -371,6 +374,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     stewardMotionSmoke ||
     stewardZoomMotionSmoke ||
     stewardUndoSmoke ||
+    stewardUpdateCameraSmoke ||
     stewardCreateTrackSmoke ||
     stewardDeleteTrackSmoke ||
     deleteEffectSmoke ||
@@ -1209,6 +1213,56 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            viewModel.value().timeline.cameras.front().state.lens.focalLength == 85.0 &&
            inspector.find("Inspector\nCamera\nName: Renamed Camera") != std::string::npos &&
            inspector.find("Focal Length: 85.0") != std::string::npos
+      ? 0
+      : 1;
+  }
+
+  if (stewardUpdateCameraSmoke) {
+    window.show();
+    app.processEvents();
+    window.clickFirstTimelineCamera();
+    window.setStewardIntent("Rename camera to \"Closeup\" and set camera focal length to 50.");
+    const std::string primaryActionText = window.stewardPrimaryActionText();
+    const bool primaryActionEnabled = window.stewardPrimaryActionEnabled();
+    window.clickStewardPrimaryAction();
+    const auto viewModel = workspace.value().project().buildViewModel();
+    if (!viewModel) {
+      printError(viewModel.error());
+      return 1;
+    }
+    if (viewModel.value().timeline.cameras.empty()) {
+      std::cerr << "No cameras.\n";
+      return 1;
+    }
+    const auto conversation = workspace.value().steward().conversationState();
+    const std::string inspector = window.inspectorContents();
+    const std::string steward = window.stewardContents();
+    const std::string log = window.logContents();
+    std::cout << "revision=" << viewModel.value().project.revision.value() << '\n';
+    std::cout << "cameraName=" << viewModel.value().timeline.cameras.front().name << '\n';
+    std::cout << "focalLength=" << viewModel.value().timeline.cameras.front().state.lens.focalLength << '\n';
+    std::cout << "primaryActionText=" << primaryActionText << '\n';
+    std::cout << "primaryActionEnabled=" << (primaryActionEnabled ? "true" : "false") << '\n';
+    std::cout << "runs=" << conversation.runs.size() << '\n';
+    std::cout << "inspector=" << inspector << '\n';
+    std::cout << "steward=" << steward << '\n';
+    std::cout << "log=" << log << '\n';
+    return viewModel.value().project.revision == grapple::foundation::RevisionId{"rev_6"} &&
+           viewModel.value().timeline.cameras.front().name == "Closeup" &&
+           viewModel.value().timeline.cameras.front().state.lens.focalLength == 50.0 &&
+           window.selectedNodeId().has_value() &&
+           window.selectedNodeId().value() == viewModel.value().timeline.cameras.front().sourceNodeId &&
+           window.stewardIntent().empty() &&
+           primaryActionText == "Update Camera" &&
+           primaryActionEnabled &&
+           conversation.runs.size() == 1 &&
+           conversation.runs[0].toolCalls.size() == 1 &&
+           conversation.runs[0].toolCalls[0].toolSerializedId == "camera.update" &&
+           inspector.find("Inspector\nCamera\nName: Closeup") != std::string::npos &&
+           inspector.find("Focal Length: 50.0") != std::string::npos &&
+           steward.find("Camera on Closeup") != std::string::npos &&
+           steward.find("Update Camera -> succeeded") != std::string::npos &&
+           log.find("Steward updated selected camera") != std::string::npos
       ? 0
       : 1;
   }
@@ -2146,7 +2200,7 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            selectedAfterRecentEdit.has_value() &&
            selectedAfterRecentEdit.value() == expectedCameraNodeId &&
            stewardIntent.empty() &&
-           stewardIntentPlaceholder.find("move far right") != std::string::npos &&
+           stewardIntentPlaceholder.find("set camera focal length") != std::string::npos &&
            stewardIntentPlaceholder.find("zoom in a little") != std::string::npos &&
            stewardActionText == "Type Request To Apply Camera Controls" &&
            !stewardActionEnabled &&

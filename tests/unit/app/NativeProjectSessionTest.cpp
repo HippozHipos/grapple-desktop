@@ -228,6 +228,34 @@ int main() {
   GRAPPLE_REQUIRE(stewardPlanner.cameraTransformDeleteIntentTargetsCameraControls("delete framing effect"));
   GRAPPLE_REQUIRE(!stewardPlanner.cameraTransformDeleteIntentTargetsCameraControls("reset camera"));
   GRAPPLE_REQUIRE(!stewardPlanner.cameraTransformDeleteIntentTargetsCameraControls("move camera right"));
+  GRAPPLE_REQUIRE(stewardPlanner.cameraUpdateIntentTargetsCamera("rename camera to \"Closeup\""));
+  GRAPPLE_REQUIRE(stewardPlanner.cameraUpdateIntentTargetsCamera("set camera focal length to 50"));
+  GRAPPLE_REQUIRE(!stewardPlanner.cameraUpdateIntentTargetsCamera("center the camera"));
+  timeline::CameraPayload plannedCamera{
+    "Camera",
+    timeline::CameraState{timeline::Transform2D{}, timeline::CameraLens{35.0}}
+  };
+  const auto plannedCameraRename = stewardPlanner.cameraUpdateForIntent(
+    plannedCamera,
+    "Rename camera to \"Closeup\"."
+  );
+  GRAPPLE_REQUIRE(plannedCameraRename);
+  GRAPPLE_REQUIRE(plannedCameraRename.value().payload.name == "Closeup");
+  GRAPPLE_REQUIRE(plannedCameraRename.value().payload.state.lens.focalLength == 35.0);
+  const auto plannedCameraLens = stewardPlanner.cameraUpdateForIntent(
+    plannedCamera,
+    "Set camera focal length to 50."
+  );
+  GRAPPLE_REQUIRE(plannedCameraLens);
+  GRAPPLE_REQUIRE(plannedCameraLens.value().payload.name == "Camera");
+  GRAPPLE_REQUIRE(plannedCameraLens.value().payload.state.lens.focalLength == 50.0);
+  const auto plannedCameraNumberedNameAndLens = stewardPlanner.cameraUpdateForIntent(
+    plannedCamera,
+    "Rename camera to \"Camera 2\" and set camera focal length to 50."
+  );
+  GRAPPLE_REQUIRE(plannedCameraNumberedNameAndLens);
+  GRAPPLE_REQUIRE(plannedCameraNumberedNameAndLens.value().payload.name == "Camera 2");
+  GRAPPLE_REQUIRE(plannedCameraNumberedNameAndLens.value().payload.state.lens.focalLength == 50.0);
   GRAPPLE_REQUIRE(stewardPlanner.undoIntentTargetsLastEdit("undo last edit"));
   GRAPPLE_REQUIRE(stewardPlanner.undoIntentTargetsLastEdit("revert the previous change"));
   GRAPPLE_REQUIRE(!stewardPlanner.undoIntentTargetsLastEdit("remove selected clip"));
@@ -3450,6 +3478,38 @@ int main() {
   GRAPPLE_REQUIRE(stewardCameraCreateConversation.runs[0].toolCalls[0].toolDisplayName == "Create Camera");
   GRAPPLE_REQUIRE(stewardCameraCreateConversation.runs[0].toolCalls[0].toolCallId == foundation::ToolId{"tool_steward_create_camera_1"});
   GRAPPLE_REQUIRE(stewardCameraCreateConversation.runs[0].toolCalls[0].observedRevision == foundation::RevisionId{"rev_2"});
+  const auto stewardCameraUpdate = cameraCreateSteward.updateCamera(
+    stewardCameraCreate.value().cameraNodeId,
+    "Rename camera to \"Closeup\" and set camera focal length to 50."
+  );
+  GRAPPLE_REQUIRE(stewardCameraUpdate);
+  GRAPPLE_REQUIRE(stewardCameraUpdate.value().snapshot.revision == foundation::RevisionId{"rev_3"});
+  const auto stewardCameraUpdateViewModel = cameraCreateSession.buildViewModel();
+  GRAPPLE_REQUIRE(stewardCameraUpdateViewModel);
+  GRAPPLE_REQUIRE(stewardCameraUpdateViewModel.value().timeline.cameras.size() == 1);
+  GRAPPLE_REQUIRE(stewardCameraUpdateViewModel.value().timeline.cameras[0].name == "Closeup");
+  GRAPPLE_REQUIRE(stewardCameraUpdateViewModel.value().timeline.cameras[0].state.lens.focalLength == 50.0);
+  GRAPPLE_REQUIRE(stewardCameraUpdateViewModel.value().steward.edits.size() == 2);
+  GRAPPLE_REQUIRE(stewardCameraUpdateViewModel.value().steward.edits[1].editName == "Camera");
+  GRAPPLE_REQUIRE(stewardCameraUpdateViewModel.value().steward.edits[1].targetName == "Closeup");
+  GRAPPLE_REQUIRE(
+    stewardCameraUpdateViewModel.value().steward.edits[1].intent ==
+    "Rename camera to \"Closeup\" and set camera focal length to 50."
+  );
+  GRAPPLE_REQUIRE(stewardCameraUpdateViewModel.value().steward.edits[1].controlSummary == "Focal Length=50");
+  const history::CommandRecord& cameraUpdateCommand = cameraCreateSession.packageState().commandLog.records().back();
+  GRAPPLE_REQUIRE(cameraUpdateCommand.serializedName == "project.update_camera");
+  GRAPPLE_REQUIRE(cameraUpdateCommand.sourceKind == "agent");
+  GRAPPLE_REQUIRE(cameraUpdateCommand.sourceActorName == "steward");
+  GRAPPLE_REQUIRE(cameraUpdateCommand.sourceRunId == foundation::RunId{"run_steward_2"});
+  const auto stewardCameraUpdateConversation = cameraCreateSteward.conversationState();
+  GRAPPLE_REQUIRE(stewardCameraUpdateConversation.runs.size() == 2);
+  GRAPPLE_REQUIRE(stewardCameraUpdateConversation.runs[1].status == agent::AgentRunStatus::Succeeded);
+  GRAPPLE_REQUIRE(stewardCameraUpdateConversation.runs[1].toolCalls.size() == 1);
+  GRAPPLE_REQUIRE(stewardCameraUpdateConversation.runs[1].toolCalls[0].toolSerializedId == "camera.update");
+  GRAPPLE_REQUIRE(stewardCameraUpdateConversation.runs[1].toolCalls[0].toolDisplayName == "Update Camera");
+  GRAPPLE_REQUIRE(stewardCameraUpdateConversation.runs[1].toolCalls[0].toolCallId == foundation::ToolId{"tool_steward_update_camera_2"});
+  GRAPPLE_REQUIRE(stewardCameraUpdateConversation.runs[1].toolCalls[0].observedRevision == foundation::RevisionId{"rev_3"});
 
   const std::string workspacePackageStem =
     "grapple_workspace_package_" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count());

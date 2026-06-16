@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdlib>
 #include <initializer_list>
 #include <optional>
 #include <string>
@@ -211,6 +212,17 @@ bool cameraTransformDeleteIntentRequestsControls(const std::string& normalized) 
          containsAsciiWord(normalized, "controls") ||
          containsAsciiWord(normalized, "effect") ||
          containsAsciiWord(normalized, "framing");
+}
+
+bool cameraUpdateIntentRequestsCamera(const std::string& normalized) {
+  if (!containsAsciiWord(normalized, "camera")) {
+    return false;
+  }
+  return containsAsciiWord(normalized, "rename") ||
+         containsAsciiWord(normalized, "name") ||
+         containsText(normalized, "focal length") ||
+         containsAsciiWord(normalized, "focal") ||
+         containsAsciiWord(normalized, "lens");
 }
 
 bool trackDeleteIntentRequestsTrack(const std::string& normalized) {
@@ -437,6 +449,74 @@ std::optional<std::string> editedTextFromIntent(const std::string& intent, const
     }
   }
   return std::nullopt;
+}
+
+std::optional<std::string> cameraNameEditFromIntent(const std::string& intent, const std::string& normalized) {
+  if (!containsAsciiWord(normalized, "rename") && !containsAsciiWord(normalized, "name")) {
+    return std::nullopt;
+  }
+  if (auto quoted = quotedTextFromIntent(intent)) {
+    return quoted.value();
+  }
+  for (std::string_view marker : {
+         std::string_view{"rename selected camera to"},
+         std::string_view{"rename camera to"},
+         std::string_view{"set camera name to"},
+         std::string_view{"change camera name to"},
+         std::string_view{"name camera"}
+       }) {
+    const std::size_t markerPosition = normalized.find(marker);
+    if (markerPosition == std::string::npos) {
+      continue;
+    }
+    const std::size_t textStart = markerPosition + marker.size();
+    if (textStart < intent.size()) {
+      const std::string name = stripLeadingTextSeparators(intent.substr(textStart));
+      if (!name.empty()) {
+        return name;
+      }
+    }
+  }
+  return std::nullopt;
+}
+
+std::optional<double> firstNumberFromIntent(const std::string& intent) {
+  for (std::size_t index = 0; index < intent.size(); ++index) {
+    const unsigned char character = static_cast<unsigned char>(intent[index]);
+    if (std::isdigit(character) == 0 && intent[index] != '-' && intent[index] != '.') {
+      continue;
+    }
+    char* end = nullptr;
+    const double value = std::strtod(intent.c_str() + index, &end);
+    if (end != intent.c_str() + index) {
+      return value;
+    }
+  }
+  return std::nullopt;
+}
+
+std::optional<double> focalLengthFromIntent(const std::string& intent, const std::string& normalized) {
+  std::size_t markerPosition = std::string::npos;
+  for (std::string_view marker : {
+         std::string_view{"focal length"},
+         std::string_view{"focal"},
+         std::string_view{"lens"}
+       }) {
+    const std::size_t current = normalized.find(marker);
+    if (current != std::string::npos && (markerPosition == std::string::npos || current < markerPosition)) {
+      markerPosition = current + marker.size();
+    }
+  }
+  if (markerPosition == std::string::npos || markerPosition >= intent.size()) {
+    return std::nullopt;
+  }
+  return firstNumberFromIntent(intent.substr(markerPosition));
+}
+
+bool cameraIntentRequestsFocalLength(const std::string& normalized) {
+  return containsText(normalized, "focal length") ||
+         containsAsciiWord(normalized, "focal") ||
+         containsAsciiWord(normalized, "lens");
 }
 
 bool clipIntentRequestsRotation(const std::string& normalized) {
@@ -860,6 +940,45 @@ bool NativeStewardPlanner::historyIntentTargetsEdit(const std::string& intent) c
 
 bool NativeStewardPlanner::cameraTransformDeleteIntentTargetsCameraControls(const std::string& intent) const {
   return cameraTransformDeleteIntentRequestsControls(lowercaseAscii(intent));
+}
+
+bool NativeStewardPlanner::cameraUpdateIntentTargetsCamera(const std::string& intent) const {
+  return cameraUpdateIntentRequestsCamera(lowercaseAscii(intent));
+}
+
+foundation::Result<CameraUpdateIntent> NativeStewardPlanner::cameraUpdateForIntent(
+  const timeline::CameraPayload& current,
+  const std::string& intent
+) const {
+  const std::string normalized = lowercaseAscii(intent);
+  timeline::CameraPayload payload = current;
+  bool changed = false;
+
+  if (auto name = cameraNameEditFromIntent(intent, normalized)) {
+    payload.name = name.value();
+    changed = changed || payload.name != current.name;
+  }
+
+  if (cameraIntentRequestsFocalLength(normalized)) {
+    const std::optional<double> focalLength = focalLengthFromIntent(intent, normalized);
+    if (!focalLength.has_value() || focalLength.value() <= 0.0) {
+      return foundation::Error{
+        "steward.camera_focal_length_missing",
+        "Camera focal length edits must include a positive numeric focal length."
+      };
+    }
+    payload.state.lens.focalLength = focalLength.value();
+    changed = changed || payload.state.lens.focalLength != current.state.lens.focalLength;
+  }
+
+  if (!changed) {
+    return foundation::Error{
+      "steward.camera_update_intent_unknown",
+      "Camera update requests must explicitly rename the camera or set a focal length."
+    };
+  }
+
+  return CameraUpdateIntent{payload, changed};
 }
 
 bool NativeStewardPlanner::clipEditIntentTargetsClip(const std::string& intent) const {

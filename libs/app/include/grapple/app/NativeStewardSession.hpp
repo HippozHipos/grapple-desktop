@@ -67,6 +67,10 @@ public:
   foundation::Result<NativeStewardNoteResult> createNote(std::string intent);
   foundation::Result<NativeStewardTrackResult> createTrack(std::string intent);
   foundation::Result<NativeStewardCameraResult> createCamera();
+  foundation::Result<storage::ProjectPackageSessionResult> updateCamera(
+    foundation::NodeId cameraNodeId,
+    std::string intent
+  );
   foundation::Result<storage::ProjectPackageSessionResult> editClip(
     foundation::NodeId clipNodeId,
     std::string intent
@@ -89,6 +93,7 @@ public:
   );
   [[nodiscard]] bool clipEditIntentTargetsClip(const std::string& intent) const;
   [[nodiscard]] bool clipDeleteIntentTargetsClip(const std::string& intent) const;
+  [[nodiscard]] bool cameraUpdateIntentTargetsCamera(const std::string& intent) const;
   [[nodiscard]] bool trackCreateIntentTargetsTrack(const std::string& intent) const;
   [[nodiscard]] bool trackDeleteIntentTargetsTrack(const std::string& intent) const;
   [[nodiscard]] bool textClipIntentTargetsText(const std::string& intent) const;

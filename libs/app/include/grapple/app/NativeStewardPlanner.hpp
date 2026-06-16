@@ -84,6 +84,11 @@ struct TrackIntentDefaults {
   timeline::TrackKind kind = timeline::TrackKind::Visual;
 };
 
+struct CameraUpdateIntent {
+  timeline::CameraPayload payload;
+  bool changed = false;
+};
+
 class NativeStewardPlanner final {
 public:
   [[nodiscard]] CameraTransformIntentDefaults cameraTransformDefaultsForIntent(
@@ -98,6 +103,11 @@ public:
   [[nodiscard]] bool redoIntentTargetsLastUndoneEdit(const std::string& intent) const;
   [[nodiscard]] bool historyIntentTargetsEdit(const std::string& intent) const;
   [[nodiscard]] bool cameraTransformDeleteIntentTargetsCameraControls(const std::string& intent) const;
+  [[nodiscard]] bool cameraUpdateIntentTargetsCamera(const std::string& intent) const;
+  [[nodiscard]] foundation::Result<CameraUpdateIntent> cameraUpdateForIntent(
+    const timeline::CameraPayload& current,
+    const std::string& intent
+  ) const;
   [[nodiscard]] bool clipEditIntentTargetsClip(const std::string& intent) const;
   [[nodiscard]] bool clipDeleteIntentTargetsClip(const std::string& intent) const;
   [[nodiscard]] bool trackCreateIntentTargetsTrack(const std::string& intent) const;

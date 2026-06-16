@@ -29,6 +29,7 @@ constexpr const char CanonicalEffectDeleteNodeToolId[] = "effect.delete_node";
 constexpr const char CanonicalEffectCreateParamKeyframeToolId[] = "effect.create_param_keyframe";
 constexpr const char CanonicalEffectUpdateParamKeyframeToolId[] = "effect.update_param_keyframe";
 constexpr const char CanonicalCreateCameraToolId[] = "camera.create";
+constexpr const char CanonicalUpdateCameraToolId[] = "camera.update";
 constexpr const char CanonicalPlaceAssetToolId[] = "timeline.place_asset";
 constexpr const char CanonicalCreateTrackToolId[] = "timeline.create_track";
 constexpr const char CanonicalCreateTextClipToolId[] = "timeline.create_text_clip";
@@ -216,6 +217,10 @@ foundation::ToolId stewardPlaceAssetToolCallIdForRun(const foundation::RunId& ru
 
 foundation::ToolId stewardCreateCameraToolCallIdForRun(const foundation::RunId& runId) {
   return foundation::ToolId{"tool_steward_create_camera_" + std::to_string(stewardRunNumber(runId))};
+}
+
+foundation::ToolId stewardUpdateCameraToolCallIdForRun(const foundation::RunId& runId) {
+  return foundation::ToolId{"tool_steward_update_camera_" + std::to_string(stewardRunNumber(runId))};
 }
 
 foundation::ToolId stewardCreateTextClipToolCallIdForRun(const foundation::RunId& runId) {
@@ -413,6 +418,20 @@ std::string cameraCreateArgumentsPayload(
   arguments << ',';
   foundation::writeJsonStringProperty(arguments, "name", name);
   arguments << ",\"focalLength\":" << focalLength;
+  arguments << '}';
+  return arguments.str();
+}
+
+std::string cameraUpdateArgumentsPayload(
+  const foundation::NodeId& cameraNodeId,
+  const timeline::CameraPayload& payload
+) {
+  std::ostringstream arguments;
+  arguments << '{';
+  foundation::writeJsonStringProperty(arguments, "cameraNodeId", cameraNodeId.value());
+  arguments << ',';
+  foundation::writeJsonStringProperty(arguments, "name", payload.name);
+  arguments << ",\"focalLength\":" << payload.state.lens.focalLength;
   arguments << '}';
   return arguments.str();
 }
@@ -1261,6 +1280,110 @@ foundation::Result<NativeStewardCameraResult> NativeStewardSession::createCamera
   return NativeStewardCameraResult{packageResult.value(), cameraNodeId.value()};
 }
 
+foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::updateCamera(
+  foundation::NodeId cameraNodeId,
+  std::string intent
+) {
+  auto snapshot = project_.snapshot();
+  if (!snapshot) {
+    return snapshot.error();
+  }
+
+  auto runId = startRun(snapshot.value(), intent);
+  if (!runId) {
+    return runId.error();
+  }
+
+  const graph::GraphNode* cameraNode = snapshot.value().graph.findNode(cameraNodeId);
+  if (cameraNode == nullptr || cameraNode->kind != graph::NodeKind::Camera) {
+    const foundation::Error error{"steward.camera_missing", "Steward camera update requires an existing camera node."};
+    auto finished = finishRunWithError(runId.value(), error);
+    if (!finished) {
+      return finished.error();
+    }
+    return error;
+  }
+  const auto* cameraPayload = std::get_if<timeline::CameraPayload>(&cameraNode->payload);
+  if (cameraPayload == nullptr) {
+    const foundation::Error error{"steward.camera_payload_missing", "Steward camera update requires a camera payload."};
+    auto finished = finishRunWithError(runId.value(), error);
+    if (!finished) {
+      return finished.error();
+    }
+    return error;
+  }
+  auto update = planner_.cameraUpdateForIntent(*cameraPayload, intent);
+  if (!update) {
+    auto finished = finishRunWithError(runId.value(), update.error());
+    if (!finished) {
+      return finished.error();
+    }
+    return update.error();
+  }
+
+  auto message = appendEvent(
+    runId.value(),
+    agent::AgentRunEventKind::ModelMessage,
+    modelMessagePayload("assistant", "Updating the selected camera identity or lens setting.")
+  );
+  if (!message) {
+    return message.error();
+  }
+
+  std::optional<storage::ProjectPackageSessionResult> packageResult;
+  CommittingAgentCommandService stewardCommands{project_, commandWriter_, intent, packageResult};
+  agent::AgentToolRegistry registry;
+  auto registered = agent::registerProjectTools(registry);
+  if (!registered) {
+    auto finished = finishRunWithError(runId.value(), registered.error());
+    if (!finished) {
+      return finished.error();
+    }
+    return registered.error();
+  }
+
+  agent::AgentToolContext toolContext{stewardCommands, project_, commandWriter_};
+  agent::AgentBridge bridge{registry, toolContext, events_, nextSequence_};
+  auto dispatched = bridge.dispatchToolCall(agent::AgentToolDispatchRequest{
+    runId.value(),
+    snapshot.value().info.id,
+    snapshot.value().revision,
+    stewardUpdateCameraToolCallIdForRun(runId.value()),
+    CanonicalUpdateCameraToolId,
+    cameraUpdateArgumentsPayload(cameraNodeId, update.value().payload)
+  });
+  if (!dispatched) {
+    auto finished = finishRunWithError(runId.value(), dispatched.error());
+    if (!finished) {
+      return finished.error();
+    }
+    return dispatched.error();
+  }
+  if (!packageResult.has_value()) {
+    const foundation::Error error{
+      "steward.camera_update_result_missing",
+      "Steward camera update tool succeeded without a committed package result."
+    };
+    auto finished = finishRunWithError(runId.value(), error);
+    if (!finished) {
+      return finished.error();
+    }
+    return error;
+  }
+
+  auto runFinished = appendEvent(
+    runId.value(),
+    agent::AgentRunEventKind::RunFinished,
+    runFinishedPayload("succeeded", "Updated selected camera.")
+  );
+  if (!runFinished) {
+    return runFinished.error();
+  }
+
+  markRunStatus(runId.value(), agent::AgentRunStatus::Succeeded);
+  return packageResult.value();
+}
+
 foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::editClip(
   foundation::NodeId clipNodeId,
   std::string intent
@@ -1834,6 +1957,10 @@ bool NativeStewardSession::clipEditIntentTargetsClip(const std::string& intent) 
 
 bool NativeStewardSession::clipDeleteIntentTargetsClip(const std::string& intent) const {
   return planner_.clipDeleteIntentTargetsClip(intent);
+}
+
+bool NativeStewardSession::cameraUpdateIntentTargetsCamera(const std::string& intent) const {
+  return planner_.cameraUpdateIntentTargetsCamera(intent);
 }
 
 bool NativeStewardSession::trackCreateIntentTargetsTrack(const std::string& intent) const {

@@ -778,6 +778,15 @@ public:
     steward_->setTryApplyHistoryIntentHandler([this](std::string intent) {
       return applyHistoryIntentWithSteward(std::move(intent));
     });
+    steward_->setCameraUpdateIntentTargetsCameraHandler([this](std::string intent) {
+      return workspace_.steward().cameraUpdateIntentTargetsCamera(intent);
+    });
+    steward_->setTryUpdateCameraHandler([this](
+      grapple::foundation::NodeId cameraNodeId,
+      std::string intent
+    ) {
+      return updateCameraWithPrimaryIntent(std::move(cameraNodeId), std::move(intent));
+    });
     steward_->setTryDeleteCameraControlsHandler([this](
       grapple::foundation::NodeId cameraNodeId,
       std::string intent
@@ -2846,6 +2855,29 @@ public:
     refreshViewModelAndPreview();
     steward_->setIntent({});
     log_->append("Steward created timeline camera");
+  }
+
+  bool updateCameraWithPrimaryIntent(
+    grapple::foundation::NodeId cameraNodeId,
+    std::string intent
+  ) {
+    if (!workspace_.steward().cameraUpdateIntentTargetsCamera(intent)) {
+      return false;
+    }
+
+    const auto updated = workspace_.steward().updateCamera(cameraNodeId, std::move(intent));
+    if (!updated) {
+      appendError(updated.error());
+      refreshViewModel();
+      return true;
+    }
+
+    selectedNodeId_ = cameraNodeId;
+    selectedAssetId_ = std::nullopt;
+    refreshViewModelAndPreview();
+    steward_->setIntent({});
+    log_->append("Steward updated selected camera");
+    return true;
   }
 
   void editSelectedTextClipWithSteward(

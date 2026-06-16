@@ -25,6 +25,8 @@ public:
   using CreateCameraEffectHandler = std::function<void(std::string)>;
   using HistoryIntentTargetsEditHandler = std::function<bool(std::string)>;
   using TryApplyHistoryIntentHandler = std::function<bool(std::string)>;
+  using CameraUpdateIntentTargetsCameraHandler = std::function<bool(std::string)>;
+  using TryUpdateCameraHandler = std::function<bool(foundation::NodeId, std::string)>;
   using TryDeleteCameraControlsHandler = std::function<bool(foundation::NodeId, std::string)>;
   using AdjustCameraControlsHandler = std::function<void(foundation::NodeId, std::string)>;
   using EditSelectedClipHandler = std::function<void(foundation::NodeId, std::string)>;
@@ -50,6 +52,8 @@ public:
   void setCreateCameraEffectHandler(CreateCameraEffectHandler handler);
   void setHistoryIntentTargetsEditHandler(HistoryIntentTargetsEditHandler handler);
   void setTryApplyHistoryIntentHandler(TryApplyHistoryIntentHandler handler);
+  void setCameraUpdateIntentTargetsCameraHandler(CameraUpdateIntentTargetsCameraHandler handler);
+  void setTryUpdateCameraHandler(TryUpdateCameraHandler handler);
   void setTryDeleteCameraControlsHandler(TryDeleteCameraControlsHandler handler);
   void setAdjustCameraControlsHandler(AdjustCameraControlsHandler handler);
   void setEditSelectedClipHandler(EditSelectedClipHandler handler);
@@ -101,6 +105,7 @@ private:
   void updateActionLabels();
   void updateIntentPlaceholder();
   [[nodiscard]] bool tryApplyHistoryIntentFromPrimaryAction();
+  [[nodiscard]] bool tryUpdateCameraFromPrimaryAction();
   [[nodiscard]] bool tryDeleteCameraControlsFromPrimaryAction();
   [[nodiscard]] bool tryDeleteSelectedClipFromPrimaryAction();
   [[nodiscard]] bool tryDeleteSelectedTrackFromPrimaryAction();
@@ -121,6 +126,8 @@ private:
   CreateCameraEffectHandler createCameraEffectHandler_;
   HistoryIntentTargetsEditHandler historyIntentTargetsEditHandler_;
   TryApplyHistoryIntentHandler tryApplyHistoryIntentHandler_;
+  CameraUpdateIntentTargetsCameraHandler cameraUpdateIntentTargetsCameraHandler_;
+  TryUpdateCameraHandler tryUpdateCameraHandler_;
   TryDeleteCameraControlsHandler tryDeleteCameraControlsHandler_;
   AdjustCameraControlsHandler adjustCameraControlsHandler_;
   EditSelectedClipHandler editSelectedClipHandler_;
