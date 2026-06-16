@@ -195,6 +195,10 @@ bool undoIntentRequestsLastEdit(const std::string& normalized) {
          containsText(normalized, "edit");
 }
 
+bool redoIntentRequestsLastUndoneEdit(const std::string& normalized) {
+  return containsAsciiWord(normalized, "redo");
+}
+
 bool cameraTransformDeleteIntentRequestsControls(const std::string& normalized) {
   const bool deleteRequested =
     containsAsciiWord(normalized, "delete") ||
@@ -820,6 +824,16 @@ bool NativeStewardPlanner::cameraIntentRequestsExplicitMotion(const std::string&
 
 bool NativeStewardPlanner::undoIntentTargetsLastEdit(const std::string& intent) const {
   return undoIntentRequestsLastEdit(lowercaseAscii(intent));
+}
+
+bool NativeStewardPlanner::redoIntentTargetsLastUndoneEdit(const std::string& intent) const {
+  return redoIntentRequestsLastUndoneEdit(lowercaseAscii(intent));
+}
+
+bool NativeStewardPlanner::historyIntentTargetsEdit(const std::string& intent) const {
+  const std::string normalized = lowercaseAscii(intent);
+  return undoIntentRequestsLastEdit(normalized) ||
+         redoIntentRequestsLastUndoneEdit(normalized);
 }
 
 bool NativeStewardPlanner::cameraTransformDeleteIntentTargetsCameraControls(const std::string& intent) const {

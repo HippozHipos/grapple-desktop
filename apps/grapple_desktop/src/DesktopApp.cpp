@@ -2850,6 +2850,23 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
       return 1;
     }
 
+    const auto& commandsAfterUndo = workspace.value().project().packageState().commandLog.records();
+    const bool undoCommittedThroughSteward =
+      !commandsAfterUndo.empty() &&
+      commandsAfterUndo.back().serializedName == "project.restore_snapshot" &&
+      commandsAfterUndo.back().sourceKind == "agent" &&
+      commandsAfterUndo.back().sourceActorName == "steward" &&
+      commandsAfterUndo.back().sourceRunId == grapple::foundation::RunId{"run_steward_2"};
+
+    window.setStewardIntent("Redo last edit.");
+    const bool redoActionEnabled = window.stewardPrimaryActionEnabled();
+    window.clickStewardPrimaryAction();
+    const auto afterRedo = workspace.value().project().buildViewModel();
+    if (!afterRedo) {
+      printError(afterRedo.error());
+      return 1;
+    }
+
     const auto conversation = workspace.value().steward().conversationState();
     const std::string steward = window.stewardContents();
     const std::string inspector = window.inspectorContents();
@@ -2861,6 +2878,10 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
     std::cout << "afterUndoRevision=" << afterUndo.value().project.revision.value() << '\n';
     std::cout << "afterUndoEffectGraphs=" << afterUndo.value().timeline.effectGraphs.size() << '\n';
     std::cout << "afterUndoStewardEdits=" << afterUndo.value().steward.edits.size() << '\n';
+    std::cout << "redoActionEnabled=" << (redoActionEnabled ? "true" : "false") << '\n';
+    std::cout << "afterRedoRevision=" << afterRedo.value().project.revision.value() << '\n';
+    std::cout << "afterRedoEffectGraphs=" << afterRedo.value().timeline.effectGraphs.size() << '\n';
+    std::cout << "afterRedoStewardEdits=" << afterRedo.value().steward.edits.size() << '\n';
     std::cout << "runs=" << conversation.runs.size() << '\n';
     if (!commands.empty()) {
       std::cout << "lastCommand=" << commands.back().serializedName << '\n';
@@ -2875,20 +2896,29 @@ int grapple::desktop::runDesktopApp(int argc, char* argv[]) {
            afterUndo.value().project.revision == grapple::foundation::RevisionId{"rev_7"} &&
            afterUndo.value().timeline.effectGraphs.empty() &&
            afterUndo.value().steward.edits.empty() &&
+           redoActionEnabled &&
+           afterRedo.value().project.revision == grapple::foundation::RevisionId{"rev_8"} &&
+           afterRedo.value().timeline.effectGraphs.size() == 1 &&
+           afterRedo.value().steward.edits.size() == 2 &&
            window.stewardIntent().empty() &&
-           conversation.runs.size() == 2 &&
+           conversation.runs.size() == 3 &&
            conversation.runs[0].toolCalls.size() == 1 &&
            conversation.runs[0].toolCalls[0].toolSerializedId == "effect.create_node" &&
            conversation.runs[1].toolCalls.empty() &&
+           conversation.runs[2].toolCalls.empty() &&
+           undoCommittedThroughSteward &&
            !commands.empty() &&
-           commands.back().serializedName == "project.restore_snapshot" &&
+           commands.back().serializedName == "project.create_effect" &&
            commands.back().sourceKind == "agent" &&
            commands.back().sourceActorName == "steward" &&
-           commands.back().sourceRunId == grapple::foundation::RunId{"run_steward_2"} &&
+           commands.back().sourceRunId == grapple::foundation::RunId{"run_steward_3"} &&
            steward.find("- Undo last edit. [succeeded]") != std::string::npos &&
            steward.find("Undid the last committed project edit.") != std::string::npos &&
+           steward.find("- Redo last edit. [succeeded]") != std::string::npos &&
+           steward.find("Redid the last undone project edit.") != std::string::npos &&
            inspector.find("No selection") != std::string::npos &&
-           log.find("Steward undid last edit") != std::string::npos
+           log.find("Steward undid last edit") != std::string::npos &&
+           log.find("Steward redid last edit") != std::string::npos
       ? 0
       : 1;
   }

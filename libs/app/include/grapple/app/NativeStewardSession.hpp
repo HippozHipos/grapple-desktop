@@ -41,6 +41,7 @@ public:
     foundation::TimeRange activeRange
   );
   foundation::Result<storage::ProjectPackageSessionResult> undoLastEdit(std::string intent);
+  foundation::Result<storage::ProjectPackageSessionResult> redoLastEdit(std::string intent);
   foundation::Result<storage::ProjectPackageSessionResult> deleteCameraTransformEffect(
     foundation::NodeId cameraNodeId,
     std::string intent
@@ -82,6 +83,8 @@ public:
   [[nodiscard]] bool noteIntentTargetsNote(const std::string& intent) const;
   [[nodiscard]] bool noteEditIntentTargetsNote(const std::string& intent) const;
   [[nodiscard]] bool undoIntentTargetsLastEdit(const std::string& intent) const;
+  [[nodiscard]] bool redoIntentTargetsLastUndoneEdit(const std::string& intent) const;
+  [[nodiscard]] bool historyIntentTargetsEdit(const std::string& intent) const;
   [[nodiscard]] bool cameraTransformDeleteIntentTargetsCameraControls(const std::string& intent) const;
   foundation::Result<storage::ProjectPackageSessionResult> adjustCameraTransformControls(
     foundation::NodeId cameraNodeId,

@@ -655,6 +655,62 @@ foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::u
   return undone.value();
 }
 
+foundation::Result<storage::ProjectPackageSessionResult> NativeStewardSession::redoLastEdit(std::string intent) {
+  auto snapshot = project_.snapshot();
+  if (!snapshot) {
+    return snapshot.error();
+  }
+
+  if (!planner_.redoIntentTargetsLastUndoneEdit(intent)) {
+    return foundation::Error{
+      "steward.redo_intent_mismatch",
+      "Steward redo requires an explicit redo request."
+    };
+  }
+
+  auto runId = startRun(snapshot.value(), intent);
+  if (!runId) {
+    return runId.error();
+  }
+
+  auto message = appendEvent(
+    runId.value(),
+    agent::AgentRunEventKind::ModelMessage,
+    modelMessagePayload("assistant", "Redoing the last undone project edit.")
+  );
+  if (!message) {
+    return message.error();
+  }
+
+  auto redone = commandWriter_.redoLastUndoneCommand(
+    project::CommandSource{
+      project::CommandSourceKind::Agent,
+      runId.value(),
+      "steward"
+    },
+    std::optional<std::string>{intent}
+  );
+  if (!redone) {
+    auto finished = finishRunWithError(runId.value(), redone.error());
+    if (!finished) {
+      return finished.error();
+    }
+    return redone.error();
+  }
+
+  auto runFinished = appendEvent(
+    runId.value(),
+    agent::AgentRunEventKind::RunFinished,
+    runFinishedPayload("succeeded", "Redid the last undone project edit.")
+  );
+  if (!runFinished) {
+    return runFinished.error();
+  }
+
+  markRunStatus(runId.value(), agent::AgentRunStatus::Succeeded);
+  return redone.value();
+}
+
 foundation::Result<NativeStewardMediaPlacementResult> NativeStewardSession::placeAssetOnTimeline(
   foundation::AssetId assetId,
   std::optional<foundation::TimeSeconds> duration
@@ -1540,6 +1596,14 @@ bool NativeStewardSession::noteEditIntentTargetsNote(const std::string& intent) 
 
 bool NativeStewardSession::undoIntentTargetsLastEdit(const std::string& intent) const {
   return planner_.undoIntentTargetsLastEdit(intent);
+}
+
+bool NativeStewardSession::redoIntentTargetsLastUndoneEdit(const std::string& intent) const {
+  return planner_.redoIntentTargetsLastUndoneEdit(intent);
+}
+
+bool NativeStewardSession::historyIntentTargetsEdit(const std::string& intent) const {
+  return planner_.historyIntentTargetsEdit(intent);
 }
 
 bool NativeStewardSession::cameraTransformDeleteIntentTargetsCameraControls(const std::string& intent) const {

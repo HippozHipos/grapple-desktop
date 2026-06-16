@@ -90,6 +90,8 @@ public:
   ) const;
   [[nodiscard]] bool cameraIntentRequestsExplicitMotion(const std::string& intent) const;
   [[nodiscard]] bool undoIntentTargetsLastEdit(const std::string& intent) const;
+  [[nodiscard]] bool redoIntentTargetsLastUndoneEdit(const std::string& intent) const;
+  [[nodiscard]] bool historyIntentTargetsEdit(const std::string& intent) const;
   [[nodiscard]] bool cameraTransformDeleteIntentTargetsCameraControls(const std::string& intent) const;
   [[nodiscard]] bool clipEditIntentTargetsClip(const std::string& intent) const;
   [[nodiscard]] bool clipDeleteIntentTargetsClip(const std::string& intent) const;

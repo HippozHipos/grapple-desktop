@@ -307,7 +307,7 @@ StewardPanel::StewardPanel(QWidget* parent)
   primaryActionButton_->setObjectName("stewardPrimaryAction");
   layout->addWidget(primaryActionButton_);
   connect(primaryActionButton_, &QPushButton::clicked, this, [this] {
-    if (tryUndoLastEditFromPrimaryAction()) {
+    if (tryApplyHistoryIntentFromPrimaryAction()) {
       return;
     }
     if (tryDeleteSelectedClipFromPrimaryAction()) {
@@ -457,12 +457,12 @@ void StewardPanel::setCreateCameraEffectHandler(CreateCameraEffectHandler handle
   createCameraEffectHandler_ = std::move(handler);
 }
 
-void StewardPanel::setUndoIntentTargetsLastEditHandler(UndoIntentTargetsLastEditHandler handler) {
-  undoIntentTargetsLastEditHandler_ = std::move(handler);
+void StewardPanel::setHistoryIntentTargetsEditHandler(HistoryIntentTargetsEditHandler handler) {
+  historyIntentTargetsEditHandler_ = std::move(handler);
 }
 
-void StewardPanel::setTryUndoLastEditHandler(TryUndoLastEditHandler handler) {
-  tryUndoLastEditHandler_ = std::move(handler);
+void StewardPanel::setTryApplyHistoryIntentHandler(TryApplyHistoryIntentHandler handler) {
+  tryApplyHistoryIntentHandler_ = std::move(handler);
 }
 
 void StewardPanel::setTryDeleteCameraControlsHandler(TryDeleteCameraControlsHandler handler) {
@@ -897,11 +897,11 @@ bool StewardPanel::tryDeleteSelectedTrackFromPrimaryAction() {
   return tryDeleteSelectedTrackHandler_(selectedTrackTargetNodeId_.value(), intent());
 }
 
-bool StewardPanel::tryUndoLastEditFromPrimaryAction() {
-  if (!intentHasText() || !tryUndoLastEditHandler_) {
+bool StewardPanel::tryApplyHistoryIntentFromPrimaryAction() {
+  if (!intentHasText() || !tryApplyHistoryIntentHandler_) {
     return false;
   }
-  return tryUndoLastEditHandler_(intent());
+  return tryApplyHistoryIntentHandler_(intent());
 }
 
 bool StewardPanel::tryDeleteCameraControlsFromPrimaryAction() {
@@ -975,8 +975,8 @@ bool StewardPanel::intentHasText() const {
 
 bool StewardPanel::primaryActionCanRun() const {
   if (intentHasText() &&
-      undoIntentTargetsLastEditHandler_ &&
-      undoIntentTargetsLastEditHandler_(intent())) {
+      historyIntentTargetsEditHandler_ &&
+      historyIntentTargetsEditHandler_(intent())) {
     return true;
   }
 

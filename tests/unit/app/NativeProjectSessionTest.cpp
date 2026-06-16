@@ -232,6 +232,11 @@ int main() {
   GRAPPLE_REQUIRE(stewardPlanner.undoIntentTargetsLastEdit("revert the previous change"));
   GRAPPLE_REQUIRE(!stewardPlanner.undoIntentTargetsLastEdit("remove selected clip"));
   GRAPPLE_REQUIRE(!stewardPlanner.undoIntentTargetsLastEdit("reset camera"));
+  GRAPPLE_REQUIRE(stewardPlanner.redoIntentTargetsLastUndoneEdit("redo last edit"));
+  GRAPPLE_REQUIRE(!stewardPlanner.redoIntentTargetsLastUndoneEdit("undo last edit"));
+  GRAPPLE_REQUIRE(stewardPlanner.historyIntentTargetsEdit("undo last edit"));
+  GRAPPLE_REQUIRE(stewardPlanner.historyIntentTargetsEdit("redo last edit"));
+  GRAPPLE_REQUIRE(!stewardPlanner.historyIntentTargetsEdit("delete selected clip"));
   timeline::Transform2D plannedClipInputTransform;
   const timeline::ClipPayload plannedClipInput{
     timeline::ClipKind::Video,
@@ -3275,6 +3280,29 @@ int main() {
   GRAPPLE_REQUIRE(stewardUndoConversation.runs[2].toolCalls.empty());
   GRAPPLE_REQUIRE(stewardUndoConversation.runs[2].messages.size() == 1);
   GRAPPLE_REQUIRE(stewardUndoConversation.runs[2].messages[0].content == "Undoing the last committed project edit.");
+  auto stewardRedo = noteSteward.redoLastEdit("Redo last edit.");
+  GRAPPLE_REQUIRE(stewardRedo);
+  const auto stewardRedoViewModel = noteSession.buildViewModel();
+  GRAPPLE_REQUIRE(stewardRedoViewModel);
+  GRAPPLE_REQUIRE(stewardRedoViewModel.value().notes.rows[1].sourceNodeId == foundation::NodeId{"node_note_2"});
+  GRAPPLE_REQUIRE(stewardRedoViewModel.value().notes.rows[1].title == "Edit rationale");
+  GRAPPLE_REQUIRE(stewardRedoViewModel.value().notes.rows[1].markdown == "Keep the crop exposed as an editable control.");
+  GRAPPLE_REQUIRE(stewardRedoViewModel.value().steward.edits.size() == 3);
+  GRAPPLE_REQUIRE(stewardRedoViewModel.value().steward.edits[2].editName == "Note");
+  GRAPPLE_REQUIRE(stewardRedoViewModel.value().steward.edits[2].intent == "Redo last edit.");
+  GRAPPLE_REQUIRE(stewardRedo.value().commandResult.beforeRevision == foundation::RevisionId{"rev_4"});
+  GRAPPLE_REQUIRE(stewardRedo.value().snapshot.revision == foundation::RevisionId{"rev_5"});
+  const history::CommandRecord& redoCommand = noteSession.packageState().commandLog.records().back();
+  GRAPPLE_REQUIRE(redoCommand.serializedName == "project.update_note");
+  GRAPPLE_REQUIRE(redoCommand.sourceKind == "agent");
+  GRAPPLE_REQUIRE(redoCommand.sourceActorName == "steward");
+  GRAPPLE_REQUIRE(redoCommand.sourceRunId == foundation::RunId{"run_steward_4"});
+  const auto stewardRedoConversation = noteSteward.conversationState();
+  GRAPPLE_REQUIRE(stewardRedoConversation.runs.size() == 4);
+  GRAPPLE_REQUIRE(stewardRedoConversation.runs[3].status == agent::AgentRunStatus::Succeeded);
+  GRAPPLE_REQUIRE(stewardRedoConversation.runs[3].toolCalls.empty());
+  GRAPPLE_REQUIRE(stewardRedoConversation.runs[3].messages.size() == 1);
+  GRAPPLE_REQUIRE(stewardRedoConversation.runs[3].messages[0].content == "Redoing the last undone project edit.");
 
   app::NativeProjectSession trackDeleteSession{
     foundation::ProjectId{"proj_app_steward_track_delete"},
