@@ -1,6 +1,7 @@
 #include <grapple/ui_qt/StewardPanel.hpp>
 
 #include <QKeySequence>
+#include <QLabel>
 #include <QListWidget>
 #include <QPushButton>
 #include <QShortcut>
@@ -10,6 +11,7 @@
 #include <algorithm>
 #include <cctype>
 #include <utility>
+#include <vector>
 
 namespace grapple::ui {
 
@@ -391,6 +393,26 @@ StewardPanel::StewardPanel(QWidget* parent)
     triggerPrimaryAction();
   });
 
+  suggestedRequestsLabel_ = new QLabel{"Suggested Requests"};
+  suggestedRequestsLabel_->setObjectName("panelTitle");
+  layout->addWidget(suggestedRequestsLabel_);
+
+  suggestedRequests_ = new QListWidget;
+  suggestedRequests_->setObjectName("stewardSuggestedRequests");
+  suggestedRequests_->setSelectionMode(QAbstractItemView::SingleSelection);
+  suggestedRequests_->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+  suggestedRequests_->setTextElideMode(Qt::ElideRight);
+  suggestedRequests_->setMinimumHeight(52);
+  suggestedRequests_->setMaximumHeight(88);
+  layout->addWidget(suggestedRequests_);
+  connect(suggestedRequests_, &QListWidget::itemClicked, this, [this](QListWidgetItem* item) {
+    if (item == nullptr) {
+      return;
+    }
+    setIntent(item->data(Qt::UserRole).toString().toStdString());
+    intent_->setFocus();
+  });
+
   recentEdits_ = new QListWidget;
   recentEdits_->setObjectName("stewardRecentEdits");
   recentEdits_->setSelectionMode(QAbstractItemView::SingleSelection);
@@ -662,6 +684,50 @@ void StewardPanel::setViewModel(
     lines << "Note route: type a selected note request to update the title or body.";
   }
 
+  std::vector<std::string> suggestions;
+  if (selectedClipTargetNodeId_.has_value()) {
+    suggestions.push_back("Tint selected clip red.");
+    suggestions.push_back("Move selected clip right.");
+    suggestions.push_back("Speed up selected clip.");
+  } else if (selectedTextClipTargetNodeId_.has_value()) {
+    suggestions.push_back("Change title to \"Final Title\".");
+    suggestions.push_back("Move selected text up.");
+    suggestions.push_back("Fade selected text.");
+  } else if (selectedNoteTargetNodeId_.has_value()) {
+    suggestions.push_back("Update note to \"Keep zoom exposed as a user-editable control.\"");
+  } else if (selectedTrackTargetNodeId_.has_value()) {
+    suggestions.push_back("Delete selected track.");
+  } else {
+    switch (primaryAction_) {
+      case PrimaryAction::ImportMedia:
+        suggestions.push_back("Add note \"Camera rationale\" saying Keep zoom editable.");
+        break;
+      case PrimaryAction::AddSelectedMedia:
+        suggestions.push_back("Add selected media to the timeline.");
+        break;
+      case PrimaryAction::AddCamera:
+        suggestions.push_back("Add camera for editable framing.");
+        break;
+      case PrimaryAction::CreateCameraEffect:
+        suggestions.push_back("Center the subject with editable camera controls.");
+        suggestions.push_back("Slowly pan right.");
+        suggestions.push_back("Zoom in.");
+        break;
+      case PrimaryAction::AdjustCameraControls:
+        suggestions.push_back("Move the camera framing right.");
+        suggestions.push_back("Make the subject bigger.");
+        suggestions.push_back("Recenter the subject.");
+        break;
+      case PrimaryAction::ShowCameraControls:
+        suggestions.push_back("Show editable camera controls.");
+        break;
+      case PrimaryAction::Disabled:
+        suggestions.push_back("Add note \"Camera rationale\" saying Keep zoom editable.");
+        break;
+    }
+  }
+  setSuggestedRequests(std::move(suggestions));
+
   recentEdits_->blockSignals(true);
   recentEdits_->clear();
   int selectedEditRow = -1;
@@ -800,6 +866,30 @@ std::string StewardPanel::recentEditText(int row) const {
   return item == nullptr ? std::string{} : item->text().toStdString();
 }
 
+int StewardPanel::suggestedRequestCount() const {
+  return suggestedRequests_->count();
+}
+
+std::string StewardPanel::suggestedRequestText(int row) const {
+  if (row < 0 || row >= suggestedRequests_->count()) {
+    return {};
+  }
+  const QListWidgetItem* item = suggestedRequests_->item(row);
+  return item == nullptr ? std::string{} : item->text().toStdString();
+}
+
+void StewardPanel::triggerSuggestedRequest(int row) {
+  if (row < 0 || row >= suggestedRequests_->count()) {
+    return;
+  }
+  suggestedRequests_->setCurrentRow(row);
+  auto* item = suggestedRequests_->item(row);
+  if (item != nullptr) {
+    setIntent(item->data(Qt::UserRole).toString().toStdString());
+    intent_->setFocus();
+  }
+}
+
 void StewardPanel::updateActionButtons() {
   primaryActionButton_->setEnabled(primaryActionCanRun());
 }
@@ -901,6 +991,21 @@ void StewardPanel::updateIntentPlaceholder() {
       intent_->setPlaceholderText("Try: \"add note \\\"Camera rationale\\\" saying Keep zoom editable\", or select media, a clip, or a camera.");
       return;
   }
+}
+
+void StewardPanel::setSuggestedRequests(std::vector<std::string> suggestions) {
+  suggestedRequests_->blockSignals(true);
+  suggestedRequests_->clear();
+  for (const std::string& suggestion : suggestions) {
+    auto* item = new QListWidgetItem{qString(suggestion)};
+    item->setData(Qt::UserRole, qString(suggestion));
+    item->setToolTip(item->text());
+    suggestedRequests_->addItem(item);
+  }
+  const bool hasSuggestions = suggestedRequests_->count() > 0;
+  suggestedRequestsLabel_->setVisible(hasSuggestions);
+  suggestedRequests_->setVisible(hasSuggestions);
+  suggestedRequests_->blockSignals(false);
 }
 
 bool StewardPanel::tryDeleteSelectedClipFromPrimaryAction() {

@@ -9,10 +9,12 @@
 #include <functional>
 #include <optional>
 #include <string>
+#include <vector>
 
 class QPushButton;
 class QListWidget;
 class QTextEdit;
+class QLabel;
 
 namespace grapple::ui {
 
@@ -101,6 +103,9 @@ public:
   [[nodiscard]] int recentEditCount() const;
   [[nodiscard]] int currentRecentEditRow() const;
   [[nodiscard]] std::string recentEditText(int row) const;
+  [[nodiscard]] int suggestedRequestCount() const;
+  [[nodiscard]] std::string suggestedRequestText(int row) const;
+  void triggerSuggestedRequest(int row);
 
 private:
   enum class PrimaryAction {
@@ -116,6 +121,7 @@ private:
   void updateActionButtons();
   void updateActionLabels();
   void updateIntentPlaceholder();
+  void setSuggestedRequests(std::vector<std::string> suggestions);
   [[nodiscard]] bool tryApplyHistoryIntentFromPrimaryAction();
   [[nodiscard]] bool tryUpdateCameraFromPrimaryAction();
   [[nodiscard]] bool tryDeleteCameraControlsFromPrimaryAction();
@@ -168,6 +174,8 @@ private:
   std::optional<foundation::NodeId> selectedNoteTargetNodeId_;
   QTextEdit* intent_ = nullptr;
   QPushButton* primaryActionButton_ = nullptr;
+  QLabel* suggestedRequestsLabel_ = nullptr;
+  QListWidget* suggestedRequests_ = nullptr;
   QListWidget* recentEdits_ = nullptr;
   QTextEdit* text_ = nullptr;
 };

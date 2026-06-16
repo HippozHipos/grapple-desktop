@@ -69,6 +69,12 @@ int main(int argc, char** argv) {
     std::nullopt
   );
 
+  GRAPPLE_REQUIRE(panel.suggestedRequestCount() == 3);
+  GRAPPLE_REQUIRE(panel.suggestedRequestText(0) == "Center the subject with editable camera controls.");
+  panel.triggerSuggestedRequest(0);
+  GRAPPLE_REQUIRE(panel.intent() == "Center the subject with editable camera controls.");
+  GRAPPLE_REQUIRE(panel.primaryActionText() == "Create Editable Camera Controls");
+
   panel.setIntent("zoom in a little");
   panel.triggerPrimaryAction();
   GRAPPLE_REQUIRE(cameraRouteCalled);
